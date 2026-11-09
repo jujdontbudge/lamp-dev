@@ -1,4 +1,9 @@
-# T4 implementation evidence
+# T4 initial implementation evidence
+
+The logs below describe the initial `12eace3` snapshot. [Review round 1](T4-review-r1-evidence.md)
+supersedes its per-packet durability model with connection admission/batching,
+adds TCP lifecycle tests, and reruns on disk-backed ext4. Initial `/tmp` fixture
+spools used tmpfs; the review runs explicitly use `/var/tmp` instead.
 
 2026-11-09. These are **real Linux kernel integration tests**, not mocked policy
 checks. They demonstrate the guard and protected task collector together over an

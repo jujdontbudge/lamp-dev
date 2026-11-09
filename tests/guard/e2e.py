@@ -36,7 +36,8 @@ def config(name, interface="task0", size=4 * 1024 * 1024):
                 sandbox_id=name, generation=1, session_id="e2e", operation_id="e2e",
                 policy_revision=1), interface=interface, guest_ip="198.18.240.2", queue=314,
                 host_denies=["198.18.240.1/32", "198.18.241.0/30", "9.9.9.0/24"],
-                spool=str(ROOT / (name + ".ndjson")), spool_bytes=size, guard_uid=1000001)
+                spool=str(ROOT / (name + ".ndjson")),
+                spool_bytes=64 * 1024 * 1024 if os.getenv("LAMP_GUARD_BENCH") else size, guard_uid=1000001)
     path.write_text(json.dumps(data))
     return path
 
@@ -92,6 +93,7 @@ def tcp():
      b=c.recv(4096)
      if not b: break
      c.sendall(b)
+   except ConnectionResetError: pass
    finally: c.close()
   threading.Thread(target=echo,args=(c,),daemon=True).start()
 threading.Thread(target=tcp,daemon=True).start()
@@ -100,6 +102,18 @@ def udp(u):
   b,a=u.recvfrom(4096);u.sendto(b,a)
 for ip in ('8.8.8.8','9.9.9.9','10.0.0.7','169.254.169.254','168.63.129.16','100.100.100.200'):
  u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);u.bind((ip,18080));threading.Thread(target=udp,args=(u,),daemon=True).start()
+bulk_ready=threading.Event()
+def bulk():
+ b=socket.socket();b.setsockopt(socket.SOL_SOCKET,socket.SO_RCVBUF,16384);b.bind(('8.8.8.8',18081));b.listen();bulk_ready.set()
+ while True:
+  c,_=b.accept();left=16*1024*1024
+  while left:
+   data=c.recv(min(left,1024*1024))
+   if not data:break
+   left-=len(data)
+  if left==0:c.sendall(b'ok')
+  c.close()
+threading.Thread(target=bulk,daemon=True).start();bulk_ready.wait()
 print('ready',flush=True)
 threading.Event().wait()
 '''
@@ -110,6 +124,9 @@ threading.Event().wait()
     assert json.loads(daemon.stdout.readline())["state"] == "ready"
     profile(daemon, True)
     ok("guard drops root, retains only net-admin and enforces no-new-privileges/seccomp/assigned FDs")
+    if os.getenv("LAMP_GUARD_BENCH"):
+        bulk_tcp(guest)
+        return
 
     client = r'''
 import socket,sys
@@ -137,10 +154,12 @@ except (OSError,AssertionError):print('denied')
     ok("guest root firewall changes and source spoof cannot bypass guard")
     data = records("network")
     assert any(r["details"].get("decision") == "allow" for r in data)
-    assert any(r["details"].get("reason") == "return_flow" for r in data)
+    assert any(r["details"].get("bytes_received", 0) > 0 for r in data)
     assert any(r["details"].get("decision") == "deny" for r in data)
     assert all(r["sequence"] == i + 1 and r["attribution"]["generation"] == 1 for i, r in enumerate(data))
     ok("host spool contains attributed, ordered allow/deny and bidirectional byte records")
+
+    rst_then_reconnect(guest)
 
     # Protected namespace-root task and its descendants use this SAME guarded link.
     processes(guest)
@@ -173,13 +192,59 @@ except OSError:print('blocked',flush=True)
     cmd("ip", "netns", "exec", guard, "nft", "delete", "table", "inet", "lamp_guard")
     full = launch("ip", "netns", "exec", guard, BINARY, "run", config("network-full", size=4096))
     assert json.loads(full.stdout.readline())["state"] == "ready"
-    for _ in range(20):
-        if full.poll() is not None: break
-        cmd("ip", "netns", "exec", guest, "python3", "-c", client, "udp", "8.8.8.8", "-")
-    assert full.wait(timeout=3) == 70
+    p = launch("ip", "netns", "exec", guest, "python3", "-u", "-c", live, "udp", stdin=sp.PIPE)
+    assert p.stdout.readline().strip() == "ready"
+    # No more admissions or packets: the periodic durable liveness check itself
+    # must observe quota exhaustion and close the already established socket.
+    assert full.wait(timeout=5) == 70
     assert "spool full" in full.stderr.read()
+    p.stdin.write("go\n");p.stdin.flush()
+    assert p.stdout.readline().strip() == "blocked";p.wait(timeout=3)
     probe("udp", "8.8.8.8", False)
-    ok("spool exhaustion stops network admission, including established traffic")
+    ok("idle audit spool exhaustion closes established and new traffic without another admission")
+
+
+def rst_then_reconnect(guest):
+    payload = r'''
+import socket,struct,time
+for _ in range(2):
+ s=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);s.bind(('198.18.240.2',19001));s.settimeout(2)
+ s.connect(('8.8.8.8',18080));s.sendall(b'reused-tuple');assert s.recv(32)==b'reused-tuple'
+ s.setsockopt(socket.SOL_SOCKET,socket.SO_LINGER,struct.pack('ii',1,0));s.close();time.sleep(.03)
+'''
+    cmd("ip", "netns", "exec", guest, "python3", "-c", payload)
+    deadline=time.monotonic()+2
+    while True:
+        rows=[r["details"] for r in records("network") if (r["details"].get("tuple") or {}).get("source_port")==19001]
+        ends=[r for r in rows if r.get("reason")=="tcp_rst"]
+        if len(ends)==2 or time.monotonic()>deadline:break
+        time.sleep(.01)
+    starts=[r for r in rows if r.get("phase")=="start"]
+    assert len(starts)==2 and len(ends)==2, rows
+    assert starts[0]["flow_id"]!=starts[1]["flow_id"] and starts[0]["started_at_ms"]<starts[1]["started_at_ms"]
+    assert starts[0]["bytes_sent"]==starts[1]["bytes_sent"] and starts[0]["bytes_sent"]<ends[0]["bytes_sent"]
+    ok("tcp_rst_then_reconnect: same local port gets two fresh, durably admitted connection identities")
+
+
+def bulk_tcp(guest):
+    payload = r'''
+import json,socket,time
+size=16*1024*1024;chunk=b'x'*(1024*1024);s=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_SNDBUF,16384);s.settimeout(60)
+start=time.monotonic();s.connect(('8.8.8.8',18081))
+for _ in range(size//len(chunk)):s.sendall(chunk)
+assert s.recv(2)==b'ok';seconds=time.monotonic()-start;s.close()
+print(json.dumps({'bytes':size,'seconds':seconds,'MiB_per_second':size/seconds/1024/1024,'socket_buffer_requested_bytes':16384}),flush=True)
+'''
+    sink,collect=pair("bulk",payload,guest)
+    out,error=collect.communicate(timeout=120)
+    assert collect.returncode==0,(out,error)
+    assert sink.wait(timeout=3)==0
+    result=json.loads(out)
+    result.update(label=os.environ["LAMP_GUARD_BENCH"],guard_sha256=hashlib.sha256(Path(BINARY).read_bytes()).hexdigest(),
+                  guard=True,protected_process_collector=True,durable_host_audit=True,E02=False,
+                  spool_filesystem=cmd("findmnt","-n","-T",ROOT,"-o","FSTYPE").stdout.strip())
+    (ROOT / "throughput.json").write_text(json.dumps(result,indent=2)+"\n")
+    print("BULK_TCP",json.dumps(result),flush=True)
 
 
 def pair(name, payload, namespace):

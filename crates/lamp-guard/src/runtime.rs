@@ -13,13 +13,242 @@ use std::{
     time::{Duration, Instant},
 };
 const MAX_FLOWS: usize = 4096;
+const MAX_DENIALS: usize = 128;
 const IDLE: Duration = Duration::from_secs(30);
+const AUDIT_BATCH: Duration = Duration::from_millis(250);
+const AUDIT_DEADLINE: Duration = Duration::from_secs(1);
 struct Flow {
     id: u64,
     start: u128,
     last: Instant,
+    last_ms: u128,
     sent: u64,
     received: u64,
+    syn: Option<u32>,
+    closed: bool,
+    dirty: bool,
+}
+impl Flow {
+    fn record(&self, tuple: &Tuple, phase: &str, reason: &str) -> serde_json::Value {
+        json!({"type":"connection","visibility":"opaque","phase":phase,"decision":"allow",
+            "flow_id":self.id,"tuple":tuple,"reason":reason,"started_at_ms":self.start,
+            "ended_at_ms":if phase=="end" {Some(self.last_ms)}else{None},
+            "bytes_sent":self.sent,"bytes_received":self.received,"closed":self.closed})
+    }
+}
+#[derive(Hash, PartialEq, Eq)]
+struct DenialKey {
+    tuple: Option<Tuple>,
+    reason: &'static str,
+    version: u8,
+}
+struct Denial {
+    packets: u64,
+    bytes: u64,
+    first: u128,
+    last: u128,
+}
+struct Connections {
+    flows: HashMap<Tuple, Flow>,
+    denials: HashMap<DenialKey, Denial>,
+    next: u64,
+    last_audit: Instant,
+    last_batch: Instant,
+}
+impl Connections {
+    fn new() -> Self {
+        Self {
+            flows: HashMap::new(),
+            denials: HashMap::new(),
+            next: 0,
+            last_audit: Instant::now(),
+            last_batch: Instant::now(),
+        }
+    }
+    fn live(&self) -> io::Result<()> {
+        if self.last_audit.elapsed() > AUDIT_DEADLINE {
+            return Err(io::Error::other("audit liveness deadline exceeded"));
+        }
+        Ok(())
+    }
+    fn durable(&mut self, spool: &mut Spool, events: Vec<serde_json::Value>) -> io::Result<()> {
+        self.live()?;
+        spool.record_batch("host_guard", events)?;
+        // A late successful barrier cannot rescue a missed audit deadline.
+        if self.last_audit.elapsed() > AUDIT_DEADLINE {
+            return Err(io::Error::other("audit storage deadline exceeded"));
+        }
+        self.last_audit = Instant::now();
+        Ok(())
+    }
+    fn flush(&mut self, spool: &mut Spool, fault: Option<serde_json::Value>) -> io::Result<()> {
+        let now = Instant::now();
+        let mut events = vec![json!({"type":"heartbeat","flow_count":self.flows.len()})];
+        for (tuple, f) in &self.flows {
+            let expired = now.duration_since(f.last) >= IDLE;
+            if f.dirty || expired {
+                events.push(f.record(
+                    tuple,
+                    if f.closed || expired {
+                        "end"
+                    } else {
+                        "checkpoint"
+                    },
+                    if expired {
+                        "idle_deadline"
+                    } else {
+                        "counter_batch"
+                    },
+                ));
+            }
+        }
+        for (key, d) in &self.denials {
+            events.push(json!({"type":"connection","visibility":"opaque","phase":"deny","decision":"deny",
+                "tuple":key.tuple,"reason":key.reason,"ip_version":key.version,
+                "packets":d.packets,"ip_bytes":d.bytes,"started_at_ms":d.first,"ended_at_ms":d.last}));
+        }
+        events.extend(fault);
+        self.durable(spool, events)?;
+        self.flows.retain(|_, f| now.duration_since(f.last) < IDLE);
+        for f in self.flows.values_mut() {
+            f.dirty = false;
+        }
+        self.denials.clear();
+        self.last_batch = Instant::now();
+        Ok(())
+    }
+    fn tick(&mut self, spool: &mut Spool) -> io::Result<()> {
+        self.live()?;
+        if self.last_batch.elapsed() >= AUDIT_BATCH {
+            self.flush(spool, None)?;
+        }
+        Ok(())
+    }
+    fn deny(
+        &mut self,
+        spool: &mut Spool,
+        tuple: Option<Tuple>,
+        reason: &'static str,
+        bytes: &[u8],
+    ) -> io::Result<bool> {
+        let key = DenialKey {
+            tuple,
+            reason,
+            version: bytes.first().map_or(0, |v| v >> 4),
+        };
+        if !self.denials.contains_key(&key) && self.denials.len() == MAX_DENIALS {
+            // A flood cannot force per-denial fsyncs or silently discard identities.
+            // Persist the pending batch and fault once, then close the entire path.
+            self.flush(
+                spool,
+                Some(json!({"type":"audit.gap","decision":"deny",
+                "reason":"denial_capacity","tuple":key.tuple,"ip_version":key.version})),
+            )?;
+            return Err(io::Error::other("denial audit capacity exhausted"));
+        }
+        let now = now_ms();
+        let d = self.denials.entry(key).or_insert(Denial {
+            packets: 0,
+            bytes: 0,
+            first: now,
+            last: now,
+        });
+        d.packets += 1;
+        d.bytes += bytes.len() as u64;
+        d.last = now;
+        Ok(false)
+    }
+    fn packet(
+        &mut self,
+        config: &Config,
+        interface: u32,
+        spool: &mut Spool,
+        p: &crate::netlink::Packet,
+    ) -> io::Result<bool> {
+        self.live()?;
+        let Some(t) = packet(&p.bytes) else {
+            return self.deny(spool, None, "unsupported_packet", &p.bytes);
+        };
+        let outbound = p.input == interface && p.output != interface;
+        let inbound = p.output == interface && p.input != interface;
+        let key;
+        let mut admitted = false;
+        if p.hook == 2 && outbound && t.source == config.guest_ip {
+            if !public_v4(t.destination, &config.host_denies) {
+                return self.deny(spool, Some(t), "private_lan_metadata_or_host", &p.bytes);
+            }
+            let syn = if t.protocol == 6 && p.bytes[33] & 0x17 == 0x02 {
+                Some(u32::from_be_bytes(p.bytes[24..28].try_into().unwrap()))
+            } else {
+                None
+            };
+            // Same ISN on an open tuple is a SYN retransmission, not a new admission.
+            // A closed tuple or a different ISN must never inherit the old identity.
+            if syn.is_some() && self.flows.get(&t).is_some_and(|f| f.closed || f.syn != syn) {
+                let old = self.flows.remove(&t).unwrap();
+                if old.dirty || !old.closed {
+                    self.durable(spool, vec![old.record(&t, "end", "replaced_syn")])?;
+                }
+            }
+            if !self.flows.contains_key(&t) {
+                if (t.protocol != 17 && syn.is_none()) || self.flows.len() == MAX_FLOWS {
+                    return self.deny(spool, Some(t), "flow_limit_or_non_syn", &p.bytes);
+                }
+                self.next = self
+                    .next
+                    .checked_add(1)
+                    .ok_or_else(|| io::Error::other("flow identity exhausted"))?;
+                let now = now_ms();
+                let f = Flow {
+                    id: self.next,
+                    start: now,
+                    last: Instant::now(),
+                    last_ms: now,
+                    sent: p.bytes.len() as u64,
+                    received: 0,
+                    syn,
+                    closed: false,
+                    dirty: false,
+                };
+                self.durable(spool, vec![f.record(&t, "start", "public_transport")])?;
+                self.flows.insert(t.clone(), f);
+                admitted = true;
+            }
+            key = t;
+        } else if p.hook == 2 && inbound && t.destination == config.guest_ip {
+            key = t.reverse();
+            if !self.flows.contains_key(&key) {
+                return self.deny(spool, Some(t), "unsolicited_or_spoofed", &p.bytes);
+            }
+        } else {
+            return self.deny(spool, Some(t), "host_input_or_spoofed", &p.bytes);
+        }
+        let f = self.flows.get_mut(&key).unwrap();
+        if !admitted {
+            if outbound {
+                f.sent += p.bytes.len() as u64;
+            } else {
+                f.received += p.bytes.len() as u64;
+            }
+            f.dirty = true;
+        }
+        f.last = Instant::now();
+        f.last_ms = now_ms();
+        let rst = key.protocol == 6 && p.bytes[33] & 0x04 != 0;
+        let fin = key.protocol == 6 && p.bytes[33] & 0x01 != 0;
+        if rst || (fin && !f.closed) {
+            f.closed = true;
+            f.dirty = false;
+            let end = f.record(&key, "end", if rst { "tcp_rst" } else { "tcp_fin" });
+            self.durable(spool, vec![end])?;
+            if rst {
+                self.flows.remove(&key);
+            }
+            // FIN retains a bounded drain entry for half-close data/final ACKs.
+            // Its counters are batched; any fresh SYN instead gets a new admission.
+        }
+        Ok(true)
+    }
 }
 
 pub fn run(config: Config) -> io::Result<()> {
@@ -59,90 +288,207 @@ pub fn run(config: Config) -> io::Result<()> {
         true,
         &[spool.as_raw_fd(), queue.as_raw_fd()],
     )?;
-    spool.record(
-        "host_guard",
-        json!({"type":"lifecycle","state":"ready","filter_mode":"transport",
-        "ipv6":"deny","max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis()}),
-    )?;
+    spool.record("host_guard",json!({"type":"lifecycle","state":"ready","filter_mode":"transport",
+        "ipv6":"deny","max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis(),
+        "audit_batch_ms":AUDIT_BATCH.as_millis(),"audit_deadline_ms":AUDIT_DEADLINE.as_millis(),"max_pending_denials":MAX_DENIALS}))?;
     println!(
         "{}",
         json!({"state":"ready","policy_revision":config.attribution.policy_revision})
     );
-    let mut flows: HashMap<Tuple, Flow> = HashMap::new();
-    let mut next = 0_u64;
-    let mut reaped = Instant::now();
+    let mut connections = Connections::new();
     loop {
+        connections.tick(&mut spool)?;
         for p in queue.packets()? {
-            if reaped.elapsed() >= Duration::from_secs(1) {
-                for (tuple, flow) in &flows {
-                    if flow.last.elapsed() >= IDLE {
-                        spool.record("host_guard",json!({"type":"connection","visibility":"opaque","phase":"end",
-                            "flow_id":flow.id,"destination":tuple,"started_at_ms":flow.start,"ended_at_ms":now_ms(),
-                            "bytes_sent":flow.sent,"bytes_received":flow.received,"reason":"idle_deadline"}))?;
-                    }
-                }
-                flows.retain(|_, f| f.last.elapsed() < IDLE);
-                reaped = Instant::now();
-            }
-            let tuple = packet(&p.bytes);
-            let outbound = p.input == interface && p.output != interface;
-            let inbound = p.output == interface && p.input != interface;
-            let mut allow = false;
-            let mut flow_id = None;
-            let mut counters = None;
-            let mut reason = "unsupported_packet";
-            if let Some(t) = &tuple {
-                reason = "unsolicited_or_spoofed";
-                if p.hook == 2 && outbound && t.source == config.guest_ip {
-                    reason = "private_lan_metadata_or_host";
-                    if public_v4(t.destination, &config.host_denies) {
-                        reason = "flow_limit_or_non_syn";
-                        // UDP datagrams and TCP SYN (not SYN+ACK) establish an outbound flow.
-                        let open = t.protocol == 17 || p.bytes[33] & 0x12 == 0x02;
-                        if !flows.contains_key(t) && open && flows.len() < MAX_FLOWS {
-                            next = next
-                                .checked_add(1)
-                                .ok_or_else(|| io::Error::other("flow identity exhausted"))?;
-                            flows.insert(
-                                t.clone(),
-                                Flow {
-                                    id: next,
-                                    start: now_ms(),
-                                    last: Instant::now(),
-                                    sent: 0,
-                                    received: 0,
-                                },
-                            );
-                        }
-                        if let Some(f) = flows.get_mut(t) {
-                            f.sent += p.bytes.len() as u64;
-                            f.last = Instant::now();
-                            allow = true;
-                            flow_id = Some(f.id);
-                            counters = Some((f.sent, f.received, f.start));
-                            reason = "public_transport";
-                        }
-                    }
-                } else if p.hook == 2 && inbound && t.destination == config.guest_ip {
-                    if let Some(f) = flows.get_mut(&t.reverse()) {
-                        f.received += p.bytes.len() as u64;
-                        f.last = Instant::now();
-                        allow = true;
-                        flow_id = Some(f.id);
-                        counters = Some((f.sent, f.received, f.start));
-                        reason = "return_flow";
-                    }
-                } else {
-                    reason = "host_input_or_spoofed";
-                }
-            }
-            // Every packet is durably acknowledged *before* a verdict. On failure,
-            // dropping the queue socket drops queued and future packets, including established flows.
-            spool.record("host_guard",json!({"type":"connection","visibility":"opaque","phase":"packet",
-                "decision":if allow {"allow"}else{"deny"},"reason":reason,"tuple":tuple,
-                "flow_id":flow_id,"ip_bytes":p.bytes.len(),"counters_sent_received_started_ms":counters,
-                "ip_version":p.bytes.first().map(|v|v>>4)}))?;
+            connections.tick(&mut spool)?;
+            let allow = connections.packet(&config, interface, &mut spool, &p)?;
+            // No kernel bypass: queue/socket/guard loss still drops established
+            // traffic. Dirty counters/denials have a bounded durable batch deadline.
             queue.verdict(p.id, allow)?;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn fixture(name: &str) -> (Config, Spool, Connections) {
+        let path =
+            std::env::temp_dir().join(format!("lamp-connections-{}-{name}", std::process::id()));
+        let config: Config = serde_json::from_value(json!({
+            "attribution":{"principal_id":"p","host_id":"h","task_id":"t","sandbox_id":"s",
+                "generation":1,"session_id":"s","operation_id":"o","policy_revision":1},
+            "interface":"task0","guest_ip":"198.18.240.2","queue":314,"guard_uid":1000001,
+            "host_denies":["198.18.240.1/32"],"spool":path,"spool_bytes":1048576}))
+        .unwrap();
+        let spool = Spool::create(
+            &config.spool,
+            config.spool_bytes,
+            config.attribution.clone(),
+        )
+        .unwrap();
+        (config, spool, Connections::new())
+    }
+    fn tcp(flags: u8, seq: u32, data: usize) -> crate::netlink::Packet {
+        let mut bytes = vec![0; 40 + data];
+        let len = bytes.len() as u16;
+        bytes[0] = 0x45;
+        bytes[2..4].copy_from_slice(&len.to_be_bytes());
+        bytes[9] = 6;
+        bytes[12..16].copy_from_slice(&[198, 18, 240, 2]);
+        bytes[16..20].copy_from_slice(&[8, 8, 8, 8]);
+        bytes[20..22].copy_from_slice(&12345_u16.to_be_bytes());
+        bytes[22..24].copy_from_slice(&18080_u16.to_be_bytes());
+        bytes[24..28].copy_from_slice(&seq.to_be_bytes());
+        bytes[32] = 0x50;
+        bytes[33] = flags;
+        crate::netlink::Packet {
+            id: 1,
+            hook: 2,
+            input: 1,
+            output: 2,
+            bytes,
+        }
+    }
+    fn records(c: &Config) -> Vec<serde_json::Value> {
+        std::fs::read_to_string(&c.spool)
+            .unwrap()
+            .lines()
+            .map(|s| serde_json::from_str(s).unwrap())
+            .collect()
+    }
+    #[test]
+    fn established_flow_adds_no_per_packet_durable_writes() {
+        let (c, mut s, mut state) = fixture("established");
+        assert!(state.packet(&c, 1, &mut s, &tcp(2, 100, 0)).unwrap());
+        assert_eq!(s.durable_writes, 1);
+        for _ in 0..1000 {
+            assert!(state.packet(&c, 1, &mut s, &tcp(0x18, 101, 100)).unwrap());
+        }
+        assert_eq!(s.durable_writes, 1, "ACKs/data cannot add storage barriers");
+        state.flush(&mut s, None).unwrap();
+        assert_eq!(
+            s.durable_writes, 2,
+            "all counters and heartbeat use one bounded barrier"
+        );
+        assert_eq!(
+            records(&c).last().unwrap()["details"]["bytes_sent"],
+            140040_u64
+        );
+        state.last_audit = Instant::now() - AUDIT_DEADLINE - Duration::from_millis(1);
+        assert!(state.packet(&c, 1, &mut s, &tcp(0x10, 101, 0)).is_err());
+        std::fs::remove_file(c.spool).unwrap();
+    }
+    #[test]
+    fn denials_are_batched_and_capacity_fails_closed() {
+        let (c, mut s, mut state) = fixture("denials");
+        let mut p = tcp(2, 1, 0);
+        p.bytes[16] = 10;
+        for _ in 0..1000 {
+            assert!(!state.packet(&c, 1, &mut s, &p).unwrap());
+        }
+        assert_eq!(s.durable_writes, 0);
+        state.flush(&mut s, None).unwrap();
+        assert_eq!(s.durable_writes, 1);
+        assert_eq!(records(&c).last().unwrap()["details"]["packets"], 1000);
+        for port in 0..MAX_DENIALS {
+            p.bytes[20..22].copy_from_slice(&(port as u16).to_be_bytes());
+            assert!(!state.packet(&c, 1, &mut s, &p).unwrap());
+        }
+        p.bytes[20..22].copy_from_slice(&(MAX_DENIALS as u16).to_be_bytes());
+        assert!(
+            state
+                .packet(&c, 1, &mut s, &p)
+                .unwrap_err()
+                .to_string()
+                .contains("capacity")
+        );
+        assert_eq!(
+            s.durable_writes, 2,
+            "overflow emits one durable fault then stops, not a sync storm"
+        );
+        std::fs::remove_file(c.spool).unwrap();
+    }
+    #[test]
+    fn tcp_rst_then_reconnect_has_two_admissions() {
+        let (c, mut s, mut state) = fixture("rst");
+        for p in [
+            tcp(2, 100, 0),
+            tcp(0x18, 101, 100),
+            tcp(4, 201, 0),
+            tcp(2, 500, 0),
+        ] {
+            assert!(state.packet(&c, 1, &mut s, &p).unwrap());
+        }
+        let rows = records(&c);
+        let starts: Vec<_> = rows
+            .iter()
+            .filter(|r| r["details"]["phase"] == "start")
+            .collect();
+        assert_eq!(starts.len(), 2);
+        assert_ne!(
+            starts[0]["details"]["flow_id"],
+            starts[1]["details"]["flow_id"]
+        );
+        assert_eq!(starts[1]["details"]["bytes_sent"], 40);
+        assert!(
+            rows.iter()
+                .any(|r| r["details"]["reason"] == "tcp_rst" && r["details"]["bytes_sent"] == 220)
+        );
+        std::fs::remove_file(c.spool).unwrap();
+    }
+    #[test]
+    fn fin_closes_and_same_isn_retransmission_does_not_readmit() {
+        let (c, mut s, mut state) = fixture("fin");
+        let syn = tcp(2, 100, 0);
+        for _ in 0..3 {
+            assert!(state.packet(&c, 1, &mut s, &syn).unwrap());
+        }
+        assert_eq!(s.durable_writes, 1);
+        assert!(state.packet(&c, 1, &mut s, &tcp(0x11, 101, 0)).unwrap());
+        assert_eq!(s.durable_writes, 2);
+        assert!(state.packet(&c, 1, &mut s, &syn).unwrap());
+        assert_eq!(s.durable_writes, 3);
+        assert!(state.packet(&c, 1, &mut s, &syn).unwrap());
+        assert_eq!(s.durable_writes, 3);
+        assert_eq!(state.flows.values().next().unwrap().id, 2);
+        assert!(state.packet(&c, 1, &mut s, &tcp(2, 500, 0)).unwrap());
+        assert_eq!(state.flows.values().next().unwrap().id, 3);
+        assert_eq!(
+            s.durable_writes, 5,
+            "a different ISN closes the old record and admits a new one"
+        );
+        std::fs::remove_file(c.spool).unwrap();
+    }
+    #[test]
+    fn idle_tick_expires_and_audit_failure_stops_established_traffic() {
+        let (c, mut s, mut state) = fixture("idle-failure");
+        assert!(state.packet(&c, 1, &mut s, &tcp(2, 1, 0)).unwrap());
+        state.flows.values_mut().next().unwrap().last = Instant::now() - IDLE;
+        state.last_batch = Instant::now() - AUDIT_BATCH;
+        state.tick(&mut s).unwrap();
+        assert!(state.flows.is_empty());
+        assert!(
+            records(&c)
+                .iter()
+                .any(|r| r["details"]["reason"] == "idle_deadline")
+        );
+        assert!(state.packet(&c, 1, &mut s, &tcp(2, 500, 0)).unwrap());
+        assert!(state.packet(&c, 1, &mut s, &tcp(0x18, 501, 100)).unwrap());
+        while s
+            .record("test", json!({"padding":"x".repeat(60*1024)}))
+            .is_ok()
+        {}
+        while s.record("test", json!({"type":"heartbeat"})).is_ok() {}
+        state.last_audit = Instant::now();
+        state.last_batch = Instant::now() - AUDIT_BATCH;
+        assert!(
+            state
+                .tick(&mut s)
+                .unwrap_err()
+                .to_string()
+                .contains("spool full")
+        );
+        // The run loop propagates this error without issuing another verdict.
+        std::fs::remove_file(c.spool).unwrap();
     }
 }

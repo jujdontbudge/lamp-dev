@@ -83,10 +83,15 @@ There is no non-Linux or unguarded fallback.
 ## Network enforcement and connection records
 
 Every assigned-interface IPv4 packet in both directions goes through NFQUEUE;
-there is **no bypass flag, established-flow fast-path or offloaded rule**. The
-service records and `fdatasync`s its decision before issuing a verdict. Kernel
-queue overflow drops packets; netlink ENOBUFS, truncation, malformed control,
-full spool or write failure terminates the guard. The installed queue rules then
+there is **no bypass flag, kernel established-flow bypass or offloaded rule**.
+The first SYN/UDP datagram is durably admitted before its verdict. Established
+packets only update in-memory counters; they do not issue storage barriers.
+Counters, aggregated denials and a durable heartbeat share a bounded batch at a
+250ms maintenance interval (100ms idle polling). A one-second audit deadline is
+checked before every verdict and after every storage barrier; missing it closes
+the path even if a late write eventually succeeds. Maintenance also runs on an
+idle link. Kernel queue overflow drops packets; netlink ENOBUFS, truncation,
+malformed control, full spool or write failure terminates the guard. The installed queue rules then
 drop both existing and new traffic even if the daemon was SIGKILLed. No route is
 switched on failure. Locally addressed guest traffic is denied at INPUT; local
 host-to-task IP traffic is blocked at OUTPUT. The private L2 segment still needs
@@ -108,12 +113,23 @@ T6/T12 qualification gaps. Use an explicit IPv4 guest DNS resolver; DNS is
 transport-audited, not a hostname/site filter. Host DNS mediation is not built
 here. No VPN, private connection exception or strict-sites mode is claimed.
 
-Connection packet records contain the tuple, allow/deny reason, flow identity,
-observation timestamp and cumulative accepted L3 bytes in each direction.
-Retransmissions count as bytes, not as delivered application content. Idle ends
-are emitted when the next packet triggers reaping; an abrupt helper loss leaves
-an incomplete flow, never a fabricated exact end time. T23 must aggregate these
-observations and explicitly represent incomplete endings and audit gaps.
+Connection `start`, `checkpoint` and `end` records contain the tuple, policy
+reason, unique flow identity, start/end times and cumulative accepted L3 bytes.
+RST durably ends and removes a flow. The first FIN durably closes its record,
+retaining a bounded drain entry for half-close data/final ACKs; their counters are
+batched as end updates. A fresh SYN on a closed tuple starts a new identity.
+An identical initial sequence number on an open tuple is a SYN retransmission;
+a changed ISN ends the previous identity and admits a new one. Idle expiry runs
+without incoming packets, records final counters and removes the entry.
+Retransmissions count as bytes, not delivered application content. Abrupt helper
+loss can lose the last unacknowledged counter batch; it never fabricates an exact
+end. T23 must preserve incomplete endings and audit gaps.
+
+Denials aggregate packet/byte counts and first/last observations by tuple/reason
+rather than syncing each denied packet. There are at most 128 pending denial
+identities. Overflow durably records the pending batch and a fault, then closes
+this sandbox's path instead of forcing an unbounded sync storm or silently
+losing identities. A batch is <=4 MiB and each framed record remains <=64 KiB.
 
 ## Process observation and integrity
 
@@ -163,7 +179,7 @@ guest only**; its guest rootfs, kernel and service allowlist are T2's TCB.
 cargo test -p lamp-guard --locked
 cargo clippy -p lamp-guard --all-targets --locked -- -D warnings
 cargo build -p lamp-guard --locked
-sudo python3 tests/guard/e2e.py "$PWD/target/debug/lamp-guard"
+sudo env TMPDIR=/var/tmp python3 tests/guard/e2e.py "$PWD/target/debug/lamp-guard"
 ```
 
 Linux only, root, iproute2, nftables, Python 3 and a kernel supporting user/PID/net
@@ -172,7 +188,8 @@ three disposable namespaces and veths **inside them**, and changes forwarding
 only there. Its public/private/metadata addresses are deterministic reflectors
 inside the isolated edge namespace, not access to the real metadata service or
 proof of a public-internet/VM boot. It removes its namespaces/processes and keeps
-root-only spool artifacts in the printed `/tmp/lamp-t4-*` directory. It never
+root-only spool artifacts in the printed directory. Use a disk-backed TMPDIR
+(`/var/tmp` on LX), not tmpfs, for durable-spool/throughput evidence. It never
 alters the host firewall, touches Docker or stops an owner service.
 
 ## Explicit remaining gates
@@ -180,9 +197,10 @@ alters the host firewall, touches Docker or stops an owner service.
 - T2/T6: TAP/vsock microVM wiring; every exec/session through the collector;
   host route inventory and watchdog; capture/fork stream identity and tracer
   state coordination; kernel/LSM/cgroup/service confinement; actual engine E09/E13.
-- T5/T6: E02 secured compute/disk/network ratios. Per-packet durable sync and
-  syscall tracing are deliberately conservative, **not measured >=0.97**.
-  Speed results with either path disabled are invalid. Optimization must retain
+- T5/T6: E02 secured compute/disk/network ratios. Connection audit batching and
+  syscall tracing are **not certified >=0.97**. The review-r1 bulk transfer is a
+  rough guard regression measurement, not E02. Disabled controls are invalid.
+  Optimization must retain
   audit-before-effect and fail-closed behavior, not silently bypass these checks.
 - T6/T12: IPv6/public DNS/PMTU and additional network policy qualification.
 - T23: encryption, hash chaining, signed/remote receipts, retention, export,

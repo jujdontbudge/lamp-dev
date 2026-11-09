@@ -132,6 +132,27 @@ impl Queue {
         Ok(b)
     }
     pub fn packets(&self) -> io::Result<Vec<Packet>> {
+        // Wake even on an idle link: expiry and durable audit liveness cannot
+        // depend on the next packet arriving. ppoll is in the confined profile.
+        let mut fd = libc::pollfd {
+            fd: self.fd.as_raw_fd(),
+            events: libc::POLLIN,
+            revents: 0,
+        };
+        let timeout = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 100_000_000,
+        };
+        let n = unsafe { libc::ppoll(&mut fd, 1, &timeout, ptr::null()) };
+        if n < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        if fd.revents != libc::POLLIN {
+            return Err(io::Error::other("NFQUEUE poll/liveness failure"));
+        }
         decode(&self.recv()?)
     }
     pub fn verdict(&mut self, id: u32, allow: bool) -> io::Result<()> {

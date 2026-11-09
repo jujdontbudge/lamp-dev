@@ -1,0 +1,10 @@
+{
+  "passed": [
+    "guard drops root, retains only net-admin and enforces no-new-privileges/seccomp/assigned FDs"
+  ],
+  "kernel": "7.0.0-42-generic",
+  "architecture": "x86_64",
+  "host": "ubuntu-server",
+  "binary_sha256": "374ed4cf2a8f61c2cdc43928b5cf78de1d8996e78fb18a7a8e9b07930d5c4f3b",
+  "test_sha256": "12609924f7fd991d0c0a15b7b0fc33323b90276d244f34fbd5de04ec7a689d8b"
+}

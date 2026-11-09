@@ -1,0 +1,13 @@
+PASS guard drops root, retains only net-admin and enforces no-new-privileges/seccomp/assigned FDs
+BULK_TCP {"bytes": 16777216, "seconds": 38.95584197901189, "MiB_per_second": 0.41072145247483716, "socket_buffer_requested_bytes": 16384, "label": "before-12eace3", "guard_sha256": "374ed4cf2a8f61c2cdc43928b5cf78de1d8996e78fb18a7a8e9b07930d5c4f3b", "guard": true, "protected_process_collector": true, "durable_host_audit": true, "E02": false, "spool_filesystem": "ext4"}
+EVIDENCE /var/tmp/lamp-t4-y5d7tihz
+Artifacts: /var/tmp/lamp-t4-y5d7tihz
+PASS guard drops root, retains only net-admin and enforces no-new-privileges/seccomp/assigned FDs
+BULK_TCP {"bytes": 16777216, "seconds": 0.12892728694714606, "MiB_per_second": 124.10095937688679, "socket_buffer_requested_bytes": 16384, "label": "after-review-r1", "guard_sha256": "bd1b05e7ab0875356f5e66cc23d29085f0ec6c38adef6a4aa75c1a9806610fb1", "guard": true, "protected_process_collector": true, "durable_host_audit": true, "E02": false, "spool_filesystem": "ext4"}
+EVIDENCE /var/tmp/lamp-t4-duzbntzf
+Artifacts: /var/tmp/lamp-t4-duzbntzf
+   18043 /var/tmp/lamp-t4-y5d7tihz/network.ndjson
+       4 /var/tmp/lamp-t4-duzbntzf/network.ndjson
+   18047 total
+/dev/mapper/ubuntu--vg-ubuntu--lv ext4
+active

@@ -25,6 +25,8 @@ pub struct Spool {
     limit: u64,
     sequence: u64,
     attribution: Attribution,
+    #[cfg(test)]
+    pub(crate) durable_writes: u64,
 }
 impl std::os::fd::AsRawFd for Spool {
     fn as_raw_fd(&self) -> RawFd {
@@ -65,23 +67,52 @@ impl Spool {
             limit,
             sequence: 0,
             attribution,
+            #[cfg(test)]
+            durable_writes: 0,
         })
     }
-    /// ACK/verdict is forbidden until this durable write succeeds.
+    /// Admission ACK/verdict is forbidden until this durable write succeeds.
     pub fn record(&mut self, source: &str, details: Value) -> io::Result<()> {
-        let next = self
-            .sequence
-            .checked_add(1)
-            .ok_or_else(|| io::Error::other("sequence exhausted"))?;
-        let mut bytes = serde_json::to_vec(&json!({"format":"lamp.audit.demo/1", "sequence":next,
-            "observed_at_ms":now_ms(), "attribution":self.attribution, "source":source,"details":details}))?;
-        bytes.push(b'\n');
-        if bytes.len() > MAX_FRAME || self.used + bytes.len() as u64 > self.limit {
-            return Err(io::Error::other("audit spool full or oversized record"));
+        self.record_batch(source, [details])
+    }
+    /// One storage barrier for a bounded set of connection counters/denials.
+    /// Sequence and capacity checks happen before writing any part of the batch.
+    pub fn record_batch(
+        &mut self,
+        source: &str,
+        details: impl IntoIterator<Item = Value>,
+    ) -> io::Result<()> {
+        let mut next = self.sequence;
+        let mut batch = Vec::new();
+        for details in details {
+            next = next
+                .checked_add(1)
+                .ok_or_else(|| io::Error::other("sequence exhausted"))?;
+            let mut bytes = serde_json::to_vec(
+                &json!({"format":"lamp.audit.demo/1", "sequence":next,
+                "observed_at_ms":now_ms(), "attribution":self.attribution, "source":source,"details":details}),
+            )?;
+            bytes.push(b'\n');
+            if bytes.len() > MAX_FRAME
+                || batch.len() + bytes.len() > 4 * 1024 * 1024
+                || self.used + (batch.len() + bytes.len()) as u64 > self.limit
+            {
+                return Err(io::Error::other(
+                    "audit spool full or oversized batch/record",
+                ));
+            }
+            batch.extend_from_slice(&bytes);
         }
-        self.file.write_all(&bytes)?;
+        if batch.is_empty() {
+            return Ok(());
+        }
+        self.file.write_all(&batch)?;
         self.file.sync_data()?;
-        self.used += bytes.len() as u64;
+        #[cfg(test)]
+        {
+            self.durable_writes += 1;
+        }
+        self.used += batch.len() as u64;
         self.sequence = next;
         Ok(())
     }
