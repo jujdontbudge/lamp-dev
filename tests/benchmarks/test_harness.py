@@ -2,6 +2,7 @@ import base64
 import copy
 import gzip
 import hashlib
+import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
@@ -229,12 +230,12 @@ class HarnessTests(unittest.TestCase):
                 if shared:
                     self.assertTrue(any("generation mismatch" in e for e in result["state_errors"]))
 
-    def test_fork_trial_rejects_stale_child_ticks_before_timing_completion(self):
+    def test_fork_trial_rejects_one_tick_child_rollback(self):
         class StaleChild(PublicFixture):
             def handle(self, method, path, fields):
                 result = super().handle(method, path, fields)
                 if path.endswith(":fork"):
-                    self.sandboxes[result["result"]["sandbox_id"]]["state"]["ticks"] = 0
+                    self.sandboxes[result["result"]["sandbox_id"]]["state"]["ticks"] -= 1
                 return result
 
         fixture = StaleChild()
@@ -253,7 +254,7 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(result["state_errors"], [])
         self.assertFalse(any(kind == "fork_oracle" for kind, _ in evidence.events))
 
-    def test_check_fork_requires_child_ticks_at_least_the_source_observation(self):
+    def test_check_fork_rejects_one_tick_child_rollback(self):
         parent = {
             "nonce": "marker", "generation": 1, "ticks": 101,
             "memory_sha256": hashlib.sha256(b"").hexdigest(),
@@ -264,8 +265,8 @@ class HarnessTests(unittest.TestCase):
             "memory_sha256": hashlib.sha256(b"").hexdigest(),
             "disk_sha256": hashlib.sha256(b"".join(blocks("marker", 2, 16384, "disk"))).hexdigest(),
         }
-        self.assertIn("child did not continue", check_fork({"ticks": 100}, parent, {**child, "ticks": 1}, "marker", 0))
-        self.assertEqual(check_fork({"ticks": 100}, parent, {**child, "ticks": 100}, "marker", 0), [])
+        self.assertIn("child did not continue", check_fork({"ticks": 100}, parent, {**child, "ticks": 100}, "marker", 0))
+        self.assertEqual(check_fork({"ticks": 100}, parent, {**child, "ticks": 101}, "marker", 0), [])
 
     def test_recovery_validates_unacknowledged_objects_against_external_writes(self):
         written = [
@@ -300,6 +301,8 @@ class HarnessTests(unittest.TestCase):
     def test_placeholder_metadata_cannot_produce_passing_evidence(self):
         metadata = json.loads((ROOT / "tests/benchmarks/evidence/model-metadata.json").read_text())
         metadata["controls"] = {key: True for key in metadata["controls"]}
+        metadata["thermal"] = {"samples_c": [0, 42]}
+        metadata["policy"] = {"revision": 1}
         self.assertEqual(metadata_errors(metadata), [])
         for key in ("hardware", "filesystem", "storage", "policy", "resources", "power", "thermal"):
             for value in ({}, {"unavailable": True}, {"unavailable": "sensor offline"},
@@ -312,6 +315,31 @@ class HarnessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             evidence = Evidence(Path(root) / "missing", {**metadata, "thermal": {"unavailable": True}}, {})
             self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "incomplete")
+
+    def test_unavailable_or_unsampled_metadata_cannot_pass(self):
+        metadata = json.loads((ROOT / "tests/benchmarks/evidence/model-metadata.json").read_text())
+        metadata["controls"] = {key: True for key in metadata["controls"]}
+        metadata["thermal"] = {"samples_c": [0, 42]}
+        metadata["policy"] = {"revision": 1}
+        self.assertEqual(metadata_errors(metadata), [])
+        records = (
+            {"unavailable": True, "reason": "sensor offline"},
+            {"sampled": False},
+            {"unavailable": False, "samples_c": [42]},
+            {"placeholder": False, "samples_c": [42]},
+            {"sampled": False, "samples_c": [42]},
+            {"status": "placeholder", "samples_c": [42]},
+            {"reason": "sensor offline"}, {"description": "sensor offline"},
+            {"present": False},
+        )
+        for key in ("hardware", "filesystem", "storage", "policy", "resources", "power", "thermal"):
+            for record in records:
+                with self.subTest(field=key, record=record):
+                    self.assertIn(key + " missing", metadata_errors({**metadata, key: record}))
+        for record in records[:2]:
+            with self.subTest(evidence=record), tempfile.TemporaryDirectory() as root:
+                evidence = Evidence(Path(root) / "missing", {**metadata, "thermal": record}, {})
+                self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "incomplete")
 
     def test_real_e04_self_attestation_without_harness_traces_is_incomplete(self):
         def self_attested(command, request, evidence):
@@ -391,10 +419,68 @@ class HarnessTests(unittest.TestCase):
             for name in ("tcp_goodput", "udp_goodput", "tcp_packets", "udp_packets", "request_latency", "small_flows"):
                 with self.subTest(name=name):
                     self.assertGreater(network_measure(name, fixture, None)["value"], 0)
-            for proxy in ("direct", fixture["http_url"]):
-                self.assertGreater(network_measure("proxy", fixture, proxy)["value"], 0)
+            self.assertGreater(network_measure("proxy", fixture, "direct")["value"], 0)
+            with self.assertRaises(ValueError):
+                network_measure("proxy", fixture, fixture["http_url"])
             with self.assertRaises(ValueError):
                 network_measure("proxy", fixture, None)
+        finally:
+            process.terminate()
+            process.communicate(timeout=5)
+
+    def test_proxy_requires_all_origin_receipts_and_rejects_echo(self):
+        class Relay(BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                self.server.received.append(dict(self.headers))
+                if self.server.forward and not (self.server.drop_last and len(self.server.received) == 64):
+                    target = urllib.parse.urlsplit(self.path)
+                    connection = http.client.HTTPConnection(target.hostname, target.port, timeout=5)
+                    try:
+                        headers = {key: value for key, value in self.headers.items() if key.lower().startswith("x-lamp-")}
+                        connection.request("POST", target.path or "/", body, headers)
+                        response = connection.getresponse()
+                        self.send_response(response.status)
+                        body = response.read()
+                    finally:
+                        connection.close()
+                else:
+                    self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        process = subprocess.Popen(
+            [sys.executable, str(ROOT / "benchmarks/workload.py"), "serve-network"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        try:
+            ports = json.loads(process.stdout.readline())
+            fixture = {"host": "127.0.0.1", "tcp_port": ports["tcp_port"], "udp_port": ports["udp_port"],
+                       "http_url": "http://127.0.0.1:" + str(ports["http_port"])}
+            for forward, drop_last in ((True, False), (False, False), (True, True)):
+                with self.subTest(forward=forward, drop_last=drop_last):
+                    server = ThreadingHTTPServer(("127.0.0.1", 0), Relay)
+                    server.forward, server.drop_last, server.received = forward, drop_last, []
+                    thread = threading.Thread(target=server.serve_forever, daemon=True)
+                    thread.start()
+                    try:
+                        proxy = "http://127.0.0.1:" + str(server.server_port)
+                        if forward and not drop_last:
+                            result = network_measure("proxy", fixture, proxy)
+                            self.assertGreater(result["value"], 0)
+                        else:
+                            with self.assertRaisesRegex(ValueError, "proxy origin receipt mismatch"):
+                                network_measure("proxy", fixture, proxy)
+                        self.assertEqual(len(server.received), 64)
+                    finally:
+                        server.shutdown()
+                        server.server_close()
+            self.assertEqual(result["origin_requests"], 64)
+            self.assertTrue(result["origin_run_id"])
         finally:
             process.terminate()
             process.communicate(timeout=5)

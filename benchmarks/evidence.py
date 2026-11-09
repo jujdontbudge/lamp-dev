@@ -19,14 +19,27 @@ REQUIRED_METADATA = (
 
 
 def metadata_errors(metadata):
-    def available(value):
-        if isinstance(value, str):
-            return value.strip().lower() not in ("", "unavailable", "placeholder", "unknown", "n/a")
+    def unavailable(value):
         if isinstance(value, dict):
-            return any(available(item) for key, item in value.items() if key.lower() not in ("unavailable", "placeholder"))
+            fields = {key.lower(): item for key, item in value.items()}
+            return bool({"unavailable", "placeholder"} & fields.keys()) or fields.get("sampled") is False or any(unavailable(item) for item in fields.values())
+        if isinstance(value, list):
+            return any(unavailable(item) for item in value)
+        return isinstance(value, str) and value.strip().lower() in ("unavailable", "placeholder", "unknown", "n/a")
+
+    def available(value):
+        if unavailable(value):
+            return False
+        if isinstance(value, str):
+            return bool(value.strip())
+        if isinstance(value, dict):
+            return any(available(item) for key, item in value.items() if key.lower() not in (
+                "reason", "description", "message", "note", "notes", "error", "detail", "details",
+                "scope", "qualification", "status", "sampled", "text", "comment", "comments",
+            ))
         if isinstance(value, list):
             return any(available(item) for item in value)
-        return value is not None
+        return value is not None and value is not False
 
     errors = [key + " missing" for key in REQUIRED_METADATA if not available(metadata.get(key))]
     for key in ("guard", "audit", "cow", "capture_tracking"):

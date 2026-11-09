@@ -30,7 +30,7 @@ def check_fork(parent_before, parent_after, child, nonce, memory_bytes):
     errors += check_state(child, nonce, 2, memory_bytes)
     if parent_after.get("ticks", 0) <= parent_before.get("ticks", 0):
         errors.append("source did not continue")
-    if child.get("ticks", 0) < parent_before.get("ticks", 0):
+    if child.get("ticks", 0) <= parent_before.get("ticks", 0):
         errors.append("child did not continue")
     return errors
 

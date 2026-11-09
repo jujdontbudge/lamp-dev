@@ -169,10 +169,13 @@ def network_measure(name, fixture, proxy):
     if name == "proxy":
         if not proxy:
             raise ValueError("required proxy path missing")
+        run_id = os.urandom(16).hex()
+        headers = {"X-Lamp-Run": run_id}
         if proxy == "direct":
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            for _ in range(count):
-                request = urllib.request.Request(fixture["http_url"], data=payload)
+            for index in range(count):
+                headers["X-Lamp-Request"] = str(index)
+                request = urllib.request.Request(fixture["http_url"], data=payload, headers=headers)
                 with opener.open(request, timeout=10) as response:
                     if response.read() != payload:
                         raise ValueError("direct HTTP payload mismatch")
@@ -181,10 +184,11 @@ def network_measure(name, fixture, proxy):
             if parsed.scheme not in ("http", "https") or parsed.username or parsed.password or parsed.query:
                 raise ValueError("proxy must be a credential-free HTTP(S) endpoint")
             cls = http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
-            for _ in range(count):
+            for index in range(count):
                 connection = cls(parsed.hostname, parsed.port, timeout=10)
                 try:
-                    connection.request("POST", fixture["http_url"], body=payload)
+                    headers["X-Lamp-Request"] = str(index)
+                    connection.request("POST", fixture["http_url"], body=payload, headers=headers)
                     response = connection.getresponse()
                     if response.status != 200 or response.read() != payload:
                         raise ValueError("required proxy payload mismatch")
@@ -210,7 +214,16 @@ def network_measure(name, fixture, proxy):
     elapsed = (time.perf_counter_ns() - started) / 1e9
     units = count * len(payload) if name.endswith("goodput") else count
     latency = name in ("request_latency", "proxy")
-    return {"value": elapsed / count if latency else units / elapsed, "elapsed_s": elapsed, "units": units}
+    result = {"value": elapsed / count if latency else units / elapsed, "elapsed_s": elapsed, "units": units}
+    if name == "proxy":
+        receipt_url = fixture["http_url"] + ("&" if "?" in fixture["http_url"] else "?") + "lamp_run=" + run_id
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(receipt_url, timeout=10) as response:
+            receipt = json.load(response)
+        if receipt != {"run_id": run_id, "requests": sorted(str(index) for index in range(count))}:
+            raise ValueError("proxy origin receipt mismatch")
+        result.update({"origin_run_id": run_id, "origin_requests": len(receipt["requests"])})
+    return result
 
 
 def receive(connection, size):
@@ -236,9 +249,25 @@ def serve_network(host, tcp, udp, http):
             data, connection = self.request
             connection.sendto(data, self.client_address)
 
+    receipts = {}
+
     class HTTP(BaseHTTPRequestHandler):
+        def do_GET(self):
+            run_id = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("lamp_run", [""])[0]
+            data = json.dumps({"run_id": run_id, "requests": sorted(receipts.pop(run_id, set()))}).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
         def do_POST(self):
+            if not self.path.startswith("/"):
+                self.send_error(400, "origin-form request required")
+                return
             data = self.rfile.read(min(int(self.headers["Content-Length"]), 65536))
+            run_id, index = self.headers.get("X-Lamp-Run"), self.headers.get("X-Lamp-Request")
+            if run_id and index is not None:
+                receipts.setdefault(run_id, set()).add(index)
             self.send_response(200)
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()

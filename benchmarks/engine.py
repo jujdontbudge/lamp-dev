@@ -118,7 +118,7 @@ class EngineHarness:
                     raise ValueError("captured RAM marker discontinuity")
             if parent["ticks"] <= before["ticks"]:
                 raise ValueError("source did not continue")
-            if child.get("ticks", 0) < before["ticks"]:
+            if child.get("ticks", 0) <= before["ticks"]:
                 raise ValueError("child did not continue")
         except Exception as caught:
             error = type(caught).__name__ + ": " + str(caught)
