@@ -1,0 +1,12 @@
+[package]
+name = "lamp-control-worker-fixture"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+# Deliberately test-local, not a product worker or member of the engine workspace.
+[workspace]
+
+[dependencies]
+lamp-worker-protocol = { path = "../../../../crates/lamp-worker-protocol" }

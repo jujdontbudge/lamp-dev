@@ -1,0 +1,43 @@
+{
+  "operation_id": "op_d03d67263c7839ddcdf0ebdba5a20200",
+  "resource_ids": [
+    {
+      "kind": "exec",
+      "id": "ex_6b1c742d8adba65160b974086ef24a4e"
+    }
+  ],
+  "request_id": "req_760ba13c96e0c90740313be25910701d",
+  "replayed": false,
+  "operation": {
+    "id": "op_d03d67263c7839ddcdf0ebdba5a20200",
+    "kind": "operation",
+    "fleet_id": "fl_local",
+    "owner_id": "pr_local",
+    "revision": 3,
+    "created_at": "2026-11-09T23:19:39.03364Z",
+    "updated_at": "2026-11-09T23:19:39.045381Z",
+    "state": "succeeded",
+    "labels": {},
+    "visibility": "private",
+    "operation_name": "exec_create",
+    "request_hash": "62e3df0c9556a45f1854b32db6b42dbf384d0cbd1bb16808f5792bbb76019bdf",
+    "resource_ids": [
+      {
+        "kind": "exec",
+        "id": "ex_6b1c742d8adba65160b974086ef24a4e"
+      }
+    ],
+    "accepted_at": "2026-11-09T23:19:39.03364Z",
+    "completed_at": "2026-11-09T23:19:39.045381Z",
+    "outcome": {
+      "result": {
+        "exec_id": "ex_6b1c742d8adba65160b974086ef24a4e"
+      }
+    },
+    "cleanup_state": "not_needed",
+    "durability": "volatile"
+  },
+  "result": {
+    "exec_id": "ex_6b1c742d8adba65160b974086ef24a4e"
+  }
+}
