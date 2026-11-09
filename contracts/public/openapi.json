@@ -81596,7 +81596,52 @@
         ]
       },
       "BlobDownloadResult": {
-        "$ref": "#/components/schemas/Chunk"
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "blob_id": {
+            "type": "string"
+          },
+          "offset_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "data_base64": {
+            "type": "string"
+          },
+          "chunk_sha256": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "eof": {
+            "type": "boolean"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "blob_id",
+          "offset_bytes",
+          "data_base64",
+          "chunk_sha256",
+          "sha256",
+          "size_bytes",
+          "eof",
+          "request_id"
+        ]
       },
       "BlobFinalizeInput": {
         "type": "object",
