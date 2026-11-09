@@ -12,11 +12,13 @@ import time
 from benchmarks.protocol import PROTOCOL, canonical, digest
 
 
-REQUIRED_METADATA = (
-    "source_hashes", "dependency_hashes", "compiled_features", "hardware", "os",
-    "filesystem", "storage", "policy", "resources", "durability", "power",
-    "thermal", "lane", "topology", "controls", "artifacts", "access_route",
-)
+REQUIRED_METADATA = {
+    "source_hashes": dict, "dependency_hashes": dict, "compiled_features": list,
+    "hardware": dict, "os": dict, "filesystem": dict, "storage": dict,
+    "policy": dict, "resources": dict, "durability": str, "power": dict,
+    "thermal": dict, "lane": str, "topology": str, "controls": dict,
+    "artifacts": dict, "access_route": str,
+}
 
 OBSERVATION_FIELDS = {
     "hardware": {"cpu_model": str, "logical_cpus": int, "memory_bytes": int},
@@ -46,7 +48,21 @@ def metadata_errors(metadata):
             return bool(value) and all(type(sample) in (int, float) and math.isfinite(sample) for sample in value)
         return kind is not str or bool(value.strip())
 
-    errors = [key + " missing" for key in REQUIRED_METADATA if metadata.get(key) in (None, "", [], {}) or unavailable(metadata.get(key))]
+    errors = []
+    for key, kind in REQUIRED_METADATA.items():
+        value = metadata.get(key)
+        if type(value) is not kind or not value or (kind is str and not value.strip()) or unavailable(value):
+            errors.append(key + " missing")
+    features = metadata.get("compiled_features")
+    if isinstance(features, list) and any(not typed(feature, str) for feature in features):
+        errors.append("compiled_features missing")
+    for key, choices in (
+        ("durability", ("volatile", "local", "replicated", "backup")),
+        ("lane", ("LX", "LX22", "D12", "F40", "L510", "LA", "M5", "AIR", "NV")),
+        ("topology", ("native", "nested")),
+    ):
+        if metadata.get(key) not in choices:
+            errors.append(key + " invalid")
     for key, fields in OBSERVATION_FIELDS.items():
         record = metadata.get(key)
         if not isinstance(record, dict) or any(not typed(record.get(field), kind) for field, kind in fields.items()):
@@ -57,7 +73,7 @@ def metadata_errors(metadata):
             errors.append(key + " is not enabled")
     for key in ("source_hashes", "dependency_hashes", "artifacts"):
         values = metadata.get(key)
-        if not isinstance(values, dict) or not values or any(not isinstance(value, str) or not re.fullmatch("[0-9a-f]{64}", value) for value in values.values()):
+        if not isinstance(values, dict) or not values or any(not typed(name, str) or not isinstance(value, str) or not re.fullmatch("[0-9a-f]{64}", value) for name, value in values.items()):
             errors.append(key + " must pin SHA-256 digests")
     return errors
 

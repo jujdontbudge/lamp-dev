@@ -18,7 +18,7 @@ import urllib.parse
 import urllib.request
 
 from benchmarks.engine import EngineHarness
-from benchmarks.evidence import Evidence, metadata_errors
+from benchmarks.evidence import Evidence, REQUIRED_METADATA, metadata_errors
 from benchmarks.oracles import check_fork, check_recovery, check_state, pattern_hash
 from benchmarks.protocol import COMMIT_POINTS, MEASURES, paired_summary, plan, timing
 from benchmarks.public import PublicLamp
@@ -39,7 +39,7 @@ def valid_metadata():
         "storage": {"total_bytes": 21474836480, "free_bytes": 10737418240},
         "policy": {"revision": 1},
         "resources": {"vcpus": 2, "memory_mib": 4096, "disk_gib": 20, "pids_max": 4096},
-        "power": {"ac_online": 1}, "thermal": {"samples_c": [0, 42.5]},
+        "power": {"ac_online": 1}, "thermal": {"samples_c": [0, 42.5]}, "durability": "local",
     })
     return metadata
 
@@ -370,6 +370,25 @@ class HarnessTests(unittest.TestCase):
                     self.assertTrue(metadata_errors(invalid), (section, field, value))
         for samples in ([], [True], ["42"], [float("inf")], [float("nan")]):
             self.assertTrue(metadata_errors({**metadata, "thermal": {"samples_c": samples}}))
+        with tempfile.TemporaryDirectory() as root:
+            evidence = Evidence(Path(root) / "valid", metadata, {})
+            self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "pass")
+
+    def test_every_required_metadata_field_is_typed_and_nonblank(self):
+        metadata = valid_metadata()
+        for key, value in (("compiled_features", False), ("durability", False), ("access_route", " \t ")):
+            with self.subTest(field=key), tempfile.TemporaryDirectory() as root:
+                evidence = Evidence(Path(root) / "invalid", {**metadata, key: value}, {})
+                self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "incomplete")
+        for key in REQUIRED_METADATA:
+            for value in (False, 0, None, "", " \t ", [], {}):
+                with self.subTest(field=key, value=value):
+                    self.assertTrue(metadata_errors({**metadata, key: value}))
+        for value in ([""], [" \t "], ["feature", " "], [False], [0], {"feature": "enabled"}):
+            self.assertTrue(metadata_errors({**metadata, "compiled_features": value}))
+        for key, value in (("durability", "simulated-local"), ("lane", "invented"), ("topology", "invented")):
+            self.assertTrue(metadata_errors({**metadata, key: value}))
+        self.assertEqual(metadata_errors(metadata), [])
         with tempfile.TemporaryDirectory() as root:
             evidence = Evidence(Path(root) / "valid", metadata, {})
             self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "pass")
