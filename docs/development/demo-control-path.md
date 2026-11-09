@@ -1,0 +1,188 @@
+# Engine demo control path (T3)
+
+The only engine path in `lamp` is HTTP over `lampd`'s owner-only Unix socket.
+`lampd` journals admission before dispatch, then calls the enrolled Rust
+supervisor over the existing `lamp.worker/1` Protobuf framing. Go owns public
+operation/resource state; it does not boot VMs, fork processes, open guest RAM,
+or accept caller-supplied host storage paths.
+
+This is the single-local-caller demo, not T10's multi-user control core. The local
+OS owner is represented as `pr_local` in `fl_local`. There is no TCP listener,
+MCP server, template builder, account setup, secrets support, output streaming,
+operation cancellation, deletion, or background resource reconciler here.
+Unsupported setup fields are rejected, never silently skipped. Only volatile
+memory forks are admitted. T2 owns the real engine and template preparation;
+T4 owns its guard/audit attachment. T6 must join them and measure the engine gate.
+
+## Start against the enrolled supervisor
+
+Build `go build -o bin/lamp ./cmd/lamp` and
+`go build -o bin/lampd ./cmd/lampd` (create `bin/` first).
+The supervisor installer must supply its assigned OS UID/PID, worker identity,
+boot identity, socket, and installed control grant. A string passed as
+`--grant-id` is only a reference, not authority minted by `lampd`; the Rust
+receiver must validate its live supervisor-installed authority before effect.
+Never disable the worker's grant/generation/handle checks to run the demo.
+
+```sh
+bin/lampd --worker-socket "$WORKER_SOCKET" \
+  --worker-id "$WORKER_ID" --worker-boot-id "$WORKER_BOOT_ID" \
+  --worker-uid "$WORKER_UID" --worker-pid "$WORKER_PID" \
+  --grant-id "$CONTROL_GRANT_ID"
+```
+
+Default socket: `~/.local/state/lamp-demo/api.sock`; journal:
+`~/.local/state/lamp-demo/control/`. Override with `--socket` and `--state-dir`.
+Their final directories must be owner-owned mode 0700, with trusted parent
+paths; the socket is mode 0600. HTTP peers must match the daemon's OS UID.
+Worker UID **and PID** are checked before Hello, followed by exact assigned
+worker/boot identities, protocol version, and negotiated frame maximum.
+The service never removes an existing socket to steal a live listener. After an
+unclean stop, remove a stale socket only after confirming its process is gone.
+A state-directory lock prevents simultaneous writers.
+
+## Caller interface
+
+```sh
+bin/lamp sandbox create --template-id "$TEMPLATE_ID" \
+  --idempotency-key create-demo-1 --wait-ms 1000 --json
+bin/lamp operation get --operation-id "$OPERATION_ID" --json
+bin/lamp sandbox get --sandbox-id "$SANDBOX_ID" --json
+bin/lamp exec create --sandbox-id "$SANDBOX_ID" \
+  --idempotency-key exec-demo-1 --wait-ms 1000 --json -- /bin/echo hello
+bin/lamp exec get --exec-id "$EXEC_ID" --json
+bin/lamp sandbox fork --sandbox-id "$SANDBOX_ID" \
+  --expected-revision "$REVISION" --idempotency-key fork-demo-1 \
+  --wait-ms 1000 --json
+```
+
+`--socket` or `LAMP_SOCKET` selects the same local API socket for every command.
+Mutation keys are generated when omitted; supply an explicit key when a request
+may need retrying. JSON API errors go to stderr and exit 1; usage errors exit 2.
+`--json` emits the API document unchanged, including exact uint64 values.
+
+Equivalent REST routes:
+
+- `POST /v1/sandboxes`: `template_id`, optional `engine_id` and complete
+  `resources`, `idempotency_key`, optional `wait_ms`.
+- `POST /v1/execs`: `sandbox_id`, nonempty `argv`, optional guest `cwd` and
+  nonsecret `env`, `idempotency_key`, optional `wait_ms`.
+- `POST /v1/sandboxes/{sandbox_id}:fork`: required `expected_revision` and
+  `idempotency_key`, optional matching `sandbox_id`, `fork_mode=memory`,
+  `durability=volatile`, `wait_ms`.
+- `GET /v1/operations/{operation_id}`, `GET /v1/sandboxes/{sandbox_id}`,
+  `GET /v1/execs/{exec_id}` return canonical `{data,request_id}` documents.
+
+For example:
+
+```sh
+curl --unix-socket "$HOME/.local/state/lamp-demo/api.sock" \
+  -H 'Content-Type: application/json' \
+  -d '{"template_id":"tpl_demo","idempotency_key":"create-demo-1"}' \
+  http://lamp/v1/sandboxes
+```
+
+Resources default to 2 vCPU, 4096 MiB RAM, 20 GiB disk, 1024 pids. Request bodies
+are limited to 64 KiB, keys to 256 bytes, waits to 60 s, and the demo journal to
+1024 operations. `wait_ms` defaults to zero. Its expiration returns acceptance,
+not cancellation. Caller disconnect does not discard an admitted operation.
+
+Mutations return the generated canonical envelope with operation ID, typed
+resource references, request ID, replay status and current Operation. HTTP 202
+means only accepted/in progress; no completion or readiness is invented.
+HTTP 200 plus `result` requires terminal success. Admission/worker failures use
+the canonical ErrorEnvelope; accepted failures retain a readable Operation and
+resource, including `cleanup_state=pending` when reconciliation is required.
+The demo does not claim to have cleaned up an engine artifact it cannot prove
+released. Use the supervisor's teardown between disposable gate runs.
+
+## Worker integration seam for T2/T6
+
+No shared schema or `.proto` was changed by T3. These are the exact command and
+receipt semantics the client currently requires; they must be joined with T2's
+receiver at T6, not treated as proof that the separately developed engine is
+already integrated:
+
+1. Create: `Allocate(resources, engine_id)` → receipt `allocated`;
+   `Restore(capture_id=template_id)` → `restored`;
+   `Start(argv=["/bin/true"], cwd="/")` → `command_started`.
+2. Exec: `Start(argv,cwd,env)` → `command_started`. This acknowledges command
+   start, **not exit status**. Output and exit observation need the independent
+   guest oracle/engine channel; this control protocol carries neither bulk
+   command output nor an invented exit result.
+3. Fork: source `Capture(capture_id=<new opaque ID>, preserves_memory=true,
+   consistency="crash")` → `captured`; child Allocate → `allocated`;
+   child Restore with that capture ID → `restored`; child command probe →
+   `command_started`. The captured receipt must also mean the source is resumed.
+   The receiver must enforce the coherent RAM/disk generation, private child
+   writes, uniqueness/reseed/guard barriers and capture custody, not merely copy
+   a path. Capture IDs and template IDs resolve inside the enrolled supervisor;
+   no engine bytes or guest disk/RAM handles cross the Go boundary.
+
+Every context has a fresh request ID, sandbox ID, generation 1, policy revision
+1, installed grant reference, and absolute deadline (30 s default, at most 1 m).
+Each effect uses a stable **step-specific** operation ID under the public
+operation ID (`.allocate`, `.capture`, `.restore`, `.start`), so the worker's
+operation deduplication cannot mistake different steps for retries.
+
+`accepted`, `preparing`, `running`, or `waiting` receipts cause bounded read-only
+Inspect calls for the exact required evidence. Other unexpected receipts,
+response-context mismatches, frame failures after a write, or lost terminal
+evidence become `outcome_unknown`. Effects are never automatically redelivered.
+Inspect uses a fresh operation ID; sandbox mutation admission is serialized so
+an Inspect result cannot be confused with another in-flight sandbox mutation.
+Worker requests use one persistent connection with serialized frame I/O.
+
+`command_started` must be emitted only after an independent real guest command
+marker—not on engine allocation, VM resume, or guest-init acceptance. The
+supervisor must withhold it until the requested identity/guard/setup barriers
+pass. Only then does `lampd` record the UTC marker-receipt time in
+`readiness.command_started_at` and publish `ready`. No agent-ready timestamp is
+claimed because the demo admits no harness/sign-in setup.
+
+The caller's create clock starts **before** sending the CLI/API request. The two
+journal commits, admission, Hello (if not warm), RPC, restore and guest command
+probe all count. Never use only the daemon's marker-receipt timestamp as elapsed
+create latency. No 500 ms or memory-fork performance result is claimed by T3.
+
+## Failure and replay rules
+
+The journal is an owner-private, atomically renamed, file-and-directory-fsynced
+JSON snapshot. One commit precedes effect dispatch; one precedes publishing
+terminal evidence. A write failure closes admission and reads with
+`DATA_UNAVAILABLE` rather than exposing an uncommitted success. This bounded
+journal is deliberately not the later replicated/SQLite control core.
+
+Idempotency is scoped by operation name plus local caller/key; typed input is
+hashed after default-resource resolution, excluding `wait_ms`. Reuse returns the
+same operation/resource without worker effects; changed inputs return
+`IDEMPOTENCY_CONFLICT`. Fork checks the source revision before capture and blocks
+new commands until it finishes. An uncertain fork invalidates parent readiness.
+
+Restart preserves records but never replays an incomplete operation. Such an
+operation becomes `outcome_unknown`; sandbox availability is cleared pending
+real engine reconciliation (T10). Completed operation history is retained, not
+confused with a live-ready resource after restart.
+
+## Evidence and its limits
+
+`go test ./internal/control -count=1 -v` builds real CLI/daemon subprocesses,
+checks their private sockets and framed RPC, and runs a **test-only Rust peer**.
+The Rust peer executes only fixed host probe/marker commands in a temporary
+directory; it implements no VM isolation or real RAM fork. A separate Go peer
+injects delayed acceptance, worker errors, dropped replies, restarts and journal
+failure. Negative tests check UID/PID, Hello, frame limits and response context.
+
+To retain live Rust-path results and independently validate canonical output:
+
+```sh
+LAMP_CONTROL_EVIDENCE_DIR="$PWD/docs/development/evidence/t3" \
+  go test ./internal/control -count=1 -v
+.venv/bin/python internal/control/testdata/validate_evidence.py \
+  docs/development/evidence/t3
+```
+
+See [T3-evidence.md](T3-evidence.md) for captured results. The real T2 worker,
+signed-grant issuance, guest marker, engine/guard attachment and the <500 ms
+create / <1000 ms fork claims remain T6 integration/gate evidence. The host
+fixture is explicitly not a substitute for those tests.
