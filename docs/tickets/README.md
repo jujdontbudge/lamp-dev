@@ -44,7 +44,7 @@ Planned 2026-11-09. The build started the same day.
 
 ## Who builds what
 
-The owner chose five agent setups on 2026-11-09 and asked for the tickets to be split evenly between them, with the hardest ticket on Opus. Each ticket runs in its own checkout.
+The owner chose five agent setups on 2026-11-09 and asked for the tickets to be split evenly between them, with the hardest ticket on Opus. Each ticket runs on its own branch in its own checkout and lands as its own pull request into `main`. The coordinating session stays on `main`, watches every pull request, sends failed checks and review findings back to the ticket's agent, and merges once the checks pass.
 
 | Lane | Harness | Model | Tickets |
 | --- | --- | --- | --- |
