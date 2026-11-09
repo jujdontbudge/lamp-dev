@@ -47,11 +47,12 @@ GOOS=linux GOARCH=arm64 go build ./cmd/lamp ./cmd/lampd
 ## Verification after the T1 merge
 
 Before the first push, merged T1's updated `t3/repo-contracts-skeleton` through
-`cdac0c2f9cd755e07b02feb532772b8c9ffa2557`. Retained its latest canonical
-contracts, independent contract checks, host guard and self-hosted-only CI;
-retained T3's implementation and dependency additions. The two checked-in
-workflows exactly match T1's versions and select only `self-hosted` LX/M5/LA
-runners, never paid GitHub-hosted runners.
+`cdac0c2f9cd755e07b02feb532772b8c9ffa2557`, then its follow-up `bc3dc07`
+(retiring the temporary denied-job probe and preserving its evidence). Retained
+its latest canonical contracts, independent contract checks, host guard and
+self-hosted-only CI; retained T3's implementation and dependency additions.
+The checked-in workflow exactly matches T1's version and selects only
+`self-hosted` LX/M5/LA runners, never paid GitHub-hosted runners.
 
 `make verify` on the resolved merged tree exited 0: Go/Rust builds and tests,
 10 public-contract tests, 6 CI-guard tests, both language-interoperability
