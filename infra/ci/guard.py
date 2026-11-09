@@ -8,6 +8,9 @@ import json
 import os
 from pathlib import Path
 import sys
+import signal
+import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -68,6 +71,40 @@ def read_json(url, token=None):
         return json.loads(data)
 
 
+def deny_job():
+    """Kill only this hook's Worker; hook failure alone permits always() steps.
+
+    Walk parents, never search the host for workers or signal the Listener.
+    No workflow process has started when the runner invokes this hook.
+    """
+    pid = os.getppid()
+    try:
+        seen = set()
+        while pid > 1 and pid not in seen:
+            seen.add(pid)
+            row = subprocess.check_output(
+                ['/bin/ps', '-p', str(pid), '-o', 'ppid=', '-o', 'comm='],
+                text=True, timeout=5).strip().split(None, 1)
+            parent, command = int(row[0]), row[1]
+            if Path(command).name == 'Runner.Worker':
+                os.kill(pid, signal.SIGKILL)
+                print('Lamp host guard: terminated denied Runner.Worker ' + str(pid),
+                      file=sys.stderr, flush=True)
+                return
+            pid = parent
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        pass
+    # Never turn a process-discovery error into a completed failed hook.
+    # Stop here for operator intervention; even SIGINT/SIGTERM must not cause
+    # a normal hook return. Production installation/probes verify ancestry.
+    print('Lamp host guard: cannot terminate Worker; holding hook for operator intervention',
+          file=sys.stderr, flush=True)
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    while True:
+        time.sleep(3600)
+
+
 def main():
     prefix = Path(__file__).resolve().parent
     if (prefix / "PAUSED").exists():
@@ -106,5 +143,6 @@ if __name__ == "__main__":
         main()
     except Exception as error:
         # Never print the JWT, request URL, job token, payload or raw HTTP error.
-        print("Lamp host guard: DENIED (" + type(error).__name__ + "); no job steps authorized", file=sys.stderr)
+        print("Lamp host guard: DENIED (" + type(error).__name__ + "); no job steps authorized", file=sys.stderr, flush=True)
+        deny_job()
         sys.exit(1)

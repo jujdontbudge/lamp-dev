@@ -2,6 +2,9 @@ import copy
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest import mock
+import signal
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("guard", ROOT / "infra/ci/guard.py")
@@ -19,6 +22,27 @@ class Guard(unittest.TestCase):
         self.env = {"GITHUB_REPOSITORY": self.claims["repository"], "GITHUB_REF": self.claims["ref"],
                     "GITHUB_SHA": self.claims["sha"], "GITHUB_RUN_ID": "123", "GITHUB_EVENT_NAME": "push",
                     "GITHUB_ACTOR_ID": "68117503", "GITHUB_TRIGGERING_ACTOR": "JohanSardar"}
+
+    def test_denial_kills_only_ancestor_worker(self):
+        with mock.patch.object(guard.os, 'getppid', return_value=40), \
+             mock.patch.object(guard.subprocess, 'check_output', side_effect=[
+                 '30 /bin/bash', '20 /host/runner/bin/Runner.Worker']) as ps, \
+             mock.patch.object(guard.os, 'kill') as kill:
+            guard.deny_job()
+        kill.assert_called_once_with(30, signal.SIGKILL)
+        self.assertEqual([call.args[0][2] for call in ps.call_args_list], ['40', '30'])
+
+    def test_discovery_failure_never_returns_a_failed_hook(self):
+        for rows in [subprocess.CalledProcessError(1, 'ps'), ['1 /bin/shell']]:
+            with self.subTest(rows=rows), \
+                 mock.patch.object(guard.os, 'getppid', return_value=40), \
+                 mock.patch.object(guard.subprocess, 'check_output', side_effect=rows), \
+                 mock.patch.object(guard.os, 'kill') as kill, \
+                 mock.patch.object(guard.signal, 'signal'), \
+                 mock.patch.object(guard.time, 'sleep', side_effect=RuntimeError('still blocked')):
+                with self.assertRaisesRegex(RuntimeError, 'still blocked'):
+                    guard.deny_job()
+                kill.assert_not_called()
 
     def test_private_owner_push(self):
         guard.authorize(self.claims, self.env, False)

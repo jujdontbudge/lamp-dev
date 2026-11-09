@@ -36,6 +36,27 @@ class Contracts(unittest.TestCase):
         spec=(ROOT/'docs/spec/architecture.md').read_text().replace('`input` is a tagged object','`input` is an altered tagged object')
         with self.assertRaises(AssertionError):conformance.check(architecture=spec)
 
+    def test_reviewed_resource_and_operation_drift(self):
+        def move_deadline(schema):
+            defs = schema['$defs']
+            defs['HostBenchInput']['properties']['deadline_ms'] = defs['HostDrainInput']['properties'].pop('deadline_ms')
+        mutations = {
+            'missing common resource field': lambda s: s['$defs']['Sandbox']['properties'].pop('owner_id'),
+            'invented resource field': lambda s: s['$defs']['Sandbox']['properties'].update(invented_authority={'type':'string'}),
+            'input moved between actions': move_deadline,
+            'wrong extra route': lambda s: s['x-lamp-operations']['sandbox_resume'].update(path='/v1/wrong'),
+            'wrong extra method': lambda s: s['x-lamp-operations']['sandbox_resume'].update(method='get'),
+            'missing result field': lambda s: s['$defs']['SandboxPrepareForkCompletion']['properties'].pop('generation'),
+            'invented input field': lambda s: s['$defs']['HostDrainInput']['properties'].update(invented={'type':'string'}),
+            'invented result field': lambda s: s['$defs']['SandboxPrepareForkCompletion']['properties'].update(invented={'type':'string'}),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label):
+                schema = copy.deepcopy(SCHEMA)
+                mutate(schema)
+                with self.assertRaises(AssertionError):
+                    conformance.check(schema)
+
     def test_create_and_unknown_fields(self):
         good={'template_id':'tp_fixture','idempotency_key':'lk1.1.hs.fixture'}
         validate('SandboxCreateInput',good)
