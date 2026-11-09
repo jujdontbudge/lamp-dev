@@ -67,15 +67,30 @@ cp packages.txt "$OUT/packages.txt"
 python3 - "$OUT" "$KERNEL_VERSION" "$KERNEL_SHA256" "$SUITE" "$BIN/lamp-init" "$BIN/lamp-guest-helper" <<'PY'
 import hashlib, json, os, sys
 out, kver, ksha, suite, init, helper = sys.argv[1:]
+CHUNK = 4 << 20
+ZERO = hashlib.sha256(bytes(CHUNK)).digest()
 def digest(p):
-    h = hashlib.sha256()
+    # sha256-c4m: SHA-256 over the SHA-256 of each 4 MiB chunk (holes skipped).
+    out = hashlib.sha256()
+    size = os.path.getsize(p)
     with open(p, 'rb') as f:
-        while chunk := f.read(1 << 22):
-            h.update(chunk)
-    return h.hexdigest()
-obj = lambda p: {"sha256": digest(p), "size": os.path.getsize(p)}
+        fd = f.fileno()
+        for start in range(0, size, CHUNK):
+            n = min(CHUNK, size - start)
+            try:
+                data_at = os.lseek(fd, start, os.SEEK_DATA)
+            except OSError:
+                data_at = size
+            if n == CHUNK and data_at >= start + n:
+                out.update(ZERO)
+                continue
+            f.seek(start)
+            out.update(hashlib.sha256(f.read(n)).digest())
+    return out.hexdigest()
+obj = lambda p: {"digest": digest(p), "size": os.path.getsize(p)}
 seed = {
     "format": "lamp.seed/v0",
+    "digest_alg": "sha256-c4m",
     "name": "debian-13",
     "guest_os": "linux",
     "arch": "x86_64",
@@ -83,7 +98,7 @@ seed = {
                "cmdline": "console=ttyS0 reboot=k panic=1 pci=off i8042.noaux i8042.nomux i8042.dumbkbd root=/dev/vda rw init=/sbin/lamp-init quiet"},
     "rootfs": {**obj(os.path.join(out, "rootfs.ext4")), "filesystem": "ext4", "distribution": f"debian {suite}"},
     "init": {"lamp-init": digest(init), "lamp-guest-helper": digest(helper)},
-    "packages": {"sha256": digest(os.path.join(out, "packages.txt"))},
+    "packages": obj(os.path.join(out, "packages.txt")),
 }
 with open(os.path.join(out, "seed.json"), "w") as f:
     f.write(json.dumps(seed, sort_keys=True, separators=(",", ":")))

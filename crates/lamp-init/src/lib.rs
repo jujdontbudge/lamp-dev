@@ -152,7 +152,7 @@ pub fn b64_encode(data: &[u8]) -> String {
 
 pub fn b64_decode(text: &str) -> Option<Vec<u8>> {
     let bytes = text.as_bytes();
-    if bytes.len() % 4 != 0 {
+    if !bytes.len().is_multiple_of(4) {
         return None;
     }
     let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
@@ -188,7 +188,7 @@ pub fn hex_encode(data: &[u8]) -> String {
 }
 
 pub fn hex_decode(text: &str) -> Option<Vec<u8>> {
-    if text.len() % 2 != 0 {
+    if !text.len().is_multiple_of(2) {
         return None;
     }
     (0..text.len())

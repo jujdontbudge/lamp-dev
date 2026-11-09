@@ -3,6 +3,9 @@
 use prost::Message;
 use std::io::{self, Read, Write};
 include!("lamp.worker.v1.rs");
+pub mod grant;
+#[cfg(unix)]
+pub mod unix;
 pub const PROTOCOL: &str = "lamp.worker/1";
 pub const MAX_CONTROL_BYTES: usize = 1 << 20;
 
