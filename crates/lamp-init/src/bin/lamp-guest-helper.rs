@@ -102,7 +102,8 @@ mod linux {
                 Ok(r) => r,
                 Err(e) => {
                     if e.kind() == io::ErrorKind::InvalidData {
-                        let _ = write_frame(&mut stream, &error("INVALID_ARGUMENT", &e.to_string()));
+                        let _ =
+                            write_frame(&mut stream, &error("INVALID_ARGUMENT", &e.to_string()));
                     }
                     return;
                 }
@@ -127,7 +128,7 @@ mod linux {
 
     fn handle(request: GuestRequest, state: &Shared) -> GuestResponse {
         match request {
-            GuestRequest::Ping => {
+            GuestRequest::Ping(Empty {}) => {
                 let id = state.lock().unwrap();
                 GuestResponse::Pong(Status {
                     sandbox_id: id.sandbox_id.clone(),
@@ -142,7 +143,10 @@ mod linux {
             GuestRequest::Exec(x) => {
                 {
                     let id = state.lock().unwrap();
-                    if id.generation == 0 || id.sandbox_id != x.sandbox_id || id.generation != x.generation {
+                    if id.generation == 0
+                        || id.sandbox_id != x.sandbox_id
+                        || id.generation != x.generation
+                    {
                         return error(
                             "GENERATION_MISMATCH",
                             "command refused: identity barrier for this sandbox/generation not applied",
@@ -154,7 +158,7 @@ mod linux {
                     Err(e) => error("EXEC_FAILED", &e.to_string()),
                 }
             }
-            GuestRequest::Shutdown => GuestResponse::ShuttingDown,
+            GuestRequest::Shutdown(Empty {}) => GuestResponse::ShuttingDown,
         }
     }
 
@@ -211,7 +215,9 @@ mod linux {
     fn add_entropy(entropy: &[u8]) -> io::Result<()> {
         const RNDADDENTROPY: u64 = 0x4008_5203;
         const RNDRESEEDCRNG: u64 = 0x5207;
-        let file = std::fs::OpenOptions::new().write(true).open("/dev/urandom")?;
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .open("/dev/urandom")?;
         let fd = std::os::fd::AsRawFd::as_raw_fd(&file);
         let mut buf = Vec::with_capacity(8 + entropy.len());
         buf.extend_from_slice(&((entropy.len() * 8) as i32).to_ne_bytes());
@@ -263,7 +269,10 @@ mod linux {
         command
             .args(&x.argv[1..])
             .env_clear()
-            .env("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+            .env(
+                "PATH",
+                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            )
             .env("HOME", "/root")
             .env("LANG", "C.UTF-8")
             .envs(&x.env)

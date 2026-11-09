@@ -16,5 +16,7 @@ pub mod fc;
 pub mod fsutil;
 #[cfg(target_os = "linux")]
 pub mod guest;
+#[cfg(target_os = "linux")]
+pub mod layer;
 
 pub use error::{EngineError, Result};

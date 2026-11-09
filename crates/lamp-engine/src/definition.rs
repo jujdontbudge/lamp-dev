@@ -57,10 +57,14 @@ pub fn parse_seed_ref(text: &str) -> Result<SeedRef> {
         .split_once("@sha256:")
         .ok_or_else(|| EngineError::invalid("seed_ref must pin @sha256:<digest>"))?;
     if !valid_name(name) {
-        return Err(EngineError::invalid("seed name must be lowercase [a-z0-9.-]"));
+        return Err(EngineError::invalid(
+            "seed name must be lowercase [a-z0-9.-]",
+        ));
     }
     if !is_hex64(digest) {
-        return Err(EngineError::invalid("seed digest must be 64 lowercase hex characters"));
+        return Err(EngineError::invalid(
+            "seed digest must be 64 lowercase hex characters",
+        ));
     }
     Ok(SeedRef {
         name: name.into(),
@@ -69,7 +73,9 @@ pub fn parse_seed_ref(text: &str) -> Result<SeedRef> {
 }
 
 pub fn is_hex64(s: &str) -> bool {
-    s.len() == 64 && s.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    s.len() == 64
+        && s.bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
 
 fn valid_name(s: &str) -> bool {
@@ -114,7 +120,9 @@ impl Definition {
             return Err(EngineError::invalid("name must be 1..63 of [a-z0-9.-]"));
         }
         if self.guest_os != "linux" {
-            return Err(EngineError::invalid("this engine builds guest_os = \"linux\" only"));
+            return Err(EngineError::invalid(
+                "this engine builds guest_os = \"linux\" only",
+            ));
         }
         if !matches!(self.arch.as_str(), "x86_64" | "arm64") {
             return Err(EngineError::invalid("arch must be x86_64 or arm64"));
@@ -123,7 +131,9 @@ impl Definition {
         if let Some(lock) = &self.package_lock_blob_id
             && (!lock.starts_with("bl_") || lock.contains('<'))
         {
-            return Err(EngineError::invalid("package_lock_blob_id must be a bl_ blob id"));
+            return Err(EngineError::invalid(
+                "package_lock_blob_id must be a bl_ blob id",
+            ));
         }
         if self.network != "none" {
             return Err(EngineError::invalid(
@@ -135,11 +145,15 @@ impl Definition {
         }
         for (i, step) in self.steps.iter().enumerate() {
             if step.argv.is_empty() || step.argv.len() > 4096 {
-                return Err(EngineError::invalid(format!("step {i}: argv must have 1..4096 items")));
+                return Err(EngineError::invalid(format!(
+                    "step {i}: argv must have 1..4096 items"
+                )));
             }
             let size: usize = step.argv.iter().map(String::len).sum();
             if size > 64 << 10 || step.argv.iter().any(|a| a.contains('\0')) {
-                return Err(EngineError::invalid(format!("step {i}: argv too large or contains NUL")));
+                return Err(EngineError::invalid(format!(
+                    "step {i}: argv too large or contains NUL"
+                )));
             }
             let docker = ["docker", "dockerd", "podman", "buildah"];
             let program = step.argv[0].rsplit('/').next().unwrap_or("");
@@ -151,10 +165,14 @@ impl Definition {
             if let Some(cwd) = &step.cwd
                 && !cwd.starts_with('/')
             {
-                return Err(EngineError::invalid(format!("step {i}: cwd must be absolute")));
+                return Err(EngineError::invalid(format!(
+                    "step {i}: cwd must be absolute"
+                )));
             }
             if step.timeout_s.is_some_and(|t| t == 0 || t > 3600) {
-                return Err(EngineError::invalid(format!("step {i}: timeout_s must be 1..3600")));
+                return Err(EngineError::invalid(format!(
+                    "step {i}: timeout_s must be 1..3600"
+                )));
             }
         }
         Ok(())

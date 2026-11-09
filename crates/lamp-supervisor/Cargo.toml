@@ -4,5 +4,14 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+description = "Privileged local Lamp supervisor serving lamp.worker/1 over a peer-authenticated Unix socket."
+
 [dependencies]
 lamp-worker-protocol = { path = "../lamp-worker-protocol" }
+lamp-engine = { path = "../lamp-engine" }
+lamp-init = { path = "../lamp-init" }
+serde_json.workspace = true
+prost.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true

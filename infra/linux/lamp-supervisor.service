@@ -1,0 +1,19 @@
+# Installed by infra/linux/install-engine.sh. The supervisor is the only
+# privileged Lamp service; callers are admitted by peer UID (--allow-uid).
+[Unit]
+Description=Lamp supervisor (lamp.worker/1, Firecracker engine)
+Requires=var-lib-lamp.mount
+After=var-lib-lamp.mount network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/lib/lamp/lamp-supervisor serve --store /var/lib/lamp --socket /run/lamp/worker.sock @ALLOW_UIDS@
+Restart=on-failure
+KillMode=mixed
+TimeoutStopSec=30
+# VMMs live in their own cgroups (lamp/<jail>), not in this unit's.
+Delegate=no
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

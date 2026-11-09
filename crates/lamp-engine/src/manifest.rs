@@ -33,7 +33,10 @@ pub fn combine(chunks: &[[u8; 32]]) -> String {
 
 /// In-memory reference implementation (tests and small objects).
 pub fn digest_bytes(data: &[u8]) -> String {
-    let chunks: Vec<[u8; 32]> = data.chunks(CHUNK).map(|c| Sha256::digest(c).into()).collect();
+    let chunks: Vec<[u8; 32]> = data
+        .chunks(CHUNK)
+        .map(|c| Sha256::digest(c).into())
+        .collect();
     combine(&chunks)
 }
 
@@ -149,12 +152,14 @@ impl Provenance {
     }
 
     pub fn verify(&self, key: &VerifyingKey) -> Result<()> {
-        let bytes = lamp_init::hex_decode(&self.signature)
-            .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "malformed provenance signature"))?;
+        let bytes = lamp_init::hex_decode(&self.signature).ok_or_else(|| {
+            EngineError::new("DATA_UNAVAILABLE", "malformed provenance signature")
+        })?;
         let sig = Signature::from_slice(&bytes)
             .map_err(|_| EngineError::new("DATA_UNAVAILABLE", "malformed provenance signature"))?;
-        key.verify(&self.signing_bytes()?, &sig)
-            .map_err(|_| EngineError::new("DATA_UNAVAILABLE", "provenance signature does not verify"))
+        key.verify(&self.signing_bytes()?, &sig).map_err(|_| {
+            EngineError::new("DATA_UNAVAILABLE", "provenance signature does not verify")
+        })
     }
 }
 

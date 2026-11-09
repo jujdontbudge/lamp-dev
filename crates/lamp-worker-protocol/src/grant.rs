@@ -48,8 +48,8 @@ pub fn verify_grant(
     let key = issuers
         .get(&grant.issuer_key_id)
         .ok_or(GrantError("unknown grant issuer"))?;
-    let signature =
-        Signature::from_slice(&grant.signature).map_err(|_| GrantError("malformed grant signature"))?;
+    let signature = Signature::from_slice(&grant.signature)
+        .map_err(|_| GrantError("malformed grant signature"))?;
     key.verify(&signing_bytes(grant), &signature)
         .map_err(|_| GrantError("bad grant signature"))?;
     if grant.grant_id.is_empty() || grant.kind == HandleKind::Unspecified as i32 {
@@ -69,7 +69,9 @@ pub fn verify_grant(
         || grant.generation != want.generation
         || grant.policy_revision != want.policy_revision
     {
-        return Err(GrantError("grant bound to another sandbox/generation/policy"));
+        return Err(GrantError(
+            "grant bound to another sandbox/generation/policy",
+        ));
     }
     if grant.expires_at_ms <= want.now_ms {
         return Err(GrantError("grant expired"));
@@ -161,7 +163,10 @@ mod tests {
         assert!(verify_grant(&t, &issuers, &want()).is_err());
         let mut w = want();
         w.now_ms = 1000;
-        assert_eq!(verify_grant(&g, &issuers, &w), Err(GrantError("grant expired")));
+        assert_eq!(
+            verify_grant(&g, &issuers, &w),
+            Err(GrantError("grant expired"))
+        );
         let mut w = want();
         w.pid = 12;
         assert!(verify_grant(&g, &issuers, &w).is_err());

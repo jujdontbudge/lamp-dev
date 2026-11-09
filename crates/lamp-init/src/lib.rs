@@ -18,14 +18,19 @@ pub const DEFAULT_OUTPUT_LIMIT: usize = 64 << 10;
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum GuestRequest {
     /// Liveness only. Never admits task I/O.
-    Ping,
+    Ping(Empty),
     /// Identity barrier: must succeed for the current sandbox/generation
     /// before any command is admitted.
     Barrier(Barrier),
     Exec(Exec),
     /// Flush and power off (used by template builds).
-    Shutdown,
+    Shutdown(Empty),
 }
+
+/// Payload of commands without arguments; still rejects unknown fields.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Empty {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -207,8 +212,7 @@ pub fn validate_barrier(b: &Barrier) -> Result<(), String> {
     }
     let host_ok = !b.hostname.is_empty()
         && b.hostname.len() <= 63
-        && b
-            .hostname
+        && b.hostname
             .bytes()
             .all(|c| c.is_ascii_alphanumeric() || c == b'-');
     if !host_ok {
@@ -256,7 +260,16 @@ mod tests {
         });
         let mut buf = Vec::new();
         write_frame(&mut buf, &req).unwrap();
-        assert_eq!(read_frame::<GuestRequest>(&mut buf.as_slice()).unwrap(), req);
+        assert_eq!(
+            read_frame::<GuestRequest>(&mut buf.as_slice()).unwrap(),
+            req
+        );
+        let mut ping = Vec::new();
+        write_frame(&mut ping, &GuestRequest::Ping(Empty {})).unwrap();
+        assert_eq!(
+            read_frame::<GuestRequest>(&mut ping.as_slice()).unwrap(),
+            GuestRequest::Ping(Empty {})
+        );
         let bad = br#"{"op":"ping","extra":1}"#;
         let mut framed = (bad.len() as u32).to_be_bytes().to_vec();
         framed.extend_from_slice(bad);

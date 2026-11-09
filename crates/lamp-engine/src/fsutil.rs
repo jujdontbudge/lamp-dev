@@ -2,7 +2,7 @@
 //! hole punching. The store must be a reflink-capable filesystem (XFS with
 //! reflink=1 on the reference host).
 use crate::error::{EngineError, IoContext, Result};
-use crate::manifest::{combine, zero_chunk_digest, Object, CHUNK};
+use crate::manifest::{CHUNK, Object, combine, zero_chunk_digest};
 use sha2::{Digest, Sha256};
 use std::ffi::CString;
 use std::fs::{File, OpenOptions};
@@ -37,7 +37,8 @@ pub fn reflink(src: &Path, dst: &Path, mode: u32) -> Result<()> {
 }
 
 pub fn chown(path: &Path, uid: u32, gid: u32) -> Result<()> {
-    let c = CString::new(path.as_os_str().as_bytes()).map_err(|_| EngineError::invalid("NUL in path"))?;
+    let c = CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| EngineError::invalid("NUL in path"))?;
     // SAFETY: valid C string.
     if unsafe { libc::chown(c.as_ptr(), uid, gid) } != 0 {
         return Err(EngineError::host(format!(
@@ -50,7 +51,8 @@ pub fn chown(path: &Path, uid: u32, gid: u32) -> Result<()> {
 }
 
 pub fn chmod(path: &Path, mode: u32) -> Result<()> {
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).ctx(format!("chmod {}", path.display()))
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
+        .ctx(format!("chmod {}", path.display()))
 }
 
 pub fn fsync_path(path: &Path) -> Result<()> {
@@ -89,7 +91,10 @@ pub fn sparsify(path: &Path) -> Result<u64> {
                     )
                 };
                 if rc != 0 {
-                    return Err(EngineError::host(format!("punch hole: {}", std::io::Error::last_os_error())));
+                    return Err(EngineError::host(format!(
+                        "punch hole: {}",
+                        std::io::Error::last_os_error()
+                    )));
                 }
                 punched += block.len() as u64;
             }
@@ -110,9 +115,14 @@ fn is_hole(fd: i32, start: u64, end: u64) -> bool {
 /// `sha256-c4m` object digest of a file, hashing data chunks in parallel and
 /// substituting the known zero digest for chunks that are entirely holes.
 pub fn digest_file(path: &Path) -> Result<Object> {
-    let len = std::fs::metadata(path).ctx(format!("stat {}", path.display()))?.len();
+    let len = std::fs::metadata(path)
+        .ctx(format!("stat {}", path.display()))?
+        .len();
     let count = len.div_ceil(CHUNK as u64) as usize;
-    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(8);
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(8);
     let zero_full = zero_chunk_digest(CHUNK);
     let mut digests = vec![[0_u8; 32]; count];
     let next = std::sync::atomic::AtomicUsize::new(0);
@@ -136,15 +146,19 @@ pub fn digest_file(path: &Path) -> Result<Object> {
                     }
                     let start = (i * CHUNK) as u64;
                     let n = (len - start).min(CHUNK as u64) as usize;
-                    let d: [u8; 32] = if n == CHUNK && is_hole(f.as_raw_fd(), start, start + n as u64) {
-                        zero_full
-                    } else {
-                        if let Err(e) = f.seek(SeekFrom::Start(start)).and_then(|_| f.read_exact(&mut buf[..n])) {
-                            *failure.lock().unwrap() = Some(e.to_string());
-                            return;
-                        }
-                        Sha256::digest(&buf[..n]).into()
-                    };
+                    let d: [u8; 32] =
+                        if n == CHUNK && is_hole(f.as_raw_fd(), start, start + n as u64) {
+                            zero_full
+                        } else {
+                            if let Err(e) = f
+                                .seek(SeekFrom::Start(start))
+                                .and_then(|_| f.read_exact(&mut buf[..n]))
+                            {
+                                *failure.lock().unwrap() = Some(e.to_string());
+                                return;
+                            }
+                            Sha256::digest(&buf[..n]).into()
+                        };
                     results.lock().unwrap().push((i, d));
                 }
             });
@@ -172,6 +186,14 @@ pub fn verify_object(path: &Path, want: &Object, what: &str) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+/// Starts asynchronous writeback of a file's dirty pages without waiting.
+pub fn start_writeback(path: &Path) {
+    if let Ok(f) = File::open(path) {
+        // SAFETY: plain syscall on our descriptor.
+        unsafe { libc::sync_file_range(f.as_raw_fd(), 0, 0, libc::SYNC_FILE_RANGE_WRITE) };
+    }
 }
 
 pub fn random_bytes<const N: usize>() -> [u8; N] {

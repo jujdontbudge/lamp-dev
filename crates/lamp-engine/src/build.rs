@@ -8,7 +8,7 @@ use crate::fc::{self, Jail, Limits};
 use crate::fsutil::{self, now_ms, random_bytes};
 use crate::guest;
 use crate::manifest::{self, AccelerationVariant, Manifest, Object, Provenance, StepRecord};
-use lamp_init::{Exec, GuestRequest, GuestResponse};
+use lamp_init::{Empty, Exec, GuestRequest, GuestResponse};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -75,16 +75,34 @@ pub fn verify_seed(dir: &Path, expected_digest: Option<&str>) -> Result<(Seed, S
     let bytes = std::fs::read(dir.join("seed.json")).ctx("read seed.json")?;
     let digest = manifest::sha256_hex(&bytes);
     if expected_digest.is_some_and(|d| d != digest) {
-        return Err(EngineError::new("DATA_UNAVAILABLE", "seed.json digest does not match seed_ref"));
+        return Err(EngineError::new(
+            "DATA_UNAVAILABLE",
+            "seed.json digest does not match seed_ref",
+        ));
     }
-    let seed: Seed =
-        serde_json::from_slice(&bytes).map_err(|e| EngineError::new("DATA_UNAVAILABLE", format!("seed.json: {e}")))?;
+    let seed: Seed = serde_json::from_slice(&bytes)
+        .map_err(|e| EngineError::new("DATA_UNAVAILABLE", format!("seed.json: {e}")))?;
     if seed.format != "lamp.seed/v0" || seed.digest_alg != manifest::DIGEST_ALG {
         return Err(EngineError::invalid("unsupported seed format"));
     }
-    check(&dir.join(fc::KERNEL), &seed.kernel.digest, seed.kernel.size, "seed kernel")?;
-    check(&dir.join(fc::ROOTFS), &seed.rootfs.digest, seed.rootfs.size, "seed root")?;
-    check(&dir.join("packages.txt"), &seed.packages.digest, seed.packages.size, "seed package list")?;
+    check(
+        &dir.join(fc::KERNEL),
+        &seed.kernel.digest,
+        seed.kernel.size,
+        "seed kernel",
+    )?;
+    check(
+        &dir.join(fc::ROOTFS),
+        &seed.rootfs.digest,
+        seed.rootfs.size,
+        "seed root",
+    )?;
+    check(
+        &dir.join("packages.txt"),
+        &seed.packages.digest,
+        seed.packages.size,
+        "seed package list",
+    )?;
     Ok((seed, digest))
 }
 
@@ -93,7 +111,10 @@ pub fn import_seed(engine: &Engine, src: &Path) -> Result<String> {
     let (seed, digest) = verify_seed(src, None)?;
     let dest = engine.cfg.store.join("seeds").join(&digest);
     if !dest.exists() {
-        let tmp = engine.cfg.store.join("staging").join(format!("seed-{}", lamp_init::hex_encode(&random_bytes::<6>())));
+        let tmp = engine.cfg.store.join("staging").join(format!(
+            "seed-{}",
+            lamp_init::hex_encode(&random_bytes::<6>())
+        ));
         std::fs::create_dir_all(&tmp).ctx("create seed staging")?;
         for f in ["seed.json", fc::KERNEL, fc::ROOTFS, "packages.txt"] {
             let status = std::process::Command::new("cp")
@@ -156,7 +177,13 @@ impl Drop for JailGuard<'_> {
     }
 }
 
-fn boot(jail: &mut Jail, engine: &Engine, cmdline: &str, vcpus: u32, memory_mib: u64) -> Result<()> {
+fn boot(
+    jail: &mut Jail,
+    engine: &Engine,
+    cmdline: &str,
+    vcpus: u32,
+    memory_mib: u64,
+) -> Result<()> {
     jail.spawn(
         &engine.cfg.bins,
         Limits {
@@ -168,7 +195,11 @@ fn boot(jail: &mut Jail, engine: &Engine, cmdline: &str, vcpus: u32, memory_mib:
     jail.api(
         "PUT",
         "/boot-source",
-        &format!(r#"{{"kernel_image_path":"/{}","boot_args":{}}}"#, fc::KERNEL, fc::js(cmdline)),
+        &format!(
+            r#"{{"kernel_image_path":"/{}","boot_args":{}}}"#,
+            fc::KERNEL,
+            fc::js(cmdline)
+        ),
     )?;
     jail.api(
         "PUT",
@@ -178,9 +209,15 @@ fn boot(jail: &mut Jail, engine: &Engine, cmdline: &str, vcpus: u32, memory_mib:
     jail.api(
         "PUT",
         "/machine-config",
-        &format!(r#"{{"vcpu_count":{vcpus},"mem_size_mib":{memory_mib},"track_dirty_pages":true}}"#),
+        &format!(
+            r#"{{"vcpu_count":{vcpus},"mem_size_mib":{memory_mib},"track_dirty_pages":true}}"#
+        ),
     )?;
-    jail.api("PUT", "/vsock", &format!(r#"{{"guest_cid":3,"uds_path":"/{}"}}"#, fc::VSOCK))?;
+    jail.api(
+        "PUT",
+        "/vsock",
+        &format!(r#"{{"guest_cid":3,"uds_path":"/{}"}}"#, fc::VSOCK),
+    )?;
     jail.api("PUT", "/actions", r#"{"action_type":"InstanceStart"}"#)?;
     guest::wait_ready(&jail.path(fc::VSOCK), Duration::from_secs(60))?;
     Ok(())
@@ -201,7 +238,10 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
     let started = Instant::now();
     let def: Definition = definition::parse(definition_text)?;
     if def.arch != host_arch() {
-        return Err(EngineError::new("ENGINE_UNQUALIFIED", format!("this host builds {} templates", host_arch())));
+        return Err(EngineError::new(
+            "ENGINE_UNQUALIFIED",
+            format!("this host builds {} templates", host_arch()),
+        ));
     }
     let seed_ref = definition::parse_seed_ref(&def.seed_ref)?;
     let seed_dir = engine.cfg.store.join("seeds").join(&seed_ref.digest);
@@ -210,17 +250,29 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
     }
     let (seed, _) = verify_seed(&seed_dir, Some(&seed_ref.digest))?;
     if seed.name != seed_ref.name || seed.arch != def.arch || seed.guest_os != def.guest_os {
-        return Err(EngineError::invalid("seed does not match the definition's name/arch/guest_os"));
+        return Err(EngineError::invalid(
+            "seed does not match the definition's name/arch/guest_os",
+        ));
     }
     let tag = lamp_init::hex_encode(&random_bytes::<5>());
     let mut staging = Staging {
-        dir: engine.cfg.store.join("staging").join(format!("build-{tag}")),
+        dir: engine
+            .cfg
+            .store
+            .join("staging")
+            .join(format!("build-{tag}")),
         done: false,
     };
     std::fs::create_dir_all(&staging.dir).ctx("create staging")?;
     let st = staging.dir.clone();
     let mut log = String::new();
-    let _ = writeln!(log, "definition: {} ({} steps), seed {}", def.name, def.steps.len(), def.seed_ref);
+    let _ = writeln!(
+        log,
+        "definition: {} ({} steps), seed {}",
+        def.name,
+        def.steps.len(),
+        def.seed_ref
+    );
 
     // 1. Build sandbox from the seed; run steps with no network.
     let mut steps = Vec::new();
@@ -235,7 +287,11 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         fsutil::chown(&b.get().path(fc::ROOTFS), uid, uid)?;
         let t = Instant::now();
         boot(b.get(), engine, &seed.kernel.cmdline, 2, 2048)?;
-        let _ = writeln!(log, "build sandbox booted in {} ms", t.elapsed().as_millis());
+        let _ = writeln!(
+            log,
+            "build sandbox booted in {} ms",
+            t.elapsed().as_millis()
+        );
         let vsock = b.get().path(fc::VSOCK);
         let build_id = format!("sb_build_{tag}");
         engine.barrier(&vsock, &build_id, 1)?;
@@ -259,9 +315,21 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
                 GuestResponse::ExecDone(d) => d,
                 other => return Err(EngineError::host(format!("step {i}: {other:?}"))),
             };
-            let out = String::from_utf8_lossy(&lamp_init::b64_decode(&done.stdout_b64).unwrap_or_default()).into_owned();
-            let err = String::from_utf8_lossy(&lamp_init::b64_decode(&done.stderr_b64).unwrap_or_default()).into_owned();
-            let _ = writeln!(log, "step {i} {:?}: exit {} in {} ms\n{out}{err}", step.argv, done.exit_code, t.elapsed().as_millis());
+            let out = String::from_utf8_lossy(
+                &lamp_init::b64_decode(&done.stdout_b64).unwrap_or_default(),
+            )
+            .into_owned();
+            let err = String::from_utf8_lossy(
+                &lamp_init::b64_decode(&done.stderr_b64).unwrap_or_default(),
+            )
+            .into_owned();
+            let _ = writeln!(
+                log,
+                "step {i} {:?}: exit {} in {} ms\n{out}{err}",
+                step.argv,
+                done.exit_code,
+                t.elapsed().as_millis()
+            );
             if done.exit_code != 0 || done.timed_out {
                 let failed = engine.cfg.store.join("failed");
                 let _ = std::fs::create_dir_all(&failed);
@@ -277,14 +345,19 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
                 elapsed_ms: t.elapsed().as_millis() as u64,
             });
         }
-        match guest::call(&vsock, &GuestRequest::Shutdown, Duration::from_secs(10))? {
+        match guest::call(
+            &vsock,
+            &GuestRequest::Shutdown(Empty {}),
+            Duration::from_secs(10),
+        )? {
             GuestResponse::ShuttingDown => {}
             other => return Err(EngineError::host(format!("shutdown: {other:?}"))),
         }
         if !b.get().wait_exit(Duration::from_secs(60)) {
             return Err(EngineError::host("build sandbox did not power off"));
         }
-        std::fs::rename(b.get().path(fc::ROOTFS), st.join("root.ext4")).ctx("collect built root")?;
+        std::fs::rename(b.get().path(fc::ROOTFS), st.join("root.ext4"))
+            .ctx("collect built root")?;
     }
     fsutil::reflink(&seed_dir.join(fc::KERNEL), &st.join(fc::KERNEL), 0o444)?;
     seal(&st.join("root.ext4"))?;
@@ -302,7 +375,13 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         fsutil::reflink(&st.join("root.ext4"), &v.get().path(fc::ROOTFS), 0o600)?;
         fsutil::chown(&v.get().path(fc::ROOTFS), uid, uid)?;
         let t = Instant::now();
-        boot(v.get(), engine, &seed.kernel.cmdline, STANDARD.vcpus, STANDARD.memory_mib)?;
+        boot(
+            v.get(),
+            engine,
+            &seed.kernel.cmdline,
+            STANDARD.vcpus,
+            STANDARD.memory_mib,
+        )?;
         let _ = writeln!(log, "template VM booted in {} ms", t.elapsed().as_millis());
         // Let boot-time work settle so the captured guest is idle.
         std::thread::sleep(Duration::from_millis(500));
@@ -321,14 +400,22 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
                 fc::VMSTATE
             ),
         )?;
-        let _ = writeln!(log, "full capture written in {} ms", t.elapsed().as_millis());
+        let _ = writeln!(
+            log,
+            "full capture written in {} ms",
+            t.elapsed().as_millis()
+        );
         v.get().kill();
         for f in [fc::MEM, fc::VMSTATE, fc::ROOTFS] {
             std::fs::rename(v.get().path(f), st.join(f)).ctx("collect variant")?;
         }
     }
     let punched = fsutil::sparsify(&st.join(fc::MEM))?;
-    let _ = writeln!(log, "memory image: {} MiB of zero pages left as holes", punched >> 20);
+    let _ = writeln!(
+        log,
+        "memory image: {} MiB of zero pages left as holes",
+        punched >> 20
+    );
     for f in [fc::MEM, fc::VMSTATE, fc::ROOTFS] {
         seal(&st.join(f))?;
     }
@@ -351,7 +438,11 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         kernel,
         steps,
         built_at_unix_ms: now_ms(),
-        builder: format!("lamp-engine {} on {}", env!("CARGO_PKG_VERSION"), engine.cfg.host_id),
+        builder: format!(
+            "lamp-engine {} on {}",
+            env!("CARGO_PKG_VERSION"),
+            engine.cfg.host_id
+        ),
         acceleration_variants: vec![AccelerationVariant {
             compatibility: compat.clone(),
             resources: STANDARD,
@@ -374,8 +465,16 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         signature: String::new(),
     };
     engine.sign_provenance(&mut provenance)?;
-    std::fs::write(st.join("manifest.json"), manifest::canonical_json(&manifest)?).ctx("write manifest")?;
-    std::fs::write(st.join("provenance.json"), manifest::canonical_json(&provenance)?).ctx("write provenance")?;
+    std::fs::write(
+        st.join("manifest.json"),
+        manifest::canonical_json(&manifest)?,
+    )
+    .ctx("write manifest")?;
+    std::fs::write(
+        st.join("provenance.json"),
+        manifest::canonical_json(&provenance)?,
+    )
+    .ctx("write provenance")?;
     std::fs::write(st.join("build.log"), &log).ctx("write build log")?;
     for f in ["manifest.json", "provenance.json", "build.log"] {
         seal(&st.join(f))?;
@@ -386,7 +485,9 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
     let id = manifest::template_id(&digest);
     let dest = engine.cfg.store.join("templates").join(&id);
     if dest.exists() {
-        return Err(EngineError::in_use(format!("template {id} already published")));
+        return Err(EngineError::in_use(format!(
+            "template {id} already published"
+        )));
     }
     std::fs::rename(&st, &dest).ctx("publish template")?;
     staging.done = true;
@@ -407,7 +508,12 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
     let tmp = names.join(format!(".{}.{tag}", def.name));
     std::os::unix::fs::symlink(format!("../{id}"), &tmp).ctx("name template")?;
     std::fs::rename(&tmp, names.join(&def.name)).ctx("name template")?;
-    let _ = writeln!(log, "published {id} as {} in {} ms", def.name, started.elapsed().as_millis());
+    let _ = writeln!(
+        log,
+        "published {id} as {} in {} ms",
+        def.name,
+        started.elapsed().as_millis()
+    );
     Ok(BuildReport {
         template_id: id,
         manifest_digest: digest,
@@ -431,12 +537,24 @@ fn probe(engine: &Engine, template_id: &str, tag: &str) -> Result<()> {
     };
     engine.allocate(auth, None)?;
     let result = engine.restore(auth, template_id).and_then(|_| {
-        engine.exec(auth, vec!["sh".into(), "-c".into(), "uname -sr && test -x /sbin/lamp-init".into()], String::new(), Default::default(), 10_000)
+        engine.exec(
+            auth,
+            vec![
+                "sh".into(),
+                "-c".into(),
+                "uname -sr && test -x /sbin/lamp-init".into(),
+            ],
+            String::new(),
+            Default::default(),
+            10_000,
+        )
     });
     let _ = engine.release(auth);
     let out = result?;
     match out.command {
         Some(c) if c.exit_code == 0 => Ok(()),
-        other => Err(EngineError::host(format!("probe command failed: {other:?}"))),
+        other => Err(EngineError::host(format!(
+            "probe command failed: {other:?}"
+        ))),
     }
 }

@@ -28,7 +28,8 @@ mod linux {
             CString::new(data).unwrap(),
         );
         // SAFETY: all pointers are valid NUL-terminated strings for the call.
-        let rc = unsafe { libc::mount(s.as_ptr(), t.as_ptr(), f.as_ptr(), flags, d.as_ptr().cast()) };
+        let rc =
+            unsafe { libc::mount(s.as_ptr(), t.as_ptr(), f.as_ptr(), flags, d.as_ptr().cast()) };
         if rc != 0 {
             let err = std::io::Error::last_os_error();
             if err.raw_os_error() != Some(libc::EBUSY) {
@@ -46,10 +47,34 @@ mod linux {
         mount("proc", "/proc", "proc", nosuid, "");
         mount("sysfs", "/sys", "sysfs", nosuid, "");
         mount("devtmpfs", "/dev", "devtmpfs", libc::MS_NOSUID, "mode=0755");
-        mount("devpts", "/dev/pts", "devpts", libc::MS_NOSUID | libc::MS_NOEXEC, "gid=5,mode=620,ptmxmode=666");
-        mount("tmpfs", "/dev/shm", "tmpfs", libc::MS_NOSUID | libc::MS_NODEV, "mode=1777");
-        mount("tmpfs", "/run", "tmpfs", libc::MS_NOSUID | libc::MS_NODEV, "mode=0755");
-        mount("tmpfs", "/tmp", "tmpfs", libc::MS_NOSUID | libc::MS_NODEV, "mode=1777");
+        mount(
+            "devpts",
+            "/dev/pts",
+            "devpts",
+            libc::MS_NOSUID | libc::MS_NOEXEC,
+            "gid=5,mode=620,ptmxmode=666",
+        );
+        mount(
+            "tmpfs",
+            "/dev/shm",
+            "tmpfs",
+            libc::MS_NOSUID | libc::MS_NODEV,
+            "mode=1777",
+        );
+        mount(
+            "tmpfs",
+            "/run",
+            "tmpfs",
+            libc::MS_NOSUID | libc::MS_NODEV,
+            "mode=0755",
+        );
+        mount(
+            "tmpfs",
+            "/tmp",
+            "tmpfs",
+            libc::MS_NOSUID | libc::MS_NODEV,
+            "mode=1777",
+        );
         let _ = std::fs::create_dir_all("/run/lamp");
         let _ = std::os::unix::fs::symlink("/proc/self/fd", "/dev/fd");
         // SAFETY: plain syscalls with valid arguments.
@@ -70,7 +95,10 @@ mod linux {
                 last_start = Instant::now();
                 match Command::new(HELPER)
                     .env_clear()
-                    .env("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+                    .env(
+                        "PATH",
+                        "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                    )
                     .env("HOME", "/root")
                     .env("LANG", "C.UTF-8")
                     .current_dir("/")

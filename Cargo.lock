@@ -270,7 +270,12 @@ dependencies = [
 name = "lamp-supervisor"
 version = "0.1.0"
 dependencies = [
+ "lamp-engine",
+ "lamp-init",
  "lamp-worker-protocol",
+ "libc",
+ "prost",
+ "serde_json",
 ]
 
 [[package]]

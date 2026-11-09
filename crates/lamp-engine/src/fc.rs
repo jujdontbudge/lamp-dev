@@ -21,11 +21,15 @@ pub const MEM: &str = "mem";
 pub const VMSTATE: &str = "vmstate";
 pub const KERNEL: &str = "vmlinux";
 pub const CGROUP_PARENT: &str = "lamp";
+/// RAM-backed directory visible inside each jail for memory capture output.
+pub const MEMDIR: &str = "mem.d";
+pub const UFFD: &str = "uffd.sock";
 
 #[derive(Debug, Clone)]
 pub struct Binaries {
     pub firecracker: PathBuf,
     pub jailer: PathBuf,
+    pub pager: PathBuf,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -43,6 +47,8 @@ pub struct Jail {
     pub root: PathBuf,
     pub uid: u32,
     pub netns: PathBuf,
+    /// Host side of the jail's RAM-backed `/mem.d`.
+    pub memdir: PathBuf,
     pub pid: Option<i32>,
 }
 
@@ -54,8 +60,11 @@ pub fn cgroup_dir(id: &str) -> PathBuf {
 pub fn init_cgroups() -> Result<()> {
     let parent = Path::new("/sys/fs/cgroup").join(CGROUP_PARENT);
     std::fs::create_dir_all(&parent).ctx("create lamp cgroup")?;
-    std::fs::write(parent.join("cgroup.subtree_control"), "+cpu +memory +pids +io")
-        .ctx("enable lamp cgroup controllers")
+    std::fs::write(
+        parent.join("cgroup.subtree_control"),
+        "+cpu +memory +pids +io",
+    )
+    .ctx("enable lamp cgroup controllers")
 }
 
 /// Creates a persistent network namespace bound at `path`.
@@ -68,11 +77,24 @@ fn create_netns(path: &Path) -> Result<()> {
             // mount pins the new namespace to `path`.
             unsafe {
                 if libc::unshare(libc::CLONE_NEWNET) != 0 {
-                    return Err(EngineError::host(format!("unshare netns: {}", std::io::Error::last_os_error())));
+                    return Err(EngineError::host(format!(
+                        "unshare netns: {}",
+                        std::io::Error::last_os_error()
+                    )));
                 }
                 let src = c"/proc/thread-self/ns/net";
-                if libc::mount(src.as_ptr(), target.as_ptr(), std::ptr::null(), libc::MS_BIND, std::ptr::null()) != 0 {
-                    return Err(EngineError::host(format!("bind netns: {}", std::io::Error::last_os_error())));
+                if libc::mount(
+                    src.as_ptr(),
+                    target.as_ptr(),
+                    std::ptr::null(),
+                    libc::MS_BIND,
+                    std::ptr::null(),
+                ) != 0
+                {
+                    return Err(EngineError::host(format!(
+                        "bind netns: {}",
+                        std::io::Error::last_os_error()
+                    )));
                 }
             }
             Ok(())
@@ -80,6 +102,69 @@ fn create_netns(path: &Path) -> Result<()> {
         .join()
         .unwrap()
     })
+}
+
+fn bind_mount(src: &Path, dst: &Path) -> Result<()> {
+    let s = CString::new(src.as_os_str().as_bytes()).unwrap();
+    let d = CString::new(dst.as_os_str().as_bytes()).unwrap();
+    // SAFETY: valid paths; a plain bind mount.
+    if unsafe {
+        libc::mount(
+            s.as_ptr(),
+            d.as_ptr(),
+            std::ptr::null(),
+            libc::MS_BIND,
+            std::ptr::null(),
+        )
+    } != 0
+    {
+        return Err(EngineError::host(format!(
+            "bind {}: {}",
+            dst.display(),
+            std::io::Error::last_os_error()
+        )));
+    }
+    Ok(())
+}
+
+pub fn unmount(path: &Path) {
+    if let Ok(c) = CString::new(path.as_os_str().as_bytes()) {
+        // SAFETY: valid path; failure is fine (not mounted).
+        unsafe { libc::umount2(c.as_ptr(), libc::MNT_DETACH) };
+    }
+}
+
+/// Mounts a tmpfs at `dir` unless something is already mounted there.
+pub fn ensure_tmpfs(dir: &Path, size: &str) -> Result<()> {
+    std::fs::create_dir_all(dir).ctx("create memory dir")?;
+    let mounts = std::fs::read_to_string("/proc/self/mounts").unwrap_or_default();
+    let want = dir.to_string_lossy();
+    if mounts
+        .lines()
+        .any(|l| l.split_whitespace().nth(1) == Some(&want))
+    {
+        return Ok(());
+    }
+    let d = CString::new(dir.as_os_str().as_bytes()).unwrap();
+    let opts = CString::new(format!("size={size},mode=0711")).unwrap();
+    // SAFETY: valid strings.
+    if unsafe {
+        libc::mount(
+            c"lamp-mem".as_ptr(),
+            d.as_ptr(),
+            c"tmpfs".as_ptr(),
+            libc::MS_NOSUID | libc::MS_NODEV | libc::MS_NOEXEC,
+            opts.as_ptr().cast(),
+        )
+    } != 0
+    {
+        return Err(EngineError::host(format!(
+            "mount tmpfs {}: {}",
+            dir.display(),
+            std::io::Error::last_os_error()
+        )));
+    }
+    Ok(())
 }
 
 fn remove_netns(path: &Path) {
@@ -91,8 +176,15 @@ fn remove_netns(path: &Path) {
 }
 
 impl Jail {
-    /// Creates the jail directory (owned by the jail UID) and namespace.
-    pub fn create(base: &Path, netns_dir: &Path, id: &str, uid: u32) -> Result<Jail> {
+    /// Creates the jail directory (owned by the jail UID), its private
+    /// network namespace and its RAM-backed `/mem.d`.
+    pub fn create(
+        base: &Path,
+        netns_dir: &Path,
+        mem_dir: &Path,
+        id: &str,
+        uid: u32,
+    ) -> Result<Jail> {
         let dir = base.join("firecracker").join(id);
         let root = dir.join("root");
         if dir.exists() {
@@ -107,14 +199,28 @@ impl Jail {
             remove_netns(&netns);
             return Err(e);
         }
-        Ok(Jail {
+        let memdir = mem_dir.join("jails").join(id);
+        let jail = Jail {
             id: id.into(),
             dir,
             root,
             uid,
             netns,
+            memdir,
             pid: None,
-        })
+        };
+        let bind = (|| -> Result<()> {
+            std::fs::create_dir_all(&jail.memdir).ctx("create memdir")?;
+            fsutil::chown(&jail.memdir, uid, uid)?;
+            let target = jail.root.join(MEMDIR);
+            std::fs::create_dir(&target).ctx("create jail memdir")?;
+            bind_mount(&jail.memdir, &target)
+        })();
+        if let Err(e) = bind {
+            jail.destroy();
+            return Err(e);
+        }
+        Ok(jail)
     }
 
     pub fn path(&self, name: &str) -> PathBuf {
@@ -130,12 +236,20 @@ impl Jail {
             .args(["--id", &self.id])
             .arg("--exec-file")
             .arg(&bins.firecracker)
-            .args(["--uid", &self.uid.to_string(), "--gid", &self.uid.to_string()])
+            .args([
+                "--uid",
+                &self.uid.to_string(),
+                "--gid",
+                &self.uid.to_string(),
+            ])
             .arg("--chroot-base-dir")
             .arg(self.dir.parent().and_then(Path::parent).unwrap())
             .args(["--cgroup-version", "2", "--parent-cgroup", CGROUP_PARENT])
             .args(["--cgroup", &format!("memory.max={memory_max}")])
-            .args(["--cgroup", &format!("pids.max={}", limits.pids_max.clamp(64, 4096))])
+            .args([
+                "--cgroup",
+                &format!("pids.max={}", limits.pids_max.clamp(64, 4096)),
+            ])
             .args(["--cgroup", &cpu_max])
             .arg("--netns")
             .arg(&self.netns)
@@ -149,7 +263,10 @@ impl Jail {
             .ctx("run jailer")?;
         if !status.success() {
             let log = std::fs::read_to_string(self.dir.join("vmm.log")).unwrap_or_default();
-            return Err(EngineError::host(format!("jailer failed ({status}): {}", tail(&log))));
+            return Err(EngineError::host(format!(
+                "jailer failed ({status}): {}",
+                tail(&log)
+            )));
         }
         let pid_file = self.root.join("firecracker.pid");
         let api = self.path(API);
@@ -175,7 +292,8 @@ impl Jail {
 
     pub fn alive(&self) -> bool {
         // SAFETY: signal 0 only checks existence.
-        self.pid.is_some_and(|pid| unsafe { libc::kill(pid, 0) } == 0)
+        self.pid
+            .is_some_and(|pid| unsafe { libc::kill(pid, 0) } == 0)
     }
 
     /// Kills every process in the jail's cgroup and waits for it to empty.
@@ -208,10 +326,12 @@ impl Jail {
         false
     }
 
-    /// Kills the VMM and removes the jail, its cgroup and namespace.
+    /// Kills the VMM and removes the jail, its cgroup, namespace and memdir.
     pub fn destroy(mut self) {
         self.kill();
         remove_netns(&self.netns);
+        unmount(&self.root.join(MEMDIR));
+        let _ = std::fs::remove_dir_all(&self.memdir);
         let _ = std::fs::remove_dir_all(&self.dir);
     }
 }
@@ -223,7 +343,8 @@ fn tail(s: &str) -> String {
 
 /// Minimal HTTP/1.1 client for Firecracker's API socket.
 pub fn api_call(sock: &Path, method: &str, path: &str, body: &str) -> Result<String> {
-    let mut stream = UnixStream::connect(sock).map_err(|e| EngineError::host(format!("firecracker API: {e}")))?;
+    let mut stream = UnixStream::connect(sock)
+        .map_err(|e| EngineError::host(format!("firecracker API: {e}")))?;
     stream.set_read_timeout(Some(Duration::from_secs(300)))?;
     let request = format!(
         "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
@@ -256,7 +377,9 @@ pub fn api_call(sock: &Path, method: &str, path: &str, body: &str) -> Result<Str
     reader.read_exact(&mut response)?;
     let text = String::from_utf8_lossy(&response).into_owned();
     if !(200..300).contains(&status) {
-        return Err(EngineError::host(format!("firecracker {method} {path}: {status} {text}")));
+        return Err(EngineError::host(format!(
+            "firecracker {method} {path}: {status} {text}"
+        )));
     }
     Ok(text)
 }

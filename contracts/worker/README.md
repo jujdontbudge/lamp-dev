@@ -51,3 +51,53 @@ streams/handles, never control messages or the replicated log. Local limits may
 narrow the public stream limits. Artifact handles and Compatibility describe
 opaque engine artifacts: neither template nor saved-state storage layout is
 frozen here. T7–T9 establish evidence; T14 freezes those formats.
+
+## Linux engine (T2) behaviour
+
+`lamp-supervisor serve` is the Linux worker. It speaks exactly the contract
+above; this section records what that engine does with each command so T3 can
+call it without reading engine code. None of it freezes a storage format.
+
+**Connection.** The socket (default `/run/lamp/worker.sock`) is mode 0666;
+authorization is the peer UID, checked against `--allow-uid` before Hello.
+The worker sends Hello first, then requires a valid client Hello carrying no
+descriptors. Requests on one connection run concurrently; responses carry the
+request's Context and may arrive out of order.
+
+**Checks before any effect.** Missing context, command, request or operation
+ID → `INVALID_ARGUMENT`. Past `deadline_ms` → `RESULT_EXPIRED`. Sandbox
+commands need `sandbox_id`, nonzero `generation` and nonempty `grant_id`; only
+`Inspect` with an empty `sandbox_id` is supervisor-global. A generation or
+policy revision that differs from the one fixed at `Allocate` →
+`REVISION_CONFLICT`. The guest also refuses an exec whose sandbox/generation
+differ from its last identity barrier. This engine accepts no handle grants
+yet: any `handles`/`input_handles`/`output_handles` or SCM_RIGHTS descriptor
+→ `INVALID_ARGUMENT`, and every received descriptor is closed. The grant
+verification and single-use consumption mechanics live in
+`lamp_worker_protocol::grant` and `::unix`, ready for when handles are used.
+
+**Operation IDs.** The worker remembers the last 4,096 mutating operations.
+The same operation ID with the same command returns the prior result (a retry
+with a new request ID does not re-run it); while it is still running it
+returns a Receipt with `state = "in_progress"`, `outcome_unknown = true`. The
+same operation ID with another command → `IDEMPOTENCY_CONFLICT`. Results are
+in memory only: after a supervisor restart, earlier operations are unknown and
+all volatile sandboxes are gone.
+
+| Command | Linux engine meaning | Receipt `state` |
+| --- | --- | --- |
+| `Allocate` | Reserve the sandbox ID with generation, policy revision and resources (zero fields default to the standard 2 vCPU / 4096 MiB / 20 GiB). `engine_id` must be empty, `firecracker` or `firecracker-1.17.0`. | `allocated` |
+| `Restore{capture_id}` | **Create** when `capture_id` is a template ID (`tp_…`) or name; **fork child** when it is a capture ID from `Capture`. Boots the microVM, applies a fresh identity barrier, and only then returns. Resources must equal the template's (else `ENGINE_UNQUALIFIED`). A `compatibility` whose engine digest or CPU baseline differs → `ENGINE_UNQUALIFIED`. | `running` |
+| `Start{argv,cwd,env}` | Run one command in the guest to completion; `CommandResult` carries exit code/signal, the last 64 KiB of stdout and stderr, `truncated`, `timed_out` (deadline minus 250 ms) and guest start/finish times. | `exited` |
+| `Capture{capture_id, preserves_memory: true}` | Memory fork of a running source: pause, write a diff memory layer and reflink the disk, resume. `consistency` is `volatile` (default; layer in host RAM) or `local` (also fsynced to the store). `preserves_memory: false` → `INVALID_ARGUMENT`. | `captured` |
+| `Stop` | Kill the VM (no guest shutdown) and its pager; keep the record. | `stopped` |
+| `Release` | Destroy the VM, its jail, disk and memory references. A fork keeps running after its source is released. | `released` |
+| `Inspect` | Sandbox state and identity in `detail`; global form lists templates and the engine's compatibility. | current |
+| `Cancel` | Not supported → `INVALID_ARGUMENT`. | — |
+
+The engine may put stage timings and identity facts (`machine_id`,
+`source_pause_us`, …) in `Receipt.detail`; callers must not depend on its keys.
+Other public codes it returns: `NOT_FOUND` (unknown sandbox/template/capture),
+`RESOURCE_IN_USE`, `NO_CAPACITY` (UID range exhausted), `HOST_UNAVAILABLE`
+(local OS failure, retryable), `DATA_UNAVAILABLE` (template or seed fails its
+digest/signature checks), `HOST_NOT_TRUSTED` (producer key not enrolled).

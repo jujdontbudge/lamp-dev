@@ -16,3 +16,7 @@ toml.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc.workspace = true
+
+[[bin]]
+name = "lamp-pager"
+path = "src/bin/lamp-pager.rs"

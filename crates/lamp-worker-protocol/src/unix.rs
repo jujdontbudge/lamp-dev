@@ -77,10 +77,16 @@ fn cmsg_space(count: usize) -> usize {
 pub fn send_frame_with_fds(sock: &impl AsRawFd, frame: &Frame, fds: &[RawFd]) -> io::Result<()> {
     let size = frame.encoded_len();
     if frame.payload.is_none() || size == 0 || size > MAX_CONTROL_BYTES {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid worker frame length"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid worker frame length",
+        ));
     }
     if fds.len() > MAX_FRAME_DESCRIPTORS {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "too many descriptors"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "too many descriptors",
+        ));
     }
     let mut bytes = Vec::with_capacity(size + 4);
     bytes.extend_from_slice(&(size as u32).to_be_bytes());
@@ -104,7 +110,11 @@ pub fn send_frame_with_fds(sock: &impl AsRawFd, frame: &Frame, fds: &[RawFd]) ->
                 (*cmsg).cmsg_level = libc::SOL_SOCKET;
                 (*cmsg).cmsg_type = libc::SCM_RIGHTS;
                 (*cmsg).cmsg_len = libc::CMSG_LEN(std::mem::size_of_val(fds) as u32) as _;
-                std::ptr::copy_nonoverlapping(fds.as_ptr(), libc::CMSG_DATA(cmsg).cast(), fds.len());
+                std::ptr::copy_nonoverlapping(
+                    fds.as_ptr(),
+                    libc::CMSG_DATA(cmsg).cast(),
+                    fds.len(),
+                );
             }
             libc::sendmsg(sock.as_raw_fd(), &msg, 0)
         };
@@ -145,10 +155,13 @@ fn recv_exact(sock: RawFd, buf: &mut [u8], fds: &mut Vec<OwnedFd>) -> io::Result
             if n > 0 {
                 let mut cmsg = libc::CMSG_FIRSTHDR(&msg);
                 while !cmsg.is_null() {
-                    if (*cmsg).cmsg_level == libc::SOL_SOCKET && (*cmsg).cmsg_type == libc::SCM_RIGHTS {
+                    if (*cmsg).cmsg_level == libc::SOL_SOCKET
+                        && (*cmsg).cmsg_type == libc::SCM_RIGHTS
+                    {
                         let data = libc::CMSG_DATA(cmsg) as *const RawFd;
                         let header = libc::CMSG_LEN(0) as usize;
-                        let count = ((*cmsg).cmsg_len as usize - header) / std::mem::size_of::<RawFd>();
+                        let count =
+                            ((*cmsg).cmsg_len as usize - header) / std::mem::size_of::<RawFd>();
                         for i in 0..count {
                             fds.push(OwnedFd::from_raw_fd(std::ptr::read_unaligned(data.add(i))));
                         }
@@ -166,10 +179,16 @@ fn recv_exact(sock: RawFd, buf: &mut [u8], fds: &mut Vec<OwnedFd>) -> io::Result
             return Err(e);
         }
         if n == 0 {
-            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "worker channel closed"));
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "worker channel closed",
+            ));
         }
         if truncated || fds.len() > MAX_FRAME_DESCRIPTORS {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "too many descriptors"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "too many descriptors",
+            ));
         }
         got += n as usize;
     }
@@ -184,17 +203,27 @@ pub fn recv_frame_with_fds(sock: &impl AsRawFd) -> io::Result<(Frame, Vec<OwnedF
     recv_exact(sock.as_raw_fd(), &mut prefix, &mut fds)?;
     let size = u32::from_be_bytes(prefix) as usize;
     if size == 0 || size > MAX_CONTROL_BYTES {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid worker frame length"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid worker frame length",
+        ));
     }
     let mut body = vec![0; size];
     recv_exact(sock.as_raw_fd(), &mut body, &mut fds)?;
-    let frame = Frame::decode(body.as_slice()).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    let frame = Frame::decode(body.as_slice())
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     if frame.payload.is_none() {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "missing worker payload"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "missing worker payload",
+        ));
     }
     // Unknown fields are dropped by decode; re-encoding exposes them.
     if frame.encode_to_vec() != body {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "unknown or non-canonical fields"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "unknown or non-canonical fields",
+        ));
     }
     Ok((frame, fds))
 }
@@ -202,7 +231,7 @@ pub fn recv_frame_with_fds(sock: &impl AsRawFd) -> io::Result<(Frame, Vec<OwnedF
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{frame, Hello, PROTOCOL};
+    use crate::{Hello, PROTOCOL, frame};
     use std::io::{Read, Seek, Write};
     use std::os::unix::net::UnixStream;
 
@@ -221,7 +250,13 @@ mod tests {
     fn descriptors_cross_a_real_socket() {
         let (a, b) = UnixStream::pair().unwrap();
         let path = std::env::temp_dir().join(format!("lamp-fd-test-{}", std::process::id()));
-        let mut file = std::fs::OpenOptions::new().read(true).write(true).create(true).truncate(true).open(&path).unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)
+            .unwrap();
         file.write_all(b"granted").unwrap();
         send_frame_with_fds(&a, &hello(), &[file.as_raw_fd()]).unwrap();
         drop(file);
