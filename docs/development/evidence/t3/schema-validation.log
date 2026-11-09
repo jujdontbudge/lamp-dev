@@ -1,0 +1,8 @@
+PASS SandboxCreateResult: captured CLI/API output matches canonical schema
+PASS SandboxGetResult: captured CLI/API output matches canonical schema
+PASS ExecCreateResult: captured CLI/API output matches canonical schema
+PASS SandboxForkResult: captured CLI/API output matches canonical schema
+PASS OperationGetResult: captured CLI/API output matches canonical schema
+PASS 5 captured result documents; fixture evidence only, no microVM/performance claim
+
+exit_code=0

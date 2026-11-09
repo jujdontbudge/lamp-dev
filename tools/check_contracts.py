@@ -8,6 +8,105 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def field_names(shape):
+    """Top-level JSON names in a spec table's braced input/result shape."""
+    return set(re.findall(r'(?:^|,)\s*([a-z][a-z_0-9]*)(?=\[\]|:|,|$)', shape))
+
+
+def check_extra_operations(table, resources, operations, defs):
+    # §12.1 exceptions to the default POST <collection>/{id}:<action>.
+    routes = {
+        'auth_flow_bootstrap': ('post', '/auth-flows:bootstrap'),
+        'exec_watch': ('get', '/execs/{exec_id}/output'),
+        'session_watch': ('get', '/sessions/{session_id}/output'),
+        'sandbox_device_watch': ('get', '/sandboxes/{sandbox_id}/device-stream'),
+        'blob_upload': ('put', '/blobs/{blob_id}/content'),
+        'blob_download': ('get', '/blobs/{blob_id}/content'),
+        'artifact_download': ('get', '/artifacts/{artifact_id}/content'),
+        'operation_wait': ('get', '/operations/{operation_id}/wait'),
+        'audit_record_export': ('post', '/audit-records:export'),
+        'telemetry_purge': ('post', '/telemetry:purge'),
+        'api_describe': ('get', '/openapi.json'),
+        'docs_read': ('get', '/docs'),
+        'metric_list': ('get', '/metrics'),
+    }
+    # Inputs expressed as query parameters / bulk transport rather than an
+    # action's {...} in §12.1. Watch pagination is specified in §12.4.
+    special_inputs = {
+        'exec_watch': 'cursor limit wait_ms',
+        'session_watch': 'cursor limit wait_ms',
+        'sandbox_device_watch': 'device_ref cursor limit wait_ms',
+        'blob_upload': 'offset_bytes data_base64 chunk_sha256',
+        'blob_download': 'offset_bytes length_bytes',
+        'artifact_download': 'offset_bytes length_bytes',
+        'operation_wait': 'timeout_ms',
+        'api_describe': '', 'docs_read': 'topic', 'metric_list': '',
+    }
+    # Typed completions from each entry in §12.1, with envelope/read/secret
+    # rules from §12.2. Unlisted extras have the specified Operation-only {}.
+    results = {
+        'auth_flow_bootstrap': 'auth_flow_id challenge audience expires_at request_id',
+        'auth_flow_complete': 'secret secret_available',
+        'auth_flow_exchange': 'secret secret_available',
+        'key_rotate': 'key_id secret secret_available',
+        'sandbox_prepare_fork': 'sandbox_id generation fork_preparation expires_at',
+        'sandbox_fork': 'sandbox_id session_ids',
+        'sandbox_file_read': 'data_base64 sha256 eof request_id',
+        'sandbox_file_transfer': 'blob_id',
+        'sandbox_file_list': 'items next_cursor request_id',
+        'sandbox_device_input': 'device_ref sequence delivered_at',
+        'sandbox_device_watch': 'stream items next_cursor request_id',
+        'exec_watch': 'items next_cursor request_id',
+        'session_watch': 'items next_cursor request_id',
+        'session_attach': 'stream',
+        'session_spawn': 'session_id sandbox_id',
+        'lease_renew': 'lease', 'lease_release': 'lease',
+        'change_set_reject': 'change_set', 'settings_change_reject': 'settings_change',
+        'port_share_link': 'grant_id url expires_at secret_available',
+        'browser_action': 'blob_id observations',
+        'approval_approve': 'approval', 'approval_deny': 'approval', 'approval_revoke': 'approval',
+        'notification_acknowledge': 'notification',
+        'blob_download': 'blob_id offset_bytes data_base64 chunk_sha256 sha256 size_bytes eof request_id',
+        'artifact_download': 'blob_id manifest_blob_id offset_bytes data_base64 chunk_sha256 sha256 size_bytes eof request_id',
+    }
+    read_only = set('auth_flow_bootstrap sandbox_file_read sandbox_file_list sandbox_device_watch exec_watch session_watch blob_download artifact_download operation_wait api_describe docs_read metric_list'.split())
+    for line in table.splitlines():
+        if not line.startswith('| `'):
+            continue
+        names = re.findall(r'`([a-z]+(?:_[a-z]+)+)`', line.split(' | ')[0])
+        for name in names:
+            op = operations[name]
+            kind, action = op['kind'], op['action']
+            if name in special_inputs:
+                inputs = set(special_inputs[name].split())
+            else:
+                shapes = re.findall(r'(?:^|[/ :`])' + re.escape(action.replace('_', '-')) + r' \{([^{}]*)\}', line)
+                assert shapes, (name, 'spec input not parsed')
+                # The blob/artifact row spells out two distinct finalize inputs.
+                inputs = field_names(shapes[-1] if name == 'artifact_finalize' else shapes[0])
+            if name not in {'auth_flow_bootstrap', 'audit_record_export', 'telemetry_purge', 'api_describe', 'docs_read', 'metric_list'}:
+                inputs.add(kind + '_id')
+            mutation = name not in read_only
+            assert op['mutation'] == mutation, (name, 'mutation drift')
+            if mutation:
+                inputs |= {'idempotency_key', 'wait_ms', 'expected_revision'}
+            assert set(defs[op['input_schema']]['properties']) == inputs, (name, 'input field drift', inputs ^ set(defs[op['input_schema']]['properties']))
+            if name in routes:
+                method, path = routes[name]
+                path = '/v1' + path
+            else:
+                method = 'post'
+                path = resources[kind]['collection'] + '/{' + kind + '_id}:' + action.replace('_', '-')
+            assert (op['method'], op['path']) == (method, path), (name, 'route drift')
+            result = defs[op.get('completion_schema', op['result_schema'])]
+            while '$ref' in result:
+                result = defs[result['$ref'].split('/')[-1]]
+            expected = set(results.get(name, '').split())
+            if name == 'operation_wait':
+                expected = set(defs[resources['operation']['schema']]['properties'])
+            assert set(result.get('properties', {})) == expected, (name, 'result field drift', expected ^ set(result.get('properties', {})))
+
+
 def check(schema=None, architecture=None):
     schema = schema or json.loads((ROOT / 'contracts/public/schema.json').read_text())
     architecture = architecture or (ROOT / 'docs/spec/architecture.md').read_text()
@@ -16,6 +115,11 @@ def check(schema=None, architecture=None):
     resources = schema['x-lamp-resources']
     operations = schema['x-lamp-operations']
     expected_resources, expected_ops = {}, set()
+    common = set(re.findall(r'`(\w+)`', spec.split('All persistent resources have ', 1)[1].split('\n', 1)[0]))
+    # §11's conditional state/security fields apply to these state-bearing
+    # resources. Event is a transport record (§12.4), not a persistent resource.
+    stateful = set('sandbox snapshot template artifact backup volume task browser operation'.split())
+    conditional = set('effective_policy_revision durability custody_host_ids exposures'.split())
     for line in spec.split('### 11.1 Resources')[1].split('### 11.2')[0].splitlines():
         match = re.match(r'\| `(\w+)` / `([^`]+)` / `([^`]+)` \| `([^`]+)`(.*?) \| ([^|]+) \| `([^`]+)`', line)
         if not match:
@@ -30,7 +134,10 @@ def check(schema=None, architecture=None):
         fields = set(re.findall(r'(?:^|,)(\w+)(?:\[\])?(?:\([^)]*\))?(?:=\d+)?(?=,|$)', raw))
         assert fields, kind
         props = defs[actual['schema']]['properties']
-        assert fields <= set(props), (kind, 'missing fields', fields-set(props))
+        expected_fields = fields | (common if kind != 'event' else {'kind'})
+        if kind in stateful:
+            expected_fields |= conditional
+        assert expected_fields == set(props), (kind, 'resource field drift', expected_fields ^ set(props))
         assert props['kind']['const'] == kind, kind
         for field, values in re.findall(r'(\w+)\(([^)]+)\)', raw):
             assert set(props[field]['enum']) == set(values.replace('\\','').split('|')), (kind, field)
@@ -47,24 +154,7 @@ def check(schema=None, architecture=None):
         if line.startswith('| `'):
             expected_ops.update(re.findall(r'`([a-z]+(?:_[a-z]+)+)`',line.split(' | ')[0]))
     assert set(operations)==expected_ops, ('operation drift',set(operations)^expected_ops)
-    # Every explicit input name in the extra-action table must exist on at least
-    # one of that row's named operations. Per-operation routes/scopes are checked below.
-    for line in extras.splitlines():
-        if not line.startswith('| `'):continue
-        names=re.findall(r'`([a-z]+(?:_[a-z]+)+)`',line.split(' | ')[0])
-        fields=set()
-        for shape in re.findall(r'\{([^{}]*)\}',line):
-            if shape=='id':continue
-            # Uppercase describes a referenced record, not a JSON field.
-            fields.update(re.findall(r'(?:^|,)\s*([a-z][a-z_]*)(?=\[\]|:|,|$)',shape))
-        present=set()
-        for name in names:
-            op=operations[name]
-            present.update(defs[op['input_schema']]['properties'])
-            result=defs[op.get('completion_schema',op['result_schema'])]
-            if '$ref' in result:result=defs[result['$ref'].split('/')[-1]]
-            present.update(result.get('properties',{}))
-        assert fields<=present,(names,'missing input/result names',fields-present)
+    check_extra_operations(extras, resources, operations, defs)
     for name,op in operations.items():
         assert name==op['mcp']==op['kind']+'_'+op['action'],name
         assert op['scope']==op['kind']+'.'+op['action'],name

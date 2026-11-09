@@ -93,3 +93,8 @@ and operation get over `lampd`'s owner-only local HTTP Unix socket. See
 worker integration semantics and explicit fixture/engine evidence boundaries.
 `version --json` still reports build/protocol metadata. T2 owns the actual Rust
 engine; T6 joins the parallel tickets and runs the real guest/performance gate.
+
+## CI on owner machines
+
+All workflow jobs use the repository’s private-only self-hosted LX/M5/LA runners.
+See [runner services, signed admission, pause/resume and the public-release gate](../../infra/ci/README.md).

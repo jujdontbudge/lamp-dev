@@ -27,6 +27,7 @@ check-generated:
 check-contracts:
 	$(PYTHON) tools/check_contracts.py
 	$(VENV_PYTHON) -m unittest discover -s tests/contracts -v
+	$(VENV_PYTHON) -m unittest discover -s tests/ci -v
 
 interop:
 	$(PYTHON) tools/interop.py

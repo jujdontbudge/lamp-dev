@@ -44,6 +44,24 @@ GOOS=linux GOARCH=amd64 go build ./cmd/lamp ./cmd/lampd
 GOOS=linux GOARCH=arm64 go build ./cmd/lamp ./cmd/lampd
 ```
 
+## Verification after the T1 merge
+
+Before the first push, merged T1's updated `t3/repo-contracts-skeleton` through
+`cdac0c2f9cd755e07b02feb532772b8c9ffa2557`. Retained its latest canonical
+contracts, independent contract checks, host guard and self-hosted-only CI;
+retained T3's implementation and dependency additions. The two checked-in
+workflows exactly match T1's versions and select only `self-hosted` LX/M5/LA
+runners, never paid GitHub-hosted runners.
+
+`make verify` on the resolved merged tree exited 0: Go/Rust builds and tests,
+10 public-contract tests, 6 CI-guard tests, both language-interoperability
+checks, clean public codegen, Go vet, Rust format and strict clippy.
+[verify-merged.log](evidence/t3/verify-merged.log) records the complete command
+output and exit status. The standalone Rust fixture's `cargo fmt --check` and
+`cargo clippy --locked -- -D warnings` also exited 0. Revalidation of the five
+captured wire results against T1's updated schema exited 0; see
+[schema-validation.log](evidence/t3/schema-validation.log).
+
 No paid service or hosted runner was used for these local checks. No guest OS,
 host virtualization, Docker state, user service, or visible application was
 modified. No 500 ms create or 1000 ms fork result is asserted.
