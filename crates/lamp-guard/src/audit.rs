@@ -168,6 +168,48 @@ pub fn receive(mut socket: UnixStream, spool: &mut Spool) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn spool(suffix: &str) -> (std::path::PathBuf, Spool) {
+        let path =
+            std::env::temp_dir().join(format!("lamp-audit-test-{}-{suffix}", std::process::id()));
+        let attribution = Attribution {
+            principal_id: "p".into(),
+            host_id: "h".into(),
+            task_id: "t".into(),
+            sandbox_id: "s".into(),
+            generation: 1,
+            session_id: "s".into(),
+            operation_id: "o".into(),
+            policy_revision: 1,
+        };
+        let s = Spool::create(path.to_str().unwrap(), 4096, attribution).unwrap();
+        (path, s)
+    }
+    #[test]
+    fn full_spool_never_overwrites_acknowledged_history() {
+        let (path, mut s) = spool("full");
+        while s.record("test", json!({"type":"heartbeat"})).is_ok() {}
+        let before = std::fs::read(&path).unwrap();
+        assert!(before.len() <= 4096);
+        assert!(s.record("test", json!({"type":"heartbeat"})).is_err());
+        assert_eq!(before, std::fs::read(&path).unwrap());
+        assert!(Spool::create(path.to_str().unwrap(), 4096, s.attribution.clone()).is_err());
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn gap_is_not_acknowledged_or_spooled() {
+        let (path, mut s) = spool("gap");
+        let (mut a, b) = UnixStream::pair().unwrap();
+        let t = std::thread::spawn(move || assert!(receive(b, &mut s).is_err()));
+        let v =
+            serde_json::to_vec(&json!({"sequence":2,"details":{"type":"process_start"}})).unwrap();
+        a.write_all(&(v.len() as u32).to_be_bytes()).unwrap();
+        a.write_all(&v).unwrap();
+        let mut ack = [0; 8];
+        assert!(a.read_exact(&mut ack).is_err());
+        t.join().unwrap();
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
+        std::fs::remove_file(path).unwrap();
+    }
     #[test]
     fn ack_must_match() {
         let (a, mut b) = UnixStream::pair().unwrap();

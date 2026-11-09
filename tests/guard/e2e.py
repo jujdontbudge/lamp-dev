@@ -2,11 +2,10 @@
 """Root-only, isolated real-kernel T4 tests. No Docker, host firewall or service changes.
 Usage: sudo python3 tests/guard/e2e.py /absolute/path/to/lamp-guard
 """
+import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
-import signal
 import socket
 import subprocess as sp
 import sys
@@ -33,7 +32,7 @@ def launch(*args, **kw):
 
 def config(name, interface="task0", size=4 * 1024 * 1024):
     path = ROOT / (name + ".json")
-    data = dict(attribution=dict(principal_id="test-owner", host_id="LX", task_id=name,
+    data = dict(attribution=dict(principal_id="test-owner", host_id=os.uname().nodename, task_id=name,
                 sandbox_id=name, generation=1, session_id="e2e", operation_id="e2e",
                 policy_revision=1), interface=interface, guest_ip="198.18.240.2", queue=314,
                 host_denies=["198.18.240.1/32", "198.18.241.0/30", "9.9.9.0/24"],
@@ -44,6 +43,15 @@ def config(name, interface="task0", size=4 * 1024 * 1024):
 
 def records(name):
     return [json.loads(s) for s in (ROOT / (name + ".ndjson")).read_text().splitlines()]
+
+
+def profile(process, net_admin):
+    status = Path(f"/proc/{process.pid}/status").read_text()
+    fields = dict(line.split(":", 1) for line in status.splitlines() if ":" in line)
+    assert fields["Uid"].split() == ["1000001"] * 4
+    assert int(fields["CapEff"].strip(), 16) == (1 << 12 if net_admin else 0)
+    assert fields["NoNewPrivs"].strip() == "1" and fields["Seccomp"].strip() == "2"
+    assert len(list(Path(f"/proc/{process.pid}/fd").iterdir())) <= 5
 
 
 def ok(name):
@@ -100,6 +108,8 @@ threading.Event().wait()
     cfg = config("network")
     daemon = launch("ip", "netns", "exec", guard, BINARY, "run", cfg)
     assert json.loads(daemon.stdout.readline())["state"] == "ready"
+    profile(daemon, True)
+    ok("guard drops root, retains only net-admin and enforces no-new-privileges/seccomp/assigned FDs")
 
     client = r'''
 import socket,sys
@@ -138,18 +148,26 @@ except (OSError,AssertionError):print('denied')
     # Keep the same socket/5-tuple alive across guard death, not just new dials.
     live = r'''
 import socket,time,sys
-s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(.5);s.connect(('8.8.8.8',18080));s.send(b'first');assert s.recv(16)==b'first';print('ready',flush=True);sys.stdin.readline();s.send(b'after')
-try:s.recv(16);print('LEAK',flush=True)
+s=socket.socket(socket.AF_INET,socket.SOCK_STREAM if sys.argv[1]=='tcp' else socket.SOCK_DGRAM);s.settimeout(.5);s.connect(('8.8.8.8',18080));s.send(b'first');assert s.recv(16)==b'first';print('ready',flush=True);sys.stdin.readline();s.send(b'after')
+try:print('LEAK' if s.recv(16) else 'blocked',flush=True)
 except OSError:print('blocked',flush=True)
 '''
-    p = launch("ip", "netns", "exec", guest, "python3", "-u", "-c", live, stdin=sp.PIPE)
-    assert p.stdout.readline().strip() == "ready"
+    active = []
+    for kind in ("tcp", "udp"):
+        p = launch("ip", "netns", "exec", guest, "python3", "-u", "-c", live, kind, stdin=sp.PIPE)
+        assert p.stdout.readline().strip() == "ready"
+        active.append(p)
     daemon.kill(); daemon.wait(timeout=3)
-    p.stdin.write("go\n");p.stdin.flush()
-    assert p.stdout.readline().strip() == "blocked"
-    p.wait(timeout=3)
+    for p in active:
+        p.stdin.write("go\n");p.stdin.flush()
+        assert p.stdout.readline().strip() == "blocked"
+        p.wait(timeout=3)
     probe("tcp", "8.8.8.8", False)
     ok("guard death closes existing and new flows with nft rules left installed")
+
+    retry = launch("ip", "netns", "exec", guard, BINARY, "run", config("restart-rejected"))
+    assert retry.wait(timeout=3) == 70 and not retry.stdout.read()
+    ok("restart cannot merge into or replace an existing generation's nft table")
 
     # A full durable spool is also a fail-closed event.
     cmd("ip", "netns", "exec", guard, "nft", "delete", "table", "inet", "lamp_guard")
@@ -223,6 +241,8 @@ print(json.dumps({'task_pid':os.getpid(),'fork_pids':children,'root':os.getuid()
 
     sink, collect = pair("collector-loss", "import time;print('running',flush=True)\nwhile True: pass", namespace)
     assert collect.stdout.readline().strip() == "running"
+    profile(sink, False)
+    ok("host audit receiver is unprivileged, capability-free and descriptor/seccomp confined")
     before = records("collector-loss")
     live_pids = [int(r["details"]["details"]["identity"]["pid"]) for r in before
                  if r["details"]["details"].get("type") == "process_start"]
@@ -235,12 +255,25 @@ print(json.dumps({'task_pid':os.getpid(),'fork_pids':children,'root':os.getuid()
         status = Path(f"/proc/{pid}/status")
         assert not status.exists() or "State:\tZ" in status.read_text(), pid
     ok(f"host ACK loss kills CPU-only task tree through EXITKILL in {elapsed:.3f}s (<5s)")
+    sink, collect = pair("tracer-kill", "print('running',flush=True)\nwhile True: pass", namespace)
+    assert collect.stdout.readline().strip() == "running"
+    live_pids = [int(r["details"]["details"]["identity"]["pid"]) for r in records("tracer-kill")
+                 if r["details"]["details"].get("type") == "process_start"]
+    collect.kill();collect.wait(timeout=3);time.sleep(.1)
+    for pid in live_pids:
+        status = Path(f"/proc/{pid}/status")
+        assert not status.exists() or "State:\tZ" in status.read_text(), pid
+    assert sink.wait(timeout=3) == 70  # abrupt stream loss is never clean completion
+    ok("SIGKILL of the tracer cannot leave an unobserved task tree running")
 
 
 def main():
     assert os.geteuid() == 0, "run with sudo on Linux"
     netns()
-    (ROOT / "summary.json").write_text(json.dumps(dict(passed=RESULTS, kernel=os.uname().release), indent=2) + "\n")
+    (ROOT / "summary.json").write_text(json.dumps(dict(passed=RESULTS, kernel=os.uname().release,
+        architecture=os.uname().machine, host=os.uname().nodename,
+        binary_sha256=hashlib.sha256(Path(BINARY).read_bytes()).hexdigest(),
+        test_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()), indent=2) + "\n")
     print("EVIDENCE", ROOT)
 
 
