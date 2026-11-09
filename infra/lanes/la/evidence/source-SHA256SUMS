@@ -1,0 +1,3 @@
+8b922ab0be32984eb41d7dff4f9018ba682cffb9e3bf8d232e4e300920b7bc90  infra/lanes/la/recreate.sh
+63b9e70f59297a5cc2d0c7c7458c91535d57a4e75af791b3311d20f3b98e1b10  infra/lanes/la/verify-guest.sh
+597d1f11d8b4a868f62dd25441653fcaad4df3cfeb3466da510dcec86b1ef78d  infra/lanes/la/lamp-la.yaml

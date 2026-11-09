@@ -1,0 +1,349 @@
+time="2026-11-09T11:25:40-06:00" level=info msg="The vz driver process seems already stopped"
+time="2026-11-09T11:25:40-06:00" level=info msg="The host agent process seems already stopped"
+time="2026-11-09T11:25:40-06:00" level=info msg="Removing *.pid *.sock *.tmp under `/Users/johansardar/.lima/lamp-la`"
+time="2026-11-09T11:25:40-06:00" level=info msg="Deleted `lamp-la` (`/Users/johansardar/.lima/lamp-la`)"
+time="2026-11-09T11:25:40-06:00" level=warning msg="No instance found. Run `limactl create` to create an instance."
+time="2026-11-09T11:25:40-06:00" level=info msg="Terminal is not available, proceeding without opening an editor"
+time="2026-11-09T11:25:40-06:00" level=info msg="Attempting to download the image" arch=aarch64 digest="sha256:8eb876c2ccc4b6ff89e4a65d511815923b285e04503ba465809bf587f763da24" location="https://cloud-images.ubuntu.com/releases/26.04/release/ubuntu-26.04-server-cloudimg-arm64.img"
+time="2026-11-09T11:25:40-06:00" level=info msg="Using cache `/Users/johansardar/Library/Caches/lima/download/by-url-sha256/f9e43e8f785f5d1ff32611b44bad25aa4692de12572376acf1b3f97947792601/imgconv/raw`"
+time="2026-11-09T11:25:40-06:00" level=info msg="Resize instance lamp-la's disk from 3.5GiB to 60GiB"
+time="2026-11-09T11:25:40-06:00" level=info msg="Run `limactl start lamp-la` to start the instance."
+Mon Nov  9 17:25:40 UTC 2026
+ProductName:		macOS
+ProductVersion:		26.5.2
+BuildVersion:		25F84
+Apple M5
+10
+25769803776
+limactl version 2.2.0
+time="2026-11-09T11:25:40-06:00" level=info msg="Using the existing instance `lamp-la`"
+time="2026-11-09T11:25:40-06:00" level=info msg="Starting the instance `lamp-la` with internal VM driver `vz`"
+time="2026-11-09T11:25:41-06:00" level=info msg="[hostagent] TCP (except for SSH) and UDP port forwarding is disabled"
+time="2026-11-09T11:25:41-06:00" level=info msg="[hostagent] hostagent socket created at /Users/johansardar/.lima/lamp-la/ha.sock"
+time="2026-11-09T11:25:41-06:00" level=info msg="[hostagent] Starting VZ (hint: to watch the boot progress, see `/Users/johansardar/.lima/lamp-la/serial*.log`)"
+time="2026-11-09T11:25:41-06:00" level=info msg="[hostagent] [VZ] - vm state change: running"
+time="2026-11-09T11:25:45-06:00" level=info msg="[hostagent] Started vsock forwarder: 127.0.0.1:55727 -> vsock:22 on VM"
+time="2026-11-09T11:25:45-06:00" level=info msg="[hostagent] Detected SSH server is listening on the vsock port; changed 127.0.0.1:55727 to proxy for the vsock port"
+time="2026-11-09T11:25:46-06:00" level=info msg="SSH Local Port: 55727"
+time="2026-11-09T11:25:46-06:00" level=info msg="[hostagent] Waiting for the essential requirement 1 of 3: `ssh`"
+time="2026-11-09T11:25:46-06:00" level=info msg="[hostagent] The essential requirement 1 of 3 is satisfied"
+time="2026-11-09T11:25:46-06:00" level=info msg="[hostagent] Waiting for the essential requirement 2 of 3: `user session is ready for ssh`"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] The essential requirement 2 of 3 is satisfied"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] Waiting for the essential requirement 3 of 3: `Explicitly start ssh ControlMaster`"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] The essential requirement 3 of 3 is satisfied"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] Waiting for the optional requirement 1 of 1: `Nested KVM device and test assets ready`"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] Guest agent is running"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] Time sync: guest agent is alive, starting time synchronization"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] Forwarding UDP from 0.0.0.0:5353 to 127.0.0.1:5353"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] Forwarding UDP from [::]:5353 to 127.0.0.1:5353"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] Not forwarding UDP 127.0.0.1:5353"
+time="2026-11-09T11:25:53-06:00" level=info msg="[hostagent] Not forwarding UDP 127.0.0.1:5353"
+time="2026-11-09T11:26:05-06:00" level=info msg="[hostagent] The optional requirement 1 of 1 is satisfied"
+time="2026-11-09T11:26:05-06:00" level=info msg="[hostagent] Waiting for the guest agent to be running"
+time="2026-11-09T11:26:05-06:00" level=info msg="[hostagent] Waiting for the final requirement 1 of 1: `boot scripts must have finished`"
+time="2026-11-09T11:26:05-06:00" level=info msg="[hostagent] The final requirement 1 of 1 is satisfied"
+time="2026-11-09T11:26:05-06:00" level=info msg="READY. Run `limactl shell lamp-la` to open the shell."
+Exit request sent.
+Guest OS: Ubuntu 26.04.1 LTS
+Linux lima-lamp-la 7.0.0-38-generic #38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:28:02 UTC 2026 aarch64 GNU/Linux
+uid=501(johansardar) gid=1000(johansardar) groups=1000(johansardar),991(kvm),999(systemd-journal)
+crw-rw---- 1 root kvm 10, 232 Nov  9 11:25 /dev/kvm
+Kernel source: /boot/vmlinuz-7.0.0-38-generic
+QEMU emulator version 10.2.1 (Debian 1:10.2.1+ds-1ubuntu3.3)
+Copyright (c) 2003-2025 Fabrice Bellard and the QEMU Project developers
+[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x610f0000]
+[    0.000000] Linux version 7.0.0-38-generic (buildd@bos03-arm64-061) (aarch64-linux-gnu-gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:28:02 UTC 2026 (Ubuntu 7.0.0-38.38-generic 7.0.14)
+[    0.000000] KASLR enabled
+[    0.000000] random: crng init done
+[    0.000000] Machine model: linux,dummy-virt
+[    0.000000] efi: UEFI not found.
+[    0.000000] OF: reserved mem: Reserved memory: No reserved-memory node in the DT
+[    0.000000] NUMA: Faking a node at [mem 0x0000000040000000-0x000000005fffffff]
+[    0.000000] NODE_DATA(0) allocated [mem 0x5ff04540-0x5ff0a0ff]
+[    0.000000] cma: Reserved 32 MiB at 0x000000005de00000
+[    0.000000] psci: probing for conduit method from DT.
+[    0.000000] psci: PSCIv1.3 detected in firmware.
+[    0.000000] psci: Using standard PSCI v0.2 function IDs
+[    0.000000] psci: Trusted OS migration not required
+[    0.000000] psci: SMC Calling Convention v1.1
+[    0.000000] smccc: KVM: hypervisor services detected (0x00000000 0x00000000 0x00000000 0x00000003)
+[    0.000000] Zone ranges:
+[    0.000000]   DMA      [mem 0x0000000040000000-0x000000005fffffff]
+[    0.000000]   DMA32    empty
+[    0.000000]   Normal   empty
+[    0.000000]   Device   empty
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000040000000-0x000000005fffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000040000000-0x000000005fffffff]
+[    0.000000] percpu: Embedded 57 pages/cpu s110424 r8192 d114856 u233472
+[    0.000000] Detected PIPT I-cache on CPU0
+[    0.000000] CPU features: detected: Address authentication (IMP DEF algorithm)
+[    0.000000] CPU features: detected: GICv3 CPU interface
+[    0.000000] CPU features: detected: Spectre-v4
+[    0.000000] CPU features: detected: Spectre-BHB
+[    0.000000] alternatives: applying boot alternatives
+[    0.000000] Kernel command line: console=ttyAMA0 rdinit=/init panic=-1
+[    0.000000] printk: log buffer data + meta data: 262144 + 1114112 = 1376256 bytes
+[    0.000000] Dentry cache hash table entries: 65536 (order: 7, 524288 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[    0.000000] software IO TLB: SWIOTLB bounce buffer size adjusted to 0MB
+[    0.000000] software IO TLB: area num 1.
+[    0.000000] software IO TLB: mapped [mem 0x000000005d540000-0x000000005d5c0000] (0MB)
+[    0.000000] Fallback order for Node 0: 0 
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 131072
+[    0.000000] Policy zone: DMA
+[    0.000000] mem auto-init: stack:all(zero), heap alloc:on, heap free:off
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] ftrace: allocating 70865 entries in 278 pages
+[    0.000000] ftrace: allocated 278 pages with 4 groups
+[    0.000000] Dynamic Preempt: lazy
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU restricting CPUs from NR_CPUS=512 to nr_cpu_ids=1.
+[    0.000000] 	Trampoline variant of Tasks RCU enabled.
+[    0.000000] 	Rude variant of Tasks RCU enabled.
+[    0.000000] 	Tracing variant of Tasks RCU enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 100 jiffies.
+[    0.000000] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=1
+[    0.000000] RCU Tasks: Setting shift to 0 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=1.
+[    0.000000] RCU Tasks Rude: Setting shift to 0 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=1.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] GICv3: 256 SPIs implemented
+[    0.000000] GICv3: 0 Extended SPIs implemented
+[    0.000000] Root IRQ handler: gic_handle_irq
+[    0.000000] GICv3: GICv3 features: 16 PPIs, DirectLPI
+[    0.000000] GICv3: GICD_CTLR.DS=1, SCR_EL3.FIQ=0
+[    0.000000] GICv3: CPU0: found redistributor 0 region 0:0x00000000080a0000
+[    0.000000] ITS [mem 0x08080000-0x0809ffff]
+[    0.000000] ITS@0x0000000008080000: allocated 8192 Devices @462c0000 (indirect, esz 8, psz 64K, shr 1)
+[    0.000000] ITS@0x0000000008080000: allocated 8192 Interrupt Collections @462d0000 (flat, esz 8, psz 64K, shr 1)
+[    0.000000] GICv3: using LPI property table @0x00000000462f0000
+[    0.000000] GICv3: CPU0: using allocated LPI pending table @0x0000000046300000
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1911260446275000 ns
+[    0.000000] arch_timer: cp15 timer running at 24.00MHz (virt).
+[    0.000000] clocksource: arch_sys_counter: mask: 0xffffffffffffff max_cycles: 0x588fe9dc0, max_idle_ns: 440795202592 ns
+[    0.000000] sched_clock: 56 bits at 24MHz, resolution 41ns, wraps every 4398046511097ns
+[    0.000276] arm-pv: using stolen time PV
+[    0.002014] Console: colour dummy device 80x25
+[    0.002114] Calibrating delay loop (skipped), value calculated using timer frequency.. 48.00 BogoMIPS (lpj=24000)
+[    0.002119] pid_max: default: 32768 minimum: 301
+[    0.004510] landlock: Up and running.
+[    0.004510] Yama: becoming mindful.
+[    0.008602] AppArmor: AppArmor initialized
+[    0.008604] AppArmor: AppArmor secmark mediation reserved: ready to be enabled
+[    0.010933] Mount-cache hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    0.010937] Mountpoint-cache hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    0.011112] VFS: Finished mounting rootfs on nullfs
+[    0.013340] cacheinfo: Unable to detect cache hierarchy for CPU 0
+[    0.013778] rcu: Hierarchical SRCU implementation.
+[    0.013780] rcu: 	Max phase no-delay instances is 400.
+[    0.014358] fsl-mc MSI: its@8080000 domain created
+[    0.014419] EFI services will not be available.
+[    0.014465] smp: Bringing up secondary CPUs ...
+[    0.014470] smp: Brought up 1 node, 1 CPU
+[    0.014470] SMP: Total of 1 processors activated.
+[    0.014470] CPU: All CPU(s) started at EL1
+[    0.014491] CPU features: detected: Branch Target Identification
+[    0.014495] CPU features: detected: ARMv8.4 Translation Table Level
+[    0.014495] CPU features: detected: Data cache clean to the PoU not required for I/D coherence
+[    0.014495] CPU features: detected: Common not Private translations
+[    0.014496] CPU features: detected: CRC32 instructions
+[    0.014496] CPU features: detected: Data cache clean to Point of Deep Persistence
+[    0.014496] CPU features: detected: Data cache clean to Point of Persistence
+[    0.014496] CPU features: detected: Data independent timing control (DIT)
+[    0.014496] CPU features: detected: E0PD
+[    0.014496] CPU features: detected: Enhanced Privileged Access Never
+[    0.014497] CPU features: detected: Generic authentication (IMP DEF algorithm)
+[    0.014499] CPU features: detected: RCpc load-acquire (LDAPR)
+[    0.014499] CPU features: detected: LSE atomic instructions
+[    0.014499] CPU features: detected: Privileged Access Never
+[    0.014499] CPU features: detected: RAS Extension Support
+[    0.014500] CPU features: detected: Speculation barrier (SB)
+[    0.014500] CPU features: detected: TLB range maintenance instructions
+[    0.014500] CPU features: detected: XNX
+[    0.014734] alternatives: applying system-wide alternatives
+[    0.018322] Memory: 290728K/524288K available (27840K kernel code, 6298K rwdata, 20120K rodata, 15168K init, 1303K bss, 194404K reserved, 32768K cma-reserved)
+[    0.018994] devtmpfs: initialized
+[    0.019386] setend instruction emulation is not supported on this system
+[    0.019433] posixtimers hash table entries: 512 (order: 1, 8192 bytes, linear)
+[    0.019438] futex hash table entries: 256 (16384 bytes on 1 NUMA nodes, total 16 KiB, linear).
+[    0.019604] 2G module region forced by RANDOMIZE_MODULE_REGION_FULL
+[    0.019607] 0 pages in range for non-PLT usage
+[    0.019608] 506544 pages in range for PLT usage
+[    0.019850] DMI not present or invalid.
+[    0.021365] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.022642] DMA: preallocated 128 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[    0.022652] audit: initializing netlink subsys (disabled)
+[    0.024411] audit: type=2000 audit(0.017:1): state=initialized audit_enabled=0 res=1
+[    0.024486] thermal_sys: Registered thermal governor 'fair_share'
+[    0.024488] thermal_sys: Registered thermal governor 'bang_bang'
+[    0.024488] thermal_sys: Registered thermal governor 'step_wise'
+[    0.024488] thermal_sys: Registered thermal governor 'user_space'
+[    0.024488] thermal_sys: Registered thermal governor 'power_allocator'
+[    0.024533] cpuidle: using governor ladder
+[    0.024535] cpuidle: using governor menu
+[    0.024784] hw-breakpoint: found 6 breakpoint and 4 watchpoint registers.
+[    0.024852] ASID allocator initialised with 65536 entries
+[    0.025295] Serial: AMBA PL011 UART driver
+[    0.027479] 9000000.pl011: ttyAMA0 at MMIO 0x9000000 (irq = 13, base_baud = 0) is a PL011 rev1
+[    0.027916] printk: console [ttyAMA0] enabled
+[    0.248269] HugeTLB: registered 1.00 GiB page size, pre-allocated 0 pages
+[    0.248270] HugeTLB: 0 KiB vmemmap can be freed for a 1.00 GiB page
+[    0.248271] HugeTLB: registered 32.0 MiB page size, pre-allocated 0 pages
+[    0.248271] HugeTLB: 0 KiB vmemmap can be freed for a 32.0 MiB page
+[    0.248271] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[    0.248271] HugeTLB: 0 KiB vmemmap can be freed for a 2.00 MiB page
+[    0.248272] HugeTLB: registered 64.0 KiB page size, pre-allocated 0 pages
+[    0.248272] HugeTLB: 0 KiB vmemmap can be freed for a 64.0 KiB page
+[    0.451332] ACPI: Interpreter disabled.
+[    0.549997] iommu: Default domain type: Translated
+[    0.550000] iommu: DMA domain TLB invalidation policy: strict mode
+[    0.560555] SCSI subsystem initialized
+[    0.560672] usbcore: registered new interface driver usbfs
+[    0.560682] usbcore: registered new interface driver hub
+[    0.560684] usbcore: registered new device driver usb
+[    0.560712] pps_core: LinuxPPS API ver. 1 registered
+[    0.560712] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.560713] PTP clock support registered
+[    0.574151] EDAC MC: Ver: 3.0.0
+[    0.574207] scmi_core: SCMI protocol bus registered
+[    0.574632] NetLabel: Initializing
+[    0.574634] NetLabel:  domain hash size = 128
+[    0.574634] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[    0.574656] NetLabel:  unlabeled traffic allowed by default
+[    0.597010] mctp: management component transport protocol core
+[    0.597011] NET: Registered PF_MCTP protocol family
+[    0.597055] vgaarb: loaded
+[    0.653904] clocksource: Switched to clocksource arch_sys_counter
+[    0.654173] VFS: Disk quotas dquot_6.6.0
+[    0.654219] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[    0.685261] AppArmor: AppArmor Filesystem Enabled
+[    0.685276] pnp: PnP ACPI: disabled
+[    0.729071] NET: Registered PF_INET protocol family
+[    0.729112] IP idents hash table entries: 8192 (order: 4, 65536 bytes, linear)
+[    0.960761] tcp_listen_portaddr_hash hash table entries: 256 (order: 0, 4096 bytes, linear)
+[    0.960805] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.960901] TCP established hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.960931] TCP bind hash table entries: 4096 (order: 5, 131072 bytes, linear)
+[    0.960958] TCP: Hash tables configured (established 4096 bind 4096)
+[    0.961022] MPTCP token hash table entries: 512 (order: 2, 12288 bytes, linear)
+[    0.961081] UDP hash table entries: 256 (order: 2, 16384 bytes, linear)
+[    0.961113] UDP-Lite hash table entries: 256 (order: 2, 16384 bytes, linear)
+[    0.961265] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.961296] NET: Registered PF_XDP protocol family
+[    0.961349] PCI: CLS 0 bytes, default 64
+[    0.961436] Trying to unpack rootfs image as initramfs...
+[    1.042757] kvm [1]: HYP mode not available
+[    1.043048] Initialise system trusted keyrings
+[    1.043113] Key type blacklist registered
+[    1.054769] workingset: timestamp_bits=40 max_order=17 bucket_order=0
+[    1.061032] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    1.066671] fuse: init (API version 7.45)
+[    1.070985] integrity: Platform Keyring initialized
+[    1.071009] integrity: Machine keyring initialized
+[    1.086019] Freeing initrd memory: 1004K
+[    1.092562] Key type asymmetric registered
+[    1.092590] Asymmetric key parser 'x509' registered
+[    1.092655] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 241)
+[    1.108613] io scheduler mq-deadline registered
+[    1.113898] pl061_gpio 9030000.pl061: PL061 GPIO chip registered
+[    1.119415] ledtrig-cpu: registered to indicate activity on CPUs
+[    1.119557] pci-host-generic 4010000000.pcie: host bridge /pcie@10000000 ranges:
+[    1.119584] pci-host-generic 4010000000.pcie:       IO 0x003eff0000..0x003effffff -> 0x0000000000
+[    1.119616] pci-host-generic 4010000000.pcie:      MEM 0x0010000000..0x003efeffff -> 0x0010000000
+[    1.119641] pci-host-generic 4010000000.pcie:      MEM 0x8000000000..0xffffffffff -> 0x8000000000
+[    1.119678] pci-host-generic 4010000000.pcie: Memory resource size exceeds max for 32 bits
+[    1.119712] pci-host-generic 4010000000.pcie: ECAM at [mem 0x4010000000-0x401fffffff] for [bus 00-ff]
+[    1.148440] pci-host-generic 4010000000.pcie: PCI host bridge to bus 0000:00
+[    1.148442] pci_bus 0000:00: root bus resource [bus 00-ff]
+[    1.148443] pci_bus 0000:00: root bus resource [io  0x0000-0xffff]
+[    1.148444] pci_bus 0000:00: root bus resource [mem 0x10000000-0x3efeffff]
+[    1.148445] pci_bus 0000:00: root bus resource [mem 0x8000000000-0xffffffffff]
+[    1.148658] pci 0000:00:00.0: [1b36:0008] type 00 class 0x060000 conventional PCI endpoint
+[    1.217080] pci_bus 0000:00: resource 4 [io  0x0000-0xffff]
+[    1.217106] pci_bus 0000:00: resource 5 [mem 0x10000000-0x3efeffff]
+[    1.217130] pci_bus 0000:00: resource 6 [mem 0x8000000000-0xffffffffff]
+[    1.242265] Serial: 8250/16550 driver, 32 ports, IRQ sharing enabled
+[    1.249012] msm_serial: driver initialized
+[    1.249078] SuperH (H)SCI(F) driver initialized
+[    1.258212] loop: module loaded
+[    1.261456] tun: Universal TUN/TAP device driver, 1.6
+[    1.266277] PPP generic driver version 2.4.2
+[    1.270297] mousedev: PS/2 mouse device common for all mice
+[    1.275439] i2c_dev: i2c /dev entries driver
+[    1.275534] device-mapper: core: CONFIG_IMA_DISABLE_HTABLE is disabled. Duplicate IMA measurements will not be recorded in the IMA log.
+[    1.275564] device-mapper: uevent: version 1.0.3
+[    1.290546] device-mapper: ioctl: 4.50.0-ioctl (2025-04-28) initialised: dm-devel@lists.linux.dev
+[    1.290861] drop_monitor: Initializing network drop monitor service
+[    1.291068] NET: Registered PF_INET6 protocol family
+[    1.291136] watchdog: NMI not fully supported
+[    1.291137] watchdog: Hard watchdog permanently disabled
+[    1.324475] Segment Routing with IPv6
+[    1.324505] In-situ OAM (IOAM) with IPv6
+[    1.324545] NET: Registered PF_PACKET protocol family
+[    1.337251] Key type dns_resolver registered
+[    1.341924] registered taskstats version 1
+[    1.345937] Loading compiled-in X.509 certificates
+[    1.350882] Loaded X.509 cert 'Build time autogenerated kernel key: 1ea3411dae092d79be5bf3cac817f82068e81a43'
+[    1.351088] Loaded X.509 cert 'Canonical Ltd. Live Patch Signing 2025 Kmod: d541cef61dc7e793b7eb7e899970a2eef0b5dc8c'
+[    1.351273] Loaded X.509 cert 'Canonical Ltd. Live Patch Signing: 14df34d1a87cf37625abec039ef2bf521249b969'
+[    1.351456] Loaded X.509 cert 'Canonical Ltd. Kernel Module Signing 2025 Kmod: 4627603d2357a2a3f81006370894c221175893e9'
+[    1.351634] Loaded X.509 cert 'Canonical Ltd. Kernel Module Signing: 88f752e560a1e0737e31163a466ad7b70a850c19'
+[    1.351665] blacklist: Loading compiled-in revocation X.509 certificates
+[    1.351699] Loaded X.509 cert 'Canonical Ltd. Secure Boot Signing: 61482aa2830d0ab2ad5af10b7250da9033ddcef0'
+[    1.415211] Loaded X.509 cert 'Canonical Ltd. Secure Boot Signing (2017): 242ade75ac4a15e50d50c84b0d45ff3eae707a03'
+[    1.415244] Loaded X.509 cert 'Canonical Ltd. Secure Boot Signing (ESM 2018): 365188c1d374d6b07c3c8f240f8ef722433d6a8b'
+[    1.415273] Loaded X.509 cert 'Canonical Ltd. Secure Boot Signing (2019): c0746fd6c5da3ae827864651ad66ae47fe24b3e8'
+[    1.415300] Loaded X.509 cert 'Canonical Ltd. Secure Boot Signing (2021 v1): a8d54bbb3825cfb94fa13c9f8a594a195c107b8d'
+[    1.415328] Loaded X.509 cert 'Canonical Ltd. Secure Boot Signing (2021 v2): 4cf046892d6fd3c9a5b03f98d845f90851dc6a8c'
+[    1.415363] Loaded X.509 cert 'Canonical Ltd. Secure Boot Signing (2021 v3): 100437bb6de6e469b581e61cd66bce3ef4ed53af'
+[    1.415391] Loaded X.509 cert 'Canonical Ltd. Secure Boot Signing (Ubuntu Core 2019): c1d57b8f6b743f23ee41f4f7ee292f06eecadfb9'
+[    1.487287] Demotion targets for Node 0: null
+[    1.487347] Key type .fscrypt registered
+[    1.487374] Key type fscrypt-provisioning registered
+[    1.487424] Key type big_key registered
+[    1.505257] Key type encrypted registered
+[    1.505284] AppArmor: AppArmor sha256 policy hashing enabled
+[    1.505313] ima: No TPM chip found, activating TPM-bypass!
+[    1.505339] Loading compiled-in module X.509 certificates
+[    1.505525] Loaded X.509 cert 'Build time autogenerated kernel key: 1ea3411dae092d79be5bf3cac817f82068e81a43'
+[    1.505550] ima: Allocated hash algorithm: sha256
+[    1.505588] ima: No architecture policies found
+[    1.505624] evm: Initialising EVM extended attributes:
+[    1.505647] evm: security.selinux
+[    1.505670] evm: security.SMACK64
+[    1.505695] evm: security.SMACK64EXEC
+[    1.505717] evm: security.SMACK64TRANSMUTE
+[    1.562326] evm: security.SMACK64MMAP
+[    1.562352] evm: security.apparmor
+[    1.562377] evm: security.ima
+[    1.562402] evm: security.capability
+[    1.562427] evm: HMAC attrs: 0x1
+[    1.579150] clk: Disabling unused clocks
+[    1.579198] PM: genpd: Disabling unused power domains
+[    1.593085] Freeing unused kernel memory: 15168K
+[    1.598411] Checked W+X mappings: passed, no W+X pages found
+[    1.598440] Run /init as init process
+LAMP_LA_NESTED_KVM_BOOT_OK
+Linux (none) 7.0.0-38-generic #38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:28:02 UTC 2026 aarch64 GNU/Linux
+processor	: 0
+BogoMIPS	: 48.00
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb paca pacg dcpodp flagm2 frint i8mm bf16 bti afp ebf16
+CPU implementer	: 0x61
+CPU architecture: 8
+CPU variant	: 0x0
+CPU part	: 0x000
+CPU revision	: 0
+
+[    1.663328] reboot: Power down
+PASS: nested Linux booted with mandatory -accel kvm and powered off (QEMU exit 0).
+{"name":"lamp-la","hostname":"lima-lamp-la","status":"Running","dir":"/Users/johansardar/.lima/lamp-la","vmType":"vz","arch":"aarch64","cpus":4,"memory":8589934592,"disk":64424509440,"sshLocalPort":55727,"sshConfigFile":"/Users/johansardar/.lima/lamp-la/ssh.config","hostAgentPID":67923,"driverPID":67923,"config":{"minimumLimaVersion":"2.2.0","vmType":"vz","os":"Linux","arch":"aarch64","images":[{"location":"https://cloud-images.ubuntu.com/releases/26.04/release/ubuntu-26.04-server-cloudimg-arm64.img","arch":"aarch64","digest":"sha256:8eb876c2ccc4b6ff89e4a65d511815923b285e04503ba465809bf587f763da24"}],"cpus":4,"memory":"8GiB","disk":"60GiB","mountInotify":false,"ssh":{"localPort":0,"loadDotSSHPubKeys":false,"forwardAgent":false,"forwardX11":false,"forwardX11Trusted":false},"firmware":{"legacyBIOS":false},"audio":{"device":"","interface":""},"video":{"display":"none"},"provision":[{"mode":"system","script":"#!/bin/bash\nset -euo pipefail\nexport DEBIAN_FRONTEND=noninteractive\napt-get update\napt-get install -y --no-install-recommends qemu-system-arm busybox-static cpio gzip zstd python3\nusermod -aG kvm johansardar\ninstall -d -m 755 /opt/lamp-la/rootfs/{bin,dev,proc,sys}\ncp /bin/busybox /opt/lamp-la/rootfs/bin/busybox\nln -sf busybox /opt/lamp-la/rootfs/bin/sh\ncat > /opt/lamp-la/rootfs/init <<'INIT'\n#!/bin/sh\n/bin/busybox mount -t proc proc /proc\n/bin/busybox mount -t sysfs sysfs /sys\necho LAMP_LA_NESTED_KVM_BOOT_OK\n/bin/busybox uname -a\n/bin/busybox cat /proc/cpuinfo\n/bin/busybox poweroff -f\nINIT\nchmod 755 /opt/lamp-la/rootfs/init\ncd /opt/lamp-la/rootfs\nfind . -print0 | cpio --null -o --format=newc | gzip -9 > /opt/lamp-la/initramfs.cpio.gz\nkernel=$(readlink -f /boot/vmlinuz)\npython3 - \"$kernel\" /opt/lamp-la/Image <<'PYTHON'\nimport gzip\nimport struct\nimport subprocess\nimport sys\nfrom pathlib import Path\nimage = Path(sys.argv[1]).read_bytes()\n# Ubuntu 26.04 ships a UKI; extract its embedded Linux EFI zboot image.\nif image[:2] == b'MZ' and image[4:8] != b'zimg':\n    pe = struct.unpack_from('<I', image, 60)[0]\n    count = struct.unpack_from('<H', image, pe + 6)[0]\n    optional_size = struct.unpack_from('<H', image, pe + 20)[0]\n    for i in range(count):\n        section = pe + 24 + optional_size + i * 40\n        name, size, _, _, offset = struct.unpack_from('<8sIIII', image, section)\n        if name.rstrip(b'\\0') == b'.linux':\n            image = image[offset:offset + size]\n            break\nif image[4:8] == b'zimg':\n    offset, size = struct.unpack_from('<II', image, 8)\n    compression = image[24:32].split(b'\\0')[0]\n    if compression != b'zstd':\n        raise RuntimeError(f'Unsupported EFI zboot compression: {compression!r}')\n    image = subprocess.run(['zstd', '-dc'], input=image[offset:offset + size],\n                           stdout=subprocess.PIPE, check=True).stdout\nelif image[:2] == b'\\x1f\\x8b':\n    image = gzip.decompress(image)\nif image[56:60] != b'ARMd':\n    raise RuntimeError('Expected a raw ARM64 Linux Image header')\nPath(sys.argv[2]).write_bytes(image)\nPYTHON\nchmod 644 /opt/lamp-la/Image /opt/lamp-la/initramfs.cpio.gz\nprintf '%s\\n' \"$kernel\" > /opt/lamp-la/kernel-source\n"}],"upgradePackages":false,"containerd":{"system":false,"user":false,"archives":[{"location":"https://github.com/containerd/nerdctl/releases/download/v2.3.5/nerdctl-full-2.3.5-linux-amd64.tar.gz","arch":"x86_64","digest":"sha256:b697295c623639734aaab737523c808fd3cc8d3046039fd94fff1744e4c317aa"},{"location":"https://github.com/containerd/nerdctl/releases/download/v2.3.5/nerdctl-full-2.3.5-linux-arm64.tar.gz","arch":"aarch64","digest":"sha256:6e4b687f1d138e750a3c8372abc0f81d3d7490b6359c48c0562fc7dfe98859b2"}]},"guestInstallPrefix":"/usr/local","probes":[{"mode":"readiness","description":"Nested KVM device and test assets ready","script":"#!/bin/sh\ntest -c /dev/kvm && test -r /opt/lamp-la/Image && test -r /opt/lamp-la/initramfs.cpio.gz\n"}],"portForwards":[{"guestIPMustBeZero":false,"guestIP":"127.0.0.1","guestPortRange":[1,65535],"hostIP":"127.0.0.1","hostPortRange":[1,65535],"proto":"any","ignore":true}],"param":{"internal_netplanOptional":"true"},"hostResolver":{"enabled":true,"ipv6":false},"propagateProxyEnv":true,"caCerts":{"removeDefaults":false},"plain":false,"timezone":"America/Chicago","nestedVirtualization":true,"user":{"name":"johansardar","comment":"Johan Sardar","home":"/home/johansardar.guest","shell":"/bin/bash","uid":501,"passwordlessSudo":true},"tpm":false},"sshAddress":"127.0.0.1","protected":false,"limaVersion":"2.2.0","param":{"internal_netplanOptional":"true"},"HostOS":"darwin","HostArch":"aarch64","LimaHome":"/Users/johansardar/.lima","IdentityFile":"/Users/johansardar/.lima/_config/user"}
+time="2026-11-09T11:26:10-06:00" level=info msg="Sending SIGINT to hostagent process 67923"
+time="2026-11-09T11:26:10-06:00" level=info msg="Waiting for the host agent and the driver processes to shut down"
+time="2026-11-09T11:26:10-06:00" level=info msg="[hostagent] Received SIGINT, shutting down the host agent"
+time="2026-11-09T11:26:10-06:00" level=info msg="[hostagent] Shutting down the host agent"
+time="2026-11-09T11:26:10-06:00" level=info msg="[hostagent] Shutting down VZ"
+time="2026-11-09T11:26:11-06:00" level=info msg="[hostagent] [VZ] - vm state change: stopped"
+time="2026-11-09T11:26:11-06:00" level=info msg="Waiting for the instance to shut down"
+time="2026-11-09T11:26:11-06:00" level=info msg="The instance lamp-la has shut down"

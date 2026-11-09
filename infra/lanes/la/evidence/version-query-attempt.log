@@ -1,0 +1,62 @@
+Mon Nov  9 17:26:26 UTC 2026
+ProductName:		macOS
+ProductVersion:		26.5.2
+BuildVersion:		25F84
+Apple M5
+10
+25769803776
+limactl version 2.2.0
+time="2026-11-09T11:26:26-06:00" level=info msg="Using the existing instance `lamp-la`"
+time="2026-11-09T11:26:26-06:00" level=info msg="Starting the instance `lamp-la` with internal VM driver `vz`"
+time="2026-11-09T11:26:27-06:00" level=info msg="[hostagent] TCP (except for SSH) and UDP port forwarding is disabled"
+time="2026-11-09T11:26:27-06:00" level=info msg="[hostagent] hostagent socket created at /Users/johansardar/.lima/lamp-la/ha.sock"
+time="2026-11-09T11:26:27-06:00" level=info msg="[hostagent] Starting VZ (hint: to watch the boot progress, see `/Users/johansardar/.lima/lamp-la/serial*.log`)"
+time="2026-11-09T11:26:27-06:00" level=info msg="[hostagent] [VZ] - vm state change: running"
+time="2026-11-09T11:26:31-06:00" level=info msg="[hostagent] Started vsock forwarder: 127.0.0.1:55856 -> vsock:22 on VM"
+time="2026-11-09T11:26:31-06:00" level=info msg="[hostagent] Detected SSH server is listening on the vsock port; changed 127.0.0.1:55856 to proxy for the vsock port"
+time="2026-11-09T11:26:32-06:00" level=info msg="SSH Local Port: 55856"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Waiting for the essential requirement 1 of 3: `ssh`"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] The essential requirement 1 of 3 is satisfied"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Waiting for the essential requirement 2 of 3: `user session is ready for ssh`"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] The essential requirement 2 of 3 is satisfied"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Waiting for the essential requirement 3 of 3: `Explicitly start ssh ControlMaster`"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] The essential requirement 3 of 3 is satisfied"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Waiting for the optional requirement 1 of 1: `Nested KVM device and test assets ready`"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Guest agent is running"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Time sync: guest agent is alive, starting time synchronization"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] The optional requirement 1 of 1 is satisfied"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Waiting for the guest agent to be running"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Waiting for the final requirement 1 of 1: `boot scripts must have finished`"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Forwarding UDP from 0.0.0.0:5353 to 127.0.0.1:5353"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Forwarding UDP from [::]:5353 to 127.0.0.1:5353"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Not forwarding UDP 127.0.0.1:5353"
+time="2026-11-09T11:26:32-06:00" level=info msg="[hostagent] Not forwarding UDP 127.0.0.1:5353"
+time="2026-11-09T11:26:35-06:00" level=info msg="[hostagent] The final requirement 1 of 1 is satisfied"
+time="2026-11-09T11:26:35-06:00" level=info msg="READY. Run `limactl shell lamp-la` to open the shell."
+Exit request sent.
+Guest OS: Ubuntu 26.04.1 LTS
+Linux lima-lamp-la 7.0.0-38-generic #38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:28:02 UTC 2026 aarch64 GNU/Linux
+Guest vCPUs: 4
+               total        used        free      shared  buff/cache   available
+Mem:      8297721856   747589632  7021674496     1040384   700280832  7550132224
+Swap:              0           0           0
+NAME           SIZE FSTYPE  MOUNTPOINTS
+vda     64424509440         
+├─vda1  63349702144 ext4    /
+├─vda13   967836160 ext4    /boot
+└─vda15   103809536 vfat    /boot/efi
+vdb        19916800 iso9660 /mnt/lima-cidata
+1118d566dfd9439c27b995219534bc8ce8dfdc47e00c88cc9d2b0bf6c9176530  /opt/lamp-la/Image
+33b8d19a272e055c54d1214a1e3b335e33ca6f6d5e440b6af1ab909f33d69f68  /opt/lamp-la/initramfs.cpio.gz
+busybox-static	1:1.37.0-7ubuntu1
+qemu-system-arm	1:10.2.1+ds-1ubuntu3.3
+dpkg-query: no packages found matching linux-image-generic
+time="2026-11-09T11:26:36-06:00" level=info msg="Sending SIGINT to hostagent process 68402"
+time="2026-11-09T11:26:36-06:00" level=info msg="Waiting for the host agent and the driver processes to shut down"
+time="2026-11-09T11:26:36-06:00" level=info msg="[hostagent] Received SIGINT, shutting down the host agent"
+time="2026-11-09T11:26:36-06:00" level=info msg="[hostagent] Shutting down the host agent"
+time="2026-11-09T11:26:36-06:00" level=info msg="[hostagent] Shutting down VZ"
+time="2026-11-09T11:26:39-06:00" level=info msg="[hostagent] [VZ] - vm state change: stopped"
+time="2026-11-09T11:26:39-06:00" level=info msg="Waiting for the instance to shut down"
+time="2026-11-09T11:26:40-06:00" level=info msg="The instance lamp-la has shut down"
+lamp-la Stopped

@@ -1,0 +1,84 @@
+minimumLimaVersion: 2.2.0
+vmType: vz
+arch: aarch64
+nestedVirtualization: true
+cpus: 4
+memory: 8GiB
+disk: 60GiB
+images:
+  - location: https://cloud-images.ubuntu.com/releases/26.04/release/ubuntu-26.04-server-cloudimg-arm64.img
+    arch: aarch64
+    digest: sha256:8eb876c2ccc4b6ff89e4a65d511815923b285e04503ba465809bf587f763da24
+param:
+  internal_netplanOptional: "true"
+mounts: []
+containerd:
+  system: false
+  user: false
+portForwards:
+  - guestPortRange: [1, 65535]
+    ignore: true
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends qemu-system-arm busybox-static cpio gzip zstd python3
+      usermod -aG kvm {{.User}}
+      install -d -m 755 /opt/lamp-la/rootfs/{bin,dev,proc,sys}
+      cp /bin/busybox /opt/lamp-la/rootfs/bin/busybox
+      ln -sf busybox /opt/lamp-la/rootfs/bin/sh
+      cat > /opt/lamp-la/rootfs/init <<'INIT'
+      #!/bin/sh
+      /bin/busybox mount -t proc proc /proc
+      /bin/busybox mount -t sysfs sysfs /sys
+      echo LAMP_LA_NESTED_KVM_BOOT_OK
+      /bin/busybox uname -a
+      /bin/busybox cat /proc/cpuinfo
+      /bin/busybox poweroff -f
+      INIT
+      chmod 755 /opt/lamp-la/rootfs/init
+      cd /opt/lamp-la/rootfs
+      find . -print0 | cpio --null -o --format=newc | gzip -9 > /opt/lamp-la/initramfs.cpio.gz
+      kernel=$(readlink -f /boot/vmlinuz)
+      python3 - "$kernel" /opt/lamp-la/Image <<'PYTHON'
+      import gzip
+      import struct
+      import subprocess
+      import sys
+      from pathlib import Path
+      image = Path(sys.argv[1]).read_bytes()
+      # Ubuntu 26.04 ships a UKI; extract its embedded Linux EFI zboot image.
+      if image[:2] == b'MZ' and image[4:8] != b'zimg':
+          pe = struct.unpack_from('<I', image, 60)[0]
+          count = struct.unpack_from('<H', image, pe + 6)[0]
+          optional_size = struct.unpack_from('<H', image, pe + 20)[0]
+          for i in range(count):
+              section = pe + 24 + optional_size + i * 40
+              name, size, _, _, offset = struct.unpack_from('<8sIIII', image, section)
+              if name.rstrip(b'\0') == b'.linux':
+                  image = image[offset:offset + size]
+                  break
+      if image[4:8] == b'zimg':
+          offset, size = struct.unpack_from('<II', image, 8)
+          compression = image[24:32].split(b'\0')[0]
+          if compression != b'zstd':
+              raise RuntimeError(f'Unsupported EFI zboot compression: {compression!r}')
+          image = subprocess.run(['zstd', '-dc'], input=image[offset:offset + size],
+                                 stdout=subprocess.PIPE, check=True).stdout
+      elif image[:2] == b'\x1f\x8b':
+          image = gzip.decompress(image)
+      if image[56:60] != b'ARMd':
+          raise RuntimeError('Expected a raw ARM64 Linux Image header')
+      Path(sys.argv[2]).write_bytes(image)
+      PYTHON
+      chmod 644 /opt/lamp-la/Image /opt/lamp-la/initramfs.cpio.gz
+      printf '%s\n' "$kernel" > /opt/lamp-la/kernel-source
+probes:
+  - mode: readiness
+    description: Nested KVM device and test assets ready
+    script: |
+      #!/bin/sh
+      test -c /dev/kvm && test -r /opt/lamp-la/Image && test -r /opt/lamp-la/initramfs.cpio.gz

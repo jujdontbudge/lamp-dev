@@ -1,0 +1,63 @@
+time="2026-11-09T11:20:44-06:00" level=warning msg="No instance found. Run `limactl create` to create an instance."
+time="2026-11-09T11:20:44-06:00" level=warning msg="No instance found. Run `limactl create` to create an instance."
+time="2026-11-09T11:20:44-06:00" level=info msg="Terminal is not available, proceeding without opening an editor"
+time="2026-11-09T11:20:44-06:00" level=info msg="Attempting to download the image" arch=aarch64 digest="sha256:8eb876c2ccc4b6ff89e4a65d511815923b285e04503ba465809bf587f763da24" location="https://cloud-images.ubuntu.com/releases/26.04/release/ubuntu-26.04-server-cloudimg-arm64.img"
+Downloading the image (ubuntu-26.04-server-cloudimg-arm64.img)
+time="2026-11-09T11:22:34-06:00" level=info msg="Converting qcow2 image to raw sparse format in cache: \"/Users/johansardar/Library/Caches/lima/download/by-url-sha256/f9e43e8f785f5d1ff32611b44bad25aa4692de12572376acf1b3f97947792601/imgconv/raw\""
+time="2026-11-09T11:22:34-06:00" level=info msg="Converting `/Users/johansardar/Library/Caches/lima/download/by-url-sha256/f9e43e8f785f5d1ff32611b44bad25aa4692de12572376acf1b3f97947792601/data` (qcow2) to a raw disk `/Users/johansardar/Library/Caches/lima/download/by-url-sha256/f9e43e8f785f5d1ff32611b44bad25aa4692de12572376acf1b3f97947792601/imgconv/raw.tmp`"
+time="2026-11-09T11:22:40-06:00" level=info msg="Downloaded the image from `https://cloud-images.ubuntu.com/releases/26.04/release/ubuntu-26.04-server-cloudimg-arm64.img`"
+time="2026-11-09T11:22:40-06:00" level=info msg="Resize instance lamp-la's disk from 3.5GiB to 60GiB"
+time="2026-11-09T11:22:40-06:00" level=info msg="Run `limactl start lamp-la` to start the instance."
+Mon Nov  9 17:22:40 UTC 2026
+ProductName:		macOS
+ProductVersion:		26.5.2
+BuildVersion:		25F84
+Apple M5
+10
+25769803776
+limactl version 2.2.0
+time="2026-11-09T11:22:40-06:00" level=info msg="Using the existing instance `lamp-la`"
+time="2026-11-09T11:22:40-06:00" level=info msg="Starting the instance `lamp-la` with internal VM driver `vz`"
+time="2026-11-09T11:22:40-06:00" level=info msg="[hostagent] TCP (except for SSH) and UDP port forwarding is disabled"
+time="2026-11-09T11:22:40-06:00" level=info msg="[hostagent] hostagent socket created at /Users/johansardar/.lima/lamp-la/ha.sock"
+time="2026-11-09T11:22:40-06:00" level=info msg="[hostagent] Starting VZ (hint: to watch the boot progress, see `/Users/johansardar/.lima/lamp-la/serial*.log`)"
+time="2026-11-09T11:22:41-06:00" level=info msg="[hostagent] [VZ] - vm state change: running"
+time="2026-11-09T11:22:46-06:00" level=info msg="[hostagent] Started vsock forwarder: 127.0.0.1:55343 -> vsock:22 on VM"
+time="2026-11-09T11:22:46-06:00" level=info msg="[hostagent] Detected SSH server is listening on the vsock port; changed 127.0.0.1:55343 to proxy for the vsock port"
+time="2026-11-09T11:22:47-06:00" level=info msg="SSH Local Port: 55343"
+time="2026-11-09T11:22:47-06:00" level=info msg="[hostagent] Waiting for the essential requirement 1 of 3: `ssh`"
+time="2026-11-09T11:22:47-06:00" level=info msg="[hostagent] The essential requirement 1 of 3 is satisfied"
+time="2026-11-09T11:22:47-06:00" level=info msg="[hostagent] Waiting for the essential requirement 2 of 3: `user session is ready for ssh`"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] The essential requirement 2 of 3 is satisfied"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] Waiting for the essential requirement 3 of 3: `Explicitly start ssh ControlMaster`"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] The essential requirement 3 of 3 is satisfied"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] Waiting for the optional requirement 1 of 1: `Nested KVM device and test assets ready`"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] Guest agent is running"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] Time sync: guest agent is alive, starting time synchronization"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] Forwarding UDP from 0.0.0.0:5353 to 127.0.0.1:5353"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] Forwarding UDP from [::]:5353 to 127.0.0.1:5353"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] Not forwarding UDP 127.0.0.1:5353"
+time="2026-11-09T11:22:50-06:00" level=info msg="[hostagent] Not forwarding UDP 127.0.0.1:5353"
+time="2026-11-09T11:22:55-06:00" level=info msg="[hostagent] Time sync: guest clock adjusted (was 139ms off)"
+time="2026-11-09T11:23:05-06:00" level=info msg="[hostagent] Time sync: guest clock adjusted (was -133ms off)"
+time="2026-11-09T11:23:42-06:00" level=info msg="[hostagent] The optional requirement 1 of 1 is satisfied"
+time="2026-11-09T11:23:42-06:00" level=info msg="[hostagent] Waiting for the guest agent to be running"
+time="2026-11-09T11:23:42-06:00" level=info msg="[hostagent] Waiting for the final requirement 1 of 1: `boot scripts must have finished`"
+time="2026-11-09T11:23:42-06:00" level=info msg="[hostagent] The final requirement 1 of 1 is satisfied"
+time="2026-11-09T11:23:42-06:00" level=info msg="READY. Run `limactl shell lamp-la` to open the shell."
+Guest OS: Ubuntu 26.04.1 LTS
+Linux lima-lamp-la 7.0.0-38-generic #38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:28:02 UTC 2026 aarch64 GNU/Linux
+uid=501(johansardar) gid=1000(johansardar) groups=1000(johansardar),991(kvm),999(systemd-journal)
+crw-rw---- 1 root kvm 10, 232 Nov  9 11:22 /dev/kvm
+Kernel source: /boot/vmlinuz-7.0.0-38-generic
+QEMU emulator version 10.2.1 (Debian 1:10.2.1+ds-1ubuntu3.3)
+Copyright (c) 2003-2025 Fabrice Bellard and the QEMU Project developers
+bash: line 18: result: unbound variable
+time="2026-11-09T11:25:12-06:00" level=info msg="Sending SIGINT to hostagent process 66423"
+time="2026-11-09T11:25:12-06:00" level=info msg="Waiting for the host agent and the driver processes to shut down"
+time="2026-11-09T11:25:12-06:00" level=info msg="[hostagent] Received SIGINT, shutting down the host agent"
+time="2026-11-09T11:25:12-06:00" level=info msg="[hostagent] Shutting down the host agent"
+time="2026-11-09T11:25:12-06:00" level=info msg="[hostagent] Shutting down VZ"
+time="2026-11-09T11:25:13-06:00" level=info msg="[hostagent] [VZ] - vm state change: stopped"
+time="2026-11-09T11:25:13-06:00" level=info msg="Waiting for the instance to shut down"
+time="2026-11-09T11:25:14-06:00" level=info msg="The instance lamp-la has shut down"
