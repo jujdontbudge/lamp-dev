@@ -1,0 +1,45 @@
+{
+  "operation_id": "op_4773791d59ea0aedbecb5b3db6b58aed",
+  "resource_ids": [
+    {
+      "kind": "sandbox",
+      "id": "sb_e7118f2731d878ee09e6448d991cb7c6"
+    }
+  ],
+  "request_id": "req_dc82015a6bcaa3a2fb3318f2b5fc9d1f",
+  "replayed": false,
+  "operation": {
+    "id": "op_4773791d59ea0aedbecb5b3db6b58aed",
+    "kind": "operation",
+    "fleet_id": "fl_local",
+    "owner_id": "pr_local",
+    "revision": 3,
+    "created_at": "2026-11-09T23:19:39.058324Z",
+    "updated_at": "2026-11-09T23:19:39.068238Z",
+    "state": "succeeded",
+    "labels": {},
+    "visibility": "private",
+    "operation_name": "sandbox_fork",
+    "request_hash": "f4fe28de5ee3b2d2513329060ed45cce1addd4eef69dacf986e52155b9a40966",
+    "resource_ids": [
+      {
+        "kind": "sandbox",
+        "id": "sb_e7118f2731d878ee09e6448d991cb7c6"
+      }
+    ],
+    "accepted_at": "2026-11-09T23:19:39.058324Z",
+    "completed_at": "2026-11-09T23:19:39.068238Z",
+    "outcome": {
+      "result": {
+        "sandbox_id": "sb_e7118f2731d878ee09e6448d991cb7c6",
+        "session_ids": []
+      }
+    },
+    "cleanup_state": "not_needed",
+    "durability": "volatile"
+  },
+  "result": {
+    "sandbox_id": "sb_e7118f2731d878ee09e6448d991cb7c6",
+    "session_ids": []
+  }
+}
