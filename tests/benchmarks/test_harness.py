@@ -15,6 +15,7 @@ import threading
 import unittest
 from unittest import mock
 import urllib.parse
+import urllib.request
 
 from benchmarks.engine import EngineHarness
 from benchmarks.evidence import Evidence, metadata_errors
@@ -26,6 +27,21 @@ from benchmarks.workload import blocks, measure, network_measure
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def valid_metadata():
+    metadata = json.loads((ROOT / "tests/benchmarks/evidence/model-metadata.json").read_text())
+    metadata["controls"] = {key: True for key in metadata["controls"]}
+    metadata.update({
+        "hardware": {"cpu_model": "fixture CPU", "logical_cpus": 2, "memory_bytes": 4294967296},
+        "os": {"kernel": "Linux", "kernel_version": "6.8.0"},
+        "filesystem": {"type": "ext4", "block_size_bytes": 4096},
+        "storage": {"total_bytes": 21474836480, "free_bytes": 10737418240},
+        "policy": {"revision": 1},
+        "resources": {"vcpus": 2, "memory_mib": 4096, "disk_gib": 20, "pids_max": 4096},
+        "power": {"ac_online": 1}, "thermal": {"samples_c": [0, 42.5]},
+    })
+    return metadata
 
 
 class RecordingEvidence:
@@ -299,10 +315,7 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(check_recovery({"objects": {"0": objects["0"]}}, written[:1], {"authorized"}, written=written), [])
 
     def test_placeholder_metadata_cannot_produce_passing_evidence(self):
-        metadata = json.loads((ROOT / "tests/benchmarks/evidence/model-metadata.json").read_text())
-        metadata["controls"] = {key: True for key in metadata["controls"]}
-        metadata["thermal"] = {"samples_c": [0, 42]}
-        metadata["policy"] = {"revision": 1}
+        metadata = valid_metadata()
         self.assertEqual(metadata_errors(metadata), [])
         for key in ("hardware", "filesystem", "storage", "policy", "resources", "power", "thermal"):
             for value in ({}, {"unavailable": True}, {"unavailable": "sensor offline"},
@@ -317,10 +330,7 @@ class HarnessTests(unittest.TestCase):
             self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "incomplete")
 
     def test_unavailable_or_unsampled_metadata_cannot_pass(self):
-        metadata = json.loads((ROOT / "tests/benchmarks/evidence/model-metadata.json").read_text())
-        metadata["controls"] = {key: True for key in metadata["controls"]}
-        metadata["thermal"] = {"samples_c": [0, 42]}
-        metadata["policy"] = {"revision": 1}
+        metadata = valid_metadata()
         self.assertEqual(metadata_errors(metadata), [])
         records = (
             {"unavailable": True, "reason": "sensor offline"},
@@ -340,6 +350,29 @@ class HarnessTests(unittest.TestCase):
             with self.subTest(evidence=record), tempfile.TemporaryDirectory() as root:
                 evidence = Evidence(Path(root) / "missing", {**metadata, "thermal": record}, {})
                 self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "incomplete")
+
+    def test_metadata_requires_typed_measurements_not_free_text(self):
+        metadata = valid_metadata()
+        self.assertEqual(metadata_errors(metadata), [])
+        for record in ({"samples_c": ["sensor offline"]}, {"value": "sensor offline"}):
+            with self.subTest(record=record), tempfile.TemporaryDirectory() as root:
+                evidence = Evidence(Path(root) / "invalid", {**metadata, "thermal": record}, {})
+                self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "incomplete")
+        for section in ("hardware", "os", "filesystem", "storage", "policy", "resources", "power", "thermal"):
+            for field in metadata[section]:
+                if section == "os" and field == "kernel":
+                    continue
+                for value in (None, [], True, "sensor offline"):
+                    if value == "sensor offline" and field in ("cpu_model", "kernel_version", "type"):
+                        continue
+                    invalid = copy.deepcopy(metadata)
+                    invalid[section][field] = value
+                    self.assertTrue(metadata_errors(invalid), (section, field, value))
+        for samples in ([], [True], ["42"], [float("inf")], [float("nan")]):
+            self.assertTrue(metadata_errors({**metadata, "thermal": {"samples_c": samples}}))
+        with tempfile.TemporaryDirectory() as root:
+            evidence = Evidence(Path(root) / "valid", metadata, {})
+            self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "pass")
 
     def test_real_e04_self_attestation_without_harness_traces_is_incomplete(self):
         def self_attested(command, request, evidence):
@@ -428,24 +461,45 @@ class HarnessTests(unittest.TestCase):
             process.terminate()
             process.communicate(timeout=5)
 
-    def test_proxy_requires_all_origin_receipts_and_rejects_echo(self):
+    def network_fixture(self):
+        process = subprocess.Popen(
+            [sys.executable, str(ROOT / "benchmarks/workload.py"), "serve-network"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        def stop():
+            process.terminate()
+            process.communicate(timeout=5)
+        self.addCleanup(stop)
+        ports = json.loads(process.stdout.readline())
+        return {"host": "127.0.0.1", "tcp_port": ports["tcp_port"], "udp_port": ports["udp_port"],
+                "http_url": "http://127.0.0.1:" + str(ports["http_port"])}
+
+    def relay(self, mode):
         class Relay(BaseHTTPRequestHandler):
             def do_POST(self):
                 body = self.rfile.read(int(self.headers["Content-Length"]))
                 self.server.received.append(dict(self.headers))
-                if self.server.forward and not (self.server.drop_last and len(self.server.received) == 64):
+                original = body
+                if mode != "echo" and not (mode == "partial" and len(self.server.received) == 64):
                     target = urllib.parse.urlsplit(self.path)
                     connection = http.client.HTTPConnection(target.hostname, target.port, timeout=5)
                     try:
                         headers = {key: value for key, value in self.headers.items() if key.lower().startswith("x-lamp-")}
-                        connection.request("POST", target.path or "/", body, headers)
+                        sent = b"" if mode.startswith("empty") else b"x" * len(body) if mode == "altered" else body
+                        connection.request("POST", target.path or "/", sent, headers)
                         response = connection.getresponse()
                         self.send_response(response.status)
                         body = response.read()
+                        if mode == "empty_echo":
+                            body = original
+                        if mode == "forged" and len(self.server.received) == 1:
+                            body = json.dumps({"receipt": "a" * 32}).encode()
                     finally:
                         connection.close()
                 else:
                     self.send_response(200)
+                    if mode == "partial":
+                        body = json.dumps({"receipt": "a" * 32}).encode()
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
@@ -453,37 +507,66 @@ class HarnessTests(unittest.TestCase):
             def log_message(self, *args):
                 pass
 
-        process = subprocess.Popen(
-            [sys.executable, str(ROOT / "benchmarks/workload.py"), "serve-network"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-        )
-        try:
-            ports = json.loads(process.stdout.readline())
-            fixture = {"host": "127.0.0.1", "tcp_port": ports["tcp_port"], "udp_port": ports["udp_port"],
-                       "http_url": "http://127.0.0.1:" + str(ports["http_port"])}
-            for forward, drop_last in ((True, False), (False, False), (True, True)):
-                with self.subTest(forward=forward, drop_last=drop_last):
-                    server = ThreadingHTTPServer(("127.0.0.1", 0), Relay)
-                    server.forward, server.drop_last, server.received = forward, drop_last, []
-                    thread = threading.Thread(target=server.serve_forever, daemon=True)
-                    thread.start()
-                    try:
-                        proxy = "http://127.0.0.1:" + str(server.server_port)
-                        if forward and not drop_last:
-                            result = network_measure("proxy", fixture, proxy)
-                            self.assertGreater(result["value"], 0)
-                        else:
-                            with self.assertRaisesRegex(ValueError, "proxy origin receipt mismatch"):
-                                network_measure("proxy", fixture, proxy)
-                        self.assertEqual(len(server.received), 64)
-                    finally:
-                        server.shutdown()
-                        server.server_close()
-            self.assertEqual(result["origin_requests"], 64)
-            self.assertTrue(result["origin_run_id"])
-        finally:
-            process.terminate()
-            process.communicate(timeout=5)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Relay)
+        server.received = []
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return "http://127.0.0.1:" + str(server.server_port), server
+
+    def test_proxy_receipts_bind_origin_response_and_request_body(self):
+        fixture = {**self.network_fixture(), "run_id": "host-selected-run"}
+        harness = EngineHarness(mock.Mock(timeout=5), RecordingEvidence(), "tp", "/workload", fixture=fixture)
+        for mode in ("forward", "echo", "empty_echo", "empty", "partial", "altered", "forged"):
+            with self.subTest(mode=mode):
+                proxy, server = self.relay(mode)
+                if mode == "forward":
+                    result = network_measure("proxy", fixture, proxy)
+                    harness.verify_proxy(result, fixture["run_id"])
+                    self.assertEqual(len(set(result["origin_receipts"].values())), 64)
+                    self.assertEqual(len(server.received), 64)
+                else:
+                    with self.assertRaises(ValueError):
+                        result = network_measure("proxy", fixture, proxy)
+                        harness.verify_proxy(result, fixture["run_id"])
+
+    def test_proxy_only_guest_leaves_ledger_checks_to_host_for_both_sides(self):
+        fixture = self.network_fixture()
+        proxy, _ = self.relay("forward")
+        evidence = RecordingEvidence()
+        harness = EngineHarness(mock.Mock(timeout=5), evidence, "tp", "/workload", directory="/private",
+                                fixture=fixture, proxy=proxy, native_cpus=[0, 1])
+        harness.create = mock.Mock(return_value="sb")
+        harness.delete = mock.Mock()
+        harness.verify_configuration = mock.Mock()
+        harness.verify_artifact = mock.Mock(return_value={"identity": "same"})
+        harness.observe_resources = mock.Mock(return_value={})
+        def native(command, **kwargs):
+            if command == "identity":
+                return {"identity": "same"}
+            opener = urllib.request.build_opener
+            def post_only(*args):
+                client = opener(*args)
+                original_open = client.open
+                def open_request(request, **options):
+                    self.assertEqual(request.get_method(), "POST")
+                    return original_open(request, **options)
+                client.open = open_request
+                return client
+            with mock.patch("benchmarks.workload.urllib.request.build_opener", side_effect=post_only):
+                return network_measure("proxy", kwargs["fixture"], kwargs["proxy"])
+        def secured(sandbox, command, **kwargs):
+            with mock.patch("benchmarks.workload.urllib.request.build_opener", side_effect=AssertionError("guest direct HTTP forbidden")):
+                return network_measure("proxy", kwargs["fixture"], kwargs["proxy"])
+        harness.native, harness.command = native, secured
+        with mock.patch("benchmarks.engine.MEASURES", {"proxy": "latency"}), mock.patch.object(harness, "verify_proxy", wraps=harness.verify_proxy) as verify:
+            result = harness.e02(plan()[3], smoke=True)
+        self.assertEqual(result["measures"]["proxy"]["pairs"], 1)
+        self.assertEqual(verify.call_count, 2)
+        pairs = [value for kind, value in evidence.events if kind == "native_pair"]
+        self.assertNotIn("error", pairs[0])
+        for side in ("native", "secured"):
+            self.assertEqual(pairs[0][side + "_raw"]["origin_requests"], 64)
 
     def test_real_resident_memory_and_disk_generations(self):
         with tempfile.TemporaryDirectory(prefix="lamp-ram-") as root:

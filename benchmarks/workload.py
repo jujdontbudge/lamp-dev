@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import random
+import re
 import socket
 import socketserver
 import subprocess
@@ -169,16 +170,22 @@ def network_measure(name, fixture, proxy):
     if name == "proxy":
         if not proxy:
             raise ValueError("required proxy path missing")
-        run_id = os.urandom(16).hex()
+        run_id = fixture.get("run_id") or os.urandom(16).hex()
         headers = {"X-Lamp-Run": run_id}
+        receipts = {}
+        def record_receipt(index, data):
+            reply = json.loads(data)
+            receipt = reply.get("receipt") if isinstance(reply, dict) else None
+            if not isinstance(receipt, str) or not re.fullmatch("[0-9a-f]{32}", receipt):
+                raise ValueError("proxy response receipt missing")
+            receipts[str(index)] = receipt
         if proxy == "direct":
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             for index in range(count):
                 headers["X-Lamp-Request"] = str(index)
                 request = urllib.request.Request(fixture["http_url"], data=payload, headers=headers)
                 with opener.open(request, timeout=10) as response:
-                    if response.read() != payload:
-                        raise ValueError("direct HTTP payload mismatch")
+                    record_receipt(index, response.read())
         else:
             parsed = urllib.parse.urlsplit(proxy)
             if parsed.scheme not in ("http", "https") or parsed.username or parsed.password or parsed.query:
@@ -190,8 +197,9 @@ def network_measure(name, fixture, proxy):
                     headers["X-Lamp-Request"] = str(index)
                     connection.request("POST", fixture["http_url"], body=payload, headers=headers)
                     response = connection.getresponse()
-                    if response.status != 200 or response.read() != payload:
-                        raise ValueError("required proxy payload mismatch")
+                    if response.status != 200:
+                        raise ValueError("required proxy response failed")
+                    record_receipt(index, response.read())
                 finally:
                     connection.close()
     elif name == "small_flows":
@@ -216,13 +224,7 @@ def network_measure(name, fixture, proxy):
     latency = name in ("request_latency", "proxy")
     result = {"value": elapsed / count if latency else units / elapsed, "elapsed_s": elapsed, "units": units}
     if name == "proxy":
-        receipt_url = fixture["http_url"] + ("&" if "?" in fixture["http_url"] else "?") + "lamp_run=" + run_id
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(receipt_url, timeout=10) as response:
-            receipt = json.load(response)
-        if receipt != {"run_id": run_id, "requests": sorted(str(index) for index in range(count))}:
-            raise ValueError("proxy origin receipt mismatch")
-        result.update({"origin_run_id": run_id, "origin_requests": len(receipt["requests"])})
+        result.update({"origin_run_id": run_id, "origin_receipts": receipts})
     return result
 
 
@@ -254,7 +256,7 @@ def serve_network(host, tcp, udp, http):
     class HTTP(BaseHTTPRequestHandler):
         def do_GET(self):
             run_id = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("lamp_run", [""])[0]
-            data = json.dumps({"run_id": run_id, "requests": sorted(receipts.pop(run_id, set()))}).encode()
+            data = json.dumps({"run_id": run_id, "requests": receipts.pop(run_id, {})}).encode()
             self.send_response(200)
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
@@ -266,8 +268,12 @@ def serve_network(host, tcp, udp, http):
                 return
             data = self.rfile.read(min(int(self.headers["Content-Length"]), 65536))
             run_id, index = self.headers.get("X-Lamp-Run"), self.headers.get("X-Lamp-Request")
+            receipt = os.urandom(16).hex()
             if run_id and index is not None:
-                receipts.setdefault(run_id, set()).add(index)
+                receipts.setdefault(run_id, {})[index] = {
+                    "receipt": receipt, "body_sha256": hashlib.sha256(data).hexdigest(), "body_bytes": len(data),
+                }
+            data = json.dumps({"receipt": receipt}).encode()
             self.send_response(200)
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()

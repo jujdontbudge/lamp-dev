@@ -2,11 +2,13 @@ import hashlib
 import json
 from pathlib import Path
 import random
+import re
 import subprocess
 import sys
 import tempfile
 import time
 import urllib.parse
+import urllib.request
 import uuid
 
 from benchmarks.oracles import check_fork, check_state
@@ -250,7 +252,11 @@ class EngineHarness:
                             else:
                                 arguments = {"measure": measure, "directory": self.directory, "fixture": self.fixture,
                                              "proxy": self.proxy if side == "secured" else "direct"}
+                                if measure == "proxy":
+                                    arguments["fixture"] = {**self.fixture, "run_id": uuid.uuid4().hex}
                                 value = self.native("measure", **arguments) if side == "native" else self.command(source, "measure", **arguments)
+                                if measure == "proxy":
+                                    self.verify_proxy(value, arguments["fixture"]["run_id"])
                             pair[side] = value["value"]
                             pair[side + "_raw"] = value
                         pairs[measure].append(pair)
@@ -269,3 +275,26 @@ class EngineHarness:
         passed = len(results) == len(MEASURES) and all(r["status"] == "pass" for r in results.values()) and not self.cleanup_errors
         return {"status": "fail" if not passed else "incomplete" if self.incomplete_observations else "pass",
                 "measures": results, "cleanup_errors": self.cleanup_errors, "missing_observations": self.incomplete_observations}
+
+    def verify_proxy(self, value, run_id):
+        received = value.get("origin_receipts")
+        if (value.get("origin_run_id") != run_id or not isinstance(received, dict) or
+                set(received) != {str(index) for index in range(64)} or
+                any(not isinstance(token, str) or not re.fullmatch("[0-9a-f]{32}", token) for token in received.values()) or
+                len(set(received.values())) != 64):
+            raise ValueError("proxy response receipt mismatch")
+        target = urllib.parse.urlsplit(self.fixture["http_url"])
+        query = urllib.parse.parse_qsl(target.query) + [("lamp_run", run_id)]
+        url = urllib.parse.urlunsplit(target._replace(query=urllib.parse.urlencode(query)))
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(url, timeout=self.lamp.timeout) as response:
+            ledger = json.load(response)
+        self.evidence.observe("proxy_origin_ledger", {"run_id": run_id, "ledger": ledger})
+        payload = hashlib.sha256(b"lamp-network-v1").digest()
+        expected = {
+            index: {"receipt": token, "body_sha256": hashlib.sha256(payload).hexdigest(), "body_bytes": len(payload)}
+            for index, token in received.items()
+        }
+        if ledger != {"run_id": run_id, "requests": expected}:
+            raise ValueError("proxy origin receipt mismatch")
+        value["origin_requests"] = len(received)

@@ -1,6 +1,7 @@
 import datetime
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -17,6 +18,17 @@ REQUIRED_METADATA = (
     "thermal", "lane", "topology", "controls", "artifacts", "access_route",
 )
 
+OBSERVATION_FIELDS = {
+    "hardware": {"cpu_model": str, "logical_cpus": int, "memory_bytes": int},
+    "os": {"kernel_version": str},
+    "filesystem": {"type": str, "block_size_bytes": int},
+    "storage": {"total_bytes": int, "free_bytes": int},
+    "policy": {"revision": int},
+    "resources": {"vcpus": int, "memory_mib": int, "disk_gib": int, "pids_max": int},
+    "power": {"ac_online": int},
+    "thermal": {"samples_c": list},
+}
+
 
 def metadata_errors(metadata):
     def unavailable(value):
@@ -27,21 +39,18 @@ def metadata_errors(metadata):
             return any(unavailable(item) for item in value)
         return isinstance(value, str) and value.strip().lower() in ("unavailable", "placeholder", "unknown", "n/a")
 
-    def available(value):
-        if unavailable(value):
+    def typed(value, kind):
+        if type(value) is not kind:
             return False
-        if isinstance(value, str):
-            return bool(value.strip())
-        if isinstance(value, dict):
-            return any(available(item) for key, item in value.items() if key.lower() not in (
-                "reason", "description", "message", "note", "notes", "error", "detail", "details",
-                "scope", "qualification", "status", "sampled", "text", "comment", "comments",
-            ))
-        if isinstance(value, list):
-            return any(available(item) for item in value)
-        return value is not None and value is not False
+        if kind is list:
+            return bool(value) and all(type(sample) in (int, float) and math.isfinite(sample) for sample in value)
+        return kind is not str or bool(value.strip())
 
-    errors = [key + " missing" for key in REQUIRED_METADATA if not available(metadata.get(key))]
+    errors = [key + " missing" for key in REQUIRED_METADATA if metadata.get(key) in (None, "", [], {}) or unavailable(metadata.get(key))]
+    for key, fields in OBSERVATION_FIELDS.items():
+        record = metadata.get(key)
+        if not isinstance(record, dict) or any(not typed(record.get(field), kind) for field, kind in fields.items()):
+            errors.append(key + " missing")
     for key in ("guard", "audit", "cow", "capture_tracking"):
         controls = metadata.get("controls", {})
         if not isinstance(controls, dict) or controls.get(key) is not True:
@@ -50,12 +59,6 @@ def metadata_errors(metadata):
         values = metadata.get(key)
         if not isinstance(values, dict) or not values or any(not isinstance(value, str) or not re.fullmatch("[0-9a-f]{64}", value) for value in values.values()):
             errors.append(key + " must pin SHA-256 digests")
-    for key in ("hardware", "os", "filesystem", "storage", "policy", "resources", "power", "thermal"):
-        if not isinstance(metadata.get(key), dict):
-            errors.append(key + " must contain structured observations")
-    os_metadata = metadata.get("os", {})
-    if not isinstance(os_metadata, dict) or os_metadata.get("kernel") not in ("Linux", "Darwin"):
-        errors.append("OS kernel unavailable")
     return errors
 
 
