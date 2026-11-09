@@ -13,6 +13,7 @@ The owner's standard is that a specified workflow is not a tested workflow: miss
 - Hard timing runs on the Ubuntu laptop need it otherwise quiet. Other tickets build and test there at the same time, and the owner's Chrome service holds most of its memory.
 - The owner said on 2026-11-09 that the build does every sign-in and account setup itself, using the accounts and subscriptions they already pay for, and agreed to terms of service being accepted in their name for Lamp test accounts. Chrome on the MacBook Air was signed in to Cloudflare, and `/Users/johansardar/.claude/projects/-Users-johansardar--t3-projects-lamp/memory/cloudflare-headless-access.md` describes how that session was used without touching the owner's screen; Google rejects sign-in from automated browsers. Only the owner can approve a phone 2FA prompt or read an SMS code.
 - The Lamp repository is `JohanSardar/lamp` on GitHub, private; `gh` on the M5 is signed in as that account.
+- This ticket lands as one pull request into `main` on GitHub (`JohanSardar/lamp`, private; `gh` on the M5 is signed in as that account). The owner's pull request conventions are in `/Users/johansardar/.claude/skills/file-pr/SKILL.md`. The owner's coordinating session stays on `main`: it watches the pull request, sends back failed checks and review findings for this ticket to fix, and merges it once the checks pass.
 
 ## Constraints
 - The owner's thresholds are fixed: none changes after a failed run, and a failed run stays on record as failed (ENG-001).
@@ -21,6 +22,7 @@ The owner's standard is that a specified workflow is not a tested workflow: miss
 - Never drive the owner's visible screen, apps or browser windows. Headless tools only; the owner is working on these machines.
 - Never print, log or commit a secret.
 - Test jobs and fixtures use public third-party projects and disposable test accounts, never the owner's own projects or repositories.
+- Commit only to this ticket's own branch in its own checkout, push it, and open the pull request yourself. Never push to `main` or to another ticket's branch (owner, 2026-11-09).
 - Model tokens are the only thing money may be spent on (owner, 2026-11-09): buy, rent or subscribe to nothing else. Each pay-per-use key stays under a hard cap of $25 a month, set in its provider's dashboard.
 
 ## Evidence of done

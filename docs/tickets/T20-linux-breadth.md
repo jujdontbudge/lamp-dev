@@ -11,12 +11,14 @@ Release one names Linux x86_64 and arm64 as hosts with Linux 5.10 as the floor, 
 - Lane `LA` is the Lima VM `lamp-la` on the M5 (`limactl`). The nested lanes `LX22`, `D12`, `F40`, `L510` and `NV` are libvirt VMs on the Ubuntu laptop named `lamp-lx22`, `lamp-d12`, `lamp-f40`, `lamp-l510` and `lamp-nv` (`sudo virsh`). All of them were stopped on 2026-11-09.
 - Hard timing runs on the Ubuntu laptop need it otherwise quiet. Other tickets build and test there at the same time, and the owner's Chrome service holds most of its memory.
 - The owner agreed on 2026-11-09 to package, firewall and kernel-setting changes on the Ubuntu laptop, including reboots.
+- This ticket lands as one pull request into `main` on GitHub (`JohanSardar/lamp`, private; `gh` on the M5 is signed in as that account). The owner's pull request conventions are in `/Users/johansardar/.claude/skills/file-pr/SKILL.md`. The owner's coordinating session stays on `main`: it watches the pull request, sends back failed checks and review findings for this ticket to fix, and merges it once the checks pass.
 
 ## Constraints
 - The owner's own services on the Ubuntu laptop may be stopped only for a hard timing run, and are started again as soon as the run ends (owner, 2026-11-09). The T3 Code server there stays up. Never use, change or remove Docker's existing containers, images or networks on that machine.
 - The owner's thresholds are fixed: none changes after a failed run, and a failed run stays on record as failed (ENG-001).
 - Nested lanes never count as speed evidence.
 - On both Macs, never put a password or approval dialog on the owner's screen. `sudo` itself is fine: the owner said on 2026-11-09 to use it freely, including to install Lamp's privileged service and to run sleep and wake tests.
+- Commit only to this ticket's own branch in its own checkout, push it, and open the pull request yourself. Never push to `main` or to another ticket's branch (owner, 2026-11-09).
 - Model tokens are the only thing money may be spent on (owner, 2026-11-09): buy, rent or subscribe to nothing else. Each pay-per-use key stays under a hard cap of $25 a month, set in its provider's dashboard.
 
 ## Evidence of done
