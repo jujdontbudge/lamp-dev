@@ -1,0 +1,4 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running `target/debug/lamp-protogen /var/folders/rx/w6wxv0p97bv7hpvzqlv9jy7r0000gn/T/tmp7sgqq06k`
+worker codegen: clean
+public codegen: clean

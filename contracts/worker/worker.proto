@@ -1,0 +1,83 @@
+syntax = "proto3";
+package lamp.worker.v1;
+option go_package = "github.com/JohanSardar/lamp/pkg/workerpb";
+
+// lamp.worker/1 control only. Bulk content never appears in these messages.
+message Hello {
+  string protocol = 1; // exactly lamp.worker/1
+  string worker_id = 2;
+  string boot_id = 3;
+  uint32 max_control_bytes = 4; // <= 1048576
+}
+message Context {
+  string request_id = 1;
+  string operation_id = 2;
+  uint64 deadline_ms = 3;
+  string sandbox_id = 4;
+  uint64 generation = 5;
+  string grant_id = 6;
+  uint64 policy_revision = 7;
+}
+enum HandleKind {
+  HANDLE_KIND_UNSPECIFIED = 0;
+  HANDLE_KIND_HYPERVISOR = 1;
+  HANDLE_KIND_DISK = 2;
+  HANDLE_KIND_MEMORY = 3;
+  HANDLE_KIND_PACKET = 4;
+  HANDLE_KIND_PTY = 5;
+  HANDLE_KIND_MEDIA = 6;
+  HANDLE_KIND_BULK = 7;
+}
+message HandleGrant {
+  string grant_id = 1;
+  HandleKind kind = 2;
+  uint32 descriptor_index = 3; // index into SCM_RIGHTS on this frame only
+  string sandbox_id = 4;
+  uint64 generation = 5;
+  string receiver_worker_id = 6;
+  uint64 receiver_uid = 7;
+  uint64 receiver_pid = 8;
+  string receiver_boot_id = 9;
+  uint64 expires_at_ms = 10;
+  uint64 policy_revision = 11;
+  string issuer_key_id = 12;
+  bytes signature = 13;
+}
+message Resources { uint32 vcpus = 1; uint64 memory_mib = 2; uint64 disk_gib = 3; uint64 pids_max = 4; }
+message Compatibility {
+  string engine_digest = 1;
+  string state_abi = 2;
+  string guest_kernel_digest = 3;
+  string cpu_baseline = 4;
+  string device_graph_digest = 5;
+  string host_os_build = 6;
+}
+message Allocate { Resources resources = 1; string engine_id = 2; repeated HandleGrant handles = 3; }
+message Start { repeated string argv = 1; string cwd = 2; map<string,string> env = 3; }
+message Stop { bool force = 1; }
+// Artifacts are opaque handle references. Their on-disk format remains unfrozen.
+message Capture { string capture_id = 1; bool preserves_memory = 2; string consistency = 3; repeated HandleGrant output_handles = 4; }
+message Restore { string capture_id = 1; Compatibility compatibility = 2; repeated HandleGrant input_handles = 3; }
+message Inspect {}
+message Cancel { string target_operation_id = 1; }
+message Release {}
+message Request {
+  Context context = 1;
+  oneof command {
+    Allocate allocate = 10;
+    Start start = 11;
+    Stop stop = 12;
+    Capture capture = 13;
+    Restore restore = 14;
+    Inspect inspect = 15;
+    Cancel cancel = 16;
+    Release release = 17;
+  }
+}
+message WorkerError { string code = 1; string message = 2; bool retryable = 3; }
+message Receipt { string state = 1; repeated string committed_handle_ids = 2; bool outcome_unknown = 3; }
+message Response {
+  Context context = 1;
+  oneof result { Receipt receipt = 10; WorkerError error = 11; }
+}
+message Frame { oneof payload { Hello hello = 1; Request request = 2; Response response = 3; } }
