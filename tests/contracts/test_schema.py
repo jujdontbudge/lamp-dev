@@ -107,6 +107,11 @@ class Contracts(unittest.TestCase):
         validate('KeyCreateCompletion',{'key_id':'ky_fixture','secret_available':False})
         self.assertNotIn('secret',SCHEMA['$defs']['Operation']['properties'])
         self.assertNotIn('secret',SCHEMA['$defs']['Event']['properties'])
+        chunk = {'blob_id':'bl_fixture','offset_bytes':0,'data_base64':'','chunk_sha256':'a'*64,'sha256':'a'*64,'size_bytes':0,'eof':True,'request_id':'rq_fixture'}
+        validate('BlobDownloadResult',chunk)
+        validate('ArtifactDownloadResult',dict(chunk,manifest_blob_id='bl_manifest'))
+        with self.assertRaises(ValidationError):
+            validate('BlobDownloadResult',dict(chunk,manifest_blob_id='bl_manifest'))
         validate('SessionAttachCompletion',{'stream':{'stream_id':'st_fixture','transport':'websocket','url':'wss://host/v1/sessions/se/output','expires_at':'2026-11-09T00:00:00Z','max_frame_bytes':69632,'max_payload_bytes':65536}})
         self.assertEqual(set(SCHEMA['$defs']['SandboxGetResult']['required']),{'data','request_id'})
 
