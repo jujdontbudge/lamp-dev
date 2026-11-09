@@ -3058,7 +3058,26 @@ pub struct BlobDownloadInput {
     )]
     pub length_bytes: Option<u64>,
 }
-pub type BlobDownloadResult = Chunk;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BlobDownloadResult {
+    #[serde(rename = "blob_id")]
+    pub blob_id: String,
+    #[serde(rename = "offset_bytes")]
+    pub offset_bytes: u64,
+    #[serde(rename = "data_base64")]
+    pub data_base64: String,
+    #[serde(rename = "chunk_sha256")]
+    pub chunk_sha256: String,
+    #[serde(rename = "sha256")]
+    pub sha256: String,
+    #[serde(rename = "size_bytes")]
+    pub size_bytes: u64,
+    #[serde(rename = "eof")]
+    pub eof: bool,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlobFinalizeCompletion {}

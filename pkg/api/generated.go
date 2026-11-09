@@ -1434,7 +1434,16 @@ type BlobDownloadInput struct {
 	OffsetBytes *uint64 `json:"offset_bytes,omitempty"`
 	LengthBytes *uint64 `json:"length_bytes,omitempty"`
 }
-type BlobDownloadResult = Chunk
+type BlobDownloadResult struct {
+	BlobId      string `json:"blob_id"`
+	OffsetBytes uint64 `json:"offset_bytes"`
+	DataBase64  string `json:"data_base64"`
+	ChunkSha256 string `json:"chunk_sha256"`
+	Sha256      string `json:"sha256"`
+	SizeBytes   uint64 `json:"size_bytes"`
+	Eof         bool   `json:"eof"`
+	RequestId   string `json:"request_id"`
+}
 type BlobFinalizeCompletion struct {
 }
 type BlobFinalizeInput struct {

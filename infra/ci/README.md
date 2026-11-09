@@ -83,7 +83,11 @@ PR/target/downstream events, public visibility, mismatched identity and reruns.
 The owner and owner-authored code remain trusted and can administer their own
 machines. A compromised owner GitHub account or a malicious trusted dependency
 is outside the outsider-PR guarantee. The pre-job hook prevents untrusted job
-steps; a rejected job can still appear as an assigned/failed job in GitHub.
+steps by sending SIGKILL to **only its own Runner.Worker ancestor** on denial.
+Exiting the hook with failure is insufficient: runner 2.338.2 can still run
+`if: always()` steps. Parent discovery failure holds the hook for operator
+intervention instead of returning a failed hook. A rejected job appears failed
+in GitHub because its worker stopped unexpectedly; the Listener survives.
 
 **T31 must replace this execution model before enabling public CI.** Public jobs
 are disabled by both the workflow and signed-identity guard, including owner
