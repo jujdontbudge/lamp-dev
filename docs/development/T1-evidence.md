@@ -1,6 +1,7 @@
 # T1 implementation and acceptance evidence
 
-Completed 2026-11-09. The workspace, public schema, operation dictionary and
+Initial T1 acceptance, 2026-11-09. Subsequent runner/workflow changes are
+described in infra/ci/README.md; the T1 PR links the live self-hosted CI run. The workspace, public schema, operation dictionary and
 lamp.worker/1 contract build and test on all three required native targets.
 The engine, control service, guard, independent oracles and storage formats are
 intentionally left to their assigned tickets.
@@ -62,9 +63,10 @@ Additional independent checks:
 - Source contents matched the tested archive after verification. No generated
   file was hand-edited. All three clean-check commands exited zero.
 
-CI is configured for Linux x86_64/arm64 and macOS arm64 plus pinned Protobuf
-regeneration. GitHub Actions was not triggered; the lane logs above are actual
-local/SSH/Lima evidence, not a claim about a remote CI run.
+At initial acceptance, GitHub Actions had not been triggered; the lane logs
+above are actual local/SSH/Lima evidence. The original hosted-runner workflow
+has since been replaced by private-only owner-machine runners; see
+[the runner policy](../../infra/ci/README.md). The T1 PR links the live CI run.
 
 No owner's application or service was stopped. The LX Chrome user service was
 active before and after the checks. Docker was untouched. No visible screen,
