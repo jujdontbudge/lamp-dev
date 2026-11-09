@@ -27,6 +27,25 @@ func readySandboxFromCLI(t *testing.T, d *demo) api.SandboxGetResult {
 	return sb
 }
 
+func TestInvalidUTF8IdempotencyKeyRejectedAcrossRestart(t *testing.T) {
+	d := startDemo(t)
+	close(d.worker.ready)
+	for attempt := 0; attempt < 2; attempt++ {
+		var response api.ErrorEnvelope
+		d.request(t, "POST", "/v1/sandboxes", `{"template_id":"tpl_demo","wait_ms":1000}`, 400, &response, "Idempotency-Key", "caf\xe9")
+		if response.Error.Code != "INVALID_ARGUMENT" {
+			t.Fatalf("attempt %d: expected INVALID_ARGUMENT, got %+v", attempt, response.Error)
+		}
+		if len(d.worker.seen()) != 0 {
+			t.Fatalf("attempt %d: invalid UTF-8 key reached the worker", attempt)
+		}
+		if attempt == 0 {
+			d.stop()
+			d = startDaemon(t, filepath.Dir(d.socket), d.worker)
+		}
+	}
+}
+
 func TestMutationIdempotencyKeyHeader(t *testing.T) {
 	d := startDemo(t)
 	close(d.worker.ready)

@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/JohanSardar/lamp/pkg/api"
 	pb "github.com/JohanSardar/lamp/pkg/workerpb"
@@ -177,8 +178,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	keys := r.Header.Values("Idempotency-Key")
-	if len(keys) != 1 || strings.TrimSpace(keys[0]) == "" {
-		writeError(w, requestID, "INVALID_ARGUMENT", "one nonempty Idempotency-Key header is required", nil)
+	if len(keys) != 1 || strings.TrimSpace(keys[0]) == "" || !utf8.ValidString(keys[0]) {
+		writeError(w, requestID, "INVALID_ARGUMENT", "one nonempty UTF-8 Idempotency-Key header is required", nil)
 		return
 	}
 	key := keys[0]
