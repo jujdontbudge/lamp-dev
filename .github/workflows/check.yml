@@ -1,0 +1,55 @@
+name: contracts and workspace
+# PR events are deliberately absent: outside code must never reach these hosts.
+on:
+  push:
+    branches: [main, 't3/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write # Host admission verifies GitHub-signed repository/actor claims.
+concurrency:
+  group: lamp-ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: verify (${{ matrix.lane }})
+    if: >-
+      github.repository == 'JohanSardar/lamp' &&
+      github.event.repository.private == true &&
+      github.actor_id == '68117503' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: lx
+            os: Linux
+            arch: X64
+          - lane: m5
+            os: macOS
+            arch: ARM64
+          - lane: la
+            os: Linux
+            arch: ARM64
+    runs-on: [self-hosted, 'lamp-${{ matrix.lane }}']
+    env:
+      CARGO_BUILD_JOBS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          clean: true
+      - name: Confirm owner-machine target
+        run: |
+          test "$RUNNER_ARCH" = '${{ matrix.arch }}'
+          test "$RUNNER_OS" = '${{ matrix.os }}'
+          uname -sm
+          go version
+          rustc --version
+          python3 --version
+      - run: make bootstrap verify
+      - name: Regenerate both Protobuf bindings (LX)
+        if: matrix.lane == 'lx'
+        run: make check-generated

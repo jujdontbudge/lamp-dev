@@ -1,0 +1,259 @@
+UTC: 2026-11-09T22:45:40Z
+Linux x86_64
+go version go1.27.3 linux/amd64
+info: syncing channel updates for 1.99.1-x86_64-unknown-linux-gnu
+info: latest update on 2026-10-15 for version 1.99.1 (58cf8f9c3 2026-10-13)
+info: downloading 5 components
+warn: the missing active toolchain `1.99.1-x86_64-unknown-linux-gnu` has been auto-installed
+warn: this might cause rustup commands to take longer time to finish than expected
+info: you may opt out with `RUSTUP_AUTO_INSTALL=0` or `rustup set auto-install disable`
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+cargo 1.99.1 (5f94df478 2026-08-27)
+Python 3.14.4
+Source snapshot: 138162b952db9143ba34b26efbdf6c515140047b
+python3 -m venv .venv
+.venv/bin/pip install --disable-pip-version-check -r tools/requirements.txt
+Collecting jsonschema==4.25.1 (from -r tools/requirements.txt (line 1))
+  Downloading jsonschema-4.25.1-py3-none-any.whl.metadata (7.6 kB)
+Collecting attrs==25.4.0 (from -r tools/requirements.txt (line 2))
+  Downloading attrs-25.4.0-py3-none-any.whl.metadata (10 kB)
+Collecting jsonschema-specifications==2025.9.1 (from -r tools/requirements.txt (line 3))
+  Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting referencing==0.37.0 (from -r tools/requirements.txt (line 4))
+  Downloading referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting rpds-py==0.30.0 (from -r tools/requirements.txt (line 5))
+  Downloading rpds_py-0.30.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+Downloading jsonschema-4.25.1-py3-none-any.whl (90 kB)
+Downloading attrs-25.4.0-py3-none-any.whl (67 kB)
+Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Downloading referencing-0.37.0-py3-none-any.whl (26 kB)
+Downloading rpds_py-0.30.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (382 kB)
+Installing collected packages: rpds-py, attrs, referencing, jsonschema-specifications, jsonschema
+
+Successfully installed attrs-25.4.0 jsonschema-4.25.1 jsonschema-specifications-2025.9.1 referencing-0.37.0 rpds-py-0.30.0
+go build ./...
+go: downloading google.golang.org/protobuf v1.36.11
+cargo build --workspace --locked
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded multimap v0.10.1
+  Downloaded itoa v1.0.19
+  Downloaded foldhash v0.1.5
+  Downloaded fixedbitset v0.5.9
+  Downloaded hashbrown v0.15.5
+  Downloaded prost-types v0.14.4
+  Downloaded prost-build v0.14.4
+  Downloaded petgraph v0.8.3
+  Downloaded syn v3.0.10
+   Compiling unicode-ident v1.0.27
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling anyhow v1.0.104
+   Compiling either v1.19.0
+   Compiling syn v2.0.119
+   Compiling itertools v0.14.0
+   Compiling bytes v1.12.1
+   Compiling prost-derive v0.14.4
+   Compiling prost v0.14.4
+   Compiling serde_core v1.0.229
+   Compiling rustix v1.1.6
+   Compiling foldhash v0.1.5
+   Compiling bitflags v2.13.2
+   Compiling linux-raw-sys v0.12.1
+   Compiling zmij v1.0.23
+   Compiling prettyplease v0.2.37
+   Compiling regex-syntax v0.8.11
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.3
+   Compiling indexmap v2.14.2
+   Compiling regex-automata v0.4.18
+   Compiling hashbrown v0.15.5
+   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-worker-protocol)
+   Compiling syn v3.0.10
+   Compiling serde_json v1.0.154
+   Compiling fixedbitset v0.5.9
+   Compiling serde v1.0.229
+   Compiling once_cell v1.21.4
+   Compiling fastrand v2.5.0
+   Compiling serde_derive v1.0.229
+   Compiling tempfile v3.27.0
+   Compiling petgraph v0.8.3
+   Compiling regex v1.13.1
+   Compiling prost-types v0.14.4
+   Compiling multimap v0.10.1
+   Compiling log v0.4.35
+   Compiling itoa v1.0.19
+   Compiling memchr v2.8.3
+   Compiling heck v0.5.0
+   Compiling prost-build v0.14.4
+   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-contracts)
+   Compiling lamp-protogen v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/tools/protogen)
+   Compiling lamp-engine v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-supervisor)
+   Compiling lamp-init v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-init)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.97s
+go test ./...
+?   	github.com/JohanSardar/lamp/cmd/lamp	[no test files]
+?   	github.com/JohanSardar/lamp/cmd/lampd	[no test files]
+?   	github.com/JohanSardar/lamp/internal/control	[no test files]
+?   	github.com/JohanSardar/lamp/internal/guard	[no test files]
+?   	github.com/JohanSardar/lamp/pkg/api	[no test files]
+ok  	github.com/JohanSardar/lamp/pkg/workerpb	0.006s
+?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
+cargo test --workspace --locked
+   Compiling lamp-protogen v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/tools/protogen)
+   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-contracts)
+   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-worker-protocol)
+   Compiling lamp-init v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-init)
+   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-supervisor)
+   Compiling lamp-engine v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-engine)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.84s
+     Running unittests src/lib.rs (target/debug/deps/lamp_contracts-24c912e436c29704)
+     Running unittests src/lib.rs (target/debug/deps/lamp_engine-e8fa2d077ffc80a7)
+     Running unittests src/lib.rs (target/debug/deps/lamp_init-267e9cfec89ca113)
+     Running unittests src/main.rs (target/debug/deps/lamp_protogen-a85073237a2023c3)
+     Running unittests src/lib.rs (target/debug/deps/lamp_supervisor-2ff2e4156dd0807b)
+     Running unittests src/lib.rs (target/debug/deps/lamp_worker_protocol-99356127c03aa69a)
+
+running 2 tests
+test tests::truncated_and_invalid ... ok
+test tests::roundtrip_and_limits ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests lamp_contracts
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_init
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_supervisor
+   Doc-tests lamp_worker_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+python3 tools/check_contracts.py
+56 resources, 328 operations/scopes, 31 errors, 200 events: match architecture §§11–12
+.venv/bin/python -m unittest discover -s tests/contracts -v
+test_all_operation_inputs_are_closed (test_schema.Contracts.test_all_operation_inputs_are_closed) ... ok
+test_all_schemas_well_formed (test_schema.Contracts.test_all_schemas_well_formed) ... ok
+test_create_and_unknown_fields (test_schema.Contracts.test_create_and_unknown_fields) ... ok
+test_drift_checks_fail_closed (test_schema.Contracts.test_drift_checks_fail_closed) ... ok
+test_expiry_continuation_and_preauth_shape (test_schema.Contracts.test_expiry_continuation_and_preauth_shape) ... ok
+test_nested_readiness_and_transfer (test_schema.Contracts.test_nested_readiness_and_transfer) ... ok
+test_tags_enums_and_location (test_schema.Contracts.test_tags_enums_and_location) ... ok
+test_transient_results_and_wrapped_reads (test_schema.Contracts.test_transient_results_and_wrapped_reads) ... ok
+test_uint64_precision_and_scope_empty (test_schema.Contracts.test_uint64_precision_and_scope_empty) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 1.986s
+
+OK
+python3 tools/interop.py
+   Compiling unicode-ident v1.0.27
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling syn v3.0.10
+   Compiling syn v2.0.119
+   Compiling serde_derive v1.0.229
+   Compiling prost-derive v0.14.4
+   Compiling prost v0.14.4
+   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-worker-protocol)
+   Compiling serde v1.0.229
+   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-contracts)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.32s
+PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
+PASS: Go request → Unix socket → Rust typed Protobuf → Go response
+python3 tools/generate.py --check
+public codegen: clean
+go vet ./...
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+    Checking bytes v1.12.1
+    Checking unicode-ident v1.0.27
+    Checking proc-macro2 v1.0.107
+    Checking prost v0.14.4
+    Checking quote v1.0.47
+    Checking serde_core v1.0.229
+    Checking lamp-worker-protocol v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-worker-protocol)
+    Checking linux-raw-sys v0.12.1
+    Checking foldhash v0.1.5
+    Checking bitflags v2.13.2
+    Checking regex-syntax v0.8.11
+    Checking hashbrown v0.17.1
+    Checking equivalent v1.0.3
+    Checking regex-automata v0.4.18
+    Checking indexmap v2.14.2
+    Checking rustix v1.1.6
+    Checking hashbrown v0.15.5
+    Checking syn v2.0.119
+    Checking zmij v1.0.23
+    Checking itoa v1.0.19
+    Checking fixedbitset v0.5.9
+    Checking once_cell v1.21.4
+    Checking memchr v2.8.3
+    Checking fastrand v2.5.0
+    Checking either v1.19.0
+    Checking tempfile v3.27.0
+    Checking itertools v0.14.0
+    Checking serde_json v1.0.154
+    Checking prettyplease v0.2.37
+    Checking petgraph v0.8.3
+    Checking serde v1.0.229
+    Checking regex v1.13.1
+    Checking prost-types v0.14.4
+    Checking multimap v0.10.1
+    Checking log v0.4.35
+    Checking heck v0.5.0
+    Checking lamp-contracts v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-contracts)
+    Checking prost-build v0.14.4
+    Checking lamp-protogen v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/tools/protogen)
+    Checking lamp-engine v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-engine)
+    Checking lamp-supervisor v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-supervisor)
+PASS: clean checkout build/test/contracts/interop/lint on Linux x86_64
+    Checking lamp-init v0.1.0 (/home/johan/lamp-t1-clean-WJkcTAJO/crates/lamp-init)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.03s

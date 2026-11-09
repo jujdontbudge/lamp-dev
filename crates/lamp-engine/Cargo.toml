@@ -1,0 +1,8 @@
+[package]
+name = "lamp-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+[dependencies]
+lamp-worker-protocol = { path = "../lamp-worker-protocol" }
