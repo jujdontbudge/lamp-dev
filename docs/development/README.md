@@ -91,3 +91,8 @@ ABI and package format stay unfrozen until T14, after T7/T8/T9.
 requests fail with exit 2. `lampd` reports that the service is not implemented and
 exits; it binds no listener. The Rust runtime crates contain documented library
 boundaries only. T2–T5 implement the actual product and independent harness.
+
+## CI on owner machines
+
+All workflow jobs use the repository’s private-only self-hosted LX/M5/LA runners.
+See [runner services, signed admission, pause/resume and the public-release gate](../../infra/ci/README.md).

@@ -9,11 +9,13 @@ The owner's targets mean nothing if the thing measuring them shares the implemen
 - Ticket T5 of 31; `docs/tickets/README.md` lists them all and what each waits for. T1 delivered the repository layout and the contracts. Three tickets run at the same time, each in its own checkout, building what this measures: T2 the Linux engine, T3 the minimal `lampd` and CLI, T4 the host guard and audit collectors. T6 then joins the four and runs the gate. This ticket owns the oracles, benchmark workloads and evidence records. After the gate, T13 grows this into the journeys, the attack suite and the every-change benchmarks.
 - The Ubuntu laptop (lane `LX`) is `ssh ubuntu-server` from the M5 Mac, and `sudo -n` works there. The owner's own services also run on it: mainly a Chrome service (`excerlock-dm-chrome.service`, a user systemd unit) that held about 20 of its 30 GiB of memory on 2026-11-09, plus Beeper and a T3 Code server. No Docker containers were running.
 - Hard timing runs on the Ubuntu laptop need it otherwise quiet. Other tickets build and test there at the same time, and the owner's Chrome service holds most of its memory.
+- This ticket lands as one pull request into `main` on GitHub (`JohanSardar/lamp`, private; `gh` on the M5 is signed in as that account). The owner's pull request conventions are in `/Users/johansardar/.claude/skills/file-pr/SKILL.md`. The owner's coordinating session stays on `main`: it watches the pull request, sends back failed checks and review findings for this ticket to fix, and merges it once the checks pass.
 
 ## Constraints
 - The owner's thresholds are fixed: none changes after a failed run, and a failed run stays on record as failed (ENG-001).
 - The owner's own services on the Ubuntu laptop may be stopped only for a hard timing run, and are started again as soon as the run ends (owner, 2026-11-09). The T3 Code server there stays up. Never use, change or remove Docker's existing containers, images or networks on that machine.
 - Power-loss and write-reordering faults run only on disposable fixtures, never on the laptop's live disk.
+- Commit only to this ticket's own branch in its own checkout, push it, and open the pull request yourself. Never push to `main` or to another ticket's branch (owner, 2026-11-09).
 - Model tokens are the only thing money may be spent on (owner, 2026-11-09): buy, rent or subscribe to nothing else. Each pay-per-use key stays under a hard cap of $25 a month, set in its provider's dashboard.
 
 ## Evidence of done
