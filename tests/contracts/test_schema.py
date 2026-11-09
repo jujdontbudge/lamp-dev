@@ -36,6 +36,27 @@ class Contracts(unittest.TestCase):
         spec=(ROOT/'docs/spec/architecture.md').read_text().replace('`input` is a tagged object','`input` is an altered tagged object')
         with self.assertRaises(AssertionError):conformance.check(architecture=spec)
 
+    def test_reviewed_resource_and_operation_drift(self):
+        def move_deadline(schema):
+            defs = schema['$defs']
+            defs['HostBenchInput']['properties']['deadline_ms'] = defs['HostDrainInput']['properties'].pop('deadline_ms')
+        mutations = {
+            'missing common resource field': lambda s: s['$defs']['Sandbox']['properties'].pop('owner_id'),
+            'invented resource field': lambda s: s['$defs']['Sandbox']['properties'].update(invented_authority={'type':'string'}),
+            'input moved between actions': move_deadline,
+            'wrong extra route': lambda s: s['x-lamp-operations']['sandbox_resume'].update(path='/v1/wrong'),
+            'wrong extra method': lambda s: s['x-lamp-operations']['sandbox_resume'].update(method='get'),
+            'missing result field': lambda s: s['$defs']['SandboxPrepareForkCompletion']['properties'].pop('generation'),
+            'invented input field': lambda s: s['$defs']['HostDrainInput']['properties'].update(invented={'type':'string'}),
+            'invented result field': lambda s: s['$defs']['SandboxPrepareForkCompletion']['properties'].update(invented={'type':'string'}),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label):
+                schema = copy.deepcopy(SCHEMA)
+                mutate(schema)
+                with self.assertRaises(AssertionError):
+                    conformance.check(schema)
+
     def test_create_and_unknown_fields(self):
         good={'template_id':'tp_fixture','idempotency_key':'lk1.1.hs.fixture'}
         validate('SandboxCreateInput',good)
@@ -86,6 +107,11 @@ class Contracts(unittest.TestCase):
         validate('KeyCreateCompletion',{'key_id':'ky_fixture','secret_available':False})
         self.assertNotIn('secret',SCHEMA['$defs']['Operation']['properties'])
         self.assertNotIn('secret',SCHEMA['$defs']['Event']['properties'])
+        chunk = {'blob_id':'bl_fixture','offset_bytes':0,'data_base64':'','chunk_sha256':'a'*64,'sha256':'a'*64,'size_bytes':0,'eof':True,'request_id':'rq_fixture'}
+        validate('BlobDownloadResult',chunk)
+        validate('ArtifactDownloadResult',dict(chunk,manifest_blob_id='bl_manifest'))
+        with self.assertRaises(ValidationError):
+            validate('BlobDownloadResult',dict(chunk,manifest_blob_id='bl_manifest'))
         validate('SessionAttachCompletion',{'stream':{'stream_id':'st_fixture','transport':'websocket','url':'wss://host/v1/sessions/se/output','expires_at':'2026-11-09T00:00:00Z','max_frame_bytes':69632,'max_payload_bytes':65536}})
         self.assertEqual(set(SCHEMA['$defs']['SandboxGetResult']['required']),{'data','request_id'})
 
