@@ -8,7 +8,7 @@ Release one names Linux x86_64 and arm64 as hosts with Linux 5.10 as the floor, 
 ## Context
 - Ticket T20 of 31; `docs/tickets/README.md` lists them all and what each waits for. The formats are frozen (T14); this builds on T7's capture proof and T8's `msb_krun` adapter. Five tickets run at the same time: T19 (lifecycle and storage), T21 (sessions and consoles), T22 (kits), T23 (budgets, audit, revocation) and T24 (hosted side). This ticket owns the Linux engine adapters beyond the reference, Linux devices, the gVisor fallback and engine selection. T15 did the Mac rows of SBX-005 and SBX-006 and owns the shared device code this builds on. T28 (install and update) starts from its result.
 - The Ubuntu laptop (lane `LX`) is `ssh ubuntu-server` from the M5 Mac, and `sudo -n` works there. The owner's own services also run on it: mainly a Chrome service (`excerlock-dm-chrome.service`, a user systemd unit) that held about 20 of its 30 GiB of memory on 2026-11-09, plus Beeper and a T3 Code server. No Docker containers were running.
-- Lane `LA` is a Linux arm64 VM on the M5 Mac.
+- Lane `LA` is the Lima VM `lamp-la` on the M5 (`limactl`). The nested lanes `LX22`, `D12`, `F40`, `L510` and `NV` are libvirt VMs on the Ubuntu laptop named `lamp-lx22`, `lamp-d12`, `lamp-f40`, `lamp-l510` and `lamp-nv` (`sudo virsh`). All of them were stopped on 2026-11-09.
 - Hard timing runs on the Ubuntu laptop need it otherwise quiet. Other tickets build and test there at the same time, and the owner's Chrome service holds most of its memory.
 - The owner agreed on 2026-11-09 to package, firewall and kernel-setting changes on the Ubuntu laptop, including reboots.
 
