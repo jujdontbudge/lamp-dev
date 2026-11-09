@@ -77,8 +77,13 @@ def scenario(command, request, evidence, timeout=30):
                 expected_history = ["0"]
             if [ack["id"] for ack in history] != expected_history:
                 raise ValueError("missing external acknowledgement")
-            errors = check_recovery(recovered, history, {"authorized"})
-            evidence.observe("storage_recovery", {"scenario": request, "observed": recovered, "oracle_errors": errors})
+            written = [
+                {"id": str(generation), "parent": None if generation == 0 else "0",
+                 "nonce": request["nonce"], "generation": generation, "memory_bytes": 8192, "disk_bytes": 16384}
+                for generation in (0, 1)
+            ]
+            errors = check_recovery(recovered, history, {"authorized"}, written=written)
+            evidence.observe("storage_recovery", {"scenario": request, "written": written, "observed": recovered, "oracle_errors": errors})
             return errors, recovered
         finally:
             if process.poll() is None:
@@ -97,8 +102,6 @@ def storage_suite(command, evidence, count=STORAGE_FORKS, model=False):
                    "fault": "reorder" if index % 2 else "discard", "iteration": index}
         try:
             errors, observed = scenario(command, request, evidence)
-            if not model and observed.get("qualification") != "real-filesystem-block-barrier":
-                errors.append("real filesystem/block qualification unavailable")
         except Exception as error:
             errors = [type(error).__name__ + ": " + str(error)]
         if errors:
@@ -117,13 +120,13 @@ def storage_suite(command, evidence, count=STORAGE_FORKS, model=False):
         unauthorized_observation.get("unauthorized_capture_rejected") is True and
         not errors and "1" not in unauthorized_observation.get("objects", {})
     )
-    complete = count >= STORAGE_FORKS and len({(row["point"], row["side"]) for row in rows}) == len(cases)
     passed = not failures and all(control["caught"] for control in controls) and (unauthorized_caught if model else unauthorized_rejected)
     return {
-        "status": "fail" if not passed else "incomplete" if model or not complete else "pass",
+        "status": "fail" if not passed else "incomplete",
         "forks": count, "required": STORAGE_FORKS, "failures": failures,
         "crash_coverage": sorted({row["point"] + ":" + row["side"] for row in rows}),
         "negative_controls": controls, "unauthorized_capture_caught": unauthorized_caught,
         "unauthorized_capture_rejected": unauthorized_rejected,
-        "qualification": "disposable-model-only" if model else "external-real-fixture",
+        "qualification": "disposable-model-only" if model else "unqualified-external-fixture",
+        "missing_qualification_evidence": ["public_call_transcript", "injected_fault_barrier_trace"],
     }

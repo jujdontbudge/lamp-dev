@@ -19,7 +19,16 @@ REQUIRED_METADATA = (
 
 
 def metadata_errors(metadata):
-    errors = [key + " missing" for key in REQUIRED_METADATA if key not in metadata or metadata[key] in (None, "", [], {})]
+    def available(value):
+        if isinstance(value, str):
+            return value.strip().lower() not in ("", "unavailable", "placeholder", "unknown", "n/a")
+        if isinstance(value, dict):
+            return any(available(item) for key, item in value.items() if key.lower() not in ("unavailable", "placeholder"))
+        if isinstance(value, list):
+            return any(available(item) for item in value)
+        return value is not None
+
+    errors = [key + " missing" for key in REQUIRED_METADATA if not available(metadata.get(key))]
     for key in ("guard", "audit", "cow", "capture_tracking"):
         controls = metadata.get("controls", {})
         if not isinstance(controls, dict) or controls.get(key) is not True:

@@ -30,29 +30,31 @@ def check_fork(parent_before, parent_after, child, nonce, memory_bytes):
     errors += check_state(child, nonce, 2, memory_bytes)
     if parent_after.get("ticks", 0) <= parent_before.get("ticks", 0):
         errors.append("source did not continue")
+    if child.get("ticks", 0) < parent_before.get("ticks", 0):
+        errors.append("child did not continue")
     return errors
 
 
-def check_recovery(observed, history, authorized_producers):
+def check_recovery(observed, history, authorized_producers, written=None):
     errors = []
     objects = observed.get("objects", {})
+    expected = {item["id"]: item for item in (history if written is None else written)}
     for ack in history:
-        identity = ack["id"]
-        value = objects.get(identity)
-        if value is None:
-            errors.append("lost acknowledged object " + identity)
-            continue
-        if value.get("producer") not in authorized_producers:
-            errors.append("unauthorized capture producer " + identity)
-        if value.get("parent") != ack["parent"]:
-            errors.append("ancestry mismatch " + identity)
-        parent = ack["parent"]
-        if parent is not None and parent not in objects:
-            errors.append("lost ancestor " + parent)
-        errors += [identity + ": " + e for e in check_state(
-            value, ack["nonce"], ack["generation"], ack["memory_bytes"], ack["disk_bytes"]
-        )]
+        if ack["id"] not in objects:
+            errors.append("lost acknowledged object " + ack["id"])
     for identity, value in objects.items():
         if value.get("producer") not in authorized_producers:
             errors.append("unauthorized published capture " + identity)
+        record = expected.get(identity)
+        if record is None:
+            errors.append("unexpected recovered object " + identity)
+            continue
+        if value.get("parent") != record["parent"]:
+            errors.append("ancestry mismatch " + identity)
+        parent = record["parent"]
+        if parent is not None and parent not in objects:
+            errors.append("lost ancestor " + parent)
+        errors += [identity + ": " + e for e in check_state(
+            value, record["nonce"], record["generation"], record["memory_bytes"], record["disk_bytes"]
+        )]
     return errors

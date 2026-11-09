@@ -12,11 +12,12 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 import urllib.parse
 
 from benchmarks.engine import EngineHarness
-from benchmarks.evidence import Evidence
-from benchmarks.oracles import check_recovery, check_state, pattern_hash
+from benchmarks.evidence import Evidence, metadata_errors
+from benchmarks.oracles import check_fork, check_recovery, check_state, pattern_hash
 from benchmarks.protocol import COMMIT_POINTS, MEASURES, paired_summary, plan, timing
 from benchmarks.public import PublicLamp
 from benchmarks.storage import scenario, storage_suite
@@ -40,6 +41,7 @@ class PublicFixture:
         self.shared, self.asynchronous = shared, asynchronous
         self.operations = {}
         self.paths = []
+        self.headers = []
 
     def handle(self, method, path, fields):
         self.paths.append((method, path, fields))
@@ -102,6 +104,7 @@ class HarnessTests(unittest.TestCase):
         class Handler(BaseHTTPRequestHandler):
             def respond(self):
                 raw = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                fixture.headers.append(dict(self.headers))
                 result = fixture.handle(self.command, urllib.parse.urlsplit(self.path).path, json.loads(raw) if raw else {})
                 body = json.dumps(result).encode()
                 self.send_response(200)
@@ -162,6 +165,52 @@ class HarnessTests(unittest.TestCase):
         self.assertTrue(any(path.endswith("/output") for _, path, _ in fixture.paths))
         self.assertFalse(any("worker" in path for _, path, _ in fixture.paths))
 
+    def test_rest_mutation_preconditions_are_headers_not_body(self):
+        fixture = PublicFixture()
+        client = self.server(fixture)
+        client.call("sandbox", "create", {
+            "template_id": "tp_bench", "resources": plan()[0]["resources"],
+            "durability": "local", "idempotency_key": "create-key",
+        })
+        client.call("sandbox", "fork", {
+            "sandbox_id": "sb_0", "fork_mode": "memory", "durability": "local",
+            "idempotency_key": "fork-key", "expected_revision": 18446744073709551615,
+        })
+        client.call("sandbox", "delete", {
+            "sandbox_id": "sb_1", "idempotency_key": "delete-key", "expected_revision": 0,
+        })
+        for index, (key, revision) in enumerate((
+            ("create-key", None), ("fork-key", "18446744073709551615"), ("delete-key", "0"),
+        )):
+            with self.subTest(mutation=index):
+                headers = {name.lower(): value for name, value in fixture.headers[index].items()}
+                self.assertEqual(headers.get("idempotency-key"), key)
+                self.assertEqual(headers.get("if-match"), revision)
+                fields = fixture.paths[index][2]
+                self.assertNotIn("idempotency_key", fields)
+                self.assertNotIn("expected_revision", fields)
+        self.assertEqual(fixture.paths[0][2]["template_id"], "tp_bench")
+        self.assertEqual(fixture.paths[1][2]["fork_mode"], "memory")
+
+    def test_execute_drains_output_after_exit_and_deduplicates_final_pages(self):
+        first = {"stream_id": "out", "sequence": 0, "channel": "stdout",
+                 "data_base64": base64.b64encode(b'{"value":').decode()}
+        last = {"stream_id": "out", "sequence": 1, "channel": "stdout",
+                "data_base64": base64.b64encode(b'"complete"}').decode()}
+        for initial in ([], [first]):
+            with self.subTest(initial=initial):
+                client = PublicLamp(url="http://127.0.0.1", timeout=1)
+                responses = [
+                    {"result": {"exec_id": "ex_1"}},
+                    {"items": initial},
+                    {"data": {"state": "exited", "exit_code": 0}},
+                    {"items": [first], "next_cursor": "tail"},
+                    {"items": [first, last]},
+                ]
+                with mock.patch.object(client, "call", side_effect=responses) as call:
+                    self.assertEqual(client.execute("sb_1", ["useful"]), {"value": "complete"})
+                self.assertEqual(call.call_args, mock.call("exec", "watch", {"exec_id": "ex_1", "cursor": "tail"}))
+
     def test_fork_oracle_detects_shared_writes_through_public_api(self):
         for shared in (False, True):
             with self.subTest(shared=shared):
@@ -179,6 +228,129 @@ class HarnessTests(unittest.TestCase):
                 self.assertEqual(result["error"] is not None, shared)
                 if shared:
                     self.assertTrue(any("generation mismatch" in e for e in result["state_errors"]))
+
+    def test_fork_trial_rejects_stale_child_ticks_before_timing_completion(self):
+        class StaleChild(PublicFixture):
+            def handle(self, method, path, fields):
+                result = super().handle(method, path, fields)
+                if path.endswith(":fork"):
+                    self.sandboxes[result["result"]["sandbox_id"]]["state"]["ticks"] = 0
+                return result
+
+        fixture = StaleChild()
+        client = self.server(fixture)
+        evidence = RecordingEvidence()
+        harness = EngineHarness(client, evidence, "tp_bench", str(ROOT / "benchmarks/workload.py"), sys.executable)
+        row = plan()[0]
+        source = harness.create(row)
+        fixture.sandboxes[source]["state"] = {
+            "nonce": "marker", "generation": 0, "ticks": 100, "size": 0,
+            "memory_sha256": hashlib.sha256(b"").hexdigest(),
+            "disk_sha256": hashlib.sha256(b"".join(blocks("marker", 0, 16384, "disk"))).hexdigest(),
+        }
+        result = harness.fork_trial(source, row, "/tmp/fixture", "marker", False)
+        self.assertIn("child did not continue", result["error"] or "")
+        self.assertEqual(result["state_errors"], [])
+        self.assertFalse(any(kind == "fork_oracle" for kind, _ in evidence.events))
+
+    def test_check_fork_requires_child_ticks_at_least_the_source_observation(self):
+        parent = {
+            "nonce": "marker", "generation": 1, "ticks": 101,
+            "memory_sha256": hashlib.sha256(b"").hexdigest(),
+            "disk_sha256": hashlib.sha256(b"".join(blocks("marker", 1, 16384, "disk"))).hexdigest(),
+        }
+        child = {
+            "nonce": "marker", "generation": 2,
+            "memory_sha256": hashlib.sha256(b"").hexdigest(),
+            "disk_sha256": hashlib.sha256(b"".join(blocks("marker", 2, 16384, "disk"))).hexdigest(),
+        }
+        self.assertIn("child did not continue", check_fork({"ticks": 100}, parent, {**child, "ticks": 1}, "marker", 0))
+        self.assertEqual(check_fork({"ticks": 100}, parent, {**child, "ticks": 100}, "marker", 0), [])
+
+    def test_recovery_validates_unacknowledged_objects_against_external_writes(self):
+        written = [
+            {"id": str(generation), "parent": None if generation == 0 else "0",
+             "nonce": "outside", "generation": generation, "memory_bytes": 8192, "disk_bytes": 16384}
+            for generation in (0, 1)
+        ]
+        objects = {
+            item["id"]: {
+                "parent": item["parent"], "producer": "authorized", "ticks": 1,
+                "nonce": item["nonce"], "generation": item["generation"],
+                "memory_sha256": hashlib.sha256(b"".join(blocks("outside", item["generation"], 8192, "ram"))).hexdigest(),
+                "disk_sha256": hashlib.sha256(b"".join(blocks("outside", item["generation"], 16384, "disk"))).hexdigest(),
+            } for item in written
+        }
+        mixed = copy.deepcopy(objects)
+        mixed["1"]["memory_sha256"] = objects["0"]["memory_sha256"]
+        self.assertTrue(check_recovery({"objects": mixed}, written[:1], {"authorized"}))
+        self.assertEqual(check_recovery({"objects": objects}, written[:1], {"authorized"}, written=written), [])
+        for field, value in (
+            ("memory_sha256", objects["0"]["memory_sha256"]),
+            ("disk_sha256", objects["0"]["disk_sha256"]),
+            ("nonce", "self-reported"), ("generation", 77),
+        ):
+            with self.subTest(field=field):
+                corrupted = copy.deepcopy(objects)
+                corrupted["1"][field] = value
+                errors = check_recovery({"objects": corrupted}, written[:1], {"authorized"}, written=written)
+                self.assertIn("1: " + field + " mismatch", errors)
+        self.assertEqual(check_recovery({"objects": {"0": objects["0"]}}, written[:1], {"authorized"}, written=written), [])
+
+    def test_placeholder_metadata_cannot_produce_passing_evidence(self):
+        metadata = json.loads((ROOT / "tests/benchmarks/evidence/model-metadata.json").read_text())
+        metadata["controls"] = {key: True for key in metadata["controls"]}
+        self.assertEqual(metadata_errors(metadata), [])
+        for key in ("hardware", "filesystem", "storage", "policy", "resources", "power", "thermal"):
+            for value in ({}, {"unavailable": True}, {"unavailable": "sensor offline"},
+                          {"status": "unavailable"}, {"status": "placeholder"}, {"samples": []}):
+                with self.subTest(field=key, value=value):
+                    self.assertIn(key + " missing", metadata_errors({**metadata, key: value}))
+        for value in ("placeholder", ["placeholder"], ["unavailable"], [], "unavailable"):
+            with self.subTest(features=value):
+                self.assertIn("compiled_features missing", metadata_errors({**metadata, "compiled_features": value}))
+        with tempfile.TemporaryDirectory() as root:
+            evidence = Evidence(Path(root) / "missing", {**metadata, "thermal": {"unavailable": True}}, {})
+            self.assertEqual(evidence.finish({"E01": {"status": "pass"}})["status"], "incomplete")
+
+    def test_real_e04_self_attestation_without_harness_traces_is_incomplete(self):
+        def self_attested(command, request, evidence):
+            observed = {
+                "qualification": "real-filesystem-block-barrier",
+                "public_call_transcript": ["fixture claims a public call"],
+                "injected_fault_barrier_trace": ["fixture claims a barrier"],
+            }
+            if request.get("omit"):
+                return ["lost acknowledged object 1"], observed
+            if request.get("unauthorized"):
+                observed.update({"unauthorized_capture_rejected": True, "objects": {"0": {}}})
+            return [], observed
+
+        with mock.patch("benchmarks.storage.scenario", side_effect=self_attested):
+            result = storage_suite(["self-attesting-fixture"], RecordingEvidence(), count=1000)
+        self.assertEqual(result["failures"], [])
+        self.assertEqual(result["status"], "incomplete")
+        self.assertEqual(set(result["missing_qualification_evidence"]), {"public_call_transcript", "injected_fault_barrier_trace"})
+
+    def test_e02_rejects_direct_and_invalid_secured_proxy_endpoints(self):
+        harness = EngineHarness(
+            mock.Mock(), RecordingEvidence(), "tp_bench", "/workload.py",
+            directory="/private", fixture={"host": "fixture"}, native_cpus=[0, 1],
+        )
+        harness.create = mock.Mock(side_effect=AssertionError("sandbox admission reached"))
+        for proxy in ("direct", "relative", "ftp://proxy", "http://", "http:///proxy",
+                      "http://proxy:bad", "http://proxy:0", "http://proxy:65536",
+                      "http://user:password@proxy", "http://proxy?bypass=true", "http://proxy/#bypass"):
+            with self.subTest(proxy=proxy):
+                harness.proxy = proxy
+                with self.assertRaises(ValueError):
+                    harness.e02(plan()[3])
+                harness.create.assert_not_called()
+        for proxy in ("http://127.0.0.1:8080", "https://proxy.example"):
+            with self.subTest(valid_proxy=proxy):
+                harness.proxy = proxy
+                with self.assertRaisesRegex(AssertionError, "sandbox admission reached"):
+                    harness.e02(plan()[3])
 
     def test_cli_adapter_uses_public_flags_and_real_workload(self):
         with tempfile.TemporaryDirectory() as root:

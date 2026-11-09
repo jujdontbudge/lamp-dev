@@ -65,13 +65,16 @@ class PublicLamp:
                         method = "DELETE"
                     else:
                         path += ":" + action.replace("_", "-")
+                headers = {"Content-Type": "application/json"}
                 if method == "GET":
                     if fields:
                         path += "?" + urllib.parse.urlencode(fields)
                     body = None
                 else:
+                    for field, header in (("idempotency_key", "Idempotency-Key"), ("expected_revision", "If-Match")):
+                        if field in fields:
+                            headers[header] = str(fields.pop(field))
                     body = json.dumps(fields).encode()
-                headers = {"Content-Type": "application/json"}
                 if self.token:
                     headers["Authorization"] = "Bearer " + self.token
                 request = urllib.request.Request(self.url.rstrip("/") + path, body, headers, method=method)
@@ -125,6 +128,7 @@ class PublicLamp:
         identity = self.mutation("exec", "create", {"sandbox_id": sandbox, "argv": argv})["exec_id"]
         deadline = time.monotonic() + self.timeout
         cursor, output, seen = None, bytearray(), set()
+        exit_observed = False
         while time.monotonic() < deadline:
             fields = {"exec_id": identity}
             if cursor is not None:
@@ -138,13 +142,17 @@ class PublicLamp:
                         raise ValueError("workload output exceeds bound")
                 seen.add(key)
             cursor = page.get("next_cursor", cursor)
+            if exit_observed:
+                if not page.get("next_cursor"):
+                    return json.loads(output)
+                continue
             status = self.call("exec", "get", {"exec_id": identity})["data"]
             if status["state"] in ("failed", "outcome_unknown"):
                 raise RuntimeError("exec " + status["state"])
-            if status["state"] == "exited" and not page.get("next_cursor"):
+            if status["state"] == "exited":
                 if status.get("exit_code") != 0:
                     raise RuntimeError("workload exited unsuccessfully")
-                return json.loads(output)
+                exit_observed = True
             time.sleep(.001)
         raise TimeoutError("independent useful command")
 

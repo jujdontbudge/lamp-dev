@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import uuid
 
 from benchmarks.oracles import check_fork, check_state
@@ -117,6 +118,8 @@ class EngineHarness:
                     raise ValueError("captured RAM marker discontinuity")
             if parent["ticks"] <= before["ticks"]:
                 raise ValueError("source did not continue")
+            if child.get("ticks", 0) < before["ticks"]:
+                raise ValueError("child did not continue")
         except Exception as caught:
             error = type(caught).__name__ + ": " + str(caught)
         elapsed = (time.monotonic_ns() - started) / 1e6
@@ -200,6 +203,13 @@ class EngineHarness:
     def e02(self, row, smoke=False):
         if not self.directory or not self.fixture or not self.proxy:
             raise ValueError("E02 needs an explicit private disk directory, remote network fixture and secured proxy path")
+        proxy = urllib.parse.urlsplit(self.proxy)
+        if (proxy.scheme not in ("http", "https") or not proxy.hostname or
+                proxy.username is not None or proxy.password is not None or
+                proxy.query or proxy.fragment or proxy.path not in ("", "/") or
+                any(character.isspace() for character in self.proxy) or
+                (proxy.port is not None and not 0 < proxy.port < 65536)):
+            raise ValueError("E02 secured side requires a valid HTTP(S) proxy endpoint")
         if not smoke and (not self.native_cpus or len(self.native_cpus) != row["resources"]["vcpus"]):
             raise ValueError("E02 needs matched native CPU affinity")
         source = self.create(row)
