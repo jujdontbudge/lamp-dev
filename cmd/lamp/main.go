@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -137,6 +138,25 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 2
 	}
+	if action != "get" {
+		// Generated inputs are transport-neutral. REST carries authority selectors
+		// in headers, never as mutation body fields.
+		var body map[string]json.RawMessage
+		if err := json.Unmarshal(data, &body); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 2
+		}
+		delete(body, "idempotency_key")
+		delete(body, "expected_revision")
+		if noun == "sandbox" && action == "fork" {
+			delete(body, "sandbox_id")
+		}
+		data, err = json.Marshal(body)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 2
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 65*time.Second)
 	defer cancel()
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -149,6 +169,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	request.Header.Set("Content-Type", "application/json")
+	if key != nil {
+		request.Header.Set("Idempotency-Key", *key)
+	}
+	if revision != nil {
+		request.Header.Set("If-Match", strconv.FormatUint(*revision, 10))
+	}
 	response, err := (&http.Client{Transport: transport}).Do(request)
 	if err != nil {
 		fmt.Fprintln(stderr, "lamp:", err)

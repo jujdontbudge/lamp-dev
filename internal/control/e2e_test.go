@@ -48,13 +48,14 @@ func TestMain(m *testing.M) {
 }
 
 type workerFixture struct {
-	listener net.Listener
-	mu       sync.Mutex
-	requests []*pb.Request
-	states   map[string]string
-	ready    chan struct{}
-	fail     string
-	drop     bool
+	listener  net.Listener
+	mu        sync.Mutex
+	requests  []*pb.Request
+	states    map[string]string
+	ready     chan struct{}
+	fail      string
+	retryable bool
+	drop      bool
 }
 
 func newWorker(t *testing.T, dir string) *workerFixture {
@@ -100,7 +101,7 @@ func (w *workerFixture) serve(c net.Conn) {
 		}
 		w.mu.Lock()
 		w.requests = append(w.requests, proto.Clone(r).(*pb.Request))
-		fail, drop := w.fail, w.drop
+		fail, drop, retryable := w.fail, w.drop, w.retryable
 		state := ""
 		switch r.Command.(type) {
 		case *pb.Request_Allocate:
@@ -130,7 +131,7 @@ func (w *workerFixture) serve(c net.Conn) {
 		}
 		response := &pb.Response{Context: r.Context, Result: &pb.Response_Receipt{Receipt: &pb.Receipt{State: state}}}
 		if fail != "" {
-			response.Result = &pb.Response_Error{Error: &pb.WorkerError{Code: fail, Message: "fixture rejection"}}
+			response.Result = &pb.Response_Error{Error: &pb.WorkerError{Code: fail, Message: "fixture rejection", Retryable: retryable}}
 		}
 		if pb.WriteFrame(c, &pb.Frame{Payload: &pb.Frame_Response{Response: response}}) != nil {
 			return
@@ -211,13 +212,16 @@ func startDaemonFor(t *testing.T, dir string, w *workerFixture, workerSocket str
 	t.Fatal("lampd did not bind its socket")
 	return nil
 }
-func (d *demo) request(t *testing.T, method, path, body string, status int, out any) {
+func (d *demo) request(t *testing.T, method, path, body string, status int, out any, headers ...string) {
 	t.Helper()
 	r, err := http.NewRequest(method, "http://lamp"+path, bytes.NewBufferString(body))
 	if err != nil {
 		t.Fatal(err)
 	}
 	r.Header.Set("Content-Type", "application/json")
+	for i := 0; i < len(headers); i += 2 {
+		r.Header.Add(headers[i], headers[i+1])
+	}
 	res, err := d.client.Do(r)
 	if err != nil {
 		t.Fatal(err)
@@ -260,7 +264,7 @@ func (d *demo) await(t *testing.T, id string, want api.OperationState) api.Opera
 func TestEndToEndCreateExecFork(t *testing.T) {
 	d := startDemo(t)
 	var created api.SandboxCreateResult
-	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"tpl_demo","idempotency_key":"create-1"}`, 202, &created)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"tpl_demo"}`, 202, &created, "Idempotency-Key", "create-1")
 	if created.OperationId == "" || len(created.ResourceIds) != 1 || created.Result != nil {
 		t.Fatalf("invalid acceptance: %+v", created)
 	}
@@ -294,7 +298,7 @@ func TestEndToEndCreateExecFork(t *testing.T) {
 		t.Fatalf("exec: %+v", ex.Data)
 	}
 	var forked api.SandboxForkResult
-	d.request(t, "POST", "/v1/sandboxes/"+id+":fork", fmt.Sprintf(`{"idempotency_key":"fork-1","expected_revision":%d,"wait_ms":1000}`, sb.Data.Revision), 200, &forked)
+	d.request(t, "POST", "/v1/sandboxes/"+id+":fork", `{"wait_ms":1000}`, 200, &forked, "Idempotency-Key", "fork-1", "If-Match", strconv.FormatUint(sb.Data.Revision, 10))
 	if forked.Result == nil || forked.Result.SandboxId == id {
 		t.Fatalf("fork: %+v", forked)
 	}
@@ -332,18 +336,18 @@ func TestIdempotencyValidationAndRevision(t *testing.T) {
 	d := startDemo(t)
 	close(d.worker.ready)
 	var first, replay api.SandboxCreateResult
-	body := `{"template_id":"tpl_demo","idempotency_key":"same","wait_ms":1000}`
-	d.request(t, "POST", "/v1/sandboxes", body, 200, &first)
+	body := `{"template_id":"tpl_demo","wait_ms":1000}`
+	d.request(t, "POST", "/v1/sandboxes", body, 200, &first, "Idempotency-Key", "same")
 	n := len(d.worker.seen())
-	d.request(t, "POST", "/v1/sandboxes", `{"idempotency_key":"same","template_id":"tpl_demo"}`, 200, &replay)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"tpl_demo"}`, 200, &replay, "Idempotency-Key", "same")
 	if !replay.Replayed || replay.OperationId != first.OperationId || len(d.worker.seen()) != n {
 		t.Fatal("replay redelivered an effect")
 	}
-	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"other","idempotency_key":"same"}`, 409, nil)
-	for _, body := range []string{`{}`, `{"template_id":"t","idempotency_key":"k","surprise":1}`, `{"template_id":"t","idempotency_key":"k","kit_ids":["kit"]}`, `{"template_id":"t","idempotency_key":"k","auth_mode":"subscription"}`, `{"template_id":"t","idempotency_key":"k","resources":{"vcpus":0}}`, `{"template_id":"t","idempotency_key":"k","template_id":"other"}`, `{"template_id":"t","idempotency_key":"k"} {}`} {
-		d.request(t, "POST", "/v1/sandboxes", body, 400, nil)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"other"}`, 409, nil, "Idempotency-Key", "same")
+	for _, body := range []string{`{}`, `{"template_id":"t","surprise":1}`, `{"template_id":"t","kit_ids":["kit"]}`, `{"template_id":"t","auth_mode":"subscription"}`, `{"template_id":"t","resources":{"vcpus":0}}`, `{"template_id":"t","template_id":"other"}`, `{"template_id":"t"} {}`} {
+		d.request(t, "POST", "/v1/sandboxes", body, 400, nil, "Idempotency-Key", "k")
 	}
-	d.request(t, "POST", "/v1/sandboxes/"+first.Result.SandboxId+":fork", `{"idempotency_key":"stale","expected_revision":0}`, 409, nil)
+	d.request(t, "POST", "/v1/sandboxes/"+first.Result.SandboxId+":fork", `{}`, 409, nil, "Idempotency-Key", "stale", "If-Match", "0")
 	if len(d.worker.seen()) != n {
 		t.Fatal("invalid input reached the worker")
 	}
@@ -354,9 +358,9 @@ func TestUnknownWorkerOutcomeIsNotSuccess(t *testing.T) {
 	d.worker.drop = true
 	d.worker.mu.Unlock()
 	var result api.SandboxCreateResult
-	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","idempotency_key":"drop","wait_ms":1000}`, 409, &result)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","wait_ms":1000}`, 409, &result, "Idempotency-Key", "drop")
 	var errout api.ErrorEnvelope
-	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","idempotency_key":"drop","wait_ms":1000}`, 409, &errout)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","wait_ms":1000}`, 409, &errout, "Idempotency-Key", "drop")
 	if errout.Error.Code != "OUTCOME_UNKNOWN" || errout.Error.OperationId == nil {
 		t.Fatalf("unknown outcome: %+v", errout)
 	}
@@ -372,13 +376,13 @@ func TestForkFailureInvalidatesSourceReadiness(t *testing.T) {
 	d := startDemo(t)
 	close(d.worker.ready)
 	var first api.SandboxCreateResult
-	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","idempotency_key":"first","wait_ms":1000}`, 200, &first)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","wait_ms":1000}`, 200, &first, "Idempotency-Key", "first")
 	var parent api.SandboxGetResult
 	d.request(t, "GET", "/v1/sandboxes/"+first.Result.SandboxId, "", 200, &parent)
 	d.worker.mu.Lock()
 	d.worker.drop = true
 	d.worker.mu.Unlock()
-	d.request(t, "POST", "/v1/sandboxes/"+parent.Data.Id+":fork", fmt.Sprintf(`{"idempotency_key":"fork-drop","expected_revision":%d,"wait_ms":1000}`, parent.Data.Revision), 409, nil)
+	d.request(t, "POST", "/v1/sandboxes/"+parent.Data.Id+":fork", `{"wait_ms":1000}`, 409, nil, "Idempotency-Key", "fork-drop", "If-Match", strconv.FormatUint(parent.Data.Revision, 10))
 	d.request(t, "GET", "/v1/sandboxes/"+parent.Data.Id, "", 200, &parent)
 	if parent.Data.State != "unavailable" {
 		t.Fatalf("uncertain paused source is still %s", parent.Data.State)
@@ -387,8 +391,8 @@ func TestForkFailureInvalidatesSourceReadiness(t *testing.T) {
 func TestRestartNeverRedeliversAcceptedEffects(t *testing.T) {
 	d := startDemo(t)
 	var first api.SandboxCreateResult
-	body := `{"template_id":"t","idempotency_key":"restart"}`
-	d.request(t, "POST", "/v1/sandboxes", body, 202, &first)
+	body := `{"template_id":"t"}`
+	d.request(t, "POST", "/v1/sandboxes", body, 202, &first, "Idempotency-Key", "restart")
 	until := time.Now().Add(time.Second)
 	for {
 		started := false
@@ -410,7 +414,7 @@ func TestRestartNeverRedeliversAcceptedEffects(t *testing.T) {
 	before := len(d.worker.seen())
 	restarted := startDaemon(t, filepath.Dir(d.socket), d.worker)
 	var result api.ErrorEnvelope
-	restarted.request(t, "POST", "/v1/sandboxes", body, 409, &result)
+	restarted.request(t, "POST", "/v1/sandboxes", body, 409, &result, "Idempotency-Key", "restart")
 	if result.Error.Code != "OUTCOME_UNKNOWN" || len(d.worker.seen()) != before {
 		t.Fatal("restart retried an uncertain effect")
 	}
@@ -426,7 +430,7 @@ func TestWorkerRejectionRetainsFailedOperation(t *testing.T) {
 	d.worker.fail = "NO_CAPACITY"
 	d.worker.mu.Unlock()
 	var result api.ErrorEnvelope
-	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","idempotency_key":"reject","wait_ms":1000}`, 429, &result)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","wait_ms":1000}`, 429, &result, "Idempotency-Key", "reject")
 	if result.Error.OperationId == nil {
 		t.Fatal("missing failed operation ID")
 	}
@@ -444,7 +448,7 @@ func TestCLIReadPreservesUInt64(t *testing.T) {
 	d := startDemo(t)
 	close(d.worker.ready)
 	var created api.SandboxCreateResult
-	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","idempotency_key":"uint64","wait_ms":1000,"resources":{"vcpus":2,"memory_mib":9007199254740993,"disk_gib":20,"pids_max":1024}}`, 200, &created)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","wait_ms":1000,"resources":{"vcpus":2,"memory_mib":9007199254740993,"disk_gib":20,"pids_max":1024}}`, 200, &created, "Idempotency-Key", "uint64")
 	out, err := exec.Command(lampBinary, "sandbox", "get", "--socket", d.socket, "--sandbox-id", created.Result.SandboxId).CombinedOutput()
 	if err != nil || !bytes.Contains(out, []byte(`"memory_mib": 9007199254740993`)) {
 		t.Fatalf("CLI rounded a canonical uint64: %v %s", err, out)
@@ -453,7 +457,7 @@ func TestCLIReadPreservesUInt64(t *testing.T) {
 func TestJournalFailureDoesNotPublishSuccess(t *testing.T) {
 	d := startDemo(t)
 	var created api.SandboxCreateResult
-	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t","idempotency_key":"disk-failure"}`, 202, &created)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"t"}`, 202, &created, "Idempotency-Key", "disk-failure")
 	until := time.Now().Add(time.Second)
 	for {
 		started := false

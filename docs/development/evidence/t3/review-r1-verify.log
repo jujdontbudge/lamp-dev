@@ -1,0 +1,126 @@
+go build ./...
+cargo build --workspace --locked
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.20s
+go test ./...
+ok  	github.com/JohanSardar/lamp/cmd/lamp	0.315s
+?   	github.com/JohanSardar/lamp/cmd/lampd	[no test files]
+ok  	github.com/JohanSardar/lamp/internal/control	4.092s
+?   	github.com/JohanSardar/lamp/internal/guard	[no test files]
+?   	github.com/JohanSardar/lamp/pkg/api	[no test files]
+ok  	github.com/JohanSardar/lamp/pkg/workerpb	(cached)
+?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
+cargo test --workspace --locked
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src/lib.rs (target/debug/deps/lamp_contracts-16baf1467bb0016c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/lamp_engine-e767b446a9943075)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/lamp_init-92c4230dccadd64b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/lamp_protogen-db528dda6deec0fe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/lamp_supervisor-d8c7148626ed8c2a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/lamp_worker_protocol-8a0d5ad30edcd4a1)
+
+running 2 tests
+test tests::truncated_and_invalid ... ok
+test tests::roundtrip_and_limits ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_contracts
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_init
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_supervisor
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_worker_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+python3 tools/check_contracts.py
+56 resources, 328 operations/scopes, 31 errors, 200 events: match architecture §§11–12
+.venv/bin/python -m unittest discover -s tests/contracts -v
+test_all_operation_inputs_are_closed (test_schema.Contracts.test_all_operation_inputs_are_closed) ... ok
+test_all_schemas_well_formed (test_schema.Contracts.test_all_schemas_well_formed) ... ok
+test_create_and_unknown_fields (test_schema.Contracts.test_create_and_unknown_fields) ... ok
+test_drift_checks_fail_closed (test_schema.Contracts.test_drift_checks_fail_closed) ... ok
+test_expiry_continuation_and_preauth_shape (test_schema.Contracts.test_expiry_continuation_and_preauth_shape) ... ok
+test_nested_readiness_and_transfer (test_schema.Contracts.test_nested_readiness_and_transfer) ... ok
+test_reviewed_resource_and_operation_drift (test_schema.Contracts.test_reviewed_resource_and_operation_drift) ... ok
+test_tags_enums_and_location (test_schema.Contracts.test_tags_enums_and_location) ... ok
+test_transient_results_and_wrapped_reads (test_schema.Contracts.test_transient_results_and_wrapped_reads) ... ok
+test_uint64_precision_and_scope_empty (test_schema.Contracts.test_uint64_precision_and_scope_empty) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 1.355s
+
+OK
+.venv/bin/python -m unittest discover -s tests/ci -v
+test_context_mismatch_and_reruns_denied (test_guard.Guard.test_context_mismatch_and_reruns_denied) ... ok
+test_denial_kills_only_ancestor_worker (test_guard.Guard.test_denial_kills_only_ancestor_worker) ... Lamp host guard: terminated denied Runner.Worker 30
+ok
+test_discovery_failure_never_returns_a_failed_hook (test_guard.Guard.test_discovery_failure_never_returns_a_failed_hook) ... Lamp host guard: cannot terminate Worker; holding hook for operator intervention
+Lamp host guard: cannot terminate Worker; holding hook for operator intervention
+ok
+test_main_and_manual (test_guard.Guard.test_main_and_manual) ... ok
+test_private_owner_push (test_guard.Guard.test_private_owner_push) ... ok
+test_public_and_stranger_jobs_denied (test_guard.Guard.test_public_and_stranger_jobs_denied) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.001s
+
+OK
+python3 tools/interop.py
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.01s
+PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
+PASS: Go request → Unix socket → Rust typed Protobuf → Go response
+python3 tools/generate.py --check
+public codegen: clean
+go vet ./...
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+
+exit_code=0

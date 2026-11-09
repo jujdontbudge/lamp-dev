@@ -36,6 +36,7 @@ type workerClient struct {
 type workerFailure struct {
 	code, message string
 	unknown       bool
+	retryable     bool
 }
 
 func (e *workerFailure) Error() string { return e.message }
@@ -102,10 +103,10 @@ func (w *workerClient) call(ctx context.Context, r *pb.Request) (*pb.Receipt, er
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if err := ctx.Err(); err != nil {
-		return nil, &workerFailure{"HOST_UNAVAILABLE", err.Error(), false}
+		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error(), unknown: false}
 	}
 	if err := w.connect(ctx); err != nil {
-		return nil, &workerFailure{"HOST_UNAVAILABLE", err.Error(), false}
+		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error(), unknown: false}
 	}
 	deadline, _ := ctx.Deadline()
 	w.conn.SetDeadline(deadline)
@@ -119,34 +120,34 @@ func (w *workerClient) call(ctx context.Context, r *pb.Request) (*pb.Receipt, er
 	}()
 	f := &pb.Frame{Payload: &pb.Frame_Request{Request: r}}
 	if proto.Size(f) > int(w.maximum) {
-		return nil, &workerFailure{"INVALID_ARGUMENT", "request exceeds negotiated control maximum", false}
+		return nil, &workerFailure{code: "INVALID_ARGUMENT", message: "request exceeds negotiated control maximum", unknown: false}
 	}
 	// From the first attempted write onward, transport failure is uncertain. Never
 	// reconnect and redeliver this effect under another request/operation ID.
 	if err := pb.WriteFrame(conn, f); err != nil {
 		w.disconnect()
-		return nil, &workerFailure{"OUTCOME_UNKNOWN", err.Error(), true}
+		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: err.Error(), unknown: true}
 	}
 	f, err := readBounded(conn, w.maximum)
 	if err != nil {
 		w.disconnect()
-		return nil, &workerFailure{"OUTCOME_UNKNOWN", err.Error(), true}
+		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: err.Error(), unknown: true}
 	}
 	response := f.GetResponse()
 	if response == nil || !proto.Equal(response.Context, r.Context) {
 		w.disconnect()
-		return nil, &workerFailure{"OUTCOME_UNKNOWN", "worker response context mismatch", true}
+		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker response context mismatch", unknown: true}
 	}
 	if e := response.GetError(); e != nil {
-		return nil, &workerFailure{e.Code, e.Message, e.Code == "OUTCOME_UNKNOWN"}
+		return nil, &workerFailure{code: e.Code, message: e.Message, unknown: e.Code == "OUTCOME_UNKNOWN", retryable: e.Retryable}
 	}
 	receipt := response.GetReceipt()
 	if receipt == nil {
 		w.disconnect()
-		return nil, &workerFailure{"OUTCOME_UNKNOWN", "worker omitted receipt", true}
+		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker omitted receipt", unknown: true}
 	}
 	if receipt.OutcomeUnknown {
-		return nil, &workerFailure{"OUTCOME_UNKNOWN", "worker reports uncertain effect", true}
+		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker reports uncertain effect", unknown: true}
 	}
 	return receipt, nil
 }
@@ -160,13 +161,13 @@ func (w *workerClient) perform(ctx context.Context, r *pb.Request, want string) 
 	}
 	for receipt.State != want {
 		if receipt.State != "accepted" && receipt.State != "preparing" && receipt.State != "running" && receipt.State != "waiting" {
-			return &workerFailure{"OUTCOME_UNKNOWN", fmt.Sprintf("unexpected worker receipt %q (want %s)", receipt.State, want), true}
+			return &workerFailure{code: "OUTCOME_UNKNOWN", message: fmt.Sprintf("unexpected worker receipt %q (want %s)", receipt.State, want), unknown: true}
 		}
 		timer := time.NewTimer(time.Millisecond)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return &workerFailure{"OUTCOME_UNKNOWN", "deadline before worker evidence", true}
+			return &workerFailure{code: "OUTCOME_UNKNOWN", message: "deadline before worker evidence", unknown: true}
 		case <-timer.C:
 		}
 		c := proto.Clone(r.Context).(*pb.Context)
@@ -174,7 +175,7 @@ func (w *workerClient) perform(ctx context.Context, r *pb.Request, want string) 
 		c.OperationId = newID("op")
 		receipt, err = w.call(ctx, &pb.Request{Context: c, Command: &pb.Request_Inspect{Inspect: &pb.Inspect{}}})
 		if err != nil {
-			return &workerFailure{"OUTCOME_UNKNOWN", "lost terminal evidence after acceptance: " + err.Error(), true}
+			return &workerFailure{code: "OUTCOME_UNKNOWN", message: "lost terminal evidence after acceptance: " + err.Error(), unknown: true}
 		}
 	}
 	return nil

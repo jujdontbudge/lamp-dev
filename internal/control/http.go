@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,21 +21,47 @@ import (
 
 const maxBody = 64 << 10
 
-var errorStatuses = map[string]int{"INVALID_ARGUMENT": 400, "NOT_FOUND": 404, "REVISION_CONFLICT": 409, "IDEMPOTENCY_CONFLICT": 409, "RESOURCE_IN_USE": 409, "OUTCOME_UNKNOWN": 409, "ENGINE_UNQUALIFIED": 422, "NO_CAPACITY": 429, "CONTROL_QUOTA_EXCEEDED": 429, "HOST_UNAVAILABLE": 503, "DATA_UNAVAILABLE": 503, "VM_REQUIRED": 403, "HOST_NOT_TRUSTED": 403, "DEVICE_UNAVAILABLE": 422, "DEVICE_NOT_FORKABLE": 422, "TASK_AUTHORITY_EXPIRED": 409, "SCOPE_DENIED": 403}
+// Canonical x-lamp-errors statuses; all demo mutation routes use ErrorEnvelope.
+var errorStatuses = map[string]int{
+	"INVALID_ARGUMENT": 400, "UNAUTHENTICATED": 401, "NOT_FOUND": 404, "SCOPE_DENIED": 403,
+	"REVISION_CONFLICT": 409, "RESULT_EXPIRED": 410, "ENGINE_UNQUALIFIED": 422,
+	"NO_CAPACITY": 429, "HOST_UNAVAILABLE": 503, "VM_REQUIRED": 403, "HOST_NOT_TRUSTED": 403,
+	"APPROVAL_REQUIRED": 403, "IDEMPOTENCY_CONFLICT": 409, "RESOURCE_IN_USE": 409,
+	"OUTCOME_UNKNOWN": 409, "TASK_AUTHORITY_EXPIRED": 409, "KEY_EPOCH_EXPIRED": 410,
+	"CURSOR_EXPIRED": 410, "DEVICE_UNAVAILABLE": 422, "DEVICE_NOT_FORKABLE": 422,
+	"AUTH_TRANSPORT_UNSUPPORTED": 422, "CONTINUATION_UNSUPPORTED": 422,
+	"CLEAN_REBUILD_REQUIRED": 422, "TOKEN_CAP_UNENFORCEABLE": 422,
+	"CONTROL_QUOTA_EXCEEDED": 429, "RATE_LIMITED": 429, "DATA_UNAVAILABLE": 503,
+	"QUORUM_REQUIRED": 503, "IDEMPOTENCY_HOME_UNAVAILABLE": 503,
+	"TOKEN_HOME_UNAVAILABLE": 503, "AUDIT_UNAVAILABLE": 503,
+}
 
-func writeJSON(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
+// prepareJSON snapshots nested journal values while the caller holds mu. The
+// returned writer closes over only immutable bytes and runs after unlocking.
+func prepareJSON(w http.ResponseWriter, status int, value any) func() {
+	data, err := json.Marshal(value)
+	if err != nil {
+		status = 503
+		data, _ = json.Marshal(api.ErrorEnvelope{RequestId: w.Header().Get("X-Request-ID"), Error: api.ErrorDetail{Code: "DATA_UNAVAILABLE", Message: "cannot encode response"}})
+	}
+	data = append(data, '\n')
+	return func() {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(status)
+		_, _ = w.Write(data)
+	}
 }
 func writeError(w http.ResponseWriter, requestID, code, message string, operationID *string) {
-	status, ok := errorStatuses[code]
+	prepareError(w, requestID, api.ErrorDetail{Code: api.ErrorCode(code), Message: message, OperationId: operationID})()
+}
+func prepareError(w http.ResponseWriter, requestID string, detail api.ErrorDetail) func() {
+	status, ok := errorStatuses[string(detail.Code)]
 	if !ok {
-		code = "DATA_UNAVAILABLE"
+		detail.Code = "DATA_UNAVAILABLE"
 		status = 503
 	}
-	writeJSON(w, status, api.ErrorEnvelope{RequestId: requestID, Error: api.ErrorDetail{Code: api.ErrorCode(code), Message: message, Retryable: false, OperationId: operationID}})
+	return prepareJSON(w, status, api.ErrorEnvelope{RequestId: requestID, Error: detail})
 }
 
 // checkJSON rejects duplicate fields and nulls before typed decoding. In this
@@ -119,36 +146,43 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	if r.Method == "GET" {
 		s.mu.Lock()
-		defer s.mu.Unlock()
+		var send func()
+		defer func() { s.mu.Unlock(); send() }()
 		if s.broken {
-			writeError(w, requestID, "DATA_UNAVAILABLE", "journal unavailable", nil)
+			send = prepareError(w, requestID, api.ErrorDetail{Code: "DATA_UNAVAILABLE", Message: "journal unavailable"})
 			return
 		}
 		switch {
 		case strings.HasPrefix(path, "/v1/operations/"):
 			if rec, ok := s.journal.Operations[strings.TrimPrefix(path, "/v1/operations/")]; ok {
-				writeJSON(w, 200, api.OperationGetResult{Data: rec.Operation, RequestId: requestID})
+				send = prepareJSON(w, 200, api.OperationGetResult{Data: rec.Operation, RequestId: requestID})
 				return
 			}
 		case strings.HasPrefix(path, "/v1/sandboxes/"):
 			if sb, ok := s.journal.Sandboxes[strings.TrimPrefix(path, "/v1/sandboxes/")]; ok {
-				writeJSON(w, 200, api.SandboxGetResult{Data: sb, RequestId: requestID})
+				send = prepareJSON(w, 200, api.SandboxGetResult{Data: sb, RequestId: requestID})
 				return
 			}
 		case strings.HasPrefix(path, "/v1/execs/"):
 			if ex, ok := s.journal.Execs[strings.TrimPrefix(path, "/v1/execs/")]; ok {
-				writeJSON(w, 200, api.ExecGetResult{Data: ex, RequestId: requestID})
+				send = prepareJSON(w, 200, api.ExecGetResult{Data: ex, RequestId: requestID})
 				return
 			}
 		}
-		writeError(w, requestID, "NOT_FOUND", "resource not found", nil)
+		send = prepareError(w, requestID, api.ErrorDetail{Code: "NOT_FOUND", Message: "resource not found"})
 		return
 	}
 	if r.Method != "POST" {
 		writeError(w, requestID, "NOT_FOUND", "unsupported demo route", nil)
 		return
 	}
-	var name, key, source string
+	keys := r.Header.Values("Idempotency-Key")
+	if len(keys) != 1 || strings.TrimSpace(keys[0]) == "" {
+		writeError(w, requestID, "INVALID_ARGUMENT", "one nonempty Idempotency-Key header is required", nil)
+		return
+	}
+	key := keys[0]
+	var name, source string
 	var wait *uint64
 	var input any
 	var sb api.Sandbox
@@ -156,9 +190,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		_, err := decodeInput(w, r, &in, "template_id engine_id resources idempotency_key wait_ms")
+		_, err := decodeInput(w, r, &in, "template_id engine_id resources wait_ms")
+		in.IdempotencyKey = key
 		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
-			writeError(w, requestID, "INVALID_ARGUMENT", "create requires template_id and idempotency_key; only demo fields are admitted", nil)
+			writeError(w, requestID, "INVALID_ARGUMENT", "create requires template_id and Idempotency-Key; only demo body fields are admitted", nil)
 			return
 		}
 		if in.Resources == nil {
@@ -182,11 +217,22 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sb.Resources = in.Resources
 	case strings.HasPrefix(path, "/v1/sandboxes/") && strings.HasSuffix(path, ":fork"):
 		var in api.SandboxForkInput
-		fields, err := decodeInput(w, r, &in, "sandbox_id fork_mode durability idempotency_key wait_ms expected_revision")
+		revisions := r.Header.Values("If-Match")
+		if len(revisions) != 1 {
+			writeError(w, requestID, "INVALID_ARGUMENT", "one uint64 If-Match header is required", nil)
+			return
+		}
+		revision, err := strconv.ParseUint(revisions[0], 10, 64)
+		if err != nil {
+			writeError(w, requestID, "INVALID_ARGUMENT", "If-Match must be a uint64 revision", nil)
+			return
+		}
+		_, err = decodeInput(w, r, &in, "sandbox_id fork_mode durability wait_ms")
+		in.IdempotencyKey = key
+		in.ExpectedRevision = revision
 		source = strings.TrimSuffix(strings.TrimPrefix(path, "/v1/sandboxes/"), ":fork")
-		_, hasRevision := fields["expected_revision"]
-		if err != nil || source == "" || strings.Contains(source, "/") || in.IdempotencyKey == "" || !hasRevision || (in.SandboxId != "" && in.SandboxId != source) || (in.ForkMode != nil && *in.ForkMode != "memory") || (in.Durability != nil && *in.Durability != "volatile") {
-			writeError(w, requestID, "INVALID_ARGUMENT", "fork requires matching sandbox_id, expected_revision and idempotency_key; only volatile memory fork is admitted", nil)
+		if err != nil || source == "" || strings.Contains(source, "/") || in.IdempotencyKey == "" || (in.SandboxId != "" && in.SandboxId != source) || (in.ForkMode != nil && *in.ForkMode != "memory") || (in.Durability != nil && *in.Durability != "volatile") {
+			writeError(w, requestID, "INVALID_ARGUMENT", "fork requires matching sandbox_id, If-Match and Idempotency-Key headers; only volatile memory fork is admitted", nil)
 			return
 		}
 		in.SandboxId = source
@@ -197,9 +243,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sb.ParentSandboxId = pointer(source)
 	case path == "/v1/execs":
 		var in api.ExecCreateInput
-		_, err := decodeInput(w, r, &in, "sandbox_id argv cwd env idempotency_key wait_ms")
+		_, err := decodeInput(w, r, &in, "sandbox_id argv cwd env wait_ms")
+		in.IdempotencyKey = key
 		if err != nil || in.SandboxId == "" || len(in.Argv) == 0 || in.Argv[0] == "" || in.IdempotencyKey == "" {
-			writeError(w, requestID, "INVALID_ARGUMENT", "exec requires sandbox_id, nonempty argv and idempotency_key", nil)
+			writeError(w, requestID, "INVALID_ARGUMENT", "exec requires sandbox_id, nonempty argv and Idempotency-Key", nil)
 			return
 		}
 		for _, arg := range in.Argv {
@@ -333,15 +380,16 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id 
 		}
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	var send func()
+	defer func() { s.mu.Unlock(); send() }()
 	if s.broken {
-		writeError(w, requestID, "DATA_UNAVAILABLE", "journal unavailable", pointer(id))
+		send = prepareError(w, requestID, api.ErrorDetail{Code: "DATA_UNAVAILABLE", Message: "journal unavailable", OperationId: pointer(id)})
 		return
 	}
 	rec := s.journal.Operations[id]
 	op := rec.Operation
 	if op.Error != nil {
-		writeError(w, requestID, string(op.Error.Code), op.Error.Message, pointer(id))
+		send = prepareError(w, requestID, *op.Error)
 		return
 	}
 	result := api.MutationEnvelope{OperationId: id, ResourceIds: []api.ResourceRef{rec.Resource}, RequestId: requestID, Replayed: replayed, Operation: &op}
@@ -350,7 +398,7 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id 
 		status = 200
 		result.Result = op.Outcome.Result
 	}
-	writeJSON(w, status, result)
+	send = prepareJSON(w, status, result)
 }
 func (s *Service) execute(id, source string) {
 	defer s.wg.Done()
@@ -446,7 +494,7 @@ func (s *Service) execute(id, source string) {
 			op.State = "outcome_unknown"
 			code = "OUTCOME_UNKNOWN"
 		}
-		op.Error = &api.ErrorDetail{Code: api.ErrorCode(code), Message: failure.message, OperationId: pointer(id)}
+		op.Error = &api.ErrorDetail{Code: api.ErrorCode(code), Message: failure.message, Retryable: failure.retryable, OperationId: pointer(id)}
 		op.CleanupState = pointer(api.OperationCleanupStatePending)
 		if source != "" && (name == "sandbox_fork" || failure.unknown) {
 			parent := s.journal.Sandboxes[source]

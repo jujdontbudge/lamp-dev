@@ -55,7 +55,7 @@ func TestRustWorkerControlPath(t *testing.T) {
 	d := startDaemonFor(t, dir, nil, socket, fixture.Process.Pid)
 	defer d.stop()
 	var created api.SandboxCreateResult
-	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"tpl_demo","idempotency_key":"rust-create","wait_ms":1000}`, 200, &created)
+	d.request(t, "POST", "/v1/sandboxes", `{"template_id":"tpl_demo","wait_ms":1000}`, 200, &created, "Idempotency-Key", "rust-create")
 	if created.Result == nil {
 		t.Fatal("missing sandbox completion")
 	}

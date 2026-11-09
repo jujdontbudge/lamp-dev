@@ -63,13 +63,20 @@ may need retrying. JSON API errors go to stderr and exit 1; usage errors exit 2.
 
 Equivalent REST routes:
 
-- `POST /v1/sandboxes`: `template_id`, optional `engine_id` and complete
-  `resources`, `idempotency_key`, optional `wait_ms`.
-- `POST /v1/execs`: `sandbox_id`, nonempty `argv`, optional guest `cwd` and
-  nonsecret `env`, `idempotency_key`, optional `wait_ms`.
-- `POST /v1/sandboxes/{sandbox_id}:fork`: required `expected_revision` and
-  `idempotency_key`, optional matching `sandbox_id`, `fork_mode=memory`,
-  `durability=volatile`, `wait_ms`.
+All mutations require exactly one nonempty `Idempotency-Key` header. The CLI
+maps `--idempotency-key` there; `idempotency_key` is rejected in REST bodies.
+Fork also requires a single uint64 `If-Match` header, mapped from
+`--expected-revision`. Body `expected_revision` is rejected, including values
+that disagree with the header. Keys/revisions are bound to the internal input
+before idempotency hashing and source-revision admission checks.
+
+- `POST /v1/sandboxes`: body `template_id`, optional `engine_id`, complete
+  `resources`, and `wait_ms`.
+- `POST /v1/execs`: body `sandbox_id`, nonempty `argv`, optional guest `cwd`,
+  nonsecret `env`, and `wait_ms`.
+- `POST /v1/sandboxes/{sandbox_id}:fork`: optional body `fork_mode=memory`,
+  `durability=volatile`, and `wait_ms`; source identity is in the path and its
+  required revision is in `If-Match`.
 - `GET /v1/operations/{operation_id}`, `GET /v1/sandboxes/{sandbox_id}`,
   `GET /v1/execs/{exec_id}` return canonical `{data,request_id}` documents.
 
@@ -78,7 +85,8 @@ For example:
 ```sh
 curl --unix-socket "$HOME/.local/state/lamp-demo/api.sock" \
   -H 'Content-Type: application/json' \
-  -d '{"template_id":"tpl_demo","idempotency_key":"create-demo-1"}' \
+  -H 'Idempotency-Key: create-demo-1' \
+  -d '{"template_id":"tpl_demo"}' \
   http://lamp/v1/sandboxes
 ```
 
