@@ -4,10 +4,10 @@
     "public TCP/UDP allowed; private, metadata, fleet, host and public-numbered LAN denied",
     "guest root firewall changes and source spoof cannot bypass guard",
     "host spool contains attributed, ordered allow/deny and bidirectional byte records",
-    "all four forks (three without exec), exec identity, credentials and thread exclusion audited",
+    "fork-without-exec, rapid parent/child death, exec identity, credentials and thread exclusion audited",
     "task root cannot access tracer/audit FD; CLONE_UNTRACED denied and clone3 forced to traced fallback",
     "host audit receiver is unprivileged, capability-free and descriptor/seccomp confined",
-    "host ACK loss kills CPU-only task tree through EXITKILL in 0.215s (<5s)",
+    "host ACK loss kills CPU-only task tree through EXITKILL in 0.265s (<5s)",
     "SIGKILL of the tracer cannot leave an unobserved task tree running",
     "guard death closes existing and new flows with nft rules left installed",
     "restart cannot merge into or replace an existing generation's nft table",
@@ -16,6 +16,6 @@
   "kernel": "7.0.0-42-generic",
   "architecture": "x86_64",
   "host": "ubuntu-server",
-  "binary_sha256": "4fc2aeef86a78804a35ca8ea9fa04e7820e49c050a5873ec3997cc26f8a2df31",
-  "test_sha256": "ab03ce34c5f25b6e8c6a92510545ba04f5a1d81c3344611a68e384a9f60d6c9e"
+  "binary_sha256": "cbc95ade04bacf0172b40bfd25fb4d52c160edec13bc09f08437a9ebebd80835",
+  "test_sha256": "8d0a118916b1447fd517f27ca59b75eaeba15b8d885ca60aeae3a31f47cb5912"
 }

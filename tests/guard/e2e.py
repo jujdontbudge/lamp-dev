@@ -236,7 +236,24 @@ print(json.dumps({'task_pid':os.getpid(),'fork_pids':children,'root':os.getuid()
     assert any(v["type"] == "credential_change" for v in details)
     assert any(v["type"] == "process_exec" and v["identity"]["executable"]["path"] == str(Path("/usr/bin/true").resolve()) for v in details)
     assert "misleading-argv-zero" not in (ROOT / "process.ndjson").read_text()
-    ok("all four forks (three without exec), exec identity, credentials and thread exclusion audited")
+    fast = """import os
+p=os.fork()
+if p==0:
+ c=os.fork()
+ if c==0: os._exit(0)
+ try: os.kill(c,9)
+ except ProcessLookupError: pass
+ os._exit(0)
+os.waitpid(p,0)
+"""
+    fast_sink, fast_collect = pair("rapid-fork", fast, namespace)
+    out, error = fast_collect.communicate(timeout=10)
+    assert fast_collect.returncode == 0, (out, error)
+    assert fast_sink.wait(timeout=3) == 0
+    starts = [r for r in records("rapid-fork") if r["details"]["details"].get("type") == "process_start"
+              and not r["details"]["details"]["infrastructure"]]
+    assert len(starts) == 3  # namespace init, its child, and the immediately killed grandchild
+    ok("fork-without-exec, rapid parent/child death, exec identity, credentials and thread exclusion audited")
     ok("task root cannot access tracer/audit FD; CLONE_UNTRACED denied and clone3 forced to traced fallback")
 
     sink, collect = pair("collector-loss", "import time;print('running',flush=True)\nwhile True: pass", namespace)

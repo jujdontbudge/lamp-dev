@@ -24,7 +24,8 @@ Those remain explicit gates in the [integration contract](T4-guard.md).
   [LX connections](evidence/t4/lx/network.ndjson),
   [LX processes](evidence/t4/lx/process.ndjson),
   [LA connections](evidence/t4/la/network.ndjson),
-  [LA processes](evidence/t4/la/process.ndjson).
+  [LA processes](evidence/t4/la/process.ndjson), and immediately dying fork trees
+  ([LX](evidence/t4/lx/rapid-fork.ndjson), [LA](evidence/t4/la/rapid-fork.ndjson)).
 
 Commands on each Linux lane:
 
@@ -52,7 +53,9 @@ The twelve assertions cover:
 4. Ordered, attributed host records include allow/deny and both byte directions.
 5. Every independently reported fork is recorded (three without exec), executable
    transitions use real file identity despite deceptive argv[0], credentials are
-   observed, and a thread is not counted as another process start.
+   observed, and a thread is not counted as another process start. An additional
+   immediate-kill/parent-exit case verifies that creation is recorded at the
+   parent's fork stop, before allowing it to run and kill the new child.
 6. Task root cannot access the ancestor tracer or audit FD; CLONE_UNTRACED is
    denied, clone3 forces a traced fallback, and alternate vsock/io_uring paths
    are denied.

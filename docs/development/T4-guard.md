@@ -118,6 +118,8 @@ observations and explicitly represent incomplete endings and audit gaps.
 ## Process observation and integrity
 
 Kernel ptrace events cover fork, vfork, clone and exec, not just command envelopes.
+Creation is durably recorded at the parent's fork event before resuming it; a
+parent cannot erase the start by immediately killing its newly forked child.
 Each new thread group gets a `process_start`; threads get `thread_start`, not an
 extra B4 process. Records use the actual `/proc/PID/exe` path/device/inode, kernel
 start ticks, outer/nested PIDs, parent, effective/real/saved/filesystem UID/GID and
@@ -140,8 +142,8 @@ Each collector frame is <=32 KiB, length-prefixed (u32 BE), JSON
 sequences starting at 1, appends host attribution/sequence/time, syncs, then ACKs
 with u64 BE N. Reordered ACKs or missing ACKs fail closed. A 250ms heartbeat and
 500ms per socket operation bound detection during CPU-only execution. A final
-`collector_complete` is acknowledged only after all tracees have exited. Threads
-never inherit the stream. Host spool files are create-new/no-follow, 0600,
+`collector_complete` is acknowledged only after all tracees have exited. Task
+threads never inherit the stream. Host spool files are create-new/no-follow, 0600,
 physically preallocated before admission, directory-synced and never truncated
 or overwritten. Restart requires a new segment; acknowledged history stays put.
 

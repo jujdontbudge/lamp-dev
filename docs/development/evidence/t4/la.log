@@ -1,14 +1,15 @@
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+   Compiling lamp-guard v0.1.0 (/tmp/lamp-t4-implementation/crates/lamp-guard)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s
      Running unittests src/lib.rs (target/debug/deps/lamp_guard-a9dae6c525061955)
 
 running 7 tests
+test audit::tests::ack_must_match ... ok
+test audit::tests::full_spool_never_overwrites_acknowledged_history ... ok
 test netlink::tests::final_attribute_can_be_unpadded ... ok
 test netlink::tests::no_truncated_messages ... ok
-test audit::tests::gap_is_not_acknowledged_or_spooled ... ok
 test tests::default_ceiling ... ok
 test tests::malformed_and_encapsulated_packets ... ok
-test audit::tests::full_spool_never_overwrites_acknowledged_history ... ok
-test audit::tests::ack_must_match ... ok
+test audit::tests::gap_is_not_acknowledged_or_spooled ... ok
 
 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -24,20 +25,15 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-    Checking serde_core v1.0.229
-    Checking zmij v1.0.23
-    Checking memchr v2.8.3
-    Checking itoa v1.0.19
-    Checking libc v0.2.191
-    Checking serde_json v1.0.154
-    Checking serde v1.0.229
     Checking lamp-guard v0.1.0 (/tmp/lamp-t4-implementation/crates/lamp-guard)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.89s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
+   Compiling lamp-guard v0.1.0 (/tmp/lamp-t4-implementation/crates/lamp-guard)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.30s
 PASS guard drops root, retains only net-admin and enforces no-new-privileges/seccomp/assigned FDs
 PASS public TCP/UDP allowed; private, metadata, fleet, host and public-numbered LAN denied
 PASS guest root firewall changes and source spoof cannot bypass guard
 PASS host spool contains attributed, ordered allow/deny and bidirectional byte records
-PASS all four forks (three without exec), exec identity, credentials and thread exclusion audited
+PASS fork-without-exec, rapid parent/child death, exec identity, credentials and thread exclusion audited
 PASS task root cannot access tracer/audit FD; CLONE_UNTRACED denied and clone3 forced to traced fallback
 PASS host audit receiver is unprivileged, capability-free and descriptor/seccomp confined
 PASS host ACK loss kills CPU-only task tree through EXITKILL in 0.216s (<5s)
@@ -52,6 +48,6 @@ lamp-guard: nft policy install failed
 
 Child stderr: lamp-guard: failed to fill whole buffer
 
-EVIDENCE /tmp/lamp-t4-3dcpgj7_
-Artifacts: /tmp/lamp-t4-3dcpgj7_
+EVIDENCE /tmp/lamp-t4-zshcck6h
+Artifacts: /tmp/lamp-t4-zshcck6h
 Linux aarch64

@@ -1,6 +1,6 @@
 go build ./...
 cargo build --workspace --locked
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
 go test ./...
 ?   	github.com/JohanSardar/lamp/cmd/lamp	[no test files]
 ?   	github.com/JohanSardar/lamp/cmd/lampd	[no test files]
@@ -10,7 +10,7 @@ go test ./...
 ok  	github.com/JohanSardar/lamp/pkg/workerpb	(cached)
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 cargo test --workspace --locked
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
      Running unittests src/lib.rs (target/debug/deps/lamp_contracts-16baf1467bb0016c)
 
 running 0 tests
@@ -108,26 +108,32 @@ test_create_and_unknown_fields (test_schema.Contracts.test_create_and_unknown_fi
 test_drift_checks_fail_closed (test_schema.Contracts.test_drift_checks_fail_closed) ... ok
 test_expiry_continuation_and_preauth_shape (test_schema.Contracts.test_expiry_continuation_and_preauth_shape) ... ok
 test_nested_readiness_and_transfer (test_schema.Contracts.test_nested_readiness_and_transfer) ... ok
+test_reviewed_resource_and_operation_drift (test_schema.Contracts.test_reviewed_resource_and_operation_drift) ... ok
 test_tags_enums_and_location (test_schema.Contracts.test_tags_enums_and_location) ... ok
 test_transient_results_and_wrapped_reads (test_schema.Contracts.test_transient_results_and_wrapped_reads) ... ok
 test_uint64_precision_and_scope_empty (test_schema.Contracts.test_uint64_precision_and_scope_empty) ... ok
 
 ----------------------------------------------------------------------
-Ran 9 tests in 1.265s
+Ran 10 tests in 1.753s
 
 OK
 .venv/bin/python -m unittest discover -s tests/ci -v
 test_context_mismatch_and_reruns_denied (test_guard.Guard.test_context_mismatch_and_reruns_denied) ... ok
+test_denial_kills_only_ancestor_worker (test_guard.Guard.test_denial_kills_only_ancestor_worker) ... Lamp host guard: terminated denied Runner.Worker 30
+ok
+test_discovery_failure_never_returns_a_failed_hook (test_guard.Guard.test_discovery_failure_never_returns_a_failed_hook) ... Lamp host guard: cannot terminate Worker; holding hook for operator intervention
+Lamp host guard: cannot terminate Worker; holding hook for operator intervention
+ok
 test_main_and_manual (test_guard.Guard.test_main_and_manual) ... ok
 test_private_owner_push (test_guard.Guard.test_private_owner_push) ... ok
 test_public_and_stranger_jobs_denied (test_guard.Guard.test_public_and_stranger_jobs_denied) ... ok
 
 ----------------------------------------------------------------------
-Ran 4 tests in 0.000s
+Ran 6 tests in 0.001s
 
 OK
 python3 tools/interop.py
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.01s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
 PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
 PASS: Go request → Unix socket → Rust typed Protobuf → Go response
 python3 tools/generate.py --check
@@ -135,42 +141,4 @@ public codegen: clean
 go vet ./...
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
-    Checking bytes v1.12.1
-    Checking unicode-ident v1.0.27
-    Checking errno v0.3.14
-    Checking hashbrown v0.17.1
-    Checking equivalent v1.0.3
-    Checking foldhash v0.1.5
-    Checking serde v1.0.229
-    Checking bitflags v2.13.2
-    Checking regex-syntax v0.8.11
-    Checking once_cell v1.21.4
-    Checking fastrand v2.5.0
-    Checking proc-macro2 v1.0.107
-    Checking fixedbitset v0.5.9
-    Checking hashbrown v0.15.5
-    Checking rustix v1.1.6
-    Checking either v1.19.0
-    Checking multimap v0.10.1
-    Checking log v0.4.35
-    Checking heck v0.5.0
-    Checking itertools v0.14.0
-    Checking prost v0.14.4
-    Checking quote v1.0.47
-    Checking lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aa6c70a1-a336f0253074a770/crates/lamp-guard)
-    Checking lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aa6c70a1-a336f0253074a770/crates/lamp-contracts)
-    Checking indexmap v2.14.2
-    Checking syn v2.0.119
-    Checking lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aa6c70a1-a336f0253074a770/crates/lamp-worker-protocol)
-    Checking prost-types v0.14.4
-    Checking regex-automata v0.4.18
-    Checking lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aa6c70a1-a336f0253074a770/crates/lamp-engine)
-    Checking petgraph v0.8.3
-    Checking tempfile v3.27.0
-    Checking lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aa6c70a1-a336f0253074a770/crates/lamp-supervisor)
-    Checking lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aa6c70a1-a336f0253074a770/crates/lamp-init)
-    Checking regex v1.13.1
-    Checking prettyplease v0.2.37
-    Checking prost-build v0.14.4
-    Checking lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aa6c70a1-a336f0253074a770/tools/protogen)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.94s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s

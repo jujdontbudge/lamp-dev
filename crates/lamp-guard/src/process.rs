@@ -73,6 +73,27 @@ fn emit(emitter: &Arc<Mutex<Emitter>>, v: Value) -> io::Result<()> {
         .map_err(|_| io::Error::other("audit mutex poisoned"))?
         .send(v)
 }
+fn register(
+    known: &mut HashMap<i32, bool>,
+    emitter: &Arc<Mutex<Emitter>>,
+    pid: i32,
+) -> io::Result<()> {
+    if known.contains_key(&pid) {
+        return Ok(());
+    }
+    let id = identity(pid)?;
+    let thread = id["tgid"].as_str() != Some(&pid.to_string());
+    emit(
+        emitter,
+        if thread {
+            json!({"type":"thread_start","identity":id})
+        } else {
+            json!({"type":"process_start","visibility":"process","infrastructure":false,"identity":id})
+        },
+    )?;
+    known.insert(pid, false);
+    Ok(())
+}
 fn c(s: &str) -> CString {
     CString::new(s).unwrap()
 }
@@ -310,19 +331,9 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
         }
         let signal = libc::WSTOPSIG(code);
         let event = code >> 16;
-        if let std::collections::hash_map::Entry::Vacant(entry) = known.entry(pid) {
+        if !known.contains_key(&pid) {
             trace(libc::PTRACE_SETOPTIONS, pid, 0, options as usize)?;
-            let id = identity(pid)?;
-            // clone(CLONE_THREAD) creates a TID, not a B4 process start.
-            if id["tgid"].as_str() != Some(&pid.to_string()) {
-                emit(&emitter, json!({"type":"thread_start","identity":id}))?;
-            } else {
-                emit(
-                    &emitter,
-                    json!({"type":"process_start","visibility":"process","infrastructure":false,"identity":id}),
-                )?;
-            }
-            entry.insert(false);
+            register(&mut known, &emitter, pid)?;
         }
         let mut deliver = 0;
         if event == libc::PTRACE_EVENT_FORK
@@ -339,6 +350,11 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
             if pid == root && task_pid.is_none() {
                 task_pid = Some(child as i32);
             }
+            // Record the child's creation BEFORE resuming the parent. Waiting for
+            // the child's own initial stop can miss a child killed by its parent
+            // (or namespace-init death) before that stop is consumed. Children
+            // inherit all ptrace options and cannot run before our resume.
+            register(&mut known, &emitter, child as i32)?;
         } else if event == libc::PTRACE_EVENT_EXEC {
             let mut old = 0_usize;
             trace(
