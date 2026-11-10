@@ -166,8 +166,8 @@ Each step is a crash point of E04 (`--features fault-injection`, admin
   memory against its template and atomically redirects the capture to the
   new object (a signed redirect record), so its old delta and bases can go.
 
-Suspend is a durable capture followed by release. Resume is a create from
-that capture, after any restart (`infra/linux/ext4-durable-demo.py`).
+Suspend is a durable capture followed by release (`ctl suspend`). Resume is
+a create from that capture, after any restart or crash (`ctl create CAPTURE`).
 Evidence: `docs/development/T7-evidence.md`.
 
 ## Guest protocol

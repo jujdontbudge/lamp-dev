@@ -1,0 +1,17 @@
+lamp-engine: capture cp_e65087d350df_1 is not recoverable: DATA_UNAVAILABLE: object cp_e65087d350df_1-mem-9b7ac049 is missing or truncated
+lamp-engine: removed 2 uncommitted state file(s)
+lamp-engine: removed 2 unreferenced thin volume(s)
+lamp-supervisor: store open (dm-thin disks, 3 durable capture(s)), 1 verified template(s) in 337 ms
+lamp-supervisor: serving lamp.worker/1 on /run/lamp-e04/ext4/main/worker.sock
+lamp-supervisor: op op_8030266cbbfe_1 sandbox sb_e65087d350df_r0 handle_us=928 
+lamp-supervisor: op op_8030266cbbfe_2 sandbox sb_e65087d350df_r0 handle_us=90986 attach_us=7929 barrier_us=3860 disk_attach_us=8865 load_us=3493 materialize_us=57674 prepare_us=66549 spawn_us=9136 total_us=90978
+lamp-supervisor: op op_8030266cbbfe_3 sandbox sb_e65087d350df_r0 handle_us=15123 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_80302cfc421d_1 sandbox sb_e65087d350df_r0 handle_us=2098 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_80302ee3db9f_1 sandbox sb_e65087d350df_r0 handle_us=18718 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_8030363ee630_1 sandbox sb_e65087d350df_r0 handle_us=34809 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

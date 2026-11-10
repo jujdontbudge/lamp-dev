@@ -1,0 +1,8 @@
+full1-xfs was stopped on purpose at 2026-11-10 21:09Z after the owner decision of 20:50Z (XFS-reflink and btrfs need >=100 forks; ext4 full1 at 1,000 is binding).
+355 scenarios were recorded as storage_recovery with zero oracle errors. The stop was not clean:
+- The harness ignored SIGINT (background job of a non-interactive shell). Killing the next, blocked, not-yet-started fixture
+  (iteration 355) made the harness count that iteration as failed and continue.
+- Its following iterations (356-384) were blocked on the lane lock held for the stop and failed; the harness was then ended with SIGTERM,
+  so this run has no summary.json.
+- The orphaned fixture processes all refused to run (no disposable marker; see full1-xfs.orphans-refused.log); none touched a volume.
+This run stays on record as stopped/incomplete. The XFS-reflink result is the separate run x100-xfs.

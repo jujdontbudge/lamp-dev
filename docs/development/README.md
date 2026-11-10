@@ -96,7 +96,9 @@ worker integration semantics and explicit fixture/engine evidence boundaries.
 with memory; see [crates/lamp-engine/README.md](../../crates/lamp-engine/README.md)
 and [T2-evidence.md](T2-evidence.md). T6 joins the parallel tickets and runs
 the gate on lane LX; the measured result (failed) is in
-[T6-evidence.md](T6-evidence.md).
+[T6-evidence.md](T6-evidence.md). T7's durable local captures and their E04
+storage proof (ext4 at 1,000 forks, XFS-reflink at 100) are in
+[T7-evidence.md](T7-evidence.md).
 
 ## CI on owner machines
 

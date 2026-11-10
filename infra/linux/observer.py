@@ -8,9 +8,6 @@ Reads one JSON object on stdin ({"operation", "sandbox_id",
 - rss_bytes: VmRSS of every process in the sandbox's jail cgroup (its VMM).
 - disk_bytes: allocated bytes (st_blocks * 512) of the jail's root disk. The
   disk is a reflink copy, so this counts extents it shares with its template.
-  On a dm-thin store (ordinary ext4) the root disk is a block device; then it
-  is the thin volume's mapped bytes from `dmsetup status`, which likewise
-  counts blocks shared with its origin.
 - pressure: PSI "some avg10" of the jail cgroup (cpu/memory/io) and of the
   host (/proc/pressure).
 - source_pause_ms (forks only): NOT independently witnessed. It is the
@@ -20,11 +17,6 @@ Reads one JSON object on stdin ({"operation", "sandbox_id",
 
 Run it as the harness user; it uses `sudo -n` only to read the root-owned
 jail disk metadata and the system journal.
-
-LAMP_STORE (default /var/lib/lamp) names the store whose jails are observed.
-LAMP_SUPERVISOR_LOG names a supervisor log file to read instead of the
-`lamp-supervisor` unit's journal, for a supervisor started outside systemd
-(infra/linux/ext4-store.sh).
 """
 import json
 import os
@@ -33,8 +25,7 @@ import subprocess
 import sys
 
 CGROUP = "/sys/fs/cgroup/lamp"
-JAIL = os.path.join(os.environ.get("LAMP_STORE", "/var/lib/lamp"), "jail", "firecracker")
-LOG = os.environ.get("LAMP_SUPERVISOR_LOG")
+JAIL = "/var/lib/lamp/jail/firecracker"
 
 
 def jail(sandbox):
@@ -70,19 +61,11 @@ def rss(sandbox):
 
 def disk(sandbox):
     path = os.path.join(JAIL, jail(sandbox), "root", "rootfs.ext4")
-    out = subprocess.run(["sudo", "-n", "stat", "-c", "%F %b %B %t %T", path], capture_output=True, text=True)
+    out = subprocess.run(["sudo", "-n", "stat", "-c", "%b %B", path], capture_output=True, text=True)
     if out.returncode != 0:
         return None
-    *kind, blocks, size, major, minor = out.stdout.split()
-    if " ".join(kind) != "block special file":
-        return int(blocks) * int(size)
-    # Thin volume: "0 <sectors> thin <mapped sectors> <highest mapped>".
-    out = subprocess.run(["sudo", "-n", "dmsetup", "status", "-j", str(int(major, 16)), "-m", str(int(minor, 16))],
-                         capture_output=True, text=True)
-    fields = out.stdout.split()
-    if out.returncode != 0 or len(fields) < 4 or fields[2] != "thin":
-        return None
-    return int(fields[3]) * 512
+    blocks, size = out.stdout.split()
+    return int(blocks) * int(size)
 
 
 def pressure(sandbox):
@@ -93,11 +76,10 @@ def pressure(sandbox):
 
 
 def source_pause_ms(source):
-    if LOG:
-        argv = ["sudo", "-n", "tail", "-c", "4000000", LOG]
-    else:
-        argv = ["sudo", "-n", "journalctl", "-u", "lamp-supervisor", "--since", "-120s", "-o", "cat", "--no-pager"]
-    out = subprocess.run(argv, capture_output=True, text=True)
+    out = subprocess.run(
+        ["sudo", "-n", "journalctl", "-u", "lamp-supervisor", "--since", "-120s", "-o", "cat", "--no-pager"],
+        capture_output=True, text=True,
+    )
     pause = None
     for line in out.stdout.splitlines():
         if ".capture sandbox " + source in line:
@@ -116,7 +98,7 @@ def main():
     if request.get("operation") == "fork":
         source = request.get("source_sandbox_id")
         result["source_pause_ms"] = source_pause_ms(source) if source else None
-        result["source_pause_origin"] = "engine_log" if LOG else "engine_journal"
+        result["source_pause_origin"] = "engine_journal"
     print(json.dumps(result))
 
 
