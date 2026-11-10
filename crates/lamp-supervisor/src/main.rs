@@ -11,6 +11,8 @@
 //! lamp-supervisor ctl [--socket P] create TEMPLATE [SANDBOX_ID]
 //! lamp-supervisor ctl exec SANDBOX_ID -- ARGV...
 //! lamp-supervisor ctl fork SANDBOX_ID [CHILD_ID] [--durability volatile|local]
+//! lamp-supervisor ctl capture SANDBOX_ID CAPTURE_ID [--durability volatile|local]
+//! Isolated hosts: --mem-dir P --netns-dir P --uid-base N --host-id ID
 //! lamp-supervisor ctl inspect [SANDBOX_ID] | release SANDBOX_ID
 //! lamp-supervisor ctl bench-create TEMPLATE COUNT [WARMUP]
 //! lamp-supervisor ctl bench-fork TEMPLATE DIRTY_MIB COUNT [WARMUP] [--durability D]
@@ -152,6 +154,23 @@ fn host(cmd: &str, mut args: Vec<String>) {
         allowed.push(uid.parse().unwrap_or_else(|_| die("bad --allow-uid")));
     }
     let mut cfg = Config::defaults(store.clone());
+    // Independent owner demonstrations must not share runtime directories or
+    // jail identities with a supervisor serving another ticket/store.
+    if let Some(path) = take_flag(&mut args, "--mem-dir") {
+        cfg.mem_dir = path.into();
+    }
+    if let Some(path) = take_flag(&mut args, "--netns-dir") {
+        cfg.netns_dir = path.into();
+    }
+    if let Some(uid) = take_flag(&mut args, "--uid-base") {
+        cfg.uid_base = uid.parse().unwrap_or_else(|_| die("bad --uid-base"));
+        if cfg.uid_base < 65_536 || cfg.uid_base.checked_add(cfg.uid_count).is_none() {
+            die("--uid-base must reserve a non-system, non-overflowing range");
+        }
+    }
+    if let Some(id) = take_flag(&mut args, "--host-id") {
+        cfg.host_id = id;
+    }
     if let Some(fc) = take_flag(&mut args, "--firecracker") {
         cfg.bins.firecracker = fc.into();
     }
@@ -424,6 +443,23 @@ fn ctl(mut args: Vec<String>) {
             print!("{}", text(&r.stdout_tail));
             eprint!("{}", text(&r.stderr_tail));
             std::process::exit(r.exit_code);
+        }
+        "capture" => {
+            let source = args.first().unwrap_or_else(|| die("capture ID CAPTURE_ID"));
+            let capture_id = args.get(1).unwrap_or_else(|| die("capture ID CAPTURE_ID"));
+            let receipt = c.call(
+                source,
+                request::Command::Capture(Capture {
+                    capture_id: capture_id.clone(),
+                    preserves_memory: true,
+                    consistency: durability,
+                    output_handles: vec![],
+                }),
+            );
+            println!(
+                "{}",
+                json!({"capture_id": capture_id, "state": receipt.state})
+            );
         }
         "fork" => {
             let source = args
