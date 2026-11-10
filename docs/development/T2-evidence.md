@@ -1,6 +1,6 @@
 # T2 Linux engine evidence
 
-Review round 1, 2026-11-09, native LX: Ubuntu 26.04.1, kernel 7.0.0-42,
+Review rounds 1 and 2, 2026-11-09, native LX: Ubuntu 26.04.1, kernel 7.0.0-42,
 Intel Core Ultra 9 288V (8 threads), 31 GiB RAM, governor `powersave`
 ([host.txt](evidence/t2/host.txt)). Everything below ran on the real engine:
 
@@ -10,6 +10,58 @@ Intel Core Ultra 9 288V (8 threads), 31 GiB RAM, governor `powersave`
   way `lampd` would drive it, with a supervisor-installed control grant.
 
 Nothing is mocked.
+
+## Round 2 result (current)
+
+The round 2 fixes change the timed fork (the freeze) and create (the barrier's
+thaw), so every row was rerun on a new seed and template
+(`tp_6e9a8241175f34853740c06b41`). The evidence is in
+[evidence/t2/r2/](evidence/t2/r2/). Round 1's rows are kept below.
+
+**Chrome during this run.** Chrome was sampled before each row
+([r2/bench.log](evidence/t2/r2/bench.log), [r2/host.txt](evidence/t2/r2/host.txt)):
+
+- It was stopped at 20:37:17 and stayed inactive through the create row and
+  all three volatile fork rows.
+- Something outside the run started it again at 20:46:15, about five minutes
+  into the `local` row.
+- The script started it at the end, at 20:54:09.
+
+The T3 Code server stayed up throughout. Docker was not touched.
+
+| Row | Trials (+warmup) | p50 | p95 | p99 | max | Target | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Create → command ran | 200 (+20) | 52.4 ms | 76.0 ms | 84.5 ms | 91.8 ms | p50 < 500 ms | ✅ met, 0 failures |
+| Fork, 0 MiB recently written | 100 (+5) | 560 ms | 622 ms | 633 ms | 661 ms | every fork < 1000 ms | ✅ 100/100, 0 failures |
+| Fork, 128 MiB recently written | 100 (+5) | 564 ms | 612 ms | 647 ms | 672 ms | every fork < 1000 ms | ✅ 100/100, 0 failures |
+| Fork, 1 GiB recently written | 100 (+5) | 563 ms | 605 ms | 656 ms | 667 ms | every fork < 1000 ms | ✅ 100/100, 0 failures |
+| Fork, 1 GiB, `durability=local` | 100 (+5) | 6.24 s | 13.0 s | 15.3 s | 16.9 s | every fork < 1000 ms | ❌ **missed**: 0/100 under 1 s, 0 errors |
+
+Every fork captured the full 4 GiB (`memory_bytes=4294967296`). At 1 GiB
+volatile:
+
+| Stage | p50 | max |
+| --- | --- | --- |
+| Full write | 488 ms | 599 ms |
+| Source pause | 509 ms | 621 ms |
+| Whole-guest freeze | 1.0 ms | 1.6 ms |
+
+Across all rows the freeze never exceeded 3.9 ms, and the create barrier
+(which now thaws the whole set) had p50 6.1 ms and max 19.8 ms. The
+`local` row misses for the same reason as in round 1: durable writes took
+1.4–16.3 s on this disk. All 16 RAM scans in each dirty row found 0 bad
+pages.
+
+### Round 2 items and their evidence
+
+| Item | Change | Test or evidence |
+| --- | --- | --- |
+| **R1** a task leaves the frozen cgroup (keeps S3 open) | The freeze no longer depends on where a task is. Every top-level cgroup is frozen, including ones the guest made, such as Docker's or `unshare`'s, and their descendants freeze with them. Every process in the root cgroup (which cannot be frozen), except init, the helper and kernel threads, is moved into a frozen `lamp-hold` cgroup. This repeats until a pass changes nothing and the kernel reports every cgroup `frozen 1`; from then on nothing runs, so nothing can move. The record lives in the helper's memory, so the child's barrier thaws exactly that set. | e2e (`PROBES`, `check_probe`): four root probes log machine-id and urandom every 1 ms, sitting in `tasks`, in the root cgroup (rewriting its own PID into the root `cgroup.procs` on every iteration), in a Docker-style top-level `docker/c1`, and in a new cgroup namespace (`unshare --cgroup`). **Red first:** against the round 1 helper, the root probe in the fork logged the parent's machine-id ([e2e-old-helper.log](evidence/t2/r2/e2e-old-helper.log)). **Then green 3/3** ([e2e-1](evidence/t2/r2/e2e-1.log), [-2](evidence/t2/r2/e2e-2.log), [-3](evidence/t2/r2/e2e-3.log)): 374–854 fork lines per probe, and every one carries the child's machine-id and entropy the parent never produced. |
+| **R2** running commands evicted | Only completed commands are forgotten, oldest first (newest 256 kept). Running commands are never dropped, and at most 1,024 run per sandbox (more → `NO_CAPACITY`). | `engine` test `running_commands_are_never_evicted`: one long command, then 512 short ones. The long one stays inspectable, and only once it completes does it age out. |
+| **R3** waiter spins after stop/crash | The waiter is tied to the VMM process (PID plus start time), not to the socket file. When that VMM is gone (stop, release or crash), the waiter ends and the command becomes `unknown` with `command_lost` set. | `fc` test `liveness_ends_with_the_process`. `guest` test `completion_survives_a_reset_connection` (a gone sandbox ends the wait). e2e: `sleep 600` started, then `Stop` → Inspect reports `command_state=unknown`. |
+| **R4** lost freeze reply leaves tasks frozen | `freeze_guest`: any uncertain freeze result (lost, late or wrong reply) is followed by an idempotent thaw, retried up to 3 times. If no thaw is confirmed, the sandbox is marked failed. A failed thaw after the capture also marks it failed. | `engine` tests `uncertain_freeze_is_thawed` (the freeze reply is dropped, a thaw is sent and confirmed) and `unconfirmed_thaw_after_uncertain_freeze_is_reported` (a wrong reply, then three lost thaws, is reported to the caller). |
+
+## Round 1 result (kept)
 
 **Owner services.** The owner's Chrome service was stopped for the timing runs
 only. It was not actually down for most of them:
@@ -26,7 +78,7 @@ stayed up throughout. Docker was not touched. The details are in
 [host.txt](evidence/t2/host.txt), [bench.log](evidence/t2/bench.log) and
 [bench-local.log](evidence/t2/bench-local.log).
 
-## Result
+### Rows
 
 Standard sandbox B1 is 2 vCPU, 4 GiB RAM and a 20 GiB disk. The timer starts
 before the caller sends its first request. It stops when the command's result
@@ -108,14 +160,14 @@ first 27 measured trials are kept as recorded.
 The volatile rows ran on the binary from before this connect fix. The fix
 changes only how the engine connects to a starting VMM.
 
-## Review items and their evidence
+### Round 1 items and their evidence
 
 | Item | Change | Test or evidence |
 | --- | --- | --- |
 | **M1** full capture | Freeze → pause → Firecracker **Full** snapshot of all RAM into root-only tmpfs (`huge=always`) → reflink disk → resume → thaw. The child loads it with the File backend (`MAP_PRIVATE`), with no dirty tracking. The diff layers, the pager and compaction are removed. | Every bench record has `memory_bytes=4294967296` and `full_write_us`. The e2e asserts both (`tests/e2e.rs`, "M1"). Table above. |
 | **S1** pager unconfined | The pager is gone. The only host process serving a sandbox is its jailed Firecracker VMM, with its own seccomp filter (Firecracker's default filter, applied by the VMM itself). | e2e asserts that the jail cgroup holds only `firecracker`. [s1-s2.log](evidence/t2/s1-s2.log): source and fork VMMs each have `Seccomp: 2`, `NoNewPrivs: 1`, and no other sandbox-UID process exists. |
 | **S2** readable captures | `/run/lamp/mem`, `captures`, `jails` and the store's `jail/`, `captures/`, `grants/` and `keys/` are 0700 root. Images are root:root 0400. A child gets a hard link that it owns, 0400, in its own 0700 memdir. | e2e: an unprivileged `read_dir` of each directory gets `PermissionDenied`. [s1-s2.log](evidence/t2/s1-s2.log) has the modes. |
-| **S3** tasks run before the barrier | Every command joins the guest cgroup `/sys/fs/cgroup/tasks` before exec (fail closed). Capture freezes that cgroup (`frozen 1`) before the pause. The child resumes with its tasks frozen, and only its barrier thaws them, after machine-id, hostname, clock and CRNG are new. | e2e "S3": a probe started in the parent logs machine-id and urandom every 1 ms. After the fork, every child line (657 checked) carries the child's machine-id and entropy never seen in the parent. [e2e.log](evidence/t2/e2e.log). |
+| **S3** tasks run before the barrier | (Round 2 R1 replaced the single-cgroup freeze with a whole-guest freeze, as above.) Every command joins the guest cgroup `/sys/fs/cgroup/tasks` before exec (fail closed). Capture freezes that cgroup (`frozen 1`) before the pause. The child resumes with its tasks frozen, and only its barrier thaws them, after machine-id, hostname, clock and CRNG are new. | e2e "S3": a probe started in the parent logs machine-id and urandom every 1 ms. After the fork, every child line (657 checked) carries the child's machine-id and entropy never seen in the parent. [e2e.log](evidence/t2/e2e.log). |
 | **S4** map order | Unknown-field detection without byte equality (`wire::equivalent`, a multiset field comparison). Fingerprints encode the command without `env` plus sorted env pairs. | `wire` tests `map_order_is_accepted_and_unknown_fields_are_not`, `socket_receive_accepts_go_map_order`, `malformed_input_is_never_equivalent`. `server` test `fingerprint_ignores_map_order_but_not_content`. e2e: a replay with reversed env returns the same receipt. |
 | **S5** Start blocks until exit | Start returns `command_started` once the guest helper has witnessed the exec (`ExecStarted`). The deadline bounds only that acknowledgement. Completion comes through `Inspect{command_operation_id}` (`command_state`). The helper keeps results by exec ID, and the host fetches them with short idempotent `Wait`s, so a command spanning a capture completes, even though Firecracker resets guest vsock connections at snapshot. | e2e "S5": `sleep 3; echo slept` is acknowledged in < 1 s with `finished_at=0`, spans the fork, and then completes in the source with `(0, "slept")`. Unit test `completion_survives_a_reset_connection`. |
 | **S6** offline commands kill jails | `store/lock` is an exclusive flock. `serve` takes it and recovers the store. `seed-import`/`template-build` take it and never recover. `templates` is read-only and takes no lock. | `fsutil` test `store_lock_is_exclusive_until_released`. [s6-s7.log](evidence/t2/s6-s7.log): with the service serving a live sandbox, `template-build` and `seed-import` get `RESOURCE_IN_USE … stop lamp-supervisor first`, `templates` lists, and the sandbox still runs a command afterwards. |
@@ -125,8 +177,16 @@ changes only how the engine connects to a starting VMM.
 
 ### End-to-end test
 
-`crates/lamp-supervisor/tests/e2e.rs`, run against the live supervisor
-([e2e.log](evidence/t2/e2e.log), Chrome running):
+In round 2 the test also runs the four escape probes (R1) and the stop check
+(R3). Its three green runs ([r2/e2e-1](evidence/t2/r2/e2e-1.log) to
+[-3](evidence/t2/r2/e2e-3.log), Chrome running) took:
+
+- **Create to command:** 54–186 ms.
+- **Memory fork:** 767–1088 ms. The e2e does not assert a time; the bench rows
+  are the measurement. The 1088 ms run is a single e2e fork on a busy host,
+  and it would be a miss if it were a bench trial.
+
+Round 1 run ([e2e.log](evidence/t2/e2e.log), Chrome running):
 
 - **Create to command:** 76.8 ms.
 - **Memory fork:** 988 ms, with a 925 ms full write and a 948 ms source pause.
@@ -145,13 +205,14 @@ What the test covers, in order:
 7. Permission checks (S2).
 8. Completion of the spanning command (S5).
 9. RAM markers, disk isolation, machine ID and entropy.
-10. The probe analysis (S3).
+10. The probe analysis (S3; round 2: four probes, R1).
 11. A wrong generation, an idempotent replay with reversed env (S4), an
     idempotency clash, `NOT_FOUND`, `INVALID_ARGUMENT`, then release.
+12. Round 2: a running command on a stopped sandbox becomes `unknown` (R3).
 
 ```sh
 G=$(sudo lamp-supervisor grant-install --caller-uid $(id -u) | jq -r .grant_id)
-LAMP_E2E_SOCKET=/run/lamp/worker.sock LAMP_E2E_GRANT=$G LAMP_E2E_TEMPLATE=tp_d1afab53f18d795751b1bb4112 \
+LAMP_E2E_SOCKET=/run/lamp/worker.sock LAMP_E2E_GRANT=$G LAMP_E2E_TEMPLATE=tp_6e9a8241175f34853740c06b41 \
   cargo test --release --locked -p lamp-supervisor --test e2e -- --nocapture
 LAMP_GRANT_ID=$G lamp-supervisor ctl bench-create TEMPLATE 200 20
 LAMP_GRANT_ID=$G lamp-supervisor ctl bench-fork TEMPLATE {0|128|1024} 100 5 [--durability local]
@@ -167,7 +228,13 @@ The seed ([seed-build.log](evidence/t2/seed-build.log),
 - the static musl `lamp-init` and `lamp-guest-helper`, built from this
   branch's source.
 
-It was imported as `lamp-seed/debian-13@sha256:50eacc7c…`
+Round 2 rebuilt both with the new helper: `lamp-seed/debian-13@sha256:f7127c78…`
+and `tp_6e9a8241175f34853740c06b41`, built in 21.9 s
+([r2/seed-build.log](evidence/t2/r2/seed-build.log),
+[r2/template-build.log](evidence/t2/r2/template-build.log),
+[r2/template-manifest.json](evidence/t2/r2/template-manifest.json)).
+
+The round 1 seed was imported as `lamp-seed/debian-13@sha256:50eacc7c…`
 ([seed-import.log](evidence/t2/seed-import.log)), with the service stopped as
 S6 requires.
 

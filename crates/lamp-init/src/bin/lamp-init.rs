@@ -75,8 +75,9 @@ mod linux {
             libc::MS_NOSUID | libc::MS_NODEV,
             "mode=1777",
         );
-        // Every command runs in one cgroup so the helper can freeze all task
-        // processes around a capture; init and the helper stay outside it.
+        // Commands start in the tasks cgroup. Guest root may move anywhere in
+        // the hierarchy, so the helper's capture freeze covers every cgroup,
+        // not just this one; init and the helper stay in the root cgroup.
         mount("cgroup2", "/sys/fs/cgroup", "cgroup2", nosuid, "");
         if let Err(e) = std::fs::create_dir_all(lamp_init::TASKS_CGROUP) {
             eprintln!("lamp-init: create tasks cgroup: {e}");

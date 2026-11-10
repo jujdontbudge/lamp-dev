@@ -1,0 +1,1 @@
+{"case":"create","extra":{"failures":0,"template":"tp_6e9a8241175f34853740c06b41"},"max_ms":91.766996,"min_ms":36.797958,"p50_ms":52.402605,"p95_ms":75.996316,"p99_ms":84.538897,"trials":200}

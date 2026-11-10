@@ -1,0 +1,1 @@
+{"case":"fork dirty=1024MiB durability=volatile","extra":{"failures":0,"source_pause_max_ms":621.105,"source_pause_p50_ms":509.449,"trials_under_1000ms":100},"max_ms":666.929573,"min_ms":532.763169,"p50_ms":563.107341,"p95_ms":604.998233,"p99_ms":655.757072,"trials":100}

@@ -73,19 +73,25 @@ the booted standard sandbox (2 vCPU, 4 GiB, 20 GiB), hole-punched. Create:
 4. reply `restored` only after the barrier is acknowledged.
 
 The guest refuses any exec whose sandbox ID/generation differ from its last
-barrier, so a restored copy can never run work as its parent. Every command
-runs in the guest cgroup `/sys/fs/cgroup/tasks` (joined before exec; a command
-that cannot join is never exec'd). A template is captured with those tasks
-frozen, and the barrier thaws them only after the new identity, clock and
-reseeded CRNG are in place.
+barrier, so a restored copy can never run work as its parent. Commands start
+in the guest cgroup `/sys/fs/cgroup/tasks` (joined before exec; a command that
+cannot join is never exec'd), but guest root may move anywhere in the
+hierarchy, so the capture freeze does not rely on it (see Memory fork). A
+template is captured frozen, and the barrier thaws only after the new
+identity, clock and reseeded CRNG are in place.
 
 ## Memory fork
 
 Every fork captures the source's **whole** configured RAM. Nothing decides by
 dirty tracking what the child receives. Fork:
 
-1. freeze the guest's task processes (`cgroup.freeze` on the tasks cgroup,
-   waiting for `frozen 1`);
+1. freeze every guest process except init and the helper: every top-level
+   cgroup gets `cgroup.freeze=1` (including ones the guest created, such as
+   Docker's; descendants freeze with them), and every process in the root
+   cgroup, which cannot be frozen, moves into the frozen `lamp-hold` cgroup.
+   This repeats until a pass changes nothing and the kernel reports every
+   cgroup `frozen 1`; then nothing runs, so nothing can move. Thaw undoes
+   exactly that record and returns held processes to the root cgroup;
 2. pause the source;
 3. Firecracker **Full** snapshot of all 4 GiB into `/mem.d/cap.mem`, a bind
    mount of the root-only tmpfs `/run/lamp/mem` (`huge=always`), so no disk
@@ -99,15 +105,21 @@ snapshot is written the VMM runs in the shared `lamp/layers` cgroup, so the
 image's tmpfs pages are charged there and not to the source's `memory.max`.
 
 The child loads the image with the File backend (`MAP_PRIVATE` over its
-read-only link). Its tasks resume frozen and stay frozen until its own
-identity barrier, so a process that was already running in the parent never
+read-only link). Its processes resume frozen and stay frozen until its own
+identity barrier (the freeze record is in the helper's memory, so the child
+thaws the same set), so a process that was already running in the parent never
 runs in the child before the child's machine-id, hostname, clock and CRNG are
 new. A capture is restored once, then its image is freed.
 
 Commands are not tied to a connection. Firecracker resets the guest's vsock
 connections when it snapshots a VM, so completion is fetched with short,
 idempotent `Wait` requests by exec ID; a command started before a fork still
-completes in the source.
+completes in the source. The waiter ends when that VMM process is gone
+(stop, release, crash), and the command's state becomes `unknown`. Running
+commands are never forgotten (at most 1,024 run per sandbox); the newest 256
+completed ones are kept. A freeze whose result is uncertain is always
+followed by a thaw; a sandbox whose thaw cannot be confirmed is marked
+failed.
 
 `consistency: local` additionally copies the image (non-zero pages), vmstate
 and disk into the store and fsyncs them before the capture is reported.

@@ -111,9 +111,98 @@ fn jail_processes(sb: &str) -> Vec<String> {
         .collect()
 }
 
-/// A process that, every millisecond, reads the machine-id and 16 bytes of
-/// kernel randomness and appends them to a guest RAM file.
-const PROBE: &str = "setsid python3 -c \"import os,time\nf=open('/run/probe.log','a',buffering=1)\ni=0\nwhile True:\n  m=open('/etc/machine-id').read().strip(); r=os.urandom(16).hex()\n  f.write(f'{i} {m} {r}\\n'); i+=1; time.sleep(0.001)\" >/dev/null 2>&1 & sleep 0.3";
+/// A probe that, every millisecond, reads the machine-id and 16 bytes of
+/// kernel randomness and appends them to a guest RAM log. Its first line is
+/// the cgroup it runs in. With `escape` set it writes its PID into the root
+/// cgroup on every iteration, the way guest root may at any moment.
+const PROBE_PY: &str = "cat > /run/probe.py <<'EOF'
+import os, sys, time
+log, escape = sys.argv[1], sys.argv[2] == '1'
+f = open(log, 'a', buffering=1)
+f.write('cg ' + open('/proc/self/cgroup').read().strip() + '\\n')
+i = 0
+while True:
+    if escape:
+        try:
+            open('/sys/fs/cgroup/cgroup.procs', 'w').write(str(os.getpid()))
+        except OSError:
+            pass
+    m = open('/etc/machine-id').read().strip(); r = os.urandom(16).hex()
+    f.write(f'{i} {m} {r}\\n'); i += 1; time.sleep(0.001)
+EOF";
+
+/// The probes started in the parent before the fork: (log name, launcher).
+/// S3/R1: they cover a task in the tasks cgroup and tasks that left it as
+/// guest root can: into the root cgroup (re-escaping continuously), into a
+/// cgroup it created at the top level (as Docker does), and into a new
+/// cgroup namespace (`unshare --cgroup`).
+const PROBES: &[(&str, &str, &str)] = &[
+    (
+        "tasks",
+        "0::/tasks",
+        "setsid python3 /run/probe.py /run/p-tasks.log 0",
+    ),
+    (
+        "root",
+        "0::/",
+        "setsid python3 /run/probe.py /run/p-root.log 1",
+    ),
+    (
+        "docker",
+        "0::/docker/c1",
+        "setsid sh -c 'mkdir -p /sys/fs/cgroup/docker/c1; echo $$ > /sys/fs/cgroup/docker/c1/cgroup.procs; exec python3 /run/probe.py /run/p-docker.log 0'",
+    ),
+    (
+        "unshare",
+        "0::/",
+        "setsid sh -c 'mkdir -p /sys/fs/cgroup/ns1; echo $$ > /sys/fs/cgroup/ns1/cgroup.procs; exec unshare --cgroup python3 /run/probe.py /run/p-unshare.log 0'",
+    ),
+];
+
+/// Checks one probe across the fork: every line the fork wrote after the
+/// shared prefix (one line may straddle the freeze) carries the fork's
+/// machine-id and entropy the parent never produced.
+fn check_probe(
+    name: &str,
+    parent_log: &str,
+    fork_log: &str,
+    src_mid: &str,
+    kid_mid: &str,
+) -> usize {
+    let data = |log: &str| -> Vec<String> {
+        log.lines()
+            .filter(|l| !l.starts_with("cg "))
+            .map(str::to_string)
+            .collect()
+    };
+    let (p, f) = (data(parent_log), data(fork_log));
+    let shared = p.iter().zip(&f).take_while(|(a, b)| a == b).count();
+    let parent_rand: HashSet<&str> = p.iter().filter_map(|l| l.split(' ').nth(2)).collect();
+    let after: Vec<&String> = f.iter().skip(shared + 1).collect();
+    assert!(
+        after.len() >= 20,
+        "{name}: probe kept running in the fork ({} lines)",
+        after.len()
+    );
+    for line in &after {
+        let parts: Vec<&str> = line.split(' ').collect();
+        assert_eq!(
+            parts[1], kid_mid,
+            "{name}: fork task saw the parent's machine-id: {line}"
+        );
+        assert!(
+            !parent_rand.contains(parts[2]),
+            "{name}: fork task repeated parent entropy: {line}"
+        );
+    }
+    assert!(
+        p.iter()
+            .skip(shared)
+            .any(|l| l.split(' ').nth(1) == Some(src_mid)),
+        "{name}: probe kept running in the parent"
+    );
+    after.len()
+}
 
 #[test]
 fn create_command_and_memory_fork() {
@@ -183,7 +272,33 @@ fn create_command_and_memory_fork() {
          for i in $(seq 200); do [ -S /run/m.sock ] && exit 0; sleep 0.05; done; exit 1",
     );
     assert_eq!(code, 0);
-    assert_eq!(t.sh(&src, PROBE).0, 0);
+    assert_eq!(t.sh(&src, PROBE_PY).0, 0);
+    for (name, cgroup, launch) in PROBES {
+        assert_eq!(t.sh(&src, &format!("{launch} >/dev/null 2>&1 &")).0, 0);
+        let log = format!("/run/p-{name}.log");
+        let mut first = String::new();
+        for _ in 0..100 {
+            first = t.sh(&src, &format!("head -n1 {log} 2>/dev/null")).1;
+            if !first.is_empty() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        // The escaping probe has moved itself by the second line.
+        std::thread::sleep(Duration::from_millis(50));
+        let now = t
+            .sh(
+                &src,
+                &format!(
+                    "for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null | grep -q '^python3 /run/probe.py /run/p-{name}.log' && cat $p/cgroup && break; done"
+                ),
+            )
+            .1;
+        eprintln!("probe {name}: started in {first:?}, now in {now:?}");
+        if *name != "unshare" {
+            assert_eq!(now, *cgroup, "{name} probe is where it should be");
+        }
+    }
     t.sh(&src, "echo shared-before-fork > /root/f; sync");
 
     // Fork with memory while `sleep 3` still runs in the source.
@@ -237,43 +352,16 @@ fn create_command_and_memory_fork() {
     let rnd = "head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n'";
     assert_ne!(t.sh(&src, rnd).1, t.sh(&child, rnd).1, "entropy diverged");
 
-    // S3: a process already running in the parent never sees the parent's
-    // identity or entropy after the fork. Lines both copies share were
-    // written before the freeze; at most one line may straddle it. Every
-    // later fork line must carry the fork's machine-id and fresh entropy.
+    // S3/R1: no process already running in the parent, wherever it moved
+    // itself in the cgroup hierarchy, ever sees the parent's identity or
+    // entropy after the fork.
     std::thread::sleep(Duration::from_millis(300));
-    let parent_log = t.sh(&src, "cat /run/probe.log").1;
-    let fork_log = t.sh(&child, "cat /run/probe.log").1;
-    let (p, f): (Vec<&str>, Vec<&str>) = (parent_log.lines().collect(), fork_log.lines().collect());
-    let shared = p.iter().zip(&f).take_while(|(a, b)| a == b).count();
-    let parent_rand: HashSet<&str> = p.iter().filter_map(|l| l.split(' ').nth(2)).collect();
-    let after: Vec<&str> = f.iter().skip(shared + 1).copied().collect();
-    assert!(
-        after.len() >= 20,
-        "probe kept running in the fork ({} lines)",
-        after.len()
-    );
-    for line in &after {
-        let parts: Vec<&str> = line.split(' ').collect();
-        assert_eq!(
-            parts[1], kid_mid,
-            "fork task saw the parent's machine-id: {line}"
-        );
-        assert!(
-            !parent_rand.contains(parts[2]),
-            "fork task repeated parent entropy: {line}"
-        );
+    for (name, _, _) in PROBES {
+        let log = format!("cat /run/p-{name}.log");
+        let (parent_log, fork_log) = (t.sh(&src, &log).1, t.sh(&child, &log).1);
+        let n = check_probe(name, &parent_log, &fork_log, &src_mid, &kid_mid);
+        eprintln!("identity probe {name}: {n} fork lines checked");
     }
-    assert!(
-        p.iter()
-            .skip(shared)
-            .any(|l| l.split(' ').nth(1) == Some(&src_mid)),
-        "probe kept running in the parent"
-    );
-    eprintln!(
-        "identity probe: {shared} shared lines, {} fork lines checked",
-        after.len()
-    );
 
     // Authority: wrong generation is refused before any guest effect.
     let ctx = t.ctx(&child, 2);
@@ -341,6 +429,30 @@ fn create_command_and_memory_fork() {
     // Source deletion leaves the fork running with its memory.
     t.release(&src);
     assert_eq!(t.sh(&child, ask), (0, "0".into()));
+
+    // R3: stopping a sandbox ends observation of its running commands: the
+    // outcome becomes unknown, never "running" forever.
+    let (dev, _) = t.start(&child, "sleep 600");
+    t.ok(&child, request::Command::Stop(Stop { force: true }));
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let state = loop {
+        let ctx = t.ctx(&child, 1);
+        let r =
+            t.c.receipt(
+                ctx,
+                request::Command::Inspect(Inspect {
+                    command_operation_id: dev.clone(),
+                }),
+            )
+            .unwrap();
+        let state = r.detail.get("command_state").cloned().unwrap_or_default();
+        if state != "running" || Instant::now() > deadline {
+            break (state, r.detail.get("command_lost").cloned());
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    eprintln!("command after stop: {state:?}");
+    assert_eq!(state.0, "unknown");
     t.release(&child);
     t.release(&bad);
 }

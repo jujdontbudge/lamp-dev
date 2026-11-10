@@ -353,6 +353,12 @@ impl Jail {
         api_call(&self.path(API), method, path, body)
     }
 
+    /// A check that stays true exactly while this VMM process lives; it
+    /// outlives the jail record (stop, release) and ignores a reused PID.
+    pub fn liveness(&self) -> impl Fn() -> bool + Send + 'static {
+        process_liveness(self.pid)
+    }
+
     pub fn alive(&self) -> bool {
         // SAFETY: signal 0 only checks existence.
         self.pid
@@ -412,6 +418,13 @@ impl Jail {
         let _ = std::fs::remove_dir_all(&self.memdir);
         let _ = std::fs::remove_dir_all(&self.dir);
     }
+}
+
+/// True while the process that has `pid` now still lives (a later process
+/// reusing the PID does not count).
+pub fn process_liveness(pid: Option<i32>) -> impl Fn() -> bool + Send + 'static {
+    let vmm = pid.and_then(|pid| start_time(pid).map(|t| (pid, t)));
+    move || vmm.is_some_and(|(pid, t)| start_time(pid) == Some(t))
 }
 
 /// A process's start time (clock ticks since boot), `None` once it is gone.
@@ -534,5 +547,20 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         // A socket nobody will ever listen on still fails, after the window.
         assert!(connect_api(&path).is_err());
+    }
+
+    /// R3: liveness follows the process itself, not files it leaves behind.
+    #[test]
+    fn liveness_ends_with_the_process() {
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
+        let alive = process_liveness(Some(child.id() as i32));
+        assert!(alive());
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(!alive());
+        assert!(!process_liveness(None)());
     }
 }

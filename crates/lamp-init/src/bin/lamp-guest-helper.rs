@@ -272,29 +272,141 @@ mod linux {
         format!("{TASKS_CGROUP}/{name}")
     }
 
-    /// Freezes every task process and waits until the kernel reports the
-    /// whole cgroup frozen.
+    const CGROUP_ROOT: &str = "/sys/fs/cgroup";
+    /// Frozen leaf that holds processes found in the root cgroup, which
+    /// itself cannot be frozen.
+    const HOLD_CGROUP: &str = "/sys/fs/cgroup/lamp-hold";
+
+    /// What `freeze` changed, so `thaw` undoes exactly that. It lives in the
+    /// helper's memory, so a copy restored from a capture inherits it and its
+    /// barrier thaws the same set.
+    #[derive(Default)]
+    struct FrozenSet {
+        froze: Vec<std::path::PathBuf>,
+        held: Vec<String>,
+    }
+
+    static FROZEN: Mutex<Option<FrozenSet>> = Mutex::new(None);
+
+    fn is_kernel_thread(pid: &str) -> bool {
+        const PF_KTHREAD: u64 = 0x0020_0000;
+        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
+            return false;
+        };
+        let Some(close) = stat.rfind(')') else {
+            return false;
+        };
+        stat[close + 1..]
+            .split_whitespace()
+            .nth(6)
+            .and_then(|f| f.parse::<u64>().ok())
+            .is_some_and(|flags| flags & PF_KTHREAD != 0)
+    }
+
+    /// Processes allowed to stay running in the root cgroup.
+    fn exempt(pid: &str) -> bool {
+        pid == "1" || pid == std::process::id().to_string() || is_kernel_thread(pid)
+    }
+
+    fn frozen(dir: &std::path::Path) -> bool {
+        std::fs::read_to_string(dir.join("cgroup.events"))
+            .is_ok_and(|e| e.lines().any(|l| l.trim() == "frozen 1"))
+    }
+
+    fn top_level_cgroups() -> io::Result<Vec<std::path::PathBuf>> {
+        let mut dirs = Vec::new();
+        for entry in std::fs::read_dir(CGROUP_ROOT)? {
+            let entry = entry?;
+            if entry.file_type()?.is_dir() {
+                dirs.push(entry.path());
+            }
+        }
+        Ok(dirs)
+    }
+
+    /// Freezes every guest process except init and this helper, wherever it
+    /// put itself. Guest root may leave any cgroup (the hierarchy has no
+    /// namespace or delegation boundary), so the freeze is not tied to one:
+    /// every top-level cgroup is frozen (descendants, including ones a task
+    /// creates later, freeze with it) and every process in the root cgroup,
+    /// which cannot be frozen, is moved into a frozen hold cgroup. This
+    /// repeats until a pass changes nothing and the kernel reports every
+    /// cgroup frozen; from then on no task runs, so none can move.
     fn freeze() -> io::Result<()> {
-        std::fs::write(cgroup_file("cgroup.freeze"), "1")?;
+        let mut guard = FROZEN.lock().unwrap();
+        let set = guard.get_or_insert_with(FrozenSet::default);
+        let hold = std::path::Path::new(HOLD_CGROUP);
+        let _ = std::fs::create_dir(hold);
+        std::fs::write(hold.join("cgroup.freeze"), "1")?;
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
         loop {
-            let events = std::fs::read_to_string(cgroup_file("cgroup.events"))?;
-            if events.lines().any(|l| l.trim() == "frozen 1") {
+            let mut changed = false;
+            let mut settled = true;
+            for dir in top_level_cgroups()? {
+                if dir != hold {
+                    let knob = dir.join("cgroup.freeze");
+                    if std::fs::read_to_string(&knob).is_ok_and(|v| v.trim() == "0") {
+                        std::fs::write(&knob, "1")?;
+                        set.froze.push(dir.clone());
+                        changed = true;
+                    }
+                }
+                settled &= frozen(&dir);
+            }
+            let root_procs = std::fs::read_to_string(format!("{CGROUP_ROOT}/cgroup.procs"))?;
+            for pid in root_procs.split_whitespace().filter(|p| !exempt(p)) {
+                // A process that exits meanwhile cannot be moved; that is fine.
+                if std::fs::write(hold.join("cgroup.procs"), pid).is_ok() {
+                    set.held.push(pid.to_string());
+                }
+                changed = true;
+            }
+            if !changed && settled {
                 return Ok(());
             }
             if std::time::Instant::now() > deadline {
+                drop(guard);
                 let _ = thaw();
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
-                    "task processes did not freeze",
+                    "guest processes did not freeze",
                 ));
             }
             std::thread::sleep(Duration::from_micros(100));
         }
     }
 
+    /// Undoes `freeze` (idempotent): unfreezes what it froze and returns held
+    /// processes to the root cgroup.
     fn thaw() -> io::Result<()> {
-        std::fs::write(cgroup_file("cgroup.freeze"), "0")
+        let set = FROZEN.lock().unwrap().take().unwrap_or_default();
+        let mut first_error = None;
+        for dir in set.froze {
+            match std::fs::write(dir.join("cgroup.freeze"), "0") {
+                Ok(()) => {}
+                // The guest removed that cgroup meanwhile.
+                Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    first_error.get_or_insert(e);
+                }
+            }
+        }
+        let hold = std::path::Path::new(HOLD_CGROUP);
+        if hold.exists() {
+            if let Err(e) = std::fs::write(hold.join("cgroup.freeze"), "0") {
+                first_error.get_or_insert(e);
+            }
+            for pid in set.held {
+                let _ = std::fs::write(format!("{CGROUP_ROOT}/cgroup.procs"), &pid);
+            }
+        }
+        // The tasks cgroup is ours; it never stays frozen.
+        if let Err(e) = std::fs::write(cgroup_file("cgroup.freeze"), "0")
+            && e.kind() != io::ErrorKind::NotFound
+        {
+            first_error.get_or_insert(e);
+        }
+        first_error.map_or(Ok(()), Err)
     }
 
     fn barrier(b: &Barrier, state: &Shared) -> Result<BarrierAck, String> {

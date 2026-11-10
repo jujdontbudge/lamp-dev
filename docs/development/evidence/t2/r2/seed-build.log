@@ -1,0 +1,7 @@
+   Compiling lamp-init v0.1.0 (/home/johan/lamp-t2/src/crates/lamp-init)
+    Finished `release` profile [optimized] target(s) in 1.04s
+seed digest sha256:f7127c78261fdda37fe22d4567d8f0c7314cf23be10a3ad7dc0f7bea0d4194e6
+
+real	0m3.362s
+user	0m3.248s
+sys	0m1.379s

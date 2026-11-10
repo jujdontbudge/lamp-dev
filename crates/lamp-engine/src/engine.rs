@@ -51,8 +51,10 @@ pub const STANDARD: Resources = Resources {
     disk_gib: 20,
 };
 pub const DEFAULT_PIDS_MAX: u64 = 4096;
-/// Commands remembered per sandbox for completion lookups.
+/// Completed commands remembered per sandbox for completion lookups. Running
+/// commands are never forgotten; at most `MAX_RUNNING` run at once.
 const COMMAND_MEMORY: usize = 256;
+const MAX_RUNNING: usize = 1024;
 /// Capture states (`CaptureRec::restores`): a capture is restored once.
 const CAPTURE_AVAILABLE: u64 = 0;
 const CAPTURE_RESTORING: u64 = 1;
@@ -303,6 +305,79 @@ pub enum Mode {
 }
 
 /// A command result that has started but not (observably) finished.
+impl CommandRec {
+    fn completed(&self) -> bool {
+        self.done.is_some() || self.lost.is_some()
+    }
+}
+
+fn running(table: &CommandTable) -> usize {
+    table.0.values().filter(|r| !r.completed()).count()
+}
+
+/// Records a started command. Only completed commands are ever forgotten,
+/// oldest first, so a long-running command stays observable however many
+/// short ones follow it.
+fn remember(table: &mut CommandTable, op: &str, rec: CommandRec) {
+    if table.0.insert(op.to_string(), rec).is_none() {
+        table.1.push_back(op.to_string());
+    }
+    forget_old_completed(table);
+}
+
+fn forget_old_completed(table: &mut CommandTable) {
+    let mut completed = table.0.values().filter(|r| r.completed()).count();
+    while completed > COMMAND_MEMORY {
+        let Some(pos) = table
+            .1
+            .iter()
+            .position(|op| table.0.get(op).is_none_or(CommandRec::completed))
+        else {
+            break;
+        };
+        let op = table.1.remove(pos).unwrap();
+        if table.0.remove(&op).is_some() {
+            completed -= 1;
+        }
+    }
+}
+
+/// Freezes the guest's task processes. The freeze may have applied although
+/// its reply was lost, late or wrong, so any uncertain result is followed by a
+/// thaw; the error then says whether that thaw could not be confirmed (the
+/// caller must not leave such a sandbox marked running).
+fn freeze_guest(vsock: &Path) -> std::result::Result<(), (EngineError, Option<EngineError>)> {
+    match guest::call(
+        vsock,
+        &GuestRequest::Freeze(Empty {}),
+        Duration::from_secs(10),
+    ) {
+        Ok(GuestResponse::Frozen) => Ok(()),
+        uncertain => {
+            let e = match uncertain {
+                Ok(other) => EngineError::host(format!("freeze: {other:?}")),
+                Err(e) => e,
+            };
+            Err((e, thaw_guest(vsock).err()))
+        }
+    }
+}
+
+/// Thaws the guest's task processes, retrying a few times: thawing is
+/// idempotent, so an uncertain attempt is simply repeated.
+fn thaw_guest(vsock: &Path) -> Result<()> {
+    let mut last = EngineError::host("thaw not attempted");
+    for _ in 0..3 {
+        match guest::call(vsock, &GuestRequest::Thaw(Empty {}), Duration::from_secs(5)) {
+            Ok(GuestResponse::Thawed) => return Ok(()),
+            Ok(other) => last = EngineError::host(format!("thaw: {other:?}")),
+            Err(e) => last = e,
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    Err(last)
+}
+
 fn pending(started: &ExecStarted) -> ExecDone {
     ExecDone {
         exit_code: 0,
@@ -939,7 +1014,7 @@ impl Engine {
         if argv.is_empty() {
             return Err(EngineError::invalid("argv is empty"));
         }
-        let (vsock, commands) = {
+        let (vsock, commands, vmm_alive) = {
             let sb = self.sandbox(auth.sandbox_id)?;
             let sb = sb.lock().unwrap();
             Self::check(&sb, auth)?;
@@ -949,10 +1024,14 @@ impl Engine {
                     sb.state.name()
                 )));
             }
-            (
-                sb.jail.as_ref().unwrap().path(fc::VSOCK),
-                sb.commands.clone(),
-            )
+            if running(&sb.commands.lock().unwrap()) >= MAX_RUNNING {
+                return Err(EngineError::new(
+                    "NO_CAPACITY",
+                    format!("{MAX_RUNNING} commands are already running in this sandbox"),
+                ));
+            }
+            let jail = sb.jail.as_ref().unwrap();
+            (jail.path(fc::VSOCK), sb.commands.clone(), jail.liveness())
         };
         let request = GuestRequest::Exec(Exec {
             sandbox_id: auth.sandbox_id.into(),
@@ -981,32 +1060,23 @@ impl Engine {
                 ));
             }
         };
-        {
-            let mut table = commands.lock().unwrap();
-            table.0.insert(
-                operation_id.to_string(),
-                CommandRec {
-                    started: started.clone(),
-                    done: None,
-                    lost: None,
-                },
-            );
-            table.1.push_back(operation_id.to_string());
-            while table.1.len() > COMMAND_MEMORY {
-                if let Some(old) = table.1.pop_front() {
-                    table.0.remove(&old);
-                }
-            }
-        }
+        remember(
+            &mut commands.lock().unwrap(),
+            operation_id,
+            CommandRec {
+                started: started.clone(),
+                done: None,
+                lost: None,
+            },
+        );
         let op = operation_id.to_string();
         let (sandbox_id, generation) = (auth.sandbox_id.to_string(), auth.generation);
         std::thread::spawn(move || {
             // Completion is fetched with short idempotent waits, so a capture
             // that resets the guest's connections mid-command loses nothing.
-            // The waiter ends when the jail's vsock socket is gone (released).
-            let result = guest::wait_exec(&vsock, &sandbox_id, generation, &op, None, || {
-                vsock.exists()
-            });
+            // The waiter ends as soon as this VMM process is gone (stop,
+            // release or crash): the outcome is then unknown, never running.
+            let result = guest::wait_exec(&vsock, &sandbox_id, generation, &op, None, vmm_alive);
             let mut table = commands.lock().unwrap();
             if let Some(rec) = table.0.get_mut(&op) {
                 match result {
@@ -1014,6 +1084,7 @@ impl Engine {
                     Err(e) => rec.lost = Some(e.message),
                 }
             }
+            forget_old_completed(&mut table);
         });
         Ok(Outcome {
             state: "command_started".into(),
@@ -1125,14 +1196,11 @@ impl Engine {
 
         // --- task processes frozen from here ---
         let t = Instant::now();
-        match guest::call(
-            &vsock,
-            &GuestRequest::Freeze(Empty {}),
-            Duration::from_secs(10),
-        ) {
-            Ok(GuestResponse::Frozen) => {}
-            Ok(other) => return Err(discard(EngineError::host(format!("freeze: {other:?}")))),
-            Err(e) => return Err(discard(e)),
+        if let Err((e, thaw_failed)) = freeze_guest(&vsock) {
+            if let Some(t) = thaw_failed {
+                sb.state = State::Failed(format!("tasks may be frozen: {}", t.message));
+            }
+            return Err(discard(e));
         }
         detail.insert("freeze_us".into(), us(t.elapsed()));
         // --- source paused from here ---
@@ -1159,16 +1227,11 @@ impl Engine {
         let pause = tp.elapsed();
         // --- source running again; thaw its tasks (same identity) ---
         let t = Instant::now();
-        let thawed = match guest::call(
-            &vsock,
-            &GuestRequest::Thaw(Empty {}),
-            Duration::from_secs(10),
-        ) {
-            Ok(GuestResponse::Thawed) => Ok(()),
-            Ok(other) => Err(EngineError::host(format!("thaw: {other:?}"))),
-            Err(e) => Err(e),
-        };
+        let thawed = thaw_guest(&vsock);
         detail.insert("thaw_us".into(), us(t.elapsed()));
+        if let Err(e) = &thawed {
+            sb.state = State::Failed(format!("tasks may be frozen: {}", e.message));
+        }
         if let Err(e) = sealed.and(resumed.map(|_| ())).and(thawed) {
             return Err(discard(e));
         }
@@ -1363,5 +1426,122 @@ impl Engine {
             cpu_baseline: self.compat.cpu_baseline.clone(),
             device_graph_digest: manifest::sha256_hex(DEVICE_GRAPH.as_bytes()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::os::unix::net::UnixListener;
+
+    /// A fake guest channel: each connection gets the next scripted reply
+    /// (`None` drops the connection after reading the request). Returns the
+    /// requests it received.
+    fn fake_guest(
+        tag: &str,
+        replies: Vec<Option<GuestResponse>>,
+    ) -> (PathBuf, std::thread::JoinHandle<Vec<GuestRequest>>) {
+        let path = std::env::temp_dir().join(format!("lamp-eng-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let listener = UnixListener::bind(&path).unwrap();
+        let server = std::thread::spawn(move || {
+            let mut got = Vec::new();
+            for reply in replies {
+                let (mut s, _) = listener.accept().unwrap();
+                let mut line = [0_u8; 13];
+                s.read_exact(&mut line).unwrap();
+                s.write_all(b"OK 1024\n").unwrap();
+                got.push(lamp_init::read_frame::<GuestRequest>(&mut s).unwrap());
+                if let Some(r) = reply {
+                    lamp_init::write_frame(&mut s, &r).unwrap();
+                }
+            }
+            got
+        });
+        (path, server)
+    }
+
+    /// R4: a freeze whose reply is lost may still have applied, so it is
+    /// followed by a thaw; a confirmed thaw leaves the sandbox usable.
+    #[test]
+    fn uncertain_freeze_is_thawed() {
+        let (path, server) = fake_guest("freeze-lost", vec![None, Some(GuestResponse::Thawed)]);
+        let (e, thaw_failed) = freeze_guest(&path).unwrap_err();
+        assert_eq!(e.code, "OUTCOME_UNKNOWN");
+        assert!(thaw_failed.is_none(), "thaw confirmed");
+        let got = server.join().unwrap();
+        assert_eq!(
+            got,
+            vec![GuestRequest::Freeze(Empty {}), GuestRequest::Thaw(Empty {})]
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// R4: when no thaw can be confirmed the caller is told, so it marks
+    /// the sandbox failed instead of running with frozen tasks.
+    #[test]
+    fn unconfirmed_thaw_after_uncertain_freeze_is_reported() {
+        let wrong = Some(GuestResponse::Pong(lamp_init::Status {
+            sandbox_id: String::new(),
+            generation: 0,
+            kernel_boot_id: String::new(),
+        }));
+        let (path, server) = fake_guest("thaw-lost", vec![wrong, None, None, None]);
+        let (_, thaw_failed) = freeze_guest(&path).unwrap_err();
+        assert!(thaw_failed.is_some());
+        let got = server.join().unwrap();
+        assert_eq!(
+            got.iter()
+                .filter(|r| **r == GuestRequest::Thaw(Empty {}))
+                .count(),
+            3
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    fn rec() -> CommandRec {
+        CommandRec {
+            started: ExecStarted {
+                pid: 1,
+                started_unix_ns: 1,
+            },
+            done: None,
+            lost: None,
+        }
+    }
+
+    /// R2: a long-running command stays observable however many short
+    /// commands complete after it; only completed ones are forgotten.
+    #[test]
+    fn running_commands_are_never_evicted() {
+        let mut table = CommandTable::default();
+        remember(&mut table, "op_dev_server", rec());
+        for i in 0..COMMAND_MEMORY * 2 {
+            let op = format!("op_short_{i}");
+            remember(&mut table, &op, rec());
+            // Its completion arrives, as the waiter records it.
+            table.0.get_mut(&op).unwrap().done = Some(pending(&ExecStarted {
+                pid: 2,
+                started_unix_ns: 2,
+            }));
+            forget_old_completed(&mut table);
+        }
+        assert!(table.0.contains_key("op_dev_server"));
+        assert!(!table.0["op_dev_server"].completed());
+        assert_eq!(running(&table), 1);
+        assert_eq!(table.0.len(), COMMAND_MEMORY + 1);
+        assert_eq!(table.1.len(), COMMAND_MEMORY + 1);
+        // The newest completed commands are the ones kept.
+        assert!(
+            table
+                .0
+                .contains_key(&format!("op_short_{}", COMMAND_MEMORY * 2 - 1))
+        );
+        assert!(!table.0.contains_key("op_short_0"));
+        // Once the long command completes it ages out like any other.
+        table.0.get_mut("op_dev_server").unwrap().lost = Some("vmm gone".into());
+        forget_old_completed(&mut table);
+        assert!(!table.0.contains_key("op_dev_server"));
     }
 }
