@@ -1,0 +1,1 @@
+{"case":"fork dirty=1024MiB durability=local","extra":{"failures":0,"source_pause_max_ms":327.515,"source_pause_p50_ms":262.221,"trials_under_1000ms":1},"max_ms":15002.724508,"min_ms":972.390957,"p50_ms":8676.276321,"p95_ms":14475.225853,"p99_ms":15002.724508,"trials":30}
