@@ -1,0 +1,126 @@
+{
+  "caller": {
+    "cpu_count": 10,
+    "disk": "Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on\n/dev/disk3s5   971298980 711320536 226322288    76% 9431099 2263222880    0%   /System/Volumes/Data",
+    "load": [
+      3.75,
+      3.84423828125,
+      3.9296875
+    ],
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=23068771)\t46%; charging; 1:17 remaining present: true",
+    "pressure": {
+      "cpu": "unavailable",
+      "io": "unavailable",
+      "memory": "unavailable"
+    }
+  },
+  "configuration": {
+    "api_url": null,
+    "cli": null,
+    "directory": null,
+    "extra_rows": null,
+    "guest_python": "python3",
+    "model": true,
+    "native_cpus": null,
+    "native_python": "/Users/johansardar/anaconda3/bin/python3",
+    "network_fixture": null,
+    "observer": null,
+    "output": "tests/benchmarks/evidence/model-1000",
+    "proxy": null,
+    "smoke": false,
+    "storage_fixture": null,
+    "suite": "E04",
+    "template": "tp_bench",
+    "timeout": 120,
+    "workload": "/opt/lamp/bench-workload.py"
+  },
+  "harness_sources": {
+    "block_fixture.py": "0581cc103d180058e8a44d1ff0aaf07fab6881ebbb4a4fbe9258572a8d4f887e",
+    "engine.py": "854d4a1033db9b9e1f06119685e007e27c77e51a0bd73ff7b131be0fc5f77be4",
+    "evidence.py": "7a21658cf188cfe07b2f052927c6f92a0d780b5a8ce57e16776be003c663a940",
+    "oracles.py": "1a8c69b0489f2c80a71b6b16c66ab986706e1a4088f98cca0405bfddd6a7ea59",
+    "protocol.py": "3661a5fd6f2076ffd14cbdf0c027f623d1a583e27f1e0d7c271351e9a11b2395",
+    "public.py": "9eeef8ac70d07983c4a814e30c21a45f8204e0b178827e5d80ead40d2ffad6ff",
+    "run.py": "ffb4cbbec1c08b912096249af41360030bea2e582a2db0b762a7fab6ca36788e",
+    "storage.py": "b7d047120db873d41b67e993476c92fb62035140ff796a5da69d0a8863857d3e",
+    "workload.py": "922f4956f16e8cba377dcb8a7ad3469ef98f5abb6faeee2eb7eebc420ebb6905"
+  },
+  "metadata": {
+    "access_route": "local subprocess, external fsynced acknowledgement history",
+    "artifacts": {
+      "block_fixture.py": "0581cc103d180058e8a44d1ff0aaf07fab6881ebbb4a4fbe9258572a8d4f887e"
+    },
+    "base_commit": "778e270f1798fec65d1c00035e694c6f8b28cd0a",
+    "compiled_features": [
+      "Python standard library disposable fixture; no Lamp engine"
+    ],
+    "controls": {
+      "audit": false,
+      "capture_tracking": false,
+      "cow": false,
+      "guard": false
+    },
+    "dependency_hashes": {
+      "Cargo.lock": "2a56faccc9ca9ad2fe9e6660ff3d81b5f3d3cee39ccaf6abc9b2465383345b94",
+      "go.sum": "81a4e5aa3e2ec571565b3f27efcc35d3fde52e3bdc8ce927640ff474634daba7",
+      "tools/requirements.txt": "d6534a5a08db4888740ede5236d164257e3cc5effda7277bb4f3e93564784509"
+    },
+    "durability": "simulated-local",
+    "filesystem": {
+      "host_mount": "/System/Volumes/Data",
+      "qualification": "model, not a real block-fault test"
+    },
+    "hardware": {
+      "machine": "arm64",
+      "model": "Mac17,2"
+    },
+    "lane": "M5",
+    "os": {
+      "kernel": "Darwin",
+      "release": "25.5.0"
+    },
+    "policy": {
+      "scope": "diagnostic fixtures only; no engine or host policy under test"
+    },
+    "power": {
+      "source": "AC Power"
+    },
+    "resources": {
+      "pattern_disk_bytes": 16384,
+      "pattern_memory_bytes": 8192
+    },
+    "scope": "T5 measuring-side evidence only. T6/T7 must supply actual engine and filesystem qualification.",
+    "source_hashes": {
+      "architecture.md": "11f5cbe41d5c3367e35007204bae96009d33817e5be9e3dd5b9205740f9073db"
+    },
+    "storage": {
+      "backend": "disposable temporary JSON stable-store model"
+    },
+    "thermal": {
+      "reason": "no speed claim in disposable model run",
+      "sampled": false
+    },
+    "topology": "native"
+  },
+  "metadata_errors": [
+    "guard is not enabled",
+    "audit is not enabled",
+    "cow is not enabled",
+    "capture_tracking is not enabled"
+  ],
+  "protocol": "lamp.benchmark/v1",
+  "started_at": "2026-11-09T23:07:15.747669+00:00",
+  "suite_digest": "3e556a00de3be2bff3aae9176da1d3e8d8f02bf28c8f09fc35eb029a0b4c6f9d",
+  "thresholds": {
+    "create_p50_ms_exclusive": 500,
+    "creates": 200,
+    "fork_max_ms_exclusive": 1000,
+    "forks_per_row": 100,
+    "native_pairs_per_measure": 10,
+    "native_ratio_inclusive": 0.97,
+    "storage_forks": 1000,
+    "warmups": 20
+  }
+}

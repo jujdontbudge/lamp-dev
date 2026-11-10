@@ -1,0 +1,27 @@
+{
+  "source_hashes": {
+    "architecture.md": "11f5cbe41d5c3367e35007204bae96009d33817e5be9e3dd5b9205740f9073db"
+  },
+  "dependency_hashes": {
+    "Cargo.lock": "2a56faccc9ca9ad2fe9e6660ff3d81b5f3d3cee39ccaf6abc9b2465383345b94",
+    "go.sum": "81a4e5aa3e2ec571565b3f27efcc35d3fde52e3bdc8ce927640ff474634daba7",
+    "tools/requirements.txt": "d6534a5a08db4888740ede5236d164257e3cc5effda7277bb4f3e93564784509"
+  },
+  "compiled_features": ["Python standard library disposable fixture; no Lamp engine"],
+  "hardware": {"machine": "arm64", "model": "Mac17,2"},
+  "os": {"kernel": "Darwin", "release": "25.5.0"},
+  "filesystem": {"host_mount": "/System/Volumes/Data", "qualification": "model, not a real block-fault test"},
+  "storage": {"backend": "disposable temporary JSON stable-store model"},
+  "policy": {"scope": "diagnostic fixtures only; no engine or host policy under test"},
+  "resources": {"pattern_memory_bytes": 8192, "pattern_disk_bytes": 16384},
+  "durability": "simulated-local",
+  "power": {"source": "AC Power"},
+  "thermal": {"sampled": false, "reason": "no speed claim in disposable model run"},
+  "lane": "M5",
+  "topology": "native",
+  "controls": {"guard": false, "audit": false, "cow": false, "capture_tracking": false},
+  "artifacts": {"block_fixture.py": "0581cc103d180058e8a44d1ff0aaf07fab6881ebbb4a4fbe9258572a8d4f887e"},
+  "access_route": "local subprocess, external fsynced acknowledgement history",
+  "base_commit": "778e270f1798fec65d1c00035e694c6f8b28cd0a",
+  "scope": "T5 measuring-side evidence only. T6/T7 must supply actual engine and filesystem qualification."
+}
