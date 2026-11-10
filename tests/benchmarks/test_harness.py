@@ -597,16 +597,16 @@ class HarnessTests(unittest.TestCase):
             try:
                 from benchmarks.workload import call_resident
                 import time
+                # The socket file appears at bind(), before listen(), so wait
+                # until a connection is accepted, not until the file exists.
                 deadline = time.monotonic() + 5
                 while True:
                     try:
-                        call_resident(path, {"op": "ping"})
+                        before = call_resident(path, {"op": "state"})
                         break
                     except (FileNotFoundError, ConnectionRefusedError):
-                        # bind creates the path before listen admits a caller.
                         self.assertLess(time.monotonic(), deadline)
                         time.sleep(.01)
-                before = call_resident(path, {"op": "state"})
                 self.assertEqual(check_state(before, "outside-history", 0, 8193), [])
                 after = call_resident(path, {"op": "write", "generation": 43})
                 self.assertEqual(check_state(after, "outside-history", 43, 8193), [])
