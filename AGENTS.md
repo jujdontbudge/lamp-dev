@@ -77,7 +77,7 @@ The confidence objective is provisional, not a replacement binding threshold.
 
 `--suite E04 --model` runs the disposable block-model control, never qualifies
 a real filesystem or power-loss barrier. `--smoke` reduces counts and can never
-pass any gate. A full model run still performs `STORAGE_FORKS` (100) process-crash cases, all
+pass any gate. A full model run still performs 1,000 process-crash cases, all
 before/after boundaries, three omitted-flush controls, and a validly hashed
 unauthorized-producer control. Model reordering changes recovery order and
 discards simulated volatile writes; it is not a real block integration fault.

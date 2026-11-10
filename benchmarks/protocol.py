@@ -10,10 +10,7 @@ WARMUPS = 20
 CREATES = 200
 FORKS = 100
 PAIRS = 10
-# Owner decision 2026-11-10 20:50Z: the 1,000-fork floor came from the spec
-# rounds, not from the owner. Each E04 filesystem needs >=100 dirty forks; the
-# ext4 run already made at 1,000 stands as the binding Linux run.
-STORAGE_FORKS = 100
+STORAGE_FORKS = 1000
 RESOURCES = {"vcpus": 2, "memory_mib": 4096, "disk_gib": 20, "pids_max": 4096}
 DIRTY_MIB = (0, 128, 1024)
 DURABILITIES = ("volatile", "local", "replicated")

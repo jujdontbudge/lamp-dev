@@ -7,7 +7,7 @@ import traceback
 
 from benchmarks.engine import EngineHarness
 from benchmarks.evidence import Evidence
-from benchmarks.protocol import STORAGE_FORKS, plan
+from benchmarks.protocol import plan
 from benchmarks.public import PublicLamp, token_from_environment
 from benchmarks.storage import storage_suite
 
@@ -60,7 +60,7 @@ def main():
                 command = json.loads(args.storage_fixture)
             else:
                 raise ValueError("E04 requires --storage-fixture or diagnostic --model")
-            results["E04"] = storage_suite(command, evidence, count=30 if args.smoke else STORAGE_FORKS, model=args.model)
+            results["E04"] = storage_suite(command, evidence, count=30 if args.smoke else 1000, model=args.model)
     except Exception as error:
         evidence.observe("runner_failure", {"type": type(error).__name__, "message": str(error), "traceback": traceback.format_exc()})
         results["runner"] = {"status": "fail", "error": type(error).__name__ + ": " + str(error)}
