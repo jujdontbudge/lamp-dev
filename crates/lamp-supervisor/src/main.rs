@@ -1284,7 +1284,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
 
     // 1. The two-per-Mac cap, suspended allocations included.
     let t = Instant::now();
-    let ra = c.try_create(&template, &a, Some(res.clone()));
+    let ra = c.try_create(&template, &a, Some(res));
     let boot_ms = t.elapsed().as_secs_f64() * 1000.0;
     let Ok(ra) = ra else {
         step("create_a", false, json!({"error": ra.err()}));
@@ -1303,7 +1303,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
     );
     let mut rb = None;
     if two_running {
-        let r = c.try_create(&template, &b, Some(res.clone()));
+        let r = c.try_create(&template, &b, Some(res));
         step(
             "create_b_both_running",
             r.is_ok(),
@@ -1318,14 +1318,14 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
         json!({"result": s.as_ref().map(|r| r.detail.clone()).map_err(|e| e.clone()), "slots": slots(c)}),
     );
     if rb.is_none() {
-        let r = c.try_create(&template, &b, Some(res.clone()));
+        let r = c.try_create(&template, &b, Some(res));
         step(
             "create_b_while_a_suspended",
             r.is_ok(),
             json!({"error": r.as_ref().err(), "slots": slots(c)}),
         );
     }
-    let rx = c.try_create(&template, &x, Some(res.clone()));
+    let rx = c.try_create(&template, &x, Some(res));
     let refused = matches!(&rx, Err(e) if e.starts_with("NO_CAPACITY"));
     step(
         "third_refused",
@@ -1352,7 +1352,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
     if two_running {
         // Delete one, retry: the third now fits.
         let x2 = format!("sb_m6y_{tag}");
-        let retry = c.try_create(&template, &x2, Some(res.clone()));
+        let retry = c.try_create(&template, &x2, Some(res));
         step(
             "retry_after_delete",
             retry.is_ok(),
@@ -1366,7 +1366,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
             let (socket, template, res, grant) = (
                 socket.to_path_buf(),
                 template.clone(),
-                res.clone(),
+                res,
                 c.grants[&1].clone(),
             );
             let id = format!("sb_m6r{i}_{tag}");
@@ -1420,7 +1420,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
         &small,
         Some(Resources {
             memory_mib: 2048,
-            ..res.clone()
+            ..res
         }),
     );
     let before = slots(c);
@@ -1488,7 +1488,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
     let cap = capture(c, &a, &format!("cp_m6f_{tag}"), "volatile", false);
     let fork = cap
         .clone()
-        .and_then(|_| c.try_create(&format!("cp_m6f_{tag}"), &f, Some(res.clone())));
+        .and_then(|_| c.try_create(&format!("cp_m6f_{tag}"), &f, Some(res)));
     let a2_ms = t.elapsed().as_secs_f64() * 1000.0;
     if let (Ok(cap), Ok(fork)) = (&cap, &fork) {
         let (ba, bf) = (boot(c, &a), boot(c, &f));

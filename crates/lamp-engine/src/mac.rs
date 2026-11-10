@@ -1451,10 +1451,8 @@ impl Engine {
         };
         spec.read_paths = state.iter().cloned().collect();
         detail.insert("prepare_us".into(), us(t0.elapsed()));
-        if let Some(s) = &state {
-            if let Some(id) = &sb.identity {
-                fsutil::chown(s, id.uid, id.gid)?;
-            }
+        if let (Some(s), Some(id)) = (&state, &sb.identity) {
+            fsutil::chown(s, id.uid, id.gid)?;
         }
         self.spawn(sb, spec, state.as_deref(), &mut detail)?;
         detail.insert(

@@ -180,13 +180,13 @@ mod mac {
         }
     }
 
-    fn admit(sandbox_id: &str, generation: u64, state: &Shared) -> Result<(), GuestResponse> {
+    fn admit(sandbox_id: &str, generation: u64, state: &Shared) -> Result<(), Box<GuestResponse>> {
         let id = state.lock().unwrap();
         if id.generation == 0 || id.sandbox_id != sandbox_id || id.generation != generation {
-            return Err(error(
+            return Err(Box::new(error(
                 "GENERATION_MISMATCH",
                 "command refused: identity barrier for this sandbox/generation not applied",
-            ));
+            )));
         }
         Ok(())
     }
@@ -271,7 +271,7 @@ mod mac {
 
     fn exec(x: &Exec, state: &Shared, results: &Results) -> GuestResponse {
         if let Err(refusal) = admit(&x.sandbox_id, x.generation, state) {
-            return refusal;
+            return *refusal;
         }
         if x.exec_id.is_empty() || x.argv.is_empty() {
             return error("INVALID_ARGUMENT", "exec_id and argv are required");
@@ -373,7 +373,7 @@ mod mac {
 
     fn wait(w: &Wait, state: &Shared, results: &Results) -> GuestResponse {
         if let Err(refusal) = admit(&w.sandbox_id, w.generation, state) {
-            return refusal;
+            return *refusal;
         }
         let k = key(&w.sandbox_id, w.generation, &w.exec_id);
         let deadline = std::time::Instant::now() + Duration::from_millis(w.wait_ms.min(60_000));
