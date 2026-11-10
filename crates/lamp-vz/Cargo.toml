@@ -1,0 +1,19 @@
+[package]
+name = "lamp-vz"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Lamp Mac engine: thin Virtualization.framework boundary (generated objc2 bindings), the confined per-sandbox VZ worker and the APFS capture store."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+libc.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.3"
+block2 = "0.6.2"
+dispatch2 = "0.3.1"
+objc2-foundation = { version = "0.3.2", features = ["NSURL", "NSString", "NSError", "NSArray", "NSData", "NSProgress", "NSDictionary", "NSValue", "NSProcessInfo"] }
+objc2-virtualization = "0.3.2"

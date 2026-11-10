@@ -1,0 +1,2 @@
+{"case":"e06 suspend","extra":{"console_lock_refusals":0,"console_lock_wait_s":0.08407162600000001,"console_lock_waits":2,"failures":0,"resources":"Resources { vcpus: 2, memory_mib: 4096, disk_gib: 48, pids_max: 0 }","step_failures":0,"template":"macos-26.6.2","trial_failures":0},"max_ms":42030.868833,"min_ms":42030.868833,"p50_ms":42030.868833,"p95_ms":42030.868833,"p99_ms":42030.868833,"trials":1}
+{"case":"e06 resume_to_command","extra":{},"max_ms":11945.356958,"min_ms":11945.356958,"p50_ms":11945.356958,"p95_ms":11945.356958,"p99_ms":11945.356958,"trials":1}

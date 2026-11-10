@@ -1,0 +1,230 @@
+{
+ "sandbox": "sb_esc_c6cb8df1",
+ "identity": "_lampvm03",
+ "confined": "true",
+ "probes": [
+  {
+   "allowed": false,
+   "check": {
+    "kind": "list_dir",
+    "path": "/Users/johansardar"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "list_dir",
+    "path": "/Users/johansardar/Documents"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "read_file",
+    "path": "/Users/johansardar/.zshrc"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "list_dir",
+    "path": "/Users/johansardar/.ssh"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "read_file",
+    "path": "/Users/johansardar/Library/Keychains/login.keychain-db"
+   },
+   "result": "Permission denied (os error 13)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "read_file",
+    "path": "/Library/Keychains/System.keychain"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "write_file",
+    "path": "/Users/johansardar/lamp-escape-probe"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "write_file",
+    "path": "/private/tmp/lamp-escape-probe"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "list_dir",
+    "path": "/private/var/lamp/store/sb/sb_e5_6704df8b84b"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "read_file",
+    "path": "/private/var/lamp/store/sb/sb_e5_6704df8b84b/disk.img"
+   },
+   "result": "Permission denied (os error 13)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "read_file",
+    "path": "/private/var/lamp/store/keys/producer.key"
+   },
+   "result": "Permission denied (os error 13)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "list_dir",
+    "path": "/private/var/lamp/store/grants"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "host": "1.1.1.1",
+    "kind": "connect",
+    "port": 443
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "host": "127.0.0.1",
+    "kind": "connect",
+    "port": 22
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "mach_lookup",
+    "name": "com.apple.pasteboard.1"
+   },
+   "result": "bootstrap_look_up kern_return 1100"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "mach_lookup",
+    "name": "com.apple.securityd.xpc"
+   },
+   "result": "bootstrap_look_up kern_return 1100"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "mach_lookup",
+    "name": "com.apple.windowserver.active"
+   },
+   "result": "bootstrap_look_up kern_return 1100"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "mach_lookup",
+    "name": "com.apple.coreservices.launchservicesd"
+   },
+   "result": "bootstrap_look_up kern_return 1100"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "mach_lookup",
+    "name": "com.apple.tccd.system"
+   },
+   "result": "bootstrap_look_up kern_return 1100"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "exec",
+    "path": "/bin/sh"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "exec",
+    "path": "/usr/bin/osascript"
+   },
+   "result": "Operation not permitted (os error 1)"
+  },
+  {
+   "allowed": false,
+   "check": {
+    "kind": "keychain"
+   },
+   "result": "/var/empty/Library/Keychains/login.keychain-db: No such file or directory (os error 2)"
+  },
+  {
+   "allowed": true,
+   "check": {
+    "kind": "write_file",
+    "path": "/private/var/lamp/store/sb/sb_esc_c6cb8df1/probe-allowed"
+   },
+   "result": "opened for write"
+  },
+  {
+   "allowed": true,
+   "check": {
+    "kind": "read_file",
+    "path": "/private/var/lamp/store/sb/sb_esc_c6cb8df1/spec.json"
+   },
+   "result": "read 846 bytes"
+  }
+ ],
+ "guest": {
+  "interfaces": [
+   "lo"
+  ],
+  "tcp_1.1.1.1_443_connected": false
+ },
+ "processes": [
+  [
+   "53694",
+   "_lampvm03",
+   "/usr/local/lib/lamp/lamp-vz"
+  ],
+  [
+   "53695",
+   "_lampvm03",
+   "/System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine"
+  ],
+  [
+   "53697",
+   "_lampvm03",
+   "/usr/sbin/distnoted"
+  ],
+  [
+   "53699",
+   "_lampvm03",
+   "/usr/libexec/lsd"
+  ]
+ ],
+ "failures": [],
+ "pass": true
+}
