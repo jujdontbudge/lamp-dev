@@ -2100,14 +2100,14 @@ impl Engine {
             return Ok(serde_json::json!({"capture_id": cid, "compacted": false}));
         }
         let t = self.template(&e.manifest.template_id)?;
-        let scratch = self
-            .cfg
-            .mem_dir
-            .join("captures")
-            .join(format!("compact-{cid}"));
-        let _ = std::fs::remove_dir_all(&scratch);
-        std::fs::create_dir_all(&scratch).ctx("create compaction scratch")?;
         let (mem_name, _, _) = durable::object_names(cid);
+        // Scratch is private to this compaction: named after its own random
+        // object and created exclusively, so no other compaction (of the same
+        // capture or not) can replace or remove an image it is encoding.
+        let parent = self.cfg.mem_dir.join("captures");
+        std::fs::create_dir_all(&parent).ctx("create compaction scratch")?;
+        let scratch = parent.join(format!("compact-{mem_name}"));
+        std::fs::create_dir(&scratch).ctx("create compaction scratch")?;
         // One hold per compaction (the object name is random), so one
         // compaction's release never drops another's. Not a capture ID (no
         // `cp_` prefix), so it cannot collide with one either.
