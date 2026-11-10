@@ -95,7 +95,8 @@ worker integration semantics and explicit fixture/engine evidence boundaries.
 (`lamp-supervisor`, T2) boots templates as Firecracker microVMs and forks them
 with memory; see [crates/lamp-engine/README.md](../../crates/lamp-engine/README.md)
 and [T2-evidence.md](T2-evidence.md). T6 joins the parallel tickets and runs
-the gate.
+the gate on lane LX; the measured result (failed) is in
+[T6-evidence.md](T6-evidence.md).
 
 ## CI on owner machines
 

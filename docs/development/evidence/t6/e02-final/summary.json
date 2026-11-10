@@ -1,0 +1,29 @@
+{
+  "caller_after": {
+    "cpu_count": 8,
+    "disk": "Filesystem                        1K-blocks      Used Available Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv 980211368 451401580 478944060  49% /",
+    "load": [
+      0.90478515625,
+      1.87060546875,
+      2.4033203125
+    ],
+    "machine": "x86_64",
+    "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+    "power": "powersave",
+    "pressure": {
+      "cpu": "some avg10=0.00 avg60=0.02 avg300=0.11 total=6910426023\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+      "io": "some avg10=2.45 avg60=5.99 avg300=15.50 total=7813761637\nfull avg10=2.45 avg60=5.89 avg300=15.16 total=6834429685\n",
+      "memory": "some avg10=0.08 avg60=0.02 avg300=0.00 total=476379437\nfull avg10=0.08 avg60=0.02 avg300=0.00 total=324281983\n"
+    }
+  },
+  "completed_at": "2026-11-10T08:17:28.637356+00:00",
+  "diagnostic": false,
+  "last_observation_hash": "1b6f0cce3099e7293811182119a9e463104e12ba3e6d1a99a6885acb13e4ee46",
+  "results": {
+    "runner": {
+      "error": "FileNotFoundError: [Errno 2] No such file or directory: '{\"host\":\"10.195.187.74\",\"tcp_port\":7101,\"udp_port\":7102,\"http_url\":\"http:/10.195.187.74:7103/\"}'",
+      "status": "fail"
+    }
+  },
+  "status": "fail"
+}

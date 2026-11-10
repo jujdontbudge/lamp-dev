@@ -1,0 +1,30 @@
+b1-volatile-0 crea warm 20 ok 20 p50 242 p95 416 max 824 over1000 0 
+b1-volatile-0 crea meas 200 ok 200 p50 386 p95 760 max 1164 over1000 2 
+b1-volatile-0 fork warm 20 ok 20 p50 761 p95 1259 max 1857 over1000 3 
+b1-volatile-0 fork meas 100 ok 100 p50 761 p95 1084 max 1270 over1000 11 
+b1-volatile-128 crea warm 20 ok 20 p50 358 p95 699 max 853 over1000 0 
+b1-volatile-128 crea meas 200 ok 200 p50 424 p95 729 max 1027 over1000 2 
+b1-volatile-128 fork warm 20 ok 20 p50 762 p95 1227 max 1501 over1000 4 
+b1-volatile-128 fork meas 100 ok 100 p50 765 p95 1170 max 1627 over1000 14 
+b1-volatile-1024 crea warm 20 ok 20 p50 357 p95 505 max 508 over1000 0 
+b1-volatile-1024 crea meas 200 ok 200 p50 411 p95 761 max 1004 over1000 2 
+b1-volatile-1024 fork warm 20 ok 20 p50 745 p95 1043 max 1139 over1000 2 
+b1-volatile-1024 fork meas 100 ok 100 p50 760 p95 1270 max 1611 over1000 12 
+b1-local-0 crea warm 20 ok 20 p50 383 p95 671 max 773 over1000 0 
+b1-local-0 crea meas 200 ok 200 p50 431 p95 812 max 1143 over1000 2 
+b1-local-0 fork warm 20 ok 20 p50 1942 p95 3226 max 3563 over1000 20 
+b1-local-0 fork meas 100 ok 100 p50 1905 p95 2985 max 3381 over1000 100 
+b1-local-128 crea warm 20 ok 20 p50 400 p95 647 max 650 over1000 0 
+b1-local-128 crea meas 200 ok 200 p50 405 p95 771 max 1031 over1000 1 
+b1-local-128 fork warm 20 ok 20 p50 2110 p95 4317 max 4533 over1000 20 
+b1-local-128 fork meas 100 ok 100 p50 2304 p95 4880 max 6301 over1000 100 
+b1-local-1024 crea warm 20 ok 20 p50 454 p95 726 max 906 over1000 0 
+b1-local-1024 crea meas 200 ok 200 p50 413 p95 764 max 1032 over1000 1 
+b1-local-1024 fork warm 20 ok 1 p50 120000 p95 120000 max 120000 over1000 20 {'RuntimeError: workload exited unsuccessfully'}
+b1-local-1024 fork meas 100 ok 0 p50 120000 p95 120000 max 120000 over1000 100 {'RuntimeError: workload exited unsuccessfully'}
+b1-replicated-0 crea warm 20 ok 0 p50 8 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-0 crea meas 200 ok 0 p50 9 p95 12 max 13 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-128 crea warm 20 ok 0 p50 9 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-128 crea meas 200 ok 0 p50 9 p95 12 max 15 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-1024 crea warm 20 ok 0 p50 9 p95 12 max 12 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-1024 crea meas 200 ok 0 p50 8 p95 11 max 14 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
