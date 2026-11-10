@@ -2,7 +2,7 @@
 //! Accepts only the test's fixed probe/marker commands, never arbitrary host exec.
 use lamp_worker_protocol::*;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     env, fs,
     os::unix::net::{UnixListener, UnixStream},
     path::PathBuf,
@@ -14,7 +14,7 @@ fn serve(
     mut stream: UnixStream,
     directory: &std::path::Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+    stream.set_read_timeout(Some(Duration::from_secs(60)))?;
     stream.set_write_timeout(Some(Duration::from_secs(5)))?;
     let hello = read_frame(&mut stream)?;
     let Some(frame::Payload::Hello(hello)) = hello.payload else {
@@ -42,6 +42,7 @@ fn serve(
     let mut restored = HashSet::new();
     let mut captures = HashSet::new();
     let mut operations = HashSet::new();
+    let mut commands = HashMap::new();
     loop {
         let input = match read_frame(&mut stream) {
             Ok(frame) => frame,
@@ -63,10 +64,12 @@ fn serve(
         {
             return Err("invalid context or duplicate effect".into());
         }
+        let mut command = None;
+        let mut detail = HashMap::new();
         let state = match request.command.ok_or("command required")? {
             request::Command::Allocate(allocate) => {
                 let r = allocate.resources.ok_or("resources required")?;
-                if r.vcpus != 2 || r.memory_mib != 4096 || r.disk_gib != 20 || r.pids_max != 1024 {
+                if r.vcpus != 2 || r.memory_mib != 4096 || r.disk_gib != 20 || r.pids_max != 4096 {
                     return Err("resource mapping changed".into());
                 }
                 allocated.insert(context.sandbox_id.clone());
@@ -93,7 +96,10 @@ fn serve(
                     "fixture".to_string(),
                     marker.to_string_lossy().into_owned(),
                 ];
-                if start.argv != ["/bin/true"] && start.argv != marker_argv {
+                if start.argv != ["/bin/true"]
+                    && start.argv != marker_argv
+                    && start.argv != ["/bin/echo", "{\"fixture\":\"ok\"}"]
+                {
                     return Err("fixture rejects arbitrary host commands".into());
                 }
                 // Translate the Linux guest probe only inside this host fixture:
@@ -103,14 +109,26 @@ fn serve(
                 } else {
                     &start.argv[0]
                 };
-                let status = Command::new(executable)
+                let output = Command::new(executable)
                     .args(&start.argv[1..])
                     .env_clear()
                     .current_dir(directory)
-                    .status()?;
-                if !status.success() {
+                    .output()?;
+                if !output.status.success() {
                     return Err("probe failed".into());
                 }
+                let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() as u64;
+                commands.insert(
+                    context.operation_id.clone(),
+                    CommandResult {
+                        exit_code: output.status.code().unwrap_or(-1),
+                        stdout_tail: output.stdout,
+                        stderr_tail: output.stderr,
+                        started_at_unix_ns: now,
+                        finished_at_unix_ns: now,
+                        ..Default::default()
+                    },
+                );
                 fs::write(
                     directory.join(format!("{}.started", context.sandbox_id)),
                     b"started\n",
@@ -120,12 +138,31 @@ fn serve(
             request::Command::Capture(capture) => {
                 if !restored.contains(&context.sandbox_id)
                     || !capture.preserves_memory
-                    || capture.consistency != "crash"
+                    || !["crash", "local"].contains(&capture.consistency.as_str())
                 {
                     return Err("invalid capture mapping".into());
                 }
                 captures.insert(capture.capture_id);
                 "captured"
+            }
+            request::Command::Inspect(inspect) => {
+                command = commands.get(&inspect.command_operation_id).cloned();
+                detail.insert(
+                    "command_state".into(),
+                    if command.is_some() {
+                        "exited"
+                    } else {
+                        "unknown"
+                    }
+                    .into(),
+                );
+                "inspected"
+            }
+            request::Command::Stop(_) => "stopped",
+            request::Command::Release(_) => {
+                allocated.remove(&context.sandbox_id);
+                restored.remove(&context.sandbox_id);
+                "released"
             }
             _ => return Err("unexpected fixture command".into()),
         };
@@ -138,7 +175,8 @@ fn serve(
                         state: state.into(),
                         committed_handle_ids: vec![],
                         outcome_unknown: false,
-                        ..Default::default()
+                        command,
+                        detail,
                     })),
                 })),
             },

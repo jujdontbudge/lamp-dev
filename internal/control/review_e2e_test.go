@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/JohanSardar/lamp/pkg/api"
 )
@@ -70,6 +71,20 @@ func TestMutationIdempotencyKeyHeader(t *testing.T) {
 			headers = append(headers, "Idempotency-Key", "header-"+route.name)
 			var first, replay api.MutationEnvelope
 			d.request(t, "POST", route.path, route.body, 200, &first, headers...)
+			if route.name == "exec" {
+				until := time.Now().Add(3 * time.Second)
+				for {
+					var ex api.ExecGetResult
+					d.request(t, "GET", "/v1/execs/"+first.ResourceIds[0].Id, "", 200, &ex)
+					if ex.Data.State == "exited" {
+						break
+					}
+					if time.Now().After(until) {
+						t.Fatal("exec did not finish")
+					}
+					time.Sleep(time.Millisecond)
+				}
+			}
 			n := len(d.worker.seen())
 			d.request(t, "POST", route.path, route.body, 200, &replay, headers...)
 			if !replay.Replayed || replay.OperationId != first.OperationId || len(d.worker.seen()) != n {
