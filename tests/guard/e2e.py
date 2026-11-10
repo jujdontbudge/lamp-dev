@@ -290,11 +290,93 @@ def pair(name, payload, namespace):
     return sink, collect
 
 
+def background(namespace):
+    # The command exits at once, leaving a background job: its status arrives
+    # on the status descriptor right away, the job keeps running (traced and
+    # audited), and the collector itself exits only after the job does.
+    job = r'''
+import os,time
+if os.fork()==0:
+ os.setsid();time.sleep(1.0);open('/proc/self/status').read();os._exit(0)
+print('command-done',flush=True)
+'''
+    a, b = socket.socketpair()
+    r, w = os.pipe()
+    sink = launch(BINARY, "receive", config("background"), a.fileno(), pass_fds=(a.fileno(),))
+    collect = launch("ip", "netns", "exec", namespace, BINARY, "collect", b.fileno(), 1000000, f"status:{w}", "--",
+                     "/usr/bin/python3", "-u", "-c", job, pass_fds=(b.fileno(), w))
+    a.close(); b.close(); os.close(w)
+    start = time.monotonic()
+    with os.fdopen(r) as status:
+        line = status.readline()
+    early = time.monotonic() - start
+    assert line.strip() == "0", line
+    assert collect.poll() is None, "collector exited with its background job still running"
+    out, error = collect.communicate(timeout=10)
+    late = time.monotonic() - start
+    assert collect.returncode == 0 and "command-done" in out, (out, error)
+    assert sink.wait(timeout=3) == 0
+    assert early < 0.9 < late, (early, late)
+    exits = [r["details"]["details"] for r in records("background") if r["details"]["details"].get("type") == "process_exit"]
+    assert len(exits) >= 4, exits  # root, reaper, command, background job
+    ok(f"background job outlives its command ({early:.3f}s status, {late:.3f}s collector exit) and stays audited")
+
+
+def collect_with_env(namespace, name, env_json, payload):
+    """Runs payload under the collector with env_json on a dedicated pipe (env:FD)."""
+    import threading
+    a, b = socket.socketpair()
+    r, w = os.pipe()
+    sink = launch(BINARY, "receive", config(name), a.fileno(), pass_fds=(a.fileno(),))
+    collect = launch("ip", "netns", "exec", namespace, BINARY, "collect", b.fileno(), 1000000, f"env:{r}", "--",
+                     "/usr/bin/python3", "-u", "-c", payload, pass_fds=(b.fileno(), r),
+                     env={"COLLECTOR_ONLY": "host-secret", "PATH": "/usr/sbin:/usr/bin:/sbin:/bin"})
+    a.close(); b.close(); os.close(r)
+    def feed():
+        try:
+            with os.fdopen(w, "wb") as pipe:
+                pipe.write(env_json.encode())
+        except BrokenPipeError:
+            pass
+    writer = threading.Thread(target=feed); writer.start()
+    out, error = collect.communicate(timeout=20)
+    writer.join(timeout=5)
+    return sink, collect, out, error
+
+
+def task_environment(namespace):
+    # The requested environment reaches the task exactly, including the public
+    # contract's maximum (64 values of 4096 characters, ~1.5 MiB of JSON, far
+    # over Linux's 128 KiB per argv/env string); the collector's own
+    # environment never does; an invalid request runs nothing.
+    # /proc/self/environ is the environment exactly as exec'd (Python's own
+    # locale coercion only edits os.environ afterwards).
+    payload = ("import json;e=open('/proc/self/environ','rb').read().split(b'\\0');"
+               "print(json.dumps(dict(x.decode().split('=',1) for x in e if x)),flush=True)")
+    small = {"FOO": "value", "PATH": "/usr/bin:/bin:/opt/task", "EMPTY": ""}
+    large = {f"V{i:02d}": ("\x01" if i % 2 else '"') * 4096 for i in range(64)}
+    for label, request in (("small", small), ("contract maximum", large)):
+        encoded = json.dumps(request)
+        if request is large:
+            assert len(encoded) > 128 * 1024, len(encoded)
+        sink, collect, out, error = collect_with_env(namespace, f"task-env-{len(request)}", encoded, payload)
+        assert collect.returncode == 0, (label, error[-2000:])
+        assert sink.wait(timeout=3) == 0
+        seen = json.loads(out.strip().splitlines()[-1])
+        assert seen == {"PATH": "/usr/bin:/bin", "HOME": "/tmp", **request}, (label, sorted(seen))
+    for bad in ('{"A=B":"x"}', '{"A":"x\\u0000y"}', "not json", "{" + '"A":"' + "x" * (9 << 20) + '"}'):
+        sink, collect, out, error = collect_with_env(namespace, "task-env-bad", bad, "print('RAN')")
+        assert collect.returncode == 70 and "RAN" not in out, (bad[:40], out, error)
+        sink.kill(); sink.wait(timeout=3)
+    ok("audited task gets exactly the requested environment up to the contract maximum; invalid requests run nothing")
+
+
 def processes(namespace):
     workload = r'''
 import ctypes,errno,json,os,platform,socket,threading
-assert os.getuid()==0 and os.getppid()==0
-assert sorted(int(p) for p in os.listdir('/proc') if p.isdigit())==[1]
+# PID 1 is the collector's in-namespace reaper; the tracer stays outside.
+assert os.getuid()==0 and os.getppid()==1 and os.getpid()==2
+assert sorted(int(p) for p in os.listdir('/proc') if p.isdigit())==[1,2]
 assert not any('socket:' in os.readlink('/proc/self/fd/'+f) for f in os.listdir('/proc/self/fd') if os.path.exists('/proc/self/fd/'+f))
 libc=ctypes.CDLL(None,use_errno=True)
 clone=56 if platform.machine()=='x86_64' else 220
@@ -329,7 +411,7 @@ print(json.dumps({'task_pid':os.getpid(),'fork_pids':children,'root':os.getuid()
     details = [r["details"]["details"] for r in data]
     starts = [v for v in details if v["type"] == "process_start" and not v["infrastructure"]]
     guest_pids = [int(v["identity"]["namespace_pids"].split()[-1]) for v in starts]
-    assert len(starts) == 5, starts  # one namespace-init/task plus four forks; no thread double count
+    assert len(starts) == 6, starts  # namespace reaper, task, four forks; no thread double count
     assert all(p in guest_pids for p in report["fork_pids"]), (guest_pids, report)
     assert any(v["type"] == "thread_start" for v in details)
     assert any(v["type"] == "credential_change" for v in details)
@@ -351,9 +433,12 @@ os.waitpid(p,0)
     assert fast_sink.wait(timeout=3) == 0
     starts = [r for r in records("rapid-fork") if r["details"]["details"].get("type") == "process_start"
               and not r["details"]["details"]["infrastructure"]]
-    assert len(starts) == 3  # namespace init, its child, and the immediately killed grandchild
+    assert len(starts) == 4  # namespace reaper, task, its child, and the immediately killed grandchild
     ok("fork-without-exec, rapid parent/child death, exec identity, credentials and thread exclusion audited")
     ok("task root cannot access tracer/audit FD; CLONE_UNTRACED denied and clone3 forced to traced fallback")
+
+    background(namespace)
+    task_environment(namespace)
 
     sink, collect = pair("collector-loss", "import time;print('running',flush=True)\nwhile True: pass", namespace)
     assert collect.stdout.readline().strip() == "running"

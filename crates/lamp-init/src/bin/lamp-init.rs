@@ -38,6 +38,31 @@ mod linux {
         }
     }
 
+    /// The only NIC is the sandbox's private link to its host guard
+    /// namespace. Addresses are fixed per link; the guard binds identity to
+    /// the host interface, never to these guest addresses.
+    fn configure_network() {
+        if !std::path::Path::new("/sys/class/net/eth0").exists() {
+            return;
+        }
+        for args in [
+            &["link", "set", "lo", "up"][..],
+            &["addr", "add", lamp_init::GUEST_ADDR_CIDR, "dev", "eth0"],
+            &["link", "set", "eth0", "up"],
+            &["route", "add", "default", "via", lamp_init::GUEST_GATEWAY],
+        ] {
+            match Command::new("ip")
+                .args(args)
+                .env_clear()
+                .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+                .status()
+            {
+                Ok(s) if s.success() => {}
+                other => eprintln!("lamp-init: ip {args:?}: {other:?}"),
+            }
+        }
+    }
+
     pub fn run() {
         if std::process::id() != 1 {
             eprintln!("lamp-init: must run as PID 1");
@@ -90,6 +115,10 @@ mod linux {
             libc::setsid();
         }
         let _ = std::fs::write("/proc/sys/kernel/printk", "1");
+        // The protected task collector refuses to run while unprivileged BPF
+        // is available to tasks.
+        let _ = std::fs::write("/proc/sys/kernel/unprivileged_bpf_disabled", "1");
+        configure_network();
         let mut helper = None;
         let mut last_start = Instant::now() - Duration::from_secs(10);
         loop {

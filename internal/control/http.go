@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -140,6 +142,10 @@ func decodeInput(w http.ResponseWriter, r *http.Request, out any, allowed string
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := newID("req")
 	w.Header().Set("X-Request-ID", requestID)
+	if r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/execs/") && strings.HasSuffix(r.URL.Path, "/output") {
+		s.watchOutput(w, r, requestID)
+		return
+	}
 	if r.URL.RawQuery != "" {
 		writeError(w, requestID, "INVALID_ARGUMENT", "query parameters are not supported", nil)
 		return
@@ -173,7 +179,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		send = prepareError(w, requestID, api.ErrorDetail{Code: "NOT_FOUND", Message: "resource not found"})
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != "POST" && !(r.Method == "DELETE" && strings.HasPrefix(path, "/v1/sandboxes/")) {
 		writeError(w, requestID, "NOT_FOUND", "unsupported demo route", nil)
 		return
 	}
@@ -189,16 +195,31 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var sb api.Sandbox
 	var ex api.Exec
 	switch {
+	case r.Method == "DELETE":
+		var in api.SandboxDeleteInput
+		revision, err := expectedRevision(r)
+		if err == nil && r.Body != nil && r.Body != http.NoBody && r.ContentLength != 0 {
+			_, err = decodeInput(w, r, &in, "sandbox_id wait_ms")
+		}
+		source = strings.TrimPrefix(path, "/v1/sandboxes/")
+		if err != nil || source == "" || strings.Contains(source, "/") || (in.SandboxId != "" && in.SandboxId != source) {
+			writeError(w, requestID, "INVALID_ARGUMENT", "delete requires matching sandbox_id, If-Match and Idempotency-Key", nil)
+			return
+		}
+		in.SandboxId, in.ExpectedRevision, in.IdempotencyKey = source, revision, key
+		name, wait = "sandbox_delete", in.WaitMs
+		in.WaitMs = nil
+		input = in
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		_, err := decodeInput(w, r, &in, "template_id engine_id resources wait_ms")
+		_, err := decodeInput(w, r, &in, "template_id engine_id resources durability wait_ms")
 		in.IdempotencyKey = key
 		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "create requires template_id and Idempotency-Key; only demo body fields are admitted", nil)
 			return
 		}
 		if in.Resources == nil {
-			in.Resources = &api.Resources{Vcpus: 2, MemoryMib: 4096, DiskGib: 20, PidsMax: 1024}
+			in.Resources = &api.Resources{Vcpus: 2, MemoryMib: 4096, DiskGib: 20, PidsMax: 4096}
 		}
 		res := in.Resources
 		if res.Vcpus == 0 || res.Vcpus > math.MaxUint32 || res.MemoryMib == 0 || res.DiskGib == 0 || res.PidsMax == 0 {
@@ -209,6 +230,13 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, requestID, "INVALID_ARGUMENT", "engine_id cannot be empty", nil)
 			return
 		}
+		if in.Durability == nil {
+			in.Durability = pointer(api.SandboxCreateInputDurabilityVolatile)
+		}
+		if code := admittedDurability(string(*in.Durability)); code != "" {
+			writeError(w, requestID, code, "durability is not supported by the local worker", nil)
+			return
+		}
 		name, key, wait = "sandbox_create", in.IdempotencyKey, in.WaitMs
 		in.WaitMs = nil
 		input = in
@@ -216,6 +244,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sb.TemplateId = in.TemplateId
 		sb.EngineId = in.EngineId
 		sb.Resources = in.Resources
+		sb.Durability = pointer(api.SandboxDurability(*in.Durability))
 	case strings.HasPrefix(path, "/v1/sandboxes/") && strings.HasSuffix(path, ":fork"):
 		var in api.SandboxForkInput
 		revisions := r.Header.Values("If-Match")
@@ -232,8 +261,15 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		in.IdempotencyKey = key
 		in.ExpectedRevision = revision
 		source = strings.TrimSuffix(strings.TrimPrefix(path, "/v1/sandboxes/"), ":fork")
-		if err != nil || source == "" || strings.Contains(source, "/") || in.IdempotencyKey == "" || (in.SandboxId != "" && in.SandboxId != source) || (in.ForkMode != nil && *in.ForkMode != "memory") || (in.Durability != nil && *in.Durability != "volatile") {
-			writeError(w, requestID, "INVALID_ARGUMENT", "fork requires matching sandbox_id, If-Match and Idempotency-Key headers; only volatile memory fork is admitted", nil)
+		if err != nil || source == "" || strings.Contains(source, "/") || in.IdempotencyKey == "" || (in.SandboxId != "" && in.SandboxId != source) || (in.ForkMode != nil && *in.ForkMode != "memory") {
+			writeError(w, requestID, "INVALID_ARGUMENT", "fork requires matching sandbox_id, If-Match and Idempotency-Key headers; only memory fork is admitted", nil)
+			return
+		}
+		if in.Durability == nil {
+			in.Durability = pointer(api.SandboxForkInputDurabilityVolatile)
+		}
+		if code := admittedDurability(string(*in.Durability)); code != "" {
+			writeError(w, requestID, code, "durability is not supported by the local worker", nil)
 			return
 		}
 		in.SandboxId = source
@@ -242,6 +278,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		input = in
 		sb = newSandbox()
 		sb.ParentSandboxId = pointer(source)
+		sb.Durability = pointer(api.SandboxDurability(*in.Durability))
 	case path == "/v1/execs":
 		var in api.ExecCreateInput
 		_, err := decodeInput(w, r, &in, "sandbox_id argv cwd env wait_ms")
@@ -292,17 +329,16 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, requestID, "DATA_UNAVAILABLE", "journal unavailable", nil)
 		return
 	}
-	for id, rec := range s.journal.Operations {
-		if rec.Key == journalKey {
-			if rec.Hash != hash {
-				s.mu.Unlock()
-				writeError(w, requestID, "IDEMPOTENCY_CONFLICT", "key was already used with different inputs", pointer(id))
-				return
-			}
+	if id, ok := s.keys[journalKey]; ok {
+		rec := s.journal.Operations[id]
+		if rec.Hash != hash {
 			s.mu.Unlock()
-			s.respond(w, r, requestID, id, true, wait)
+			writeError(w, requestID, "IDEMPOTENCY_CONFLICT", "key was already used with different inputs", pointer(id))
 			return
 		}
+		s.mu.Unlock()
+		s.respond(w, r, requestID, id, true, wait)
+		return
 	}
 	if len(s.journal.Operations) >= maxOperations {
 		s.mu.Unlock()
@@ -321,10 +357,18 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, requestID, "REVISION_CONFLICT", "sandbox revision changed", nil)
 			return
 		}
-		if parent.State != "ready" || s.busy[source] {
+		if name == "sandbox_delete" && parent.Revision != input.(api.SandboxDeleteInput).ExpectedRevision {
+			s.mu.Unlock()
+			writeError(w, requestID, "REVISION_CONFLICT", "sandbox revision changed", nil)
+			return
+		}
+		if (parent.State != "ready" && name != "sandbox_delete") || s.busy[source] {
 			s.mu.Unlock()
 			writeError(w, requestID, "RESOURCE_IN_USE", "sandbox is not ready or has an in-flight operation", nil)
 			return
+		}
+		if name == "sandbox_delete" {
+			sb = parent
 		}
 		if name == "sandbox_fork" {
 			sb.TemplateId = parent.TemplateId
@@ -347,11 +391,12 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	refs := []api.ResourceRef{ref}
 	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
 	s.journal.Operations[id] = &record{Operation: op, Hash: hash, Key: journalKey, Resource: ref}
+	s.keys[journalKey] = id
 	s.done[id] = make(chan struct{})
 	if source != "" {
 		s.busy[source] = true
 	}
-	if err := s.save(); err != nil {
+	if err := s.save(id, ref.Id, source); err != nil {
 		s.broken = true
 		s.mu.Unlock()
 		writeError(w, requestID, "DATA_UNAVAILABLE", "cannot persist operation admission", nil)
@@ -364,7 +409,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func newSandbox() api.Sandbox {
 	now := timestamp()
-	return api.Sandbox{Id: newID("sb"), Kind: "sandbox", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", Generation: pointer(uint64(1)), EffectivePolicyRevision: pointer(uint64(1)), Durability: pointer(api.SandboxDurabilityVolatile)}
+	return api.Sandbox{Id: newID("sb"), Kind: "sandbox", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", Generation: pointer(uint64(1)), EffectivePolicyRevision: pointer(uint64(1)), Durability: pointer(api.SandboxDurabilityVolatile), Boundary: pointer(api.SandboxBoundaryVm)}
 }
 func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id string, replayed bool, wait *uint64) {
 	s.mu.Lock()
@@ -422,7 +467,21 @@ func (s *Service) execute(id, source string) {
 	} else {
 		sb = s.journal.Sandboxes[source]
 	}
-	s.mu.Unlock()
+	// The running transition is committed while the first worker request is
+	// already in flight. Readers still never see it before it is durable:
+	// this goroutine-handed lock is released only after the commit. Recovery
+	// is unchanged, because the durable accepted record already restarts as
+	// outcome_unknown. A failed commit breaks the journal (no further
+	// publication) and leaves the dispatched effect unknown.
+	running := make(chan error, 1)
+	go func() {
+		err := s.save(id, ref.Id, source)
+		if err != nil {
+			s.broken = true
+		}
+		s.mu.Unlock()
+		running <- err
+	}()
 	generation := *sb.Generation
 	request := func(step, sandbox string, generation uint64) *pb.Request {
 		deadline, _ := ctx.Deadline()
@@ -445,6 +504,9 @@ func (s *Service) execute(id, source string) {
 		return s.worker.perform(ctx, r, "command_started")
 	}
 	var err error
+	// sourceIntact: a fork failed only after the source's capture
+	// completed, so the source itself was left running and unchanged.
+	sourceIntact := false
 	switch name {
 	case "sandbox_create":
 		err = allocate()
@@ -457,10 +519,18 @@ func (s *Service) execute(id, source string) {
 	case "sandbox_fork":
 		capture := newID("capture")
 		r := request("capture", source, generation)
-		r.Command = &pb.Request_Capture{Capture: &pb.Capture{CaptureId: capture, PreservesMemory: true, Consistency: "crash"}}
-		err = s.worker.perform(ctx, r, "captured")
+		consistency := "crash"
+		if value(sb.Durability) == "local" {
+			consistency = "local"
+		}
+		r.Command = &pb.Request_Capture{Capture: &pb.Capture{CaptureId: capture, PreservesMemory: true, Consistency: consistency}}
+		// The child is allocated first: the engine builds its guard network
+		// while the source is being captured.
+		err = allocate()
 		if err == nil {
-			err = allocate()
+			err = s.worker.perform(ctx, r, "captured")
+			// Only a completed capture proves the source resumed unchanged.
+			sourceIntact = err == nil
 		}
 		if err == nil {
 			err = restore(capture)
@@ -468,12 +538,34 @@ func (s *Service) execute(id, source string) {
 		if err == nil {
 			err = start([]string{"/bin/true"}, "/", nil)
 		}
+	case "sandbox_delete":
+		r := request("stop", sb.Id, generation)
+		r.Command = &pb.Request_Stop{Stop: &pb.Stop{Force: true}}
+		err = s.worker.perform(ctx, r, "stopped")
+		if workerNotFound(err) {
+			err = nil
+		}
+		if err == nil {
+			r = request("release", sb.Id, generation)
+			r.Command = &pb.Request_Release{Release: &pb.Release{}}
+			err = s.worker.perform(ctx, r, "released")
+			if workerNotFound(err) {
+				err = nil
+			}
+		}
 	case "exec_create":
 		var env map[string]string
 		if ex.Env != nil {
 			env = map[string]string(*ex.Env)
 		}
 		err = start(*ex.Argv, value(ex.Cwd), env)
+	}
+	if <-running != nil {
+		s.mu.Lock()
+		delete(s.busy, source)
+		close(s.done[id])
+		s.mu.Unlock()
+		return
 	}
 	now := timestamp()
 	s.mu.Lock()
@@ -497,7 +589,7 @@ func (s *Service) execute(id, source string) {
 		}
 		op.Error = &api.ErrorDetail{Code: api.ErrorCode(code), Message: failure.message, Retryable: failure.retryable, OperationId: pointer(id)}
 		op.CleanupState = pointer(api.OperationCleanupStatePending)
-		if source != "" && (name == "sandbox_fork" || failure.unknown) {
+		if source != "" && (name == "sandbox_fork" || failure.unknown) && !sourceIntact {
 			parent := s.journal.Sandboxes[source]
 			parent.State = "unavailable"
 			parent.Revision++
@@ -519,6 +611,11 @@ func (s *Service) execute(id, source string) {
 			sb.State = "ready"
 			sb.Readiness = &api.Readiness{CommandStartedAt: &now, Checks: &[]api.ReadinessCheck{{Name: "command", State: "passed"}}}
 			result, _ = json.Marshal(api.SandboxCreateCompletion{SandboxId: sb.Id, SessionIds: []string{}})
+			if name == "sandbox_delete" {
+				sb.State = "deleted"
+				sb.Readiness = nil
+				result = api.AdapterDocument(`{}`)
+			}
 		} else {
 			ex.State = "running"
 			ex.StartedAt = &now
@@ -535,15 +632,202 @@ func (s *Service) execute(id, source string) {
 		ex.UpdatedAt = now
 		s.journal.Execs[ex.Id] = ex
 	}
-	if err := s.save(); err != nil {
+	if err := s.save(id, ref.Id, source); err != nil {
 		s.broken = true
 	}
 	delete(s.busy, source)
 	close(s.done[id])
+	if name == "exec_create" && err == nil && !s.broken {
+		s.wg.Add(1)
+		go s.observeExec(ex.Id, request("observe", sb.Id, generation).Context, id+".start")
+	}
 }
 func value[T any](v *T) (zero T) {
 	if v != nil {
 		return *v
 	}
 	return zero
+}
+
+func admittedDurability(d string) string {
+	switch d {
+	case "volatile", "local":
+		return ""
+	case "replicated", "backup":
+		return "QUORUM_REQUIRED"
+	default:
+		return "INVALID_ARGUMENT"
+	}
+}
+func expectedRevision(r *http.Request) (uint64, error) {
+	revisions := r.Header.Values("If-Match")
+	if len(revisions) != 1 {
+		return 0, errors.New("one If-Match required")
+	}
+	return strconv.ParseUint(revisions[0], 10, 64)
+}
+func workerNotFound(err error) bool {
+	var failure *workerFailure
+	return errors.As(err, &failure) && failure.code == "NOT_FOUND" && !failure.unknown
+}
+
+// Completion observation is separate from Start admission and never holds mu
+// while waiting on the supervisor. A lost command cannot fabricate exit zero.
+func (s *Service) observeExec(id string, c *pb.Context, commandID string) {
+	defer s.wg.Done()
+	ctx, cancel := context.WithTimeout(s.context(), s.worker.config.Timeout)
+	defer cancel()
+	deadline, _ := ctx.Deadline()
+	c.DeadlineMs = uint64(deadline.UnixMilli())
+	var command *pb.CommandResult
+	polls := 0
+	for {
+		c.RequestId, c.OperationId = newID("req"), newID("op")
+		receipt, err := s.worker.call(ctx, &pb.Request{Context: c, Command: &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: commandID}}})
+		if err != nil || receipt.Detail["command_state"] == "unknown" {
+			break
+		}
+		if receipt.Command != nil && receipt.Command.FinishedAtUnixNs != 0 {
+			command = receipt.Command
+			break
+		}
+		if receipt.Detail["command_state"] != "running" {
+			break
+		}
+		// 1 ms while the command is young, then 4 ms: short commands are
+		// seen promptly without a 1 kHz RPC stream for long-running ones.
+		polls++
+		delay := time.Millisecond
+		if polls > 50 {
+			delay = 4 * time.Millisecond
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+		case <-timer.C:
+		}
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ex := s.journal.Execs[id]
+	ex.State = "outcome_unknown"
+	if command != nil {
+		ex.State = "exited"
+		ex.ExitCode, ex.Signal = pointer(int64(command.ExitCode)), pointer(int64(command.Signal))
+		if command.StartedAtUnixNs != 0 {
+			ex.StartedAt = pointer(time.Unix(0, int64(command.StartedAtUnixNs)).UTC().Format(time.RFC3339Nano))
+		}
+		frames := []api.Frame{}
+		for i, tail := range [][]byte{command.StdoutTail, command.StderrTail} {
+			if len(tail) == 0 {
+				continue
+			}
+			channel := api.FrameChannelStdout
+			if i == 1 {
+				channel = api.FrameChannelStderr
+			}
+			frames = append(frames, api.Frame{StreamId: id + "." + string(channel), Sequence: 0, Channel: channel, DataBase64: base64.StdEncoding.EncodeToString(tail), ByteOffset: "0", LocationEpoch: 1})
+		}
+		s.journal.Outputs[id] = frames
+	}
+	ex.Revision++
+	ex.UpdatedAt = timestamp()
+	s.journal.Execs[id] = ex
+	if err := s.save(id); err != nil {
+		s.broken = true
+	}
+}
+
+func (s *Service) watchOutput(w http.ResponseWriter, r *http.Request, requestID string) {
+	id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/execs/"), "/output")
+	q, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeError(w, requestID, "INVALID_ARGUMENT", "invalid query encoding", nil)
+		return
+	}
+	var offset uint64
+	limit, wait := uint64(100), uint64(0)
+	for key, values := range q {
+		if len(values) != 1 {
+			writeError(w, requestID, "INVALID_ARGUMENT", "one value per output query parameter required", nil)
+			return
+		}
+		var err error
+		switch key {
+		case "cursor":
+			prefix := id + ":"
+			if !strings.HasPrefix(values[0], prefix) {
+				err = errors.New("cursor belongs to another stream")
+			} else {
+				offset, err = strconv.ParseUint(strings.TrimPrefix(values[0], prefix), 10, 64)
+			}
+		case "limit":
+			limit, err = strconv.ParseUint(values[0], 10, 64)
+		case "wait_ms":
+			wait, err = strconv.ParseUint(values[0], 10, 64)
+		default:
+			err = errors.New("unsupported query parameter")
+		}
+		if err != nil {
+			writeError(w, requestID, "INVALID_ARGUMENT", "invalid output query parameter", nil)
+			return
+		}
+	}
+	if wait > 60000 || limit > 1000 {
+		writeError(w, requestID, "INVALID_ARGUMENT", "output wait limit is 60000 ms; frame limit is 1000", nil)
+		return
+	}
+	until := time.Now().Add(time.Duration(wait) * time.Millisecond)
+	for {
+		s.mu.Lock()
+		if s.broken {
+			s.mu.Unlock()
+			writeError(w, requestID, "DATA_UNAVAILABLE", "journal unavailable", nil)
+			return
+		}
+		ex, ok := s.journal.Execs[id]
+		if !ok {
+			s.mu.Unlock()
+			writeError(w, requestID, "NOT_FOUND", "exec not found", nil)
+			return
+		}
+		frames := s.journal.Outputs[id]
+		if offset > uint64(len(frames)) {
+			s.mu.Unlock()
+			writeError(w, requestID, "INVALID_ARGUMENT", "cursor exceeds available output", nil)
+			return
+		}
+		more := ex.State == "accepted" || ex.State == "running"
+		if more && offset == uint64(len(frames)) && time.Now().Before(until) {
+			// Sleep until the next durable journal change or the deadline.
+			changed := s.changed
+			s.mu.Unlock()
+			timer := time.NewTimer(time.Until(until))
+			select {
+			case <-r.Context().Done():
+				timer.Stop()
+				return
+			case <-changed:
+				timer.Stop()
+			case <-timer.C:
+			}
+			continue
+		}
+		end := offset + limit
+		if end > uint64(len(frames)) {
+			end = uint64(len(frames))
+		}
+		result := api.ExecWatchResult{Items: append([]api.Frame{}, frames[offset:end]...), RequestId: requestID}
+		if more || end < uint64(len(frames)) {
+			result.NextCursor = pointer(id + ":" + strconv.FormatUint(end, 10))
+		}
+		send := prepareJSON(w, 200, result)
+		s.mu.Unlock()
+		send()
+		return
+	}
 }

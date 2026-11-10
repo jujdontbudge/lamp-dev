@@ -99,9 +99,15 @@ class PublicLamp:
             record["elapsed_ns"] = time.monotonic_ns() - started
             self.calls.append(record)
 
+    def wait_ms(self, deadline):
+        """A server-side wait bounded by the caller's own deadline (API max 60 s)."""
+        return max(1, min(60000, int((deadline - time.monotonic()) * 1000)))
+
     def mutation(self, noun, action, fields):
-        value = self.call(noun, action, {**fields, "idempotency_key": uuid.uuid4().hex})
+        # The public wait_ms makes the server hold the reply until the operation
+        # completes, so completion is seen without a client polling loop.
         deadline = time.monotonic() + self.timeout
+        value = self.call(noun, action, {**fields, "idempotency_key": uuid.uuid4().hex, "wait_ms": self.wait_ms(deadline)})
         operation = value.get("operation", {})
         if operation.get("state") in ("failed", "canceled", "outcome_unknown"):
             raise RuntimeError("operation " + operation["state"])
@@ -114,7 +120,7 @@ class PublicLamp:
                 return operation["outcome"]["result"]
             if operation["state"] in ("failed", "canceled", "outcome_unknown"):
                 raise RuntimeError("operation " + operation["state"])
-            time.sleep(.001)
+            time.sleep(.01)
         raise TimeoutError("operation completion")
 
     def get(self, sandbox):
@@ -131,6 +137,10 @@ class PublicLamp:
         exit_observed = False
         while time.monotonic() < deadline:
             fields = {"exec_id": identity}
+            if not exit_observed:
+                # Long poll: the server answers when output arrives or the
+                # command stops running, not on a client timer.
+                fields["wait_ms"] = self.wait_ms(deadline)
             if cursor is not None:
                 fields["cursor"] = cursor
             page = self.call("exec", "watch", fields)
@@ -141,11 +151,12 @@ class PublicLamp:
                     if len(output) > 4 * 1024 * 1024:
                         raise ValueError("workload output exceeds bound")
                 seen.add(key)
-            cursor = page.get("next_cursor", cursor)
-            if exit_observed:
-                if not page.get("next_cursor"):
-                    return json.loads(output)
+            if page.get("next_cursor"):
+                cursor = page["next_cursor"]
                 continue
+            if exit_observed:
+                # Drained every page published after the exit.
+                return json.loads(output)
             status = self.call("exec", "get", {"exec_id": identity})["data"]
             if status["state"] in ("failed", "outcome_unknown"):
                 raise RuntimeError("exec " + status["state"])
@@ -153,7 +164,8 @@ class PublicLamp:
                 if status.get("exit_code") != 0:
                     raise RuntimeError("workload exited unsuccessfully")
                 exit_observed = True
-            time.sleep(.001)
+                continue
+            time.sleep(.01)
         raise TimeoutError("independent useful command")
 
 

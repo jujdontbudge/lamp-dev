@@ -4,9 +4,10 @@
 use crate::audit::Emitter;
 use serde_json::{Value, json};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ffi::CString,
-    fs, io,
+    fs,
+    io::{self, Write},
     os::unix::fs::MetadataExt,
     ptr,
     sync::{
@@ -16,7 +17,12 @@ use std::{
     time::Duration,
 };
 
-fn trace(request: libc::c_uint, pid: i32, address: usize, data: usize) -> io::Result<libc::c_long> {
+fn trace(
+    request: crate::PtraceRequest,
+    pid: i32,
+    address: usize,
+    data: usize,
+) -> io::Result<libc::c_long> {
     let n = unsafe {
         libc::ptrace(
             request,
@@ -67,11 +73,35 @@ fn identity(pid: i32) -> io::Result<Value> {
     s["argv_redacted"] = json!(true);
     Ok(s)
 }
+/// True when the task seccomp filter is installed (`Seccomp: 2`).
+fn seccomp_filtered(pid: i32) -> bool {
+    fs::read_to_string(format!("/proc/{pid}/status"))
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find_map(|l| l.strip_prefix("Seccomp:"))
+                .map(|v| v.trim() == "2")
+        })
+        .unwrap_or(false)
+}
 fn emit(emitter: &Arc<Mutex<Emitter>>, v: Value) -> io::Result<()> {
     emitter
         .lock()
         .map_err(|_| io::Error::other("audit mutex poisoned"))?
         .send(v)
+}
+fn note(emitter: &Arc<Mutex<Emitter>>, v: Value) -> io::Result<()> {
+    emitter
+        .lock()
+        .map_err(|_| io::Error::other("audit mutex poisoned"))?
+        .note(v)
+}
+/// Ends the trusted-setup deferral: returns once every record is durable.
+fn release(emitter: &Arc<Mutex<Emitter>>) -> io::Result<()> {
+    emitter
+        .lock()
+        .map_err(|_| io::Error::other("audit mutex poisoned"))?
+        .release()
 }
 fn register(
     known: &mut HashMap<i32, bool>,
@@ -97,6 +127,23 @@ fn register(
 fn c(s: &str) -> CString {
     CString::new(s).unwrap()
 }
+/// Points stdin/stdout/stderr at /dev/null (or closes them if that fails).
+/// # Safety
+/// Call only where nothing else in the process uses descriptors 0-2.
+unsafe fn release_stdio() {
+    unsafe {
+        let null = libc::open(c"/dev/null".as_ptr(), libc::O_RDWR | libc::O_CLOEXEC);
+        for fd in 0..3 {
+            if null < 0 || libc::dup2(null, fd) < 0 {
+                libc::close(fd);
+            }
+        }
+        if null > 2 {
+            libc::close(null);
+        }
+    }
+}
+
 fn child_fail() -> ! {
     unsafe { libc::_exit(126) }
 }
@@ -109,6 +156,14 @@ fn check(n: i32) {
 // Ptrace alone is NOT a containment boundary: CLONE_UNTRACED otherwise escapes it.
 // clone3 points to mutable task memory, so reject it with ENOSYS (libc falls back
 // to clone). Reject compat/x32 rather than allow an unchecked syscall ABI.
+/// Credential-changing and namespace syscalls of the native ABI.
+#[cfg(target_arch = "x86_64")]
+const CREDENTIAL_SYSCALLS: &[u64] = &[105, 106, 113, 114, 116, 117, 119, 122, 123, 272, 308];
+#[cfg(target_arch = "aarch64")]
+const CREDENTIAL_SYSCALLS: &[u64] = &[97, 144, 145, 146, 147, 149, 151, 152, 159, 268];
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+const CREDENTIAL_SYSCALLS: &[u64] = &[];
+
 fn task_seccomp() {
     let arch = if cfg!(target_arch = "x86_64") {
         0xc000003e
@@ -118,13 +173,22 @@ fn task_seccomp() {
         child_fail()
     };
     let ins = |code, jt, jf, k| libc::sock_filter { code, jt, jf, k };
-    let mut code = [
+    let head = [
         ins(0x20, 0, 0, 4), // seccomp_data.arch
         ins(0x15, 1, 0, arch),
         ins(0x06, 0, 0, 0x80000000), // KILL_PROCESS
         ins(0x20, 0, 0, 0),          // nr
         ins(0x45, 0, 1, 0x40000000), // x32
         ins(0x06, 0, 0, 0x80000000),
+        // Credential and namespace changes stop for the tracer (SECCOMP_RET_TRACE);
+        // every other syscall runs untraced, so ordinary work pays no ptrace cost.
+    ];
+    let mut code = head.to_vec();
+    for nr in CREDENTIAL_SYSCALLS {
+        code.push(ins(0x15, 0, 1, *nr as u32));
+        code.push(ins(0x06, 0, 0, 0x7ff00000)); // SECCOMP_RET_TRACE
+    }
+    code.extend([
         // io_uring can create sockets/workers without the socket/clone syscalls.
         ins(0x15, 0, 1, libc::SYS_io_uring_setup as u32),
         ins(0x06, 0, 0, 0x00050000 | libc::EPERM as u32),
@@ -150,7 +214,7 @@ fn task_seccomp() {
         ins(0x15, 1, 0, libc::AF_NETLINK as u32),
         ins(0x06, 0, 0, 0x00050000 | libc::EPERM as u32),
         ins(0x06, 0, 0, 0x7fff0000), // ALLOW
-    ];
+    ]);
     let program = libc::sock_fprog {
         len: code.len() as u16,
         filter: code.as_mut_ptr(),
@@ -158,15 +222,60 @@ fn task_seccomp() {
     check(unsafe { libc::prctl(libc::PR_SET_SECCOMP, 2, ptr::from_ref(&program), 0, 0) });
 }
 
+/// Upper bound on the task environment JSON read from `env:FD`. The public
+/// contract allows 64 values of 4096 characters; JSON escaping can grow a
+/// character to 6 bytes, so ~1.5 MiB plus names is the realistic maximum.
+pub const MAX_TASK_ENV_BYTES: u64 = 8 << 20;
+
+/// Parses and validates the task environment: a JSON object of string names
+/// to string values. The collector never passes its own environment to the
+/// task; the task gets the fixed defaults (PATH, HOME) overridden by exactly
+/// these entries. Keys are non-empty and contain
+/// neither `=` nor NUL; values contain no NUL.
+pub fn task_env(json: &str) -> io::Result<Vec<(CString, CString)>> {
+    let map: std::collections::BTreeMap<String, String> = serde_json::from_str(json)
+        .map_err(|e| io::Error::other(format!("task environment: {e}")))?;
+    map.into_iter()
+        .map(|(k, v)| {
+            if k.is_empty() || k.contains('=') {
+                return Err(io::Error::other(format!(
+                    "task environment: invalid name {k:?}"
+                )));
+            }
+            let key =
+                CString::new(k).map_err(|_| io::Error::other("task environment: NUL in name"))?;
+            let value =
+                CString::new(v).map_err(|_| io::Error::other("task environment: NUL in value"))?;
+            Ok((key, value))
+        })
+        .collect()
+}
+
 /// No shell expansion. Caller assigns a unique subordinate UID/GID per sandbox.
 /// This collector is a demo correctness path, not E02 performance qualification.
-pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
+/// Runs `argv` as the task, traced and audited. `exit_report`, if given, receives
+/// the command's raw wait status (decimal, one line) the moment the command
+/// itself exits; the collector keeps tracing any background processes it
+/// left behind until the task namespace is empty, and only then returns.
+pub fn run(
+    emitter: Emitter,
+    uid: u32,
+    argv: Vec<String>,
+    env: Vec<(CString, CString)>,
+    mut exit_report: Option<fs::File>,
+) -> io::Result<i32> {
     if unsafe { libc::geteuid() } != 0 || uid < 65536 || uid == u32::MAX || argv.is_empty() {
         return Err(io::Error::other(
             "collector requires guest root, unique uid >=65536 and an argv",
         ));
     }
-    if fs::read_to_string("/proc/sys/kernel/unprivileged_bpf_disabled")?.trim() == "0" {
+    // A kernel without the bpf syscall has no such file and no BPF to disable.
+    let bpf = match fs::read_to_string("/proc/sys/kernel/unprivileged_bpf_disabled") {
+        Ok(v) => v,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => "absent".into(),
+        Err(e) => return Err(e),
+    };
+    if bpf.trim() == "0" {
         return Err(io::Error::other("guest unprivileged BPF must be disabled"));
     }
     let args: Vec<CString> = argv
@@ -182,7 +291,7 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
     }
     if root == 0 {
         unsafe {
-            check(libc::close_range(3, u32::MAX, 0));
+            check(crate::close_range(3, u32::MAX, 0));
             check(libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL));
             check(libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0));
             if libc::ptrace(
@@ -232,9 +341,44 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
                     1,
                 ));
                 check(libc::setenv(c("HOME").as_ptr(), c("/tmp").as_ptr(), 1));
-                libc::execvp(args[0].as_ptr(), pointers.as_ptr());
-                child_fail();
+                // The requested task environment, validated before fork,
+                // applied last so it overrides the defaults.
+                for (key, value) in &env {
+                    check(libc::setenv(key.as_ptr(), value.as_ptr(), 1));
+                }
+                // This process is PID 1 of the task namespace: if it were the
+                // command, the kernel would kill every background job the
+                // moment the command exits. It forks the command and reaps
+                // until the namespace is empty, exiting with the command's
+                // own status, so background jobs keep running (and traced).
+                let command = libc::fork();
+                if command < 0 {
+                    child_fail();
+                }
+                if command == 0 {
+                    libc::execvp(args[0].as_ptr(), pointers.as_ptr());
+                    child_fail();
+                }
+                // Only the command and its jobs hold the caller's output
+                // pipes, so they reach EOF when the command's output ends.
+                release_stdio();
+                let mut status = 0;
+                loop {
+                    let mut code = 0;
+                    let n = libc::waitpid(-1, &mut code, 0);
+                    if n == command {
+                        status = code;
+                    } else if n < 0 && *libc::__errno_location() != libc::EINTR {
+                        break; // ECHILD: the namespace is empty
+                    }
+                }
+                libc::_exit(if libc::WIFEXITED(status) {
+                    libc::WEXITSTATUS(status)
+                } else {
+                    128 + libc::WTERMSIG(status)
+                });
             }
+            release_stdio();
             let mut code = 0;
             loop {
                 let n = libc::waitpid(task, &mut code, 0);
@@ -252,6 +396,9 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
             });
         }
     }
+    // The tracer outlives the command while background jobs run; it must not
+    // keep the caller's output pipes open (its failures show in its status).
+    unsafe { release_stdio() };
     // Initial stop must be consumed and EXITKILL installed before fallible audit I/O.
     let mut initial = 0;
     if unsafe { libc::waitpid(root, &mut initial, 0) } != root || !libc::WIFSTOPPED(initial) {
@@ -263,11 +410,17 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
         | libc::PTRACE_O_TRACECLONE
         | libc::PTRACE_O_TRACEEXEC
         | libc::PTRACE_O_EXITKILL
+        | libc::PTRACE_O_TRACESECCOMP
         | libc::PTRACE_O_TRACESYSGOOD;
     if let Err(e) = trace(libc::PTRACE_SETOPTIONS, root, 0, options as usize) {
         unsafe { libc::kill(root, libc::SIGKILL) };
         return Err(e);
     }
+    // Records of the collector's own setup (its processes, namespace and
+    // credential changes, the command's fork) are written without waiting;
+    // they are all durable before the command's exec'd code first runs.
+    let mut emitter = emitter;
+    emitter.defer();
     let emitter = Arc::new(Mutex::new(emitter));
     let alive = emitter.clone();
     let complete = Arc::new(AtomicBool::new(false));
@@ -294,7 +447,14 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
     )?;
     let mut known = HashMap::new();
     known.insert(root, false); // value: credential syscall in flight
+    // Tasks that run under the task seccomp filter (everything from the task's
+    // exec onward, and all of its descendants). Their credential syscalls stop
+    // via SECCOMP_RET_TRACE, so they are resumed with PTRACE_CONT and only stop
+    // for the syscall exit of a credential change. The trusted namespace setup
+    // before the task's exec is still traced syscall by syscall.
+    let mut filtered: HashSet<i32> = HashSet::new();
     let mut task_pid = None;
+    let mut command_pid = None;
     let mut mapped = false;
     let mut result = 0;
     trace(libc::PTRACE_SYSCALL, root, 0, 0)?;
@@ -309,11 +469,20 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
             return Err(e);
         }
         if libc::WIFEXITED(code) || libc::WIFSIGNALED(code) {
-            emit(
+            // The exit already happened; its record need not block the tree.
+            note(
                 &emitter,
                 json!({"type":"process_exit","pid":pid,"exit_code":if libc::WIFEXITED(code){libc::WEXITSTATUS(code)}else{128+libc::WTERMSIG(code)}}),
             )?;
             known.remove(&pid);
+            filtered.remove(&pid);
+            if Some(pid) == command_pid {
+                release(&emitter)?;
+                if let Some(mut s) = exit_report.take() {
+                    // Best effort: without it the caller waits for the whole tree.
+                    let _ = writeln!(s, "{code}");
+                }
+            }
             if pid == root {
                 result = if libc::WIFEXITED(code) {
                     libc::WEXITSTATUS(code)
@@ -334,6 +503,9 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
         if !known.contains_key(&pid) {
             trace(libc::PTRACE_SETOPTIONS, pid, 0, options as usize)?;
             register(&mut known, &emitter, pid)?;
+            if seccomp_filtered(pid) {
+                filtered.insert(pid);
+            }
         }
         let mut deliver = 0;
         if event == libc::PTRACE_EVENT_FORK
@@ -349,12 +521,23 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
             )?;
             if pid == root && task_pid.is_none() {
                 task_pid = Some(child as i32);
+            } else if Some(pid) == task_pid && command_pid.is_none() {
+                command_pid = Some(child as i32);
             }
             // Record the child's creation BEFORE resuming the parent. Waiting for
             // the child's own initial stop can miss a child killed by its parent
             // (or namespace-init death) before that stop is consumed. Children
             // inherit all ptrace options and cannot run before our resume.
             register(&mut known, &emitter, child as i32)?;
+            if filtered.contains(&pid) {
+                filtered.insert(child as i32);
+            }
+        } else if event == libc::PTRACE_EVENT_SECCOMP {
+            // A filtered task entered a credential/namespace syscall: observe
+            // its result at the syscall exit.
+            known.insert(pid, true);
+            trace(libc::PTRACE_SYSCALL, pid, 0, 0)?;
+            continue;
         } else if event == libc::PTRACE_EVENT_EXEC {
             let mut old = 0_usize;
             trace(
@@ -365,15 +548,24 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
             )?;
             if old as i32 != pid {
                 known.remove(&(old as i32));
+                filtered.remove(&(old as i32));
+            }
+            if pid != root {
+                // Every task exec happens after the task seccomp filter.
+                filtered.insert(pid);
             }
             emit(
                 &emitter,
                 json!({"type":"process_exec","visibility":"process","identity":identity(pid)?}),
             )?;
+            if Some(pid) == command_pid {
+                // The command's own code runs only after its setup is durable.
+                release(&emitter)?;
+            }
         } else if signal == libc::SIGTRAP | 0x80 {
             let mut info = [0_u8; 88];
             let size = trace(
-                libc::PTRACE_GET_SYSCALL_INFO,
+                crate::PTRACE_GET_SYSCALL_INFO,
                 pid,
                 info.len(),
                 info.as_mut_ptr() as usize,
@@ -423,15 +615,49 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
         } else if signal != libc::SIGTRAP {
             deliver = signal;
         }
-        trace(libc::PTRACE_SYSCALL, pid, 0, deliver as usize)?;
+        let resume = if filtered.contains(&pid) && known.get(&pid) != Some(&true) {
+            libc::PTRACE_CONT
+        } else {
+            libc::PTRACE_SYSCALL
+        };
+        trace(resume, pid, 0, deliver as usize)?;
     }
     if !mapped {
         return Err(io::Error::other("task namespace admission failed"));
     }
     complete.store(true, Ordering::SeqCst);
+    release(&emitter)?;
     emit(
         &emitter,
         json!({"type":"collector_complete","exit_code":result}),
     )?;
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn task_env_is_validated() {
+        let env = super::task_env(r#"{"FOO":"value","PATH":"/opt/bin","EMPTY":""}"#).unwrap();
+        let pairs: Vec<(String, String)> = env
+            .into_iter()
+            .map(|(k, v)| (k.into_string().unwrap(), v.into_string().unwrap()))
+            .collect();
+        assert_eq!(
+            pairs,
+            [("EMPTY", ""), ("FOO", "value"), ("PATH", "/opt/bin")]
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+        );
+        for bad in [
+            r#"{"":"x"}"#,
+            r#"{"A=B":"x"}"#,
+            r#"{"A\u0000":"x"}"#,
+            r#"{"A":"x\u0000y"}"#,
+            r#"{"A":1}"#,
+            "[]",
+            "not json",
+        ] {
+            assert!(super::task_env(bad).is_err(), "{bad} accepted");
+        }
+    }
 }

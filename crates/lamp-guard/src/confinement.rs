@@ -32,13 +32,44 @@ pub fn close_other_fds(keep: &[i32]) -> io::Result<()> {
     let mut first = 3;
     for fd in keep {
         if first < fd {
-            check(unsafe { libc::close_range(first, fd - 1, 0) } as _)?;
+            check(unsafe { crate::close_range(first, fd - 1, 0) } as _)?;
         }
         first = fd + 1;
     }
-    check(unsafe { libc::close_range(first, u32::MAX, 0) } as _)
+    check(unsafe { crate::close_range(first, u32::MAX, 0) } as _)
 }
 pub fn enter(uid: u32, net_admin: bool, keep: &[i32]) -> io::Result<()> {
+    enter_with(uid, net_admin, keep, &[])
+}
+
+/// Syscalls the mediated proxy needs beyond the helper profile: it accepts
+/// guest connections and dials one checked origin per request.
+pub const PROXY_SYSCALLS: &[libc::c_long] = &[
+    libc::SYS_accept4,
+    libc::SYS_socket,
+    libc::SYS_connect,
+    libc::SYS_setsockopt,
+    libc::SYS_getsockopt,
+    libc::SYS_getsockname,
+    libc::SYS_getpeername,
+    libc::SYS_shutdown,
+    libc::SYS_ioctl,
+    POLL,
+    libc::SYS_writev,
+];
+#[cfg(target_arch = "x86_64")]
+const POLL: libc::c_long = libc::SYS_poll;
+// aarch64 has no poll(2); libc uses ppoll, which the base profile allows.
+#[cfg(not(target_arch = "x86_64"))]
+const POLL: libc::c_long = libc::SYS_ppoll;
+
+/// Like [`enter`], additionally allowing `extra` syscalls.
+pub fn enter_with(
+    uid: u32,
+    net_admin: bool,
+    keep: &[i32],
+    extra: &[libc::c_long],
+) -> io::Result<()> {
     close_other_fds(keep)?;
     if uid < 65536 || uid == u32::MAX {
         return Err(io::Error::other("unique subordinate guard UID required"));
@@ -130,7 +161,8 @@ pub fn enter(uid: u32, net_admin: bool, keep: &[i32]) -> io::Result<()> {
         libc::SYS_getpid,
         libc::SYS_gettid,
     ];
-    for nr in allowed {
+    for nr in allowed.iter().chain(extra) {
+        let nr = *nr;
         filter.push(ins(0x15, 0, 1, nr as u32));
         filter.push(ins(0x06, 0, 0, 0x7fff0000));
     }

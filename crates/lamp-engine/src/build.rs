@@ -183,6 +183,7 @@ fn boot(
     cmdline: &str,
     vcpus: u32,
     memory_mib: u64,
+    nic: bool,
 ) -> Result<()> {
     jail.spawn(
         &engine.cfg.bins,
@@ -218,6 +219,20 @@ fn boot(
         "/vsock",
         &format!(r#"{{"guest_cid":3,"uds_path":"/{}"}}"#, fc::VSOCK),
     )?;
+    if nic {
+        // The sandbox link. Template builds have no route or uplink behind
+        // it; every sandbox restored from the template gets its own guard.
+        crate::net::tap_only(jail)?;
+        jail.api(
+            "PUT",
+            "/network-interfaces/eth0",
+            &format!(
+                r#"{{"iface_id":"eth0","guest_mac":"{}","host_dev_name":"{}"}}"#,
+                lamp_init::GUEST_MAC,
+                crate::net::TAP
+            ),
+        )?;
+    }
     jail.api("PUT", "/actions", r#"{"action_type":"InstanceStart"}"#)?;
     guest::wait_ready(&jail.path(fc::VSOCK), Duration::from_secs(60))?;
     Ok(())
@@ -286,7 +301,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         fsutil::reflink(&seed_dir.join(fc::ROOTFS), &b.get().path(fc::ROOTFS), 0o600)?;
         fsutil::chown(&b.get().path(fc::ROOTFS), uid, uid)?;
         let t = Instant::now();
-        boot(b.get(), engine, &seed.kernel.cmdline, 2, 2048)?;
+        boot(b.get(), engine, &seed.kernel.cmdline, 2, 2048, false)?;
         let _ = writeln!(
             log,
             "build sandbox booted in {} ms",
@@ -310,6 +325,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
                     cwd: step.cwd.clone().unwrap_or_default(),
                     timeout_ms,
                     output_limit: lamp_init::DEFAULT_OUTPUT_LIMIT,
+                    audit: None,
                 }),
             )?;
             match conn.next(Some(Duration::from_secs(10)))? {
@@ -390,6 +406,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
             &seed.kernel.cmdline,
             STANDARD.vcpus,
             STANDARD.memory_mib,
+            true,
         )?;
         let _ = writeln!(log, "template VM booted in {} ms", t.elapsed().as_millis());
         // Let boot-time work settle so the captured guest is idle. Like

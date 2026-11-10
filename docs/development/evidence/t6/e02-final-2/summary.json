@@ -1,0 +1,371 @@
+{
+  "caller_after": {
+    "cpu_count": 8,
+    "disk": "Filesystem                        1K-blocks      Used Available Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv 980211368 451627248 478718392  49% /",
+    "load": [
+      2.1708984375,
+      1.41064453125,
+      1.8515625
+    ],
+    "machine": "x86_64",
+    "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+    "power": "powersave",
+    "pressure": {
+      "cpu": "some avg10=0.00 avg60=0.00 avg300=0.00 total=6913003546\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+      "io": "some avg10=12.73 avg60=11.31 avg300=8.74 total=7854707542\nfull avg10=12.51 avg60=10.98 avg300=8.46 total=6873989900\n",
+      "memory": "some avg10=0.00 avg60=0.00 avg300=0.00 total=476379440\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=324281985\n"
+    }
+  },
+  "completed_at": "2026-11-10T08:26:41.514405+00:00",
+  "diagnostic": false,
+  "last_observation_hash": "9df437304c39128a70a1bb6d5187f09dea998881f749d9bcf75cd11fe32c592d",
+  "results": {
+    "E02": {
+      "cleanup_errors": [],
+      "measures": {
+        "compile": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.2211987489008186,
+          "pairs": 10,
+          "point_ratio": 0.2867240916569702,
+          "ratios": [
+            0.56598743676874,
+            0.30705240905295594,
+            0.40276621079942576,
+            0.36814072637328393,
+            0.3146844914951522,
+            0.40686247027988515,
+            0.40022847425690106,
+            0.14181913444130292,
+            0.15213991671719526,
+            0.13180949662667596
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        },
+        "compression": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.9301975277086498,
+          "pairs": 10,
+          "point_ratio": 0.9664752328999379,
+          "ratios": [
+            0.8063715381909853,
+            0.9608283086823518,
+            0.9984014411436766,
+            1.0179248237215626,
+            0.9744761651332592,
+            0.9867621631042581,
+            0.997585652556446,
+            0.9927462502754666,
+            0.978429664880384,
+            0.9691781977147448
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        },
+        "cow_first_write": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 2.0920941082189044,
+          "pairs": 10,
+          "point_ratio": 2.818826833838411,
+          "ratios": [
+            0.805448777482134,
+            2.3765474412146497,
+            1.8744320525250378,
+            5.2487213965696435,
+            3.7977637638408623,
+            2.7595189041001835,
+            2.0084244772068014,
+            5.02245986441679,
+            3.835538018902268,
+            4.147789815886956
+          ],
+          "statistical_evidence": "objective_met",
+          "status": "pass"
+        },
+        "crypto": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.9615668730352799,
+          "pairs": 10,
+          "point_ratio": 0.9698970937430731,
+          "ratios": [
+            0.9767384598749992,
+            0.9515743044616912,
+            0.9988475261075825,
+            0.9857996036229012,
+            0.9643322983425349,
+            0.9667277194738166,
+            0.9503278804148079,
+            0.9478364357822067,
+            0.9848694598914095,
+            0.9732654857507087
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        },
+        "fsync": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 15.975434450823993,
+          "pairs": 10,
+          "point_ratio": 17.403180116242417,
+          "ratios": [
+            21.518781329870684,
+            19.634914329244705,
+            13.037471232953528,
+            14.511193107220082,
+            15.82196283023423,
+            20.66048346742062,
+            16.606015562832205,
+            16.042932284595857,
+            16.876592474901745,
+            21.69242915540472
+          ],
+          "statistical_evidence": "objective_met",
+          "status": "pass"
+        },
+        "proxy": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.21243625508906647,
+          "pairs": 10,
+          "point_ratio": 0.2321392571997512,
+          "ratios": [
+            0.20402288198473287,
+            0.22713036683481386,
+            0.22265500222598436,
+            0.2826455419218362,
+            0.22444017569022995,
+            0.24423227234894512,
+            0.16367925611531856,
+            0.31554428823703723,
+            0.2518583667380007,
+            0.21854618461515965
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        },
+        "random_read": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 2.591441210430624,
+          "pairs": 10,
+          "point_ratio": 2.821436588036877,
+          "ratios": [
+            2.7939091981913893,
+            3.0535276675497576,
+            3.272280232588826,
+            3.0856470383123398,
+            2.9953674723557837,
+            2.9141860853371613,
+            1.8903836506218148,
+            2.6556853854528684,
+            2.7945472928215325,
+            3.0303069904720163
+          ],
+          "statistical_evidence": "objective_met",
+          "status": "pass"
+        },
+        "random_write": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 1.3777241554211501,
+          "pairs": 10,
+          "point_ratio": 2.637547866664508,
+          "ratios": [
+            4.084840118841764,
+            0.18534512497629907,
+            4.395915635478354,
+            4.9471865596032005,
+            3.016843856504124,
+            4.168601712206806,
+            0.3826287126847454,
+            6.250823172678831,
+            5.715271374888621,
+            5.756317904072086
+          ],
+          "statistical_evidence": "objective_met",
+          "status": "pass"
+        },
+        "request_latency": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.760350266256298,
+          "pairs": 10,
+          "point_ratio": 0.8596040933839564,
+          "ratios": [
+            0.5130538438609172,
+            0.8908887762297413,
+            1.0206550064411797,
+            0.7389809141940687,
+            0.8310687837775175,
+            1.0862581386704715,
+            1.1447356717613892,
+            0.7830258396308384,
+            0.784275052830384,
+            1.0068537677444074
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        },
+        "seq_read": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 2.0140841570361134,
+          "pairs": 10,
+          "point_ratio": 2.3110346223992613,
+          "ratios": [
+            1.2178738029537581,
+            2.5852181844620405,
+            2.755674258157048,
+            2.482284049916743,
+            2.514792112358385,
+            2.5529228221565465,
+            2.3471137493548655,
+            2.32335882100221,
+            2.311901935337741,
+            2.493021721791719
+          ],
+          "statistical_evidence": "objective_met",
+          "status": "pass"
+        },
+        "seq_write": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 3.5303473268566123,
+          "pairs": 10,
+          "point_ratio": 4.16320068264756,
+          "ratios": [
+            3.2752953960365083,
+            3.1645099211324337,
+            11.178412853405149,
+            4.634049721408514,
+            3.9850128808241774,
+            4.87919200925909,
+            3.0316659454106,
+            3.779046610186862,
+            3.2172964743852677,
+            4.064839240406166
+          ],
+          "statistical_evidence": "objective_met",
+          "status": "pass"
+        },
+        "small_flows": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.2575676129039288,
+          "pairs": 10,
+          "point_ratio": 0.31500513485954523,
+          "ratios": [
+            0.2206130909981687,
+            0.31339657146484745,
+            0.3917921799662452,
+            0.48865198975203633,
+            0.5995600010104535,
+            0.26465304256500843,
+            0.33714199030746533,
+            0.42599697805470826,
+            0.16552526081528066,
+            0.1926647168121031
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        },
+        "tcp_goodput": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.23864169600145196,
+          "pairs": 10,
+          "point_ratio": 0.25783692436840117,
+          "ratios": [
+            0.2667440421855126,
+            0.2967453967794941,
+            0.2648896234968773,
+            0.19768826903382733,
+            0.2009438345697063,
+            0.2967172221709318,
+            0.2596631750443492,
+            0.305770654949195,
+            0.24826626434092483,
+            0.26655402224947894
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        },
+        "tcp_packets": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.8255117785220014,
+          "pairs": 10,
+          "point_ratio": 0.8654555860758514,
+          "ratios": [
+            0.848782110338649,
+            0.9248761267559227,
+            1.0798139034599867,
+            0.8676469856129426,
+            0.8019386731374113,
+            0.9226422539608383,
+            0.7680471927077273,
+            0.8642382488742761,
+            0.8357999356667095,
+            0.7808684387388235
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        },
+        "tree": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 13.928142656087307,
+          "pairs": 10,
+          "point_ratio": 18.105593228344937,
+          "ratios": [
+            8.204933455681267,
+            16.72961681375207,
+            14.215567098669608,
+            16.955303012104853,
+            9.028998314724527,
+            35.011174320714815,
+            31.537753547617218,
+            38.66320232965883,
+            18.27066810062618,
+            16.246788716508302
+          ],
+          "statistical_evidence": "objective_met",
+          "status": "pass"
+        },
+        "udp_goodput": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.7342264046847765,
+          "pairs": 9,
+          "point_ratio": 0.8074403493604886,
+          "ratios": [
+            0.9643682892865252,
+            0.5947311806890068,
+            0.935840146821759,
+            0.9971209277827943,
+            0.8115213111305347,
+            0.8848901269935298,
+            0.7788474829196949,
+            0.6590438178464599,
+            0.7394774078653561
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        },
+        "udp_packets": {
+          "method": "paired geometric mean; percentile bootstrap, seed 2202, n=10000",
+          "one_sided_95_lower": 0.701632817320322,
+          "pairs": 10,
+          "point_ratio": 0.7714886760912414,
+          "ratios": [
+            0.8476246010976239,
+            0.4922474390833713,
+            0.8795350948528834,
+            0.771913099323383,
+            0.69450084930609,
+            0.8010974637101326,
+            0.8177120286376339,
+            0.834368156276052,
+            0.8433969923765993,
+            0.8236423388000981
+          ],
+          "statistical_evidence": "provisional",
+          "status": "fail"
+        }
+      },
+      "missing_observations": [],
+      "status": "fail"
+    }
+  },
+  "status": "fail"
+}

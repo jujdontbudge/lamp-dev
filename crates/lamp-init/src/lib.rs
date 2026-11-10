@@ -60,6 +60,21 @@ pub struct Barrier {
     pub unix_time_ns: u64,
 }
 
+/// Checks an exec's requested environment before anything runs: names are
+/// non-empty and contain neither `=` nor NUL, values contain no NUL. Both the
+/// direct and the audited (collector) paths apply exactly this environment.
+pub fn validate_env(env: &BTreeMap<String, String>) -> Result<(), String> {
+    for (k, v) in env {
+        if k.is_empty() || k.contains('=') || k.contains('\0') {
+            return Err(format!("invalid environment name {k:?}"));
+        }
+        if v.contains('\0') {
+            return Err(format!("environment value for {k:?} contains NUL"));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Exec {
@@ -75,7 +90,33 @@ pub struct Exec {
     /// Kill the command's process group after this long; 0 means never.
     pub timeout_ms: u64,
     pub output_limit: usize,
+    /// When set, the command runs only under the protected task collector
+    /// (`lamp-guard collect vsock:PORT TASK_UID -- argv`), which streams its
+    /// process records to the host before releasing each effect.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit: Option<Audit>,
 }
+
+/// Host-chosen collector attachment for one command.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Audit {
+    /// Host vsock port (CID 2) the collector connects to.
+    pub port: u32,
+    /// Subordinate guest UID/GID the task namespace root maps to (>= 65536).
+    pub task_uid: u32,
+}
+
+/// Guest path of the protected collector (installed by the seed).
+pub const GUARD_BIN: &str = "/sbin/lamp-guard";
+/// Guest side of the private sandbox link (a /30 shared with the guard).
+pub const GUEST_ADDR: &str = "198.18.240.2";
+pub const GUEST_ADDR_CIDR: &str = "198.18.240.2/30";
+pub const GUEST_GATEWAY: &str = "198.18.240.1";
+pub const GUEST_MAC: &str = "06:00:c6:12:f0:02";
+
+/// Host vsock port the guest collectors connect to.
+pub const AUDIT_PORT: u32 = 5000;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -277,6 +318,16 @@ pub fn validate_barrier(b: &Barrier) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn exec_environment_is_validated() {
+        let env = |k: &str, v: &str| BTreeMap::from([(k.to_string(), v.to_string())]);
+        assert!(validate_env(&env("FOO", "value")).is_ok());
+        assert!(validate_env(&env("FOO", "")).is_ok());
+        for (k, v) in [("", "x"), ("A=B", "x"), ("A\0", "x"), ("A", "x\0y")] {
+            assert!(validate_env(&env(k, v)).is_err(), "{k:?}={v:?} accepted");
+        }
+    }
+
     use super::*;
 
     #[test]
@@ -301,6 +352,7 @@ mod tests {
             cwd: String::new(),
             timeout_ms: 1000,
             output_limit: 10,
+            audit: None,
         });
         let mut buf = Vec::new();
         write_frame(&mut buf, &req).unwrap();

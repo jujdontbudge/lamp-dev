@@ -1,7 +1,7 @@
 //! lamp-supervisor
 //!
 //! ```text
-//! lamp-supervisor serve [--socket P] [--store P] [--allow-uid UID]...
+//! lamp-supervisor serve [--socket P] [--store P] [--allow-uid UID]... [--network-policy FILE]
 //! lamp-supervisor seed-import DIR            (root, service stopped; prints the seed_ref)
 //! lamp-supervisor template-build FILE.lamp   (root, service stopped; builds, probes, publishes)
 //! lamp-supervisor templates                  (root; read-only listing, safe next to the service)
@@ -157,6 +157,12 @@ fn host(cmd: &str, mut args: Vec<String>) {
     }
     if let Some(j) = take_flag(&mut args, "--jailer") {
         cfg.bins.jailer = j.into();
+    }
+    // Guard network + protected-process audit for every sandbox (T4 on T2).
+    if let Some(p) = take_flag(&mut args, "--network-policy") {
+        cfg.network = Some(
+            lamp_engine::net::Policy::load(std::path::Path::new(&p)).unwrap_or_else(|e| die(e)),
+        );
     }
     let mode = match cmd {
         "serve" => Mode::Daemon,

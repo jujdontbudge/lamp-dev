@@ -48,14 +48,16 @@ func TestMain(m *testing.M) {
 }
 
 type workerFixture struct {
-	listener  net.Listener
-	mu        sync.Mutex
-	requests  []*pb.Request
-	states    map[string]string
-	ready     chan struct{}
-	fail      string
-	retryable bool
-	drop      bool
+	listener     net.Listener
+	mu           sync.Mutex
+	requests     []*pb.Request
+	states       map[string]string
+	ready        chan struct{}
+	fail         string
+	retryable    bool
+	drop         bool
+	commandState string
+	command      *pb.CommandResult
 }
 
 func newWorker(t *testing.T, dir string) *workerFixture {
@@ -102,6 +104,13 @@ func (w *workerFixture) serve(c net.Conn) {
 		w.mu.Lock()
 		w.requests = append(w.requests, proto.Clone(r).(*pb.Request))
 		fail, drop, retryable := w.fail, w.drop, w.retryable
+		commandState, command := w.commandState, w.command
+		if commandState == "" {
+			commandState = "exited"
+		}
+		if command == nil {
+			command = &pb.CommandResult{FinishedAtUnixNs: 1}
+		}
 		state := ""
 		switch r.Command.(type) {
 		case *pb.Request_Allocate:
@@ -121,6 +130,8 @@ func (w *workerFixture) serve(c net.Conn) {
 				default:
 				}
 			}
+		case *pb.Request_Stop:
+			state = "stopped"
 		case *pb.Request_Release:
 			state = "released"
 		}
@@ -130,6 +141,9 @@ func (w *workerFixture) serve(c net.Conn) {
 			return
 		}
 		response := &pb.Response{Context: r.Context, Result: &pb.Response_Receipt{Receipt: &pb.Receipt{State: state}}}
+		if inspect := r.GetInspect(); inspect != nil && inspect.CommandOperationId != "" {
+			response.Result = &pb.Response_Receipt{Receipt: &pb.Receipt{State: "inspected", Detail: map[string]string{"command_state": commandState}, Command: command}}
+		}
 		if fail != "" {
 			response.Result = &pb.Response_Error{Error: &pb.WorkerError{Code: fail, Message: "fixture rejection", Retryable: retryable}}
 		}
@@ -204,7 +218,8 @@ func startDaemonFor(t *testing.T, dir string, w *workerFixture, workerSocket str
 			t.Fatalf("lampd did not start: %v: %s", err, log.String())
 		default:
 		}
-		if _, err := os.Stat(socket); err == nil {
+		if conn, err := net.DialTimeout("unix", socket, 50*time.Millisecond); err == nil {
+			conn.Close()
 			return d
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -294,7 +309,7 @@ func TestEndToEndCreateExecFork(t *testing.T) {
 	}
 	var ex api.ExecGetResult
 	d.request(t, "GET", "/v1/execs/"+executed.Result.ExecId, "", 200, &ex)
-	if ex.Data.State != "running" || ex.Data.StartedAt == nil {
+	if (ex.Data.State != "running" && ex.Data.State != "exited") || ex.Data.StartedAt == nil {
 		t.Fatalf("exec: %+v", ex.Data)
 	}
 	var forked api.SandboxForkResult

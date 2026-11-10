@@ -1,0 +1,6 @@
+{"run": "e01-full-1", "status": "fail", "end_phase": "hung",
+ "stopped_at": "2026-11-10T05:03Z", "stopped_by": "SIGINT then SIGTERM from the T6 agent at the owner's request; harness exit 143; no summary.json written",
+ "last_trial_record_line": 5231, "last_trial_record_kind": "row_setup_failure (b1-replicated-1024)",
+ "end_phase_detail": "After the last row the harness wrote its in-memory public-call transcript, one fsynced chained observation per call: 567,569 records, 270 MB, about 10 MB/min, still unfinished after ~60 min. The volume comes from 1 ms CLI polling of operation get / exec get / exec watch during the trials.",
+ "owner_services": "excerlock-dm-tt, -dm-ig, -dm-chrome, -beeper stopped at 03:33Z for the timing run; the owner restarted them at 05:00Z because the end phase held them; the wrapper restart at stop confirmed all four active (beeper restarted at 05:02Z).",
+ "rows": "derived from observations.jsonl by rows.py, see e01-full-1.rows.txt"}

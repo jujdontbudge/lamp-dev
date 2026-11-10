@@ -71,6 +71,63 @@ pub fn init_cgroups() -> Result<()> {
     std::fs::create_dir_all(cgroup_dir(LAYER_CGROUP)).ctx("create layer cgroup")
 }
 
+/// The next capture's memory image, already allocated (`SPARE_READY`), or
+/// being allocated (`SPARE_PREP`), inside the jail's memdir.
+pub const SPARE_READY: &str = "cap.mem.ready";
+const SPARE_PREP: &str = "cap.mem.prep";
+
+/// Allocates the next capture image of `bytes` in the background, outside
+/// any pause and outside any caller's operation. Allocating and zeroing 4 GiB
+/// of tmpfs huge pages costs ~0.3 s on LX; Firecracker then only copies guest
+/// RAM into pages that already exist (it does not truncate an existing
+/// file). The pages are charged to the shared layer cgroup, exactly like a
+/// capture image, because that is what the file becomes. Failure is harmless:
+/// the next capture falls back to letting Firecracker allocate.
+pub fn prepare_spare(jail: &Jail, bytes: u64) {
+    let (memdir, uid) = (jail.memdir.clone(), jail.uid);
+    std::thread::spawn(move || {
+        let prep = memdir.join(SPARE_PREP);
+        let _ = std::fs::remove_file(&prep);
+        let layer = CString::new(
+            cgroup_dir(LAYER_CGROUP)
+                .join("cgroup.procs")
+                .as_os_str()
+                .as_bytes(),
+        )
+        .unwrap();
+        let mut cmd = Command::new("fallocate");
+        cmd.arg("-l").arg(bytes.to_string()).arg(&prep);
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        // SAFETY: between fork and exec the hook makes only async-signal-safe
+        // calls (open/write/close on a path built beforehand), moving this
+        // process into the layer cgroup so the new pages are charged there.
+        unsafe {
+            use std::os::unix::process::CommandExt;
+            cmd.pre_exec(move || {
+                let fd = libc::open(layer.as_ptr(), libc::O_WRONLY | libc::O_CLOEXEC);
+                if fd < 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                let n = libc::write(fd, b"0".as_ptr().cast(), 1);
+                libc::close(fd);
+                if n != 1 {
+                    return Err(std::io::Error::other("join layer cgroup"));
+                }
+                Ok(())
+            });
+        }
+        let ok = cmd.output().map(|o| o.status.success()).unwrap_or(false)
+            && fsutil::chown(&prep, uid, uid).is_ok()
+            && fsutil::chmod(&prep, 0o600).is_ok()
+            && std::fs::rename(&prep, memdir.join(SPARE_READY)).is_ok();
+        if !ok {
+            let _ = std::fs::remove_file(&prep);
+        }
+    });
+}
+
 /// While alive, the jail's processes run in the shared layer cgroup, so
 /// memory they newly allocate (the snapshot's tmpfs pages) is charged there.
 /// Pages already charged, such as guest RAM, stay with the sandbox: cgroup v2

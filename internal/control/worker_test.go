@@ -180,3 +180,74 @@ func TestWorkerDoesNotSendOversizeNegotiatedRequest(t *testing.T) {
 		t.Fatal("oversize frame wrote bytes")
 	}
 }
+
+func TestWorkerMultiplexesOutOfOrderReplies(t *testing.T) {
+	dir, err := os.MkdirTemp("", "lamp-mux-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	socket := filepath.Join(dir, "w.sock")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	captureRead := make(chan struct{})
+	releaseCapture := make(chan struct{})
+	defer close(releaseCapture)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		pb.ReadFrame(conn)
+		pb.WriteFrame(conn, &pb.Frame{Payload: &pb.Frame_Hello{Hello: &pb.Hello{Protocol: pb.Protocol, WorkerId: "w", BootId: "b", MaxControlBytes: pb.MaxControlBytes}}})
+		first, err := pb.ReadFrame(conn)
+		if err != nil {
+			return
+		}
+		close(captureRead)
+		second, err := pb.ReadFrame(conn)
+		if err != nil {
+			return
+		}
+		pb.WriteFrame(conn, &pb.Frame{Payload: &pb.Frame_Response{Response: &pb.Response{Context: second.GetRequest().Context, Result: &pb.Response_Receipt{Receipt: &pb.Receipt{State: "inspected"}}}}})
+		<-releaseCapture
+		pb.WriteFrame(conn, &pb.Frame{Payload: &pb.Frame_Response{Response: &pb.Response{Context: first.GetRequest().Context, Result: &pb.Response_Receipt{Receipt: &pb.Receipt{State: "captured"}}}}})
+	}()
+	w := workerClient{config: WorkerConfig{Socket: socket, WorkerID: "w", BootID: "b", UID: os.Getuid(), PID: os.Getpid()}}
+	defer w.close()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	first := make(chan error, 1)
+	go func() {
+		receipt, err := w.call(ctx, &pb.Request{Context: &pb.Context{RequestId: "capture", OperationId: "capture"}, Command: &pb.Request_Capture{Capture: &pb.Capture{}}})
+		if err == nil && receipt.State != "captured" {
+			err = context.Canceled
+		}
+		first <- err
+	}()
+	<-captureRead
+	inspected := make(chan error, 1)
+	go func() {
+		receipt, err := w.call(ctx, &pb.Request{Context: &pb.Context{RequestId: "inspect", OperationId: "inspect"}, Command: &pb.Request_Inspect{Inspect: &pb.Inspect{}}})
+		if err == nil && receipt.State != "inspected" {
+			err = context.Canceled
+		}
+		inspected <- err
+	}()
+	select {
+	case err := <-inspected:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("capture blocked independent Inspect")
+	}
+	releaseCapture <- struct{}{}
+	if err := <-first; err != nil {
+		t.Fatal(err)
+	}
+}
