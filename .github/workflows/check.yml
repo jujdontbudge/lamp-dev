@@ -1,4 +1,4 @@
-name: contracts and workspace
+name: build and smoke tests
 # PR events are deliberately absent: outside code must never reach these hosts.
 # Ticket branches (t3/**) run only when dispatched at review time, so the three
 # owner machines are not rerunning every work-in-progress push (owner, 2026-11-10).
@@ -51,7 +51,8 @@ jobs:
           go version
           rustc --version
           python3 --version
-      - run: make bootstrap verify
+      - name: Build and run smoke tests
+        run: make bootstrap verify
       - name: Regenerate both Protobuf bindings (LX)
         if: matrix.lane == 'lx'
         run: make check-generated
