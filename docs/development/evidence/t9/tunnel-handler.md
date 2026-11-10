@@ -2,8 +2,9 @@
 
 This is implementation and local regression evidence, not signed-in E07
 qualification. Neither official harness has completed subscription sign-in.
-The Ubuntu fixture was released for T10 E03; no new laptop sandbox is permitted
-until the coordinator explicitly releases that lane.
+The Ubuntu fixture was initially released for T10 E03. The coordinator later
+released the lane for the real attempt documented in
+`signin-fork-demonstration.md`; that guest and both locks have now been released.
 
 ## Failure and fix
 
@@ -61,9 +62,10 @@ parsers and reactor, including:
 
 All 15 guard tests pass locally. Linux-target guard clippy also passes with
 `--all-targets --target x86_64-unknown-linux-gnu --locked -- -D warnings`.
-A root-only Linux regression runs a real duplex exchange after entering the
+A root-only Linux regression can run a duplex exchange after entering the
 unchanged confinement profile in a disposable subprocess. It is included and
-cross-checked, but has not been executed on Linux for this revision.
+cross-checked, but was not run for the demonstration. No tests were added or
+extended after the owner's no-new-tests decision.
 
 After merging main at `d0e4cc64656ecff3bf30ba5f981a27fd5c8be43d`,
 `make bootstrap verify`, exact worker regeneration with protoc 35.0, and
@@ -71,8 +73,8 @@ Linux-target workspace clippy all pass. The complete output and exit code 0
 are retained in `verify-macos-proxy-20261110-02.log`; the pre-merge workspace
 run is also retained in `verify-macos-proxy-20261110-01.log`.
 
-Real confined Linux
-execution, official authentication, continued inference after fork and
+Real confined Linux execution now reached the official device challenge.
+Official authentication, continued inference after fork and
 suspend/resume, permitted refresh, clean handoff and full zero-canary scans
-remain pending the laptop lane. None of these local tests authorizes T14's
+remain unproved. None of the local tests or partial device flow authorizes T14's
 format freeze.

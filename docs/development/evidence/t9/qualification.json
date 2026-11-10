@@ -5,7 +5,7 @@
   "requirements": ["CRED-003", "CRED-004", "E07"],
   "subscription_routes": {
     "claude_code": {"status": "sign_in_not_completed", "qualified": false},
-    "codex": {"status": "sign_in_attempt_failed", "qualified": false}
+    "codex": {"status": "device_challenge_only", "qualified": false}
   },
   "real_engine_control": {
     "summary": "runs/t9-control-20261110-04/summary.json",
@@ -51,6 +51,7 @@
     "macos": {
       "command": "make bootstrap verify; python3 tools/protobuf.py --check",
       "status": "pass",
+      "scope": "historical pre-T10 verification; see latest_main_merge for the current merge",
       "observation": "full local verification passes after merging current main d0e4cc64656ecff3bf30ba5f981a27fd5c8be43d; previous timeout failures remain retained",
       "logs": ["verify-macos-proxy-20261110-01.log", "verify-macos-proxy-20261110-02.log"],
       "historical_failed_logs": ["verify-macos-failed.log", "go-control-macos-retry-failed.log"],
@@ -67,29 +68,52 @@
       "command": "cargo check --workspace --all-targets --target x86_64-unknown-linux-gnu --locked; cargo clippy --workspace --all-targets --target x86_64-unknown-linux-gnu --locked -- -D warnings",
       "status": "pass",
       "runtime_executed": false,
+      "scope": "historical pre-T10 target check; the live attempt used 9c9b45c",
       "logs": ["verify-macos-proxy-20261110-02.log"]
+    },
+    "latest_main_merge": {
+      "main": "2ce9e8c8c3a2b02aac787f006d2d4f04294732ab",
+      "verified_source": "66df8f8c1a90069626c2386fdedac8c0c5233f10",
+      "command": "make verify (one invocation)",
+      "command_exit_code": 2,
+      "observation": "Go and Rust passed. The historical four-control-run assertion failed because the live attempt had been placed in the control directory. The attempt was moved unchanged to attempts/. The existing failed check and all remaining verification steps then passed; the full make verify command was not repeated.",
+      "continuation_exit_code": 0,
+      "tests_added_or_extended": false,
+      "logs": ["verify-macos-main-2ce9e8c-01.log", "verify-macos-main-2ce9e8c-continuation-01.log"]
     }
   },
   "integration_blockers": [
     "Persisted custody, public capture/export/share checks, subscription-only guard policy and bounded bridge are implemented, but not yet qualified by a complete signed-in E07 run.",
     "Official subscription sign-in has not completed. Account eligibility, useful inference, same-person live memory fork, suspend/resume and vendor-permitted refresh remain unproved for both harnesses.",
     "Official-run authority serializes persisted lineages, but does not refresh a vendor token or make stale copied credentials current.",
-    "The corrected thread-free tunnel handler passes local portable tests and Linux-target compile/lint checks; actual Linux seccomp execution and vendor endpoint access remain pending.",
+    "The corrected thread-free tunnel handler ran under confinement in a real LX guest and obtained an official device challenge. Signed-in inference and fork continuation remain unproved.",
     "Actual signed-in public export/share/session handoff, fresh official harness startup and complete memory/disk/cache/journal/export zero-canary evidence remain unproved.",
     "A nonsecret definition digest is an authenticated owner's input approval, not automatic proof of secrecy. Seed and reconstruction inputs must be verified independently of the tainted source.",
     "The synthetic source builder powers down before template capture. This control does not prove retention of a live subscription-bearing heap, environment, cache or refresh chain.",
-    "Ubuntu laptop sandbox work is paused until the coordinator confirms T10 E03 is finished."
+    "The laptop lane was released and one real attempt was made. Native authorization was not completed, the headless browser encountered the vendor verification page, and the secure approval request timed out. The guest and both locks were released."
   ],
   "local_tunnel_fix": {
     "details": "tunnel-handler.md",
     "guard_tests_macos": "pass (15 tests)",
     "linux_target_all_targets_clippy": "pass",
     "seccomp_profile_changed": false,
-    "linux_confined_runtime": "pending",
+    "linux_confined_runtime": "exercised by real native device challenge; not signed-in inference",
     "official_signed_in_E07": "incomplete",
     "failed_live_fixture_retained_at": "/var/lib/lamp/t9e06",
     "released_sandbox_id": "sb_6f9cd899723cc1be69d76cc5057afdfa",
     "release_operation_id": "op_c57dfbb08018fda482f0bbf41c48870e"
+  },
+  "current_demonstration": {
+    "details": "signin-fork-demonstration.md",
+    "summary": "attempts/t9-signin-20261110-07/summary.json",
+    "status": "incomplete",
+    "native_device_challenge_received": true,
+    "signed_in_inference_proved": false,
+    "fork_continuation_proved": false,
+    "maximum_sandboxes": 1,
+    "minimum_available_bytes": 24885805056,
+    "remaining_sandboxes": 0,
+    "locks_released": true
   },
   "vendor_references_reviewed": [
     "https://code.claude.com/docs/en/legal-and-compliance",
@@ -103,6 +127,6 @@
     "credentials_copied_from_owner_apps": false,
     "paid_service_or_subscription_purchased": false,
     "thresholds_changed": false,
-    "large_disposable_artifacts_retained_on_LX": "/var/lib/lamp/t9-control-20261110-01 through /var/lib/lamp/t9-control-20261110-04; /var/lib/lamp/t9e01 through /var/lib/lamp/t9e06"
+    "large_disposable_artifacts_retained_on_LX": "/var/lib/lamp/t9-control-20261110-01 through /var/lib/lamp/t9-control-20261110-04; /var/lib/lamp/t9e01 through /var/lib/lamp/t9e07"
   }
 }

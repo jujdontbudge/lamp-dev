@@ -1,0 +1,94 @@
+test_positive_control_and_complete_clean_outputs_are_required (test_custody.CleanBuilderOracleTests.test_positive_control_and_complete_clean_outputs_are_required) ... ok
+test_real_recorded_runs_preserve_failures_and_do_not_qualify_e07 (test_custody.CleanBuilderOracleTests.test_real_recorded_runs_preserve_failures_and_do_not_qualify_e07) ... ok
+test_successful_diagnostic_cannot_pass_e07_or_exit_successfully (test_custody.CleanBuilderOracleTests.test_successful_diagnostic_cannot_pass_e07_or_exit_successfully) ... ok
+test_a_matching_prefix_is_not_counted_twice_in_the_overlap (test_custody.CustodyScannerTests.test_a_matching_prefix_is_not_counted_twice_in_the_overlap) ... ok
+test_clean_bytes_and_sparse_holes_are_scanned_without_false_matches (test_custody.CustodyScannerTests.test_clean_bytes_and_sparse_holes_are_scanned_without_false_matches) ... ok
+test_empty_canaries_and_invalid_chunk_size_are_rejected (test_custody.CustodyScannerTests.test_empty_canaries_and_invalid_chunk_size_are_rejected) ... ok
+test_literal_and_encoded_canaries_across_every_chunk_boundary (test_custody.CustodyScannerTests.test_literal_and_encoded_canaries_across_every_chunk_boundary) ... ok
+test_nonce_cannot_be_an_arbitrary_credential (test_custody.CustodyScannerTests.test_nonce_cannot_be_an_arbitrary_credential) ... ok
+test_utf16_canary_can_end_in_a_sparse_hole (test_custody.CustodyScannerTests.test_utf16_canary_can_end_in_a_sparse_hole) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 1.681s
+
+OK
+test_fixed_memory_boundary_and_two_sandbox_ceiling (test_admission_check.AllocationGuard.test_fixed_memory_boundary_and_two_sandbox_ceiling) ... ok
+test_launch_delay_and_timeouts_are_ignored (test_timing_run.ProductionScript.test_launch_delay_and_timeouts_are_ignored) ... ok
+test_production_file_has_no_hooks (test_timing_run.ProductionScript.test_production_file_has_no_hooks) ... ok
+test_sysctl_paths_are_fixed (test_timing_run.ProductionScript.test_sysctl_paths_are_fixed) ... ok
+test_command_ignoring_term_is_killed_then_services_restored (test_timing_run.TimingRun.test_command_ignoring_term_is_killed_then_services_restored) ... ok
+test_command_status_is_kept_and_services_restored (test_timing_run.TimingRun.test_command_status_is_kept_and_services_restored) ... ok
+test_failed_cache_drop_does_not_measure_even_if_compaction_succeeds (test_timing_run.TimingRun.test_failed_cache_drop_does_not_measure_even_if_compaction_succeeds) ... ok
+test_failed_compaction_does_not_measure (test_timing_run.TimingRun.test_failed_compaction_does_not_measure) ... ok
+test_failed_host_preparation_does_not_measure_and_restores (test_timing_run.TimingRun.test_failed_host_preparation_does_not_measure_and_restores) ... ok
+test_failed_restore_exits_nonzero (test_timing_run.TimingRun.test_failed_restore_exits_nonzero) ... ok
+test_failed_stop_does_not_measure (test_timing_run.TimingRun.test_failed_stop_does_not_measure) ... ok
+test_group_member_ignoring_term_is_killed_before_restore (test_timing_run.TimingRun.test_group_member_ignoring_term_is_killed_before_restore) ... ok
+test_signal_during_launch_is_held_until_the_command_is_recorded (test_timing_run.TimingRun.test_signal_during_launch_is_held_until_the_command_is_recorded) ... ok
+test_stragglers_after_a_normal_exit_are_stopped_before_restore (test_timing_run.TimingRun.test_stragglers_after_a_normal_exit_are_stopped_before_restore) ... ok
+test_success_stops_runs_and_restores (test_timing_run.TimingRun.test_success_stops_runs_and_restores) ... ok
+test_term_reaps_the_whole_process_group (test_timing_run.TimingRun.test_term_reaps_the_whole_process_group) ... ok
+test_term_stops_and_reaps_the_command_before_restoring (test_timing_run.TimingRun.test_term_stops_and_reaps_the_command_before_restoring) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 26.683s
+
+OK
+test_arbitrary_encoded_and_literal_inputs_never_reach_the_host (test_guest_bridge.GuestBridgeTests.test_arbitrary_encoded_and_literal_inputs_never_reach_the_host) ... ok
+test_notifications_do_not_execute_tasks (test_guest_bridge.GuestBridgeTests.test_notifications_do_not_execute_tasks) ... ok
+test_tools_have_no_command_path_url_filename_or_data_arguments (test_guest_bridge.GuestBridgeTests.test_tools_have_no_command_path_url_filename_or_data_arguments) ... ok
+test_unknown_tools_and_extra_selectors_are_not_a_second_channel (test_guest_bridge.GuestBridgeTests.test_unknown_tools_and_extra_selectors_are_not_a_second_channel) ... ok
+test_valid_intent_sends_no_model_selected_arguments (test_guest_bridge.GuestBridgeTests.test_valid_intent_sends_no_model_selected_arguments) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.000s
+
+OK
+python3 tools/check_contracts.py
+56 resources, 328 operations/scopes, 31 errors, 200 events: match architecture §§11–12
+.venv/bin/python -m unittest discover -s tests/contracts -v
+test_embedded_schema_rejects_empty_enum_and_null_keywords (test_plugin.PluginContract.test_embedded_schema_rejects_empty_enum_and_null_keywords) ... ok
+test_reference_packages_all_ten_types (test_plugin.PluginContract.test_reference_packages_all_ten_types) ... ok
+test_all_operation_inputs_are_closed (test_schema.Contracts.test_all_operation_inputs_are_closed) ... ok
+test_all_schemas_well_formed (test_schema.Contracts.test_all_schemas_well_formed) ... ok
+test_create_and_unknown_fields (test_schema.Contracts.test_create_and_unknown_fields) ... ok
+test_drift_checks_fail_closed (test_schema.Contracts.test_drift_checks_fail_closed) ... ok
+test_expiry_continuation_and_preauth_shape (test_schema.Contracts.test_expiry_continuation_and_preauth_shape) ... ok
+test_nested_readiness_and_transfer (test_schema.Contracts.test_nested_readiness_and_transfer) ... ok
+test_reviewed_resource_and_operation_drift (test_schema.Contracts.test_reviewed_resource_and_operation_drift) ... ok
+test_tags_enums_and_location (test_schema.Contracts.test_tags_enums_and_location) ... ok
+test_transient_results_and_wrapped_reads (test_schema.Contracts.test_transient_results_and_wrapped_reads) ... ok
+test_uint64_precision_and_scope_empty (test_schema.Contracts.test_uint64_precision_and_scope_empty) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 1.792s
+
+OK
+.venv/bin/python -m unittest discover -s tests/ci -v
+test_context_mismatch_and_reruns_denied (test_guard.Guard.test_context_mismatch_and_reruns_denied) ... ok
+test_denial_kills_only_ancestor_worker (test_guard.Guard.test_denial_kills_only_ancestor_worker) ... Lamp host guard: terminated denied Runner.Worker 30
+ok
+test_discovery_failure_never_returns_a_failed_hook (test_guard.Guard.test_discovery_failure_never_returns_a_failed_hook) ... Lamp host guard: cannot terminate Worker; holding hook for operator intervention
+Lamp host guard: cannot terminate Worker; holding hook for operator intervention
+ok
+test_main_and_manual (test_guard.Guard.test_main_and_manual) ... ok
+test_private_owner_push (test_guard.Guard.test_private_owner_push) ... ok
+test_public_and_stranger_jobs_denied (test_guard.Guard.test_public_and_stranger_jobs_denied) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.001s
+
+OK
+python3 tools/interop.py
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
+PASS: Go request → Unix socket → Rust typed Protobuf → Go response
+public codegen: clean
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on shared package cache
+    Checking lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-init)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.26s
+
+continuation_exit_code=0
