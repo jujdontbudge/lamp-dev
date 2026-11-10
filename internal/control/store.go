@@ -29,12 +29,15 @@ type record struct {
 	Resource  api.ResourceRef `json:"resource"`
 }
 type journal struct {
-	Sequence   uint64                 `json:"sequence,omitempty"`
-	Outputs    map[string][]api.Frame `json:"outputs,omitempty"`
-	Version    int                    `json:"version"`
-	Operations map[string]*record     `json:"operations"`
-	Sandboxes  map[string]api.Sandbox `json:"sandboxes"`
-	Execs      map[string]api.Exec    `json:"execs"`
+	Sequence uint64 `json:"sequence,omitempty"`
+	// LogGeneration names the journal.log instance that follows this
+	// snapshot; every compaction starts a new one (see commitMark).
+	LogGeneration uint64                 `json:"log_generation,omitempty"`
+	Outputs       map[string][]api.Frame `json:"outputs,omitempty"`
+	Version       int                    `json:"version"`
+	Operations    map[string]*record     `json:"operations"`
+	Sandboxes     map[string]api.Sandbox `json:"sandboxes"`
+	Execs         map[string]api.Exec    `json:"execs"`
 }
 type Config struct {
 	StateDir string
@@ -63,6 +66,9 @@ type Service struct {
 	log    *os.File
 	logEnd int64
 	logCap int64
+	// mark is journal.commit: the durable committed end of log (see
+	// commitMark). A commit is acknowledged only once mark covers it.
+	mark *os.File
 }
 
 // logPrealloc is how far journal.log is extended with zeros at a time.
@@ -160,9 +166,20 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	// Only the bytes inside the durable committed boundary are history;
+	// anything past it was never acknowledged (see commitMark).
 	logData, err := io.ReadAll(log)
+	var committed []byte
+	var mark commitMark
+	var haveMark bool
 	if err == nil {
-		err = replayLog(logData, func(delta journal) error {
+		mark, haveMark, err = readCommitMark(s.dir)
+	}
+	if err == nil {
+		committed, err = committedLog(logData, mark, haveMark, s.journal.LogGeneration)
+	}
+	if err == nil {
+		err = replayLog(committed, func(delta journal) error {
 			if delta.Version != 1 || delta.Sequence == 0 {
 				return errors.New("invalid journal record")
 			}
@@ -188,6 +205,9 @@ func Open(config Config) (*Service, error) {
 			s.logRecords++
 			return nil
 		})
+	}
+	if err == nil && haveMark && mark.Generation == s.journal.LogGeneration && s.journal.Sequence != mark.Sequence {
+		err = fmt.Errorf("committed log ends at sequence %d, commit marker says %d", s.journal.Sequence, mark.Sequence)
 	}
 	if err == nil {
 		err = log.Sync()
@@ -291,10 +311,15 @@ func (s *Service) save(ids ...string) error {
 	}
 	// An in-place overwrite of initialized blocks: fdatasync makes it
 	// durable without waiting for unrelated metadata on the same disk.
-	if _, err := s.log.WriteAt(data, s.logEnd); err != nil {
+	if _, err := writeRecordAt(s.log, data, s.logEnd); err != nil {
 		return err
 	}
 	if err := datasync(s.log); err != nil {
+		return err
+	}
+	// Publish the new committed end. Until this is durable the record is
+	// not acknowledged, and a restart discards it.
+	if err := s.writeCommitMark(commitMark{Generation: s.journal.LogGeneration, End: s.logEnd + int64(len(data)), Sequence: delta.Sequence}); err != nil {
 		return err
 	}
 	s.logEnd += int64(len(data))
@@ -353,29 +378,108 @@ func allZero(b []byte) bool {
 	return true
 }
 
-// replayLog applies every committed record in order and stops cleanly only at
-// the unused zero tail, where no byte of a new commit reached the disk.
+// writeRecordAt is the record write; tests replace it to inject a write that
+// a dying process left partly done.
+var writeRecordAt = func(f *os.File, data []byte, off int64) (int, error) { return f.WriteAt(data, off) }
+
+// journal.commit holds one 512-byte sector, rewritten in place and
+// fdatasynced after each record is durable and before it is acknowledged:
 //
-// Any other bytes after the last valid record fail closed. A record that was
-// damaged after it was acknowledged (a flipped byte, a lost or NUL newline)
-// cannot be told apart from a commit cut off by power loss before fdatasync
-// returned: both leave partly written, invalid bytes. Dropping such bytes could
-// silently erase acknowledged history and the idempotency keys it carries, so
-// Open refuses the state directory and leaves the log untouched for the
-// operator to inspect.
-func replayLog(data []byte, apply func(journal) error) error {
-	for pos := 0; pos < len(data); {
-		rest := data[pos:]
-		if allZero(rest) {
-			return nil
+//	JC1 <generation> <committed end> <sequence> <crc32c of the preceding text, 8 hex>\n
+//
+// then zero padding. A process that dies at any point leaves either the old
+// or the new marker: the write is under one page, and Linux's buffered write
+// only stops between pages. Record bytes past the committed end were never
+// acknowledged, whether a SIGKILL cut their write short or not, so replay
+// discards them. Inside the end every byte must be valid history: damage
+// there fails closed. The generation binds the marker to one journal.log
+// instance: compaction writes a snapshot with a new generation, then resets
+// the log and the marker; a marker older than the snapshot means the log
+// only holds history the snapshot already contains.
+type commitMark struct {
+	Generation uint64
+	End        int64
+	Sequence   uint64
+}
+
+const markSize = 512
+
+func (m commitMark) encode() []byte {
+	text := fmt.Sprintf("JC1 %d %d %d", m.Generation, m.End, m.Sequence)
+	out := make([]byte, markSize)
+	copy(out, fmt.Sprintf("%s %08x\n", text, crc32.Checksum([]byte(text), crcTable)))
+	return out
+}
+
+func readCommitMark(dir string) (commitMark, bool, error) {
+	data, err := os.ReadFile(filepath.Join(dir, "journal.commit"))
+	if os.IsNotExist(err) {
+		return commitMark{}, false, nil
+	}
+	if err != nil {
+		return commitMark{}, false, err
+	}
+	nl := bytes.IndexByte(data, '\n')
+	if len(data) != markSize || nl < 0 || !allZero(data[nl+1:]) {
+		return commitMark{}, false, errors.New("damaged commit marker")
+	}
+	line := string(data[:nl])
+	cut := len(line) - 9
+	var m commitMark
+	var sum uint32
+	if cut < 0 || line[cut] != ' ' {
+		return commitMark{}, false, errors.New("damaged commit marker")
+	}
+	if _, err := fmt.Sscanf(line[cut+1:], "%08x", &sum); err != nil || crc32.Checksum([]byte(line[:cut]), crcTable) != sum {
+		return commitMark{}, false, errors.New("damaged commit marker")
+	}
+	if n, err := fmt.Sscanf(line[:cut], "JC1 %d %d %d", &m.Generation, &m.End, &m.Sequence); err != nil || n != 3 || m.End < 0 {
+		return commitMark{}, false, errors.New("damaged commit marker")
+	}
+	return m, true, nil
+}
+
+// writeCommitMark makes m durable. Called under mu.
+func (s *Service) writeCommitMark(m commitMark) error {
+	if _, err := s.mark.WriteAt(m.encode(), 0); err != nil {
+		return err
+	}
+	return datasync(s.mark)
+}
+
+// committedLog returns the bytes of journal.log that are acknowledged history.
+func committedLog(log []byte, m commitMark, haveMark bool, generation uint64) ([]byte, error) {
+	switch {
+	case !haveMark:
+		// Before the first marker (a new or legacy state directory) no
+		// record was ever acknowledged through this log.
+		if !allZero(log) {
+			return nil, errors.New("journal.log has records but no commit marker")
 		}
+		return nil, nil
+	case m.Generation < generation:
+		return nil, nil // a log the newer snapshot already contains
+	case m.Generation > generation:
+		return nil, fmt.Errorf("commit marker generation %d is newer than the snapshot's %d", m.Generation, generation)
+	case int64(len(log)) < m.End:
+		return nil, fmt.Errorf("journal.log is %d bytes, shorter than its committed end %d", len(log), m.End)
+	}
+	return log[:m.End], nil
+}
+
+// replayLog applies the committed records in order. Every byte of committed
+// must belong to a valid record: inside the committed boundary, damage of any
+// kind fails closed rather than dropping acknowledged history.
+func replayLog(committed []byte, apply func(journal) error) error {
+	for pos := 0; pos < len(committed); {
+		rest := committed[pos:]
 		nl := bytes.IndexByte(rest, '\n')
 		if nl < 0 {
-			return fmt.Errorf("unterminated journal record at offset %d (damaged or interrupted commit; refusing to drop it)", pos)
+			return fmt.Errorf("damaged committed journal record at offset %d", pos)
 		}
 		payload, ok := parseRecord(rest[:nl])
 		if !ok {
-			return fmt.Errorf("invalid journal record at offset %d (damaged or interrupted commit; refusing to drop it)", pos)
+			return fmt.Errorf("damaged committed journal record at offset %d", pos)
 		}
 		var delta journal
 		if err := json.Unmarshal(payload, &delta); err != nil {
@@ -402,6 +506,15 @@ func syncDirectory(path string) error {
 // between the rename and truncation of the old log. Legacy journal.json opens
 // migrate here without losing existing operation/idempotency history.
 func (s *Service) compact() error {
+	// The snapshot names the next log generation; the old log and marker
+	// become stale the moment it is renamed into place.
+	s.journal.LogGeneration++
+	renamed := false
+	defer func() {
+		if !renamed {
+			s.journal.LogGeneration--
+		}
+	}()
 	data, err := json.Marshal(s.journal)
 	if err != nil {
 		return err
@@ -425,6 +538,7 @@ func (s *Service) compact() error {
 	if err = os.Rename(path, filepath.Join(s.dir, "journal.json")); err != nil {
 		return err
 	}
+	renamed = true
 	if err = syncDirectory(s.dir); err != nil {
 		return err
 	}
@@ -438,6 +552,17 @@ func (s *Service) compact() error {
 	}
 	s.logEnd, s.logCap = 0, 0
 	if err = s.extendLog(logPrealloc); err != nil {
+		return err
+	}
+	if s.mark == nil {
+		if s.mark, err = os.OpenFile(filepath.Join(s.dir, "journal.commit"), os.O_RDWR|os.O_CREATE|unix.O_NOFOLLOW, 0600); err != nil {
+			return err
+		}
+		if err = syncDirectory(s.dir); err != nil {
+			return err
+		}
+	}
+	if err = s.writeCommitMark(commitMark{Generation: s.journal.LogGeneration, Sequence: s.journal.Sequence}); err != nil {
 		return err
 	}
 	s.logRecords = 0
@@ -454,6 +579,9 @@ func (s *Service) Close() error {
 	s.wg.Wait()
 	if s.log != nil {
 		s.log.Close()
+	}
+	if s.mark != nil {
+		s.mark.Close()
 	}
 	return s.lock.Close()
 }

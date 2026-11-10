@@ -1,8 +1,12 @@
 package control
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -50,25 +54,15 @@ func TestAppendJournalGateScaleReplayAndCompaction(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	// Unrecognized bytes after the last commit are refused, never dropped:
-	// they cannot be told apart from a damaged acknowledged record.
-	logPath := filepath.Join(config.StateDir, "journal.log")
-	clean, err := os.ReadFile(logPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f, err := os.OpenFile(logPath, os.O_WRONLY|os.O_APPEND, 0600)
+	// Bytes past the committed end were never acknowledged (a write that a
+	// dying process left partly done): replay discards them and keeps
+	// every acknowledged commit.
+	f, err := os.OpenFile(filepath.Join(config.StateDir, "journal.log"), os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.WriteString(`J1 00000000 {"version":1,"sequence":`)
 	f.Close()
-	if s, err := Open(config); err == nil {
-		s.Close()
-		t.Fatal("partial bytes after the last commit were dropped")
-	}
-	// Once the operator removes them, all acknowledged history is intact.
-	writeLog(t, config, clean)
 	s, err = Open(config)
 	if err != nil {
 		t.Fatal(err)
@@ -118,19 +112,11 @@ func TestJournalReplaySnapshotBeforeLogTruncation(t *testing.T) {
 }
 
 func TestJournalRejectsCompleteCorruptRecord(t *testing.T) {
-	config := storeConfig(t)
-	s, err := Open(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.Close()
-	if err := os.WriteFile(filepath.Join(config.StateDir, "journal.log"), []byte("corrupt\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if s, err := Open(config); err == nil {
-		s.Close()
-		t.Fatal("corrupt committed log accepted")
-	}
+	config, data, starts := journalWithCommits(t, 1, 0)
+	damaged := append([]byte(nil), data...)
+	copy(damaged[starts[0]:starts[1]-1], strings.Repeat("corrupt ", 64))
+	writeLog(t, config, damaged)
+	mustRefuse(t, config, "complete corrupt committed record")
 }
 
 // journalWithCommits opens a store, makes n committed operations (op_0..),
@@ -220,8 +206,10 @@ func TestJournalRefusesDamagedFinalRecord(t *testing.T) {
 		"flipped byte": func(b []byte) { b[starts[1]+20] ^= 0x01 },
 		"NUL byte":     func(b []byte) { b[starts[1]+20] = 0 },
 		"lost newline": func(b []byte) { b[starts[2]-1] = 'x' },
-		"garbage after the zero tail starts": func(b []byte) {
-			copy(b[starts[2]+4096:], "J1 00000000 {}\n")
+		"record zeroed": func(b []byte) {
+			for i := starts[1]; i < starts[2]; i++ {
+				b[i] = 0
+			}
 		},
 	} {
 		damaged := append([]byte(nil), data...)
@@ -323,16 +311,229 @@ func TestJournalRefusesSectorAlignedDamage(t *testing.T) {
 		writeLog(t, config, damaged)
 		mustRefuse(t, config, name)
 	}
-	// A commit none of whose bytes reached the disk is just zero tail.
+	// Inside the committed end, even a fully zeroed final record is damage.
 	clean := append([]byte(nil), data...)
 	zero(clean, starts[2], starts[3])
 	writeLog(t, config, clean)
+	mustRefuse(t, config, "acknowledged final record zeroed")
+}
+
+func markerPath(config Config) string { return filepath.Join(config.StateDir, "journal.commit") }
+
+// Bytes past the committed end, in any shape, are uncommitted and discarded.
+func TestJournalDiscardsBytesPastTheCommittedEnd(t *testing.T) {
+	config, data, starts := journalWithCommits(t, 2, 0)
+	for name, tail := range map[string]string{
+		"record prefix":        `J1 0bad0bad {"version":1,"sequence":3,"operations":{"op`,
+		"complete record":      string(frameRecord([]byte(`{"version":1,"sequence":3,"operations":{}}`))),
+		"garbage with newline": "garbage\n",
+	} {
+		changed := append([]byte(nil), data...)
+		copy(changed[starts[2]:], tail)
+		copy(changed[starts[2]+5000:], tail) // and further out
+		writeLog(t, config, changed)
+		s, err := Open(config)
+		if err != nil {
+			t.Fatalf("%s: restart refused: %v", name, err)
+		}
+		if len(s.journal.Operations) != 2 || s.keys["key_op_1"] != "op_1" || s.journal.Sequence != 2 {
+			t.Fatalf("%s: acknowledged history changed", name)
+		}
+		s.Close()
+		// Restart rewrote the state; start the next case from a fresh store.
+		removeStore(t, config)
+		config, data, starts = journalWithCommits(t, 2, 0)
+	}
+}
+
+// A writer that dies in the middle of a record write, through the real save
+// path: the injected write stores only a prefix, as SIGKILL between page
+// copies does. Restart is clean; every acknowledged record is intact.
+func TestJournalRestartsAfterWriterDiesMidRecord(t *testing.T) {
+	for _, keep := range []float64{0, 0.01, 0.5, 0.99} {
+		config, _, _ := journalWithCommits(t, 2, 0)
+		s, err := Open(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.journal.Operations["op_big"] = &record{Key: "key_big", Hash: "h", Operation: api.Operation{Id: "op_big", State: "succeeded"}}
+		s.journal.Outputs["op_big"] = []api.Frame{{DataBase64: strings.Repeat("y", 3<<20)}}
+		writeRecordAt = func(f *os.File, data []byte, off int64) (int, error) {
+			n := int(float64(len(data)) * keep)
+			if _, err := f.WriteAt(data[:n], off); err != nil {
+				return 0, err
+			}
+			return n, errors.New("killed mid-write")
+		}
+		err = s.save("op_big")
+		writeRecordAt = func(f *os.File, data []byte, off int64) (int, error) { return f.WriteAt(data, off) }
+		if err == nil {
+			t.Fatal("injected death not seen")
+		}
+		s.Close()
+		s, err = Open(config)
+		if err != nil {
+			t.Fatalf("keep %.2f: restart refused after a partial write: %v", keep, err)
+		}
+		if len(s.journal.Operations) != 2 || s.keys["key_op_0"] != "op_0" || s.keys["key_op_1"] != "op_1" || s.keys["key_big"] != "" {
+			t.Fatalf("keep %.2f: history wrong after restart: %d operations", keep, len(s.journal.Operations))
+		}
+		s.Close()
+		removeStore(t, config)
+	}
+}
+
+// Death after the record is durable but before the marker covers it: the
+// record was not acknowledged, so restart discards it cleanly.
+func TestJournalRestartsAfterDeathBeforeMarker(t *testing.T) {
+	// Three records are durable in the log, but the process died before the
+	// marker covered the third: put the marker back to its second commit.
+	config, _, starts := journalWithCommits(t, 3, 0)
+	m, ok, err := readCommitMark(config.StateDir)
+	if err != nil || !ok || m.End != starts[3] {
+		t.Fatalf("marker %+v %v %v", m, ok, err)
+	}
+	m.End, m.Sequence = starts[2], m.Sequence-1
+	if err := os.WriteFile(markerPath(config), m.encode(), 0600); err != nil {
+		t.Fatal(err)
+	}
 	s, err := Open(config)
 	if err != nil {
-		t.Fatalf("unwritten final commit refused: %v", err)
+		t.Fatalf("restart refused: %v", err)
 	}
 	defer s.Close()
-	if len(s.journal.Operations) != 2 || s.keys["key_op_1"] != "op_1" {
-		t.Fatal("history lost")
+	if len(s.journal.Operations) != 2 || s.keys["key_op_1"] != "op_1" || s.keys["key_op_2"] != "" {
+		t.Fatalf("unacknowledged record kept or history lost: %d operations", len(s.journal.Operations))
+	}
+}
+
+// Damage to the marker itself, or a marker that disagrees with the log, is
+// refused.
+func TestJournalRefusesDamagedOrInconsistentMarker(t *testing.T) {
+	config, _, starts := journalWithCommits(t, 2, 0)
+	good, err := os.ReadFile(markerPath(config))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, ok, err := readCommitMark(config.StateDir)
+	if err != nil || !ok || m.End != starts[2] || m.Sequence != 2 {
+		t.Fatalf("marker %+v %v %v, want end %d sequence 2", m, ok, err, starts[2])
+	}
+	for name, marker := range map[string][]byte{
+		"flipped byte":        func() []byte { b := append([]byte(nil), good...); b[5] ^= 1; return b }(),
+		"zeroed":              make([]byte, markSize),
+		"short":               good[:100],
+		"end inside a record": commitMark{Generation: m.Generation, End: starts[1] + 10, Sequence: 2}.encode(),
+		"end past the file":   commitMark{Generation: m.Generation, End: 1 << 40, Sequence: 2}.encode(),
+		"wrong sequence":      commitMark{Generation: m.Generation, End: starts[2], Sequence: 5}.encode(),
+		"future generation":   commitMark{Generation: m.Generation + 1, End: starts[2], Sequence: 2}.encode(),
+	} {
+		if err := os.WriteFile(markerPath(config), marker, 0600); err != nil {
+			t.Fatal(err)
+		}
+		mustRefuse(t, config, "marker "+name)
+	}
+	if err := os.Remove(markerPath(config)); err != nil {
+		t.Fatal(err)
+	}
+	mustRefuse(t, config, "records without a marker")
+}
+
+// A real writer process is SIGKILLed while it commits multi-page records.
+// Every restart is clean and keeps every record the writer saw acknowledged.
+func TestJournalRestartsAfterWriterProcessIsKilled(t *testing.T) {
+	if testing.Short() {
+		t.Skip("spawns writer processes")
+	}
+	partial := 0
+	for round := 0; round < 8; round++ {
+		config := storeConfig(t)
+		if s, err := Open(config); err != nil {
+			t.Fatal(err)
+		} else {
+			s.Close()
+		}
+		cmd := exec.Command(os.Args[0], "-test.run=^TestJournalWriterProcess$")
+		cmd.Env = append(os.Environ(), "LAMP_JOURNAL_WRITER_DIR="+config.StateDir)
+		out, err := cmd.StdoutPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := cmd.Start(); err != nil {
+			t.Fatal(err)
+		}
+		lines := bufio.NewScanner(out)
+		var acked []string
+		for lines.Scan() {
+			line := lines.Text()
+			if id, ok := strings.CutPrefix(line, "acked "); ok {
+				acked = append(acked, id)
+			}
+			// Kill while a multi-page record is being written: the writer
+			// announces it from inside the real record write.
+			if line == "pwrite" && len(acked) >= 2+round%3 {
+				if round%2 == 1 {
+					time.Sleep(200 * time.Microsecond)
+				}
+				cmd.Process.Kill()
+				break
+			}
+		}
+		cmd.Wait()
+		go io.Copy(io.Discard, out)
+		logData, _ := os.ReadFile(filepath.Join(config.StateDir, "journal.log"))
+		m, _, _ := readCommitMark(config.StateDir)
+		if m.End < int64(len(logData)) && !allZero(logData[m.End:]) {
+			partial++
+		}
+		s, err := Open(config)
+		if err != nil {
+			t.Fatalf("round %d: restart after SIGKILL refused: %v", round, err)
+		}
+		for _, id := range acked {
+			if _, ok := s.journal.Operations[id]; !ok {
+				t.Fatalf("round %d: acknowledged %s lost", round, id)
+			}
+		}
+		s.Close()
+		removeStore(t, config)
+	}
+	t.Logf("%d of 8 kills left uncommitted bytes past the committed end", partial)
+}
+
+// TestJournalWriterProcess is the writer for the test above; it runs only in
+// a child process.
+func TestJournalWriterProcess(t *testing.T) {
+	dir := os.Getenv("LAMP_JOURNAL_WRITER_DIR")
+	if dir == "" {
+		t.Skip("writer child only")
+	}
+	config := storeConfig(t)
+	config.StateDir = dir
+	s, err := Open(config)
+	if err != nil {
+		fmt.Println("open failed", err)
+		os.Exit(2)
+	}
+	writeRecordAt = func(f *os.File, data []byte, off int64) (int, error) {
+		if len(data) > 1<<20 {
+			fmt.Println("pwrite")
+		}
+		return f.WriteAt(data, off)
+	}
+	for i := 0; ; i++ {
+		id := fmt.Sprintf("op_%d", i)
+		s.journal.Operations[id] = &record{Key: "key_" + id, Hash: id, Operation: api.Operation{Id: id, State: "succeeded"}}
+		size := 100
+		if i%2 == 1 {
+			size = 32 << 20 // many pages: the write takes milliseconds
+		}
+		s.journal.Outputs[id] = []api.Frame{{DataBase64: strings.Repeat("z", size)}}
+		if err := s.save(id); err != nil {
+			fmt.Println("save failed", err)
+			os.Exit(2)
+		}
+		fmt.Println("acked", id)
+		delete(s.journal.Outputs, id)
 	}
 }

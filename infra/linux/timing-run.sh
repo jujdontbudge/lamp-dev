@@ -26,12 +26,10 @@
 # host preparation, not a change to anything that is measured.
 set -u
 OWNER_UNITS=(excerlock-dm-tt.service excerlock-dm-ig.service excerlock-dm-chrome.service excerlock-beeper.service)
-STOP_GRACE=${TIMING_RUN_STOP_GRACE:-60}
-RESTORE_WAIT=${TIMING_RUN_RESTORE_WAIT:-10}
-# Test hooks only (tests/infra/test_timing_run.py): where the vm sysctls live,
-# and a pause between launching COMMAND and recording its PID.
-VM_DIR=${TIMING_RUN_VM_DIR:-/proc/sys/vm}
-LAUNCH_DELAY=${TIMING_RUN_TEST_LAUNCH_DELAY:-}
+# Fixed: no environment variable changes any of these. The tests run a
+# patched copy of this file instead (tests/infra/test_timing_run.py).
+readonly STOP_GRACE=60
+readonly RESTORE_WAIT=10
 stopped=()
 group=
 finishing=
@@ -142,7 +140,7 @@ fi
 if [ "$prepared" = 1 ]; then
 	# Both writes must succeed: a failed drop_caches is not hidden by a
 	# successful compact_memory.
-	if ! sync || ! sudo -n sh -c 'echo 3 > "$1/drop_caches" && echo 1 > "$1/compact_memory"' sh "$VM_DIR"; then
+	if ! sync || ! sudo -n sh -c 'echo 3 > /proc/sys/vm/drop_caches && echo 1 > /proc/sys/vm/compact_memory'; then
 		log "host memory preparation failed"
 		prepared=0
 	fi
@@ -162,7 +160,6 @@ trap 'pending="HUP 1"' HUP
 set -m
 "$@" </dev/null &
 set +m
-[ -n "$LAUNCH_DELAY" ] && sleep "$LAUNCH_DELAY"
 group=$!
 handle_signals
 if [ -n "$pending" ]; then

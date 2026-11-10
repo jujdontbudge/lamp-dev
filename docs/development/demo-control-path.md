@@ -192,20 +192,26 @@ create latency. No 500 ms or memory-fork performance result is claimed by T3.
 
 The owner-private journal appends one framed write-set record per state change,
 `J1 <CRC32C hex> <JSON>\n`, written in place over preallocated zero bytes and
-made durable with `fdatasync`. Save work is independent of retained history;
+made durable with `fdatasync`. Then the change's committed end is published in
+`journal.commit`: one 512-byte sector `JC1 <log generation> <end> <sequence>
+<CRC32C>`, rewritten in place and `fdatasync`ed. Only then is the change
+acknowledged. This second sync costs about 0.6 ms per commit on lane LX
+(p50 0.64 → 1.27 ms, 1,000 commits, ext4 on NVMe). Save work is independent of retained history;
 idempotency lookups use an in-memory index rebuilt on open. Admission is durable
 before effect dispatch; terminal evidence is durable before publication.
 Every 16,384 records (and on open), compaction writes and fsyncs an atomic
 `journal.json` snapshot, fsyncs the directory, then truncates/fsyncs `journal.log`.
 Sequence numbers make a crash between snapshot rename and log truncation safe.
-Open migrates existing JSON snapshots and replays checksum-valid records up to
-the zero tail, where no byte of a further commit reached the disk. Any other
-bytes after the last valid record fail closed, whether they come from a
-damaged acknowledged record or from a commit cut off by power loss before its
-`fdatasync` returned: the two cannot be told apart, and dropping either kind
-could silently erase acknowledged history and its idempotency keys. Open then
-refuses the state directory, leaves the log untouched, and does not compact;
-the operator inspects it. A write failure
+Open migrates existing JSON snapshots and replays the log up to the marker's
+committed end. Every byte inside that end must be a valid record, and the last
+sequence must match the marker; any damage there, a damaged marker, or records
+without a marker fail closed. Open then leaves the log untouched and does not
+compact, for the operator to inspect. Bytes past the committed end were never
+acknowledged and are discarded. They include a record write that a SIGKILL
+or OOM kill cut short between pages, so an ordinary process death never stops
+a restart. Compaction gives each snapshot a new log generation; a marker
+older than the snapshot means the log holds only history the snapshot already
+contains. A write failure
 closes admission and reads with
 `DATA_UNAVAILABLE` rather than exposing an uncommitted success. This local
 journal is deliberately not the later replicated/SQLite control core.

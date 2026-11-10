@@ -187,8 +187,10 @@ It found three real defects, all fixed before `e01-final`:
    36–66 ms per fsync during a fork, three per operation. Fixes: the journal
    log is preallocated with real zero bytes and committed in place with
    `fdatasync` (path identity re-checked per commit). After review, each
-   record is framed with a CRC32C. Replay stops cleanly only at the all-zero
-   tail and fails closed on any other bytes after the last valid record; the pre-dispatch commit overlaps the first worker RPC (readers
+   record is framed with a CRC32C, and a separately synced commit marker
+   bounds acknowledged history (about +0.6 ms per commit). Replay fails closed
+   on damage inside the boundary and discards the uncommitted bytes past it,
+   such as a write cut short by SIGKILL; the pre-dispatch commit overlaps the first worker RPC (readers
    still only see it once durable; recovery is unchanged because the durable
    accepted record already restarts as `outcome_unknown`); `exec watch`
    waits on a commit notification instead of a 1 ms spin under the service
@@ -243,7 +245,10 @@ wrapper handles failures as follows:
 - Every restored unit is checked to be active. If a restore fails, the
   wrapper exits 76.
 
-Stub reproductions for each case are in `tests/infra/test_timing_run.py`.
+The production script honours no environment overrides. Its tests run a
+patched copy, and separate tests run the real file with the former hook
+variables set and show that it ignores them. Stub reproductions for each case
+are in `tests/infra/test_timing_run.py`.
 
 - `e01-final` and `e02-final-2`: the wrapper stopped `dm-tt`, `dm-ig` and
   `dm-chrome` and restarted all three; each reports `active` at the end of its
