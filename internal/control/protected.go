@@ -49,6 +49,7 @@ func (s *Service) invokeProtected(w http.ResponseWriter, r *http.Request, reques
 		return
 	}
 	bound, err := adapter.ValidateInvocation(input)
+	approvalBefore := s.journal.Control.Approvals[value(input.ApprovalId)]
 	if err == nil {
 		bound = cloneBoundAction(bound)
 	}
@@ -71,7 +72,7 @@ func (s *Service) invokeProtected(w http.ResponseWriter, r *http.Request, reques
 		writeError(w, requestID, code, err.Error(), nil)
 		return
 	}
-	id := newID("op")
+	id := s.resourceID("op")
 	now := timestamp()
 	ref := *bound.Plan.ResourceRef
 	refs := []api.ResourceRef{ref}
@@ -81,6 +82,17 @@ func (s *Service) invokeProtected(w http.ResponseWriter, r *http.Request, reques
 	s.keys[key] = id
 	s.done[id] = make(chan struct{})
 	if err := s.save("$control", id); err != nil {
+		if errors.Is(err, errAuthorityConflict) {
+			// No local write or protected dispatch occurred on a definite CAS
+			// rejection. Restore consumption and discard the staged admission.
+			s.journal.Control.Approvals[value(input.ApprovalId)] = approvalBefore
+			delete(s.journal.Operations, id)
+			delete(s.keys, key)
+			delete(s.done, id)
+			s.mu.Unlock()
+			writeError(w, requestID, "REVISION_CONFLICT", "fleet authority changed; retry the same request", nil)
+			return
+		}
 		s.broken = true
 		s.mu.Unlock()
 		writeError(w, requestID, "DATA_UNAVAILABLE", "cannot commit approval consumption and admission", pointer(id))
@@ -97,7 +109,7 @@ func (s *Service) protectedScope(a caller, b BoundAction) bool {
 		return false
 	}
 	for _, sc := range s.scopes(a) {
-		if !has(sc.SandboxIds, sb.Id) || !has(sc.RecipeIds, value(sb.RecipeId)) || !has(sc.HostIds, "hs_local") {
+		if !has(sc.SandboxIds, sb.Id) || !has(sc.RecipeIds, value(sb.RecipeId)) || !has(sc.HostIds, sandboxHost(sb)) {
 			return false
 		}
 		if sc.ResourceIds != nil {
@@ -132,7 +144,7 @@ func (s *Service) executeProtected(id string, in api.ConnectionInvokeInput, boun
 	if err == nil && (!s.can(rec.Caller, "connection.invoke") || !s.protectedScope(rec.Caller, checked) || digest(checked) != digest(bound)) {
 		err = reject("SCOPE_DENIED", "protected authority or action changed before dispatch")
 	}
-	if approval, ok := s.journal.Control.Approvals[value(in.ApprovalId)]; err == nil && (!ok || approval.State != "consumed" || expired(approval.ExpiresAt)) {
+	if approval, ok := s.journal.Control.Approvals[value(in.ApprovalId)]; err == nil && (!ok || approval.State != "consumed" || s.expired(approval.ExpiresAt)) {
 		err = reject("APPROVAL_REQUIRED", "approval expired before dispatch")
 	}
 	if err == nil {

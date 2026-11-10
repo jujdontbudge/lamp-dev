@@ -1,0 +1,14 @@
+2026-11-10T16:47:45.743-0500 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-10T16:47:45.743-0500 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:40517 [Follower]" leader-address= leader-id=
+lampd: control API listening on /tmp/l16-bbefd4b0/one/api.sock
+2026-11-10T16:47:46.857-0500 [WARN]  raft: heartbeat timeout reached, starting election: last-leader-addr= last-leader-id=
+2026-11-10T16:47:46.857-0500 [INFO]  raft: entering candidate state: node="Node at 127.0.0.1:40517 [Candidate]" term=2
+2026-11-10T16:47:46.857-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
+2026-11-10T16:47:46.857-0500 [DEBUG] raft: calculated votes needed: needed=1 term=2
+2026-11-10T16:47:46.857-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
+2026-11-10T16:47:46.857-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
+2026-11-10T16:47:46.857-0500 [INFO]  raft: pre-vote successful, starting election: term=2 tally=1 refused=0 votesNeeded=1
+2026-11-10T16:47:46.857-0500 [DEBUG] raft: voting for self: term=2 id=hs_lx
+2026-11-10T16:47:46.857-0500 [DEBUG] raft: vote granted: from=hs_lx term=2 tally=1
+2026-11-10T16:47:46.857-0500 [INFO]  raft: election won: term=2 tally=1
+2026-11-10T16:47:46.857-0500 [INFO]  raft: entering leader state: leader="Node at 127.0.0.1:40517 [Leader]"
