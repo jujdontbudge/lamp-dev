@@ -10,7 +10,7 @@ description = "Guest PID 1 and guest helper for Lamp Linux microVMs, plus the ho
 serde.workspace = true
 serde_json.workspace = true
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 libc.workspace = true
 
 [[bin]]
@@ -20,3 +20,7 @@ path = "src/bin/lamp-init.rs"
 [[bin]]
 name = "lamp-guest-helper"
 path = "src/bin/lamp-guest-helper.rs"
+
+[[bin]]
+name = "lamp-mac-guest-helper"
+path = "src/bin/lamp-mac-guest-helper.rs"

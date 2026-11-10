@@ -35,6 +35,28 @@ pub struct Server {
     ops: Mutex<(HashMap<String, OpState>, VecDeque<String>)>,
 }
 
+#[cfg(target_os = "linux")]
+fn boot_id() -> String {
+    std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
+#[cfg(target_os = "macos")]
+fn boot_id() -> String {
+    std::process::Command::new("/usr/sbin/sysctl")
+        .args(["-n", "kern.bootsessionuuid"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default()
+}
+
+/// Engine IDs a caller may name for this host's engine.
+#[cfg(target_os = "linux")]
+const ENGINE_ALIASES: &[&str] = &["firecracker"];
+#[cfg(target_os = "macos")]
+const ENGINE_ALIASES: &[&str] = &["vz"];
+
 fn now_ms() -> u64 {
     lamp_engine::fsutil::now_ms()
 }
@@ -113,9 +135,7 @@ impl Server {
         Server {
             engine,
             cfg,
-            boot_id: std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
-                .map(|s| s.trim().to_string())
-                .unwrap_or_default(),
+            boot_id: boot_id(),
             ops: Mutex::new((HashMap::new(), VecDeque::new())),
         }
     }
@@ -306,21 +326,26 @@ impl Server {
             request::Command::Allocate(a) => {
                 if !a.engine_id.is_empty()
                     && a.engine_id != ENGINE_NAME
-                    && a.engine_id != "firecracker"
+                    && !ENGINE_ALIASES.contains(&a.engine_id.as_str())
                 {
                     Err(EngineError::new(
                         "ENGINE_UNQUALIFIED",
                         format!("engine {} is not on this host", a.engine_id),
                     ))
                 } else {
+                    let d = lamp_engine::engine::STANDARD;
                     let resources = a.resources.map(|r| Resources {
-                        vcpus: if r.vcpus == 0 { 2 } else { r.vcpus },
+                        vcpus: if r.vcpus == 0 { d.vcpus } else { r.vcpus },
                         memory_mib: if r.memory_mib == 0 {
-                            4096
+                            d.memory_mib
                         } else {
                             r.memory_mib
                         },
-                        disk_gib: if r.disk_gib == 0 { 20 } else { r.disk_gib },
+                        disk_gib: if r.disk_gib == 0 {
+                            d.disk_gib
+                        } else {
+                            r.disk_gib
+                        },
                     });
                     self.engine.allocate(auth, resources)
                 }
@@ -353,6 +378,7 @@ impl Server {
                 s.env.into_iter().collect(),
                 0,
             ),
+            #[cfg(target_os = "linux")]
             request::Command::Capture(c) => {
                 if !c.preserves_memory {
                     Err(EngineError::invalid(
@@ -361,6 +387,13 @@ impl Server {
                 } else {
                     self.engine.capture(auth, &c.capture_id, &c.consistency)
                 }
+            }
+            // Mac: memory fork (Linux guests), durable suspend
+            // (`consistency=suspend`) or the A2 disk-only macOS copy.
+            #[cfg(target_os = "macos")]
+            request::Command::Capture(c) => {
+                self.engine
+                    .capture(auth, &c.capture_id, &c.consistency, c.preserves_memory)
             }
             request::Command::Stop(_) => self.engine.stop(auth),
             request::Command::Release(_) => self.engine.release(auth),
@@ -433,6 +466,16 @@ impl Server {
             "cpu_baseline".into(),
             self.engine.compat.cpu_baseline.clone(),
         );
+        #[cfg(target_os = "macos")]
+        {
+            let (used, cap) = self.engine.macos_slots();
+            o.detail
+                .insert("macos_slots".into(), format!("{used}/{cap}"));
+            for t in self.engine.templates() {
+                o.detail
+                    .insert(format!("template.{}.guest_os", t.id), t.guest_os().into());
+            }
+        }
         o
     }
 }
