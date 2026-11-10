@@ -73,6 +73,12 @@ const SUSPEND_FILE: &str = "suspend.vzvmsave";
 const SUSPEND_META: &str = "suspended.json";
 const DISK: &str = "disk.img";
 const AUX: &str = "aux.img";
+/// The suspended sandbox's disks as they were when its RAM was saved. A
+/// resume runs the guest on the live disks; until the resume commits (the
+/// suspend record is removed), recovery and a failed resume put these back,
+/// so the saved RAM is never paired with later disk writes.
+const DISK_PINNED: &str = "disk.suspended.img";
+const AUX_PINNED: &str = "aux.suspended.img";
 const KERNEL: &str = "Image";
 const MACHINE: &str = "machine.json";
 
@@ -521,6 +527,51 @@ fn durable_write(path: &Path, bytes: &[u8]) -> Result<()> {
     fsutil::full_fsync(path.parent().unwrap())
 }
 
+/// Pins a suspended sandbox's disks (APFS clones, durable) before a resume
+/// lets the guest write them. Kept if already pinned by an earlier attempt.
+fn pin_suspended_disks(dir: &Path) -> Result<()> {
+    for (live, pinned) in [(DISK, DISK_PINNED), (AUX, AUX_PINNED)] {
+        let (l, p) = (dir.join(live), dir.join(pinned));
+        if !l.exists() || p.exists() {
+            continue;
+        }
+        let tmp = p.with_extension("tmp");
+        let _ = std::fs::remove_file(&tmp);
+        fsutil::reflink(&l, &tmp, 0o600)?;
+        fsutil::full_fsync(&tmp)?;
+        std::fs::rename(&tmp, &p).ctx("pin suspended disk")?;
+    }
+    fsutil::full_fsync(dir)
+}
+
+/// Puts pinned disks back in place of the live ones (recovery and a failed
+/// resume), so the saved RAM meets the disk it was saved with.
+fn unpin_suspended_disks(dir: &Path) -> Result<()> {
+    let mut moved = false;
+    for (live, pinned) in [(DISK, DISK_PINNED), (AUX, AUX_PINNED)] {
+        let p = dir.join(pinned);
+        if p.exists() {
+            std::fs::rename(&p, dir.join(live)).ctx("restore suspended disk")?;
+            moved = true;
+        }
+    }
+    let _ = std::fs::remove_file(dir.join(DISK_PINNED).with_extension("tmp"));
+    let _ = std::fs::remove_file(dir.join(AUX_PINNED).with_extension("tmp"));
+    if moved {
+        fsutil::full_fsync(dir)?;
+    }
+    Ok(())
+}
+
+/// `durable_write` without the suspend crash points (capture records).
+fn durable_write_plain(path: &Path, bytes: &[u8]) -> Result<()> {
+    let tmp = path.with_extension("tmp");
+    std::fs::write(&tmp, bytes).ctx(format!("write {}", tmp.display()))?;
+    fsutil::full_fsync(&tmp)?;
+    std::fs::rename(&tmp, path).ctx(format!("rename {}", path.display()))?;
+    fsutil::full_fsync(path.parent().unwrap())
+}
+
 /// Whether the Mac's console session is locked (or nobody is logged in at
 /// the console). Virtualization.framework seals every saved machine state
 /// with a Secure Enclave key of the console session: a state saved while
@@ -671,12 +722,28 @@ impl Engine {
         {
             std::thread::sleep(Duration::from_millis(20));
         }
-        for dir in ["captures", "staging"] {
-            let p = self.cfg.store.join(dir);
-            let _ = std::fs::remove_dir_all(&p);
-            let _ = std::fs::create_dir_all(&p);
-            let _ = fsutil::chmod(&p, 0o700);
+        // Volatile and unfinished captures go; committed local captures stay.
+        let captures = self.cfg.store.join("captures");
+        for e in std::fs::read_dir(&captures).into_iter().flatten().flatten() {
+            match self.load_durable_capture(&e.path()) {
+                Some(c) => {
+                    eprintln!("lamp-engine: kept local capture {}", c.id);
+                    self.captures
+                        .lock()
+                        .unwrap()
+                        .insert(c.id.clone(), Arc::new(c));
+                }
+                None => {
+                    let _ = std::fs::remove_dir_all(e.path());
+                }
+            }
         }
+        let _ = std::fs::create_dir_all(&captures);
+        let _ = fsutil::chmod(&captures, 0o700);
+        let staging = self.cfg.store.join("staging");
+        let _ = std::fs::remove_dir_all(&staging);
+        let _ = std::fs::create_dir_all(&staging);
+        let _ = fsutil::chmod(&staging, 0o700);
         if let Some(ram) = &self.cfg.ram_dir {
             for e in std::fs::read_dir(ram).into_iter().flatten().flatten() {
                 let _ = std::fs::remove_dir_all(e.path());
@@ -700,11 +767,55 @@ impl Engine {
                         .unwrap()
                         .insert(id, Arc::new(Mutex::new(sb)));
                 }
+                // A suspend record that could not be loaded (or whose disks
+                // could not be put back) is left for the owner, not deleted.
+                None if dir.join(SUSPEND_META).exists() => {
+                    eprintln!(
+                        "lamp-engine: suspended sandbox {id} could not be recovered; left in place"
+                    );
+                }
                 None => {
                     let _ = std::fs::remove_dir_all(&dir);
                 }
             }
         }
+    }
+
+    /// A committed `consistency=local` capture: its durable record and every
+    /// file it names are present.
+    fn load_durable_capture(&self, cdir: &Path) -> Option<CaptureRec> {
+        let meta: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(cdir.join("meta.json")).ok()?).ok()?;
+        if meta["durability"] != "local" {
+            return None;
+        }
+        let id = meta["capture_id"].as_str()?.to_string();
+        if cdir.file_name()?.to_str()? != id {
+            return None;
+        }
+        let spec: WorkerSpec = serde_json::from_value(meta.get("spec")?.clone()).ok()?;
+        let guest_os = meta["guest_os"].as_str()?.to_string();
+        let preserves_memory = meta["preserves_memory"].as_bool()?;
+        let state = preserves_memory.then(|| cdir.join(STATE_FILE));
+        if !cdir.join(DISK).exists()
+            || (guest_os == "macos" && !cdir.join(AUX).exists())
+            || state.as_ref().is_some_and(|s| !s.exists())
+        {
+            return None;
+        }
+        Some(CaptureRec {
+            id,
+            dir: cdir.to_path_buf(),
+            state,
+            source_sandbox: meta["source_sandbox_id"].as_str()?.to_string(),
+            source_generation: meta["source_generation"].as_u64()?,
+            resources: serde_json::from_value(meta.get("resources")?.clone()).ok()?,
+            durability: "local".into(),
+            preserves_memory,
+            spec,
+            guest_os,
+            restores: Mutex::new(CAPTURE_AVAILABLE),
+        })
     }
 
     fn load_suspended(&self, id: &str, dir: &Path) -> Option<Sandbox> {
@@ -714,6 +825,9 @@ impl Engine {
         if !dir.join(SUSPEND_FILE).exists() || meta["sandbox_id"] != id {
             return None;
         }
+        // A resume that did not commit may have run the guest on the live
+        // disks: the disks pinned at suspend time go back under the RAM.
+        unpin_suspended_disks(dir).ok()?;
         let resources: Resources = serde_json::from_value(meta.get("resources")?.clone()).ok()?;
         Some(Sandbox {
             id: id.into(),
@@ -1102,6 +1216,19 @@ impl Engine {
                                 min.vcpus, min.memory_mib, min.disk_gib
                             )));
                         }
+                        // The guest disk is a clone of the template's; it is
+                        // not resized (the guest's APFS container would not
+                        // follow), so only the template's size is honest.
+                        let disk_gib = std::fs::metadata(t.dir.join(DISK))
+                            .ctx("template disk")?
+                            .len()
+                            .div_ceil(1 << 30);
+                        if sb.resources.disk_gib != disk_gib {
+                            return Err(EngineError::invalid(format!(
+                                "this macOS template's disk is {disk_gib} GiB; asked for {} GiB (macOS guest disks are not resized)",
+                                sb.resources.disk_gib
+                            )));
+                        }
                         self.take_macos_slot(&sb.id)?;
                     }
                 }
@@ -1129,7 +1256,15 @@ impl Engine {
                 }
                 self.free_macos_slot(&sb.id);
                 if let Some(c) = &capture {
-                    *c.restores.lock().unwrap() = CAPTURE_AVAILABLE;
+                    // Available again only if its files are all back.
+                    let whole = c.dir.join(DISK).exists()
+                        && (c.guest_os != "macos" || c.dir.join(AUX).exists())
+                        && c.state.as_ref().is_none_or(|s| s.exists());
+                    *c.restores.lock().unwrap() = if whole {
+                        CAPTURE_AVAILABLE
+                    } else {
+                        CAPTURE_CONSUMED
+                    };
                 }
                 sb.state = State::Failed(e.message.clone());
                 Err(e)
@@ -1401,7 +1536,34 @@ impl Engine {
         })
     }
 
+    /// Restores a capture into `sb`. Its files are moved into the sandbox;
+    /// if startup fails they are moved back (sealed again), so the capture
+    /// can be restored later.
     fn restore_capture(&self, sb: &mut Sandbox, c: &CaptureRec, t0: Instant) -> Result<Outcome> {
+        let mut moved = Vec::new();
+        let r = self.restore_capture_files(sb, c, t0, &mut moved);
+        if r.is_err() && !moved.is_empty() {
+            // The worker may hold the files; it goes first.
+            if let Some(mut w) = sb.worker.take() {
+                w.kill();
+            }
+            for (original, taken) in moved.iter().rev() {
+                if std::fs::rename(taken, original).is_ok() {
+                    let _ = fsutil::chown(original, 0, 0);
+                    let _ = fsutil::chmod(original, 0o400);
+                }
+            }
+        }
+        r
+    }
+
+    fn restore_capture_files(
+        &self,
+        sb: &mut Sandbox,
+        c: &CaptureRec,
+        t0: Instant,
+        moved: &mut Vec<(PathBuf, PathBuf)>,
+    ) -> Result<Outcome> {
         if c.state.is_some() {
             refuse_if_locked("restoring a memory capture")?;
         }
@@ -1411,6 +1573,7 @@ impl Engine {
         // The sealed disk (and, for macOS, boot storage) become this
         // sandbox's own files; the capture is consumed.
         std::fs::rename(c.dir.join(DISK), sb.dir.join(DISK)).ctx("take capture disk")?;
+        moved.push((c.dir.join(DISK), sb.dir.join(DISK)));
         // Sealed read-only while it was a capture; writable as a live disk.
         fsutil::chmod(&sb.dir.join(DISK), 0o600)?;
         spec.disks = vec![DiskSpec {
@@ -1425,6 +1588,7 @@ impl Engine {
         } = &mut spec.machine
         {
             std::fs::rename(c.dir.join(AUX), sb.dir.join(AUX)).ctx("take capture boot storage")?;
+            moved.push((c.dir.join(AUX), sb.dir.join(AUX)));
             fsutil::chmod(&sb.dir.join(AUX), 0o600)?;
             *auxiliary_storage = sb.dir.join(AUX);
             if !c.preserves_memory {
@@ -1444,6 +1608,7 @@ impl Engine {
                 };
                 if &dst != s {
                     std::fs::rename(s, &dst).ctx("take capture state")?;
+                    moved.push((s.clone(), dst.clone()));
                 }
                 Some(dst)
             }
@@ -1516,6 +1681,12 @@ impl Engine {
             .ok_or_else(|| EngineError::host("suspended sandbox has no machine"))?;
         let state = sb.dir.join(SUSPEND_FILE);
         spec.read_paths = vec![state.clone()];
+        if let Err(e) = pin_suspended_disks(&sb.dir) {
+            if let Some(id) = sb.identity.take() {
+                self.free_identity(&id);
+            }
+            return Err(e.context("resume (saved state kept)"));
+        }
         let prev = (sb.generation, sb.policy_revision);
         sb.generation = auth.generation;
         sb.policy_revision = auth.policy_revision;
@@ -1525,11 +1696,16 @@ impl Engine {
             .and_then(|_| self.finish_start(sb, true, &mut detail));
         match r {
             Ok(()) => {
-                // The saved state is consumed: a resumed machine never
-                // resumes the same state twice.
-                let _ = std::fs::remove_file(&state);
+                // Commit point: once the suspend record is durably gone the
+                // resume stands (a crash before this puts the pinned disks
+                // back under the saved RAM). Then the saved state and the
+                // pinned disks are dropped; a resumed machine never resumes
+                // the same state twice.
                 let _ = std::fs::remove_file(sb.dir.join(SUSPEND_META));
                 let _ = fsutil::full_fsync(&sb.dir);
+                let _ = std::fs::remove_file(&state);
+                let _ = std::fs::remove_file(sb.dir.join(DISK_PINNED));
+                let _ = std::fs::remove_file(sb.dir.join(AUX_PINNED));
                 detail.insert("total_us".into(), us(t0.elapsed()));
                 detail.insert("resumed_generation".into(), sb.generation.to_string());
                 Ok(Outcome {
@@ -1541,8 +1717,18 @@ impl Engine {
             Err(e) => {
                 // Saved state stays intact; the sandbox stays suspended at
                 // its old generation with repair options (never cold-start).
+                // The guest may have written its disks: the pinned ones go
+                // back so the saved RAM still matches.
                 if let Some(mut w) = sb.worker.take() {
                     w.kill();
+                }
+                if let Err(u) = unpin_suspended_disks(&sb.dir) {
+                    sb.state =
+                        State::Failed(format!("suspended disks not restored: {}", u.message));
+                    if let Some(id) = sb.identity.take() {
+                        self.free_identity(&id);
+                    }
+                    return Err(e.context("resume").context(&u.message));
                 }
                 if let Some(id) = sb.identity.take() {
                     self.free_identity(&id);
@@ -1917,8 +2103,15 @@ impl Engine {
             "engine_digest": self.compat.engine_digest,
             "cpu_baseline": self.compat.cpu_baseline,
             "created_at_unix_ms": now_ms(),
+            "spec": spec,
         });
-        std::fs::write(cdir.join("meta.json"), meta.to_string()).ctx("write capture meta")?;
+        if durable {
+            // Commit point of a local capture: its record is written last,
+            // durably; recovery keeps exactly the captures that have one.
+            durable_write_plain(&cdir.join("meta.json"), meta.to_string().as_bytes())?;
+        } else {
+            std::fs::write(cdir.join("meta.json"), meta.to_string()).ctx("write capture meta")?;
+        }
         detail.insert("publish_us".into(), us(t.elapsed()));
         detail.insert(
             "fork_mode".into(),
@@ -2026,29 +2219,53 @@ impl Engine {
         detail.insert("memory_bytes".into(), reply.detail["bytes"].to_string());
         crash_point("suspend.saved");
         let t = Instant::now();
-        fsutil::full_fsync(&state)?;
-        for f in [DISK, AUX] {
-            let p = sb.dir.join(f);
-            if p.exists() {
-                fsutil::full_fsync(&p)?;
+        let committed = (|| -> Result<()> {
+            fsutil::full_fsync(&state)?;
+            for f in [DISK, AUX] {
+                let p = sb.dir.join(f);
+                if p.exists() {
+                    fsutil::full_fsync(&p)?;
+                }
             }
+            crash_point("suspend.synced");
+            let meta = serde_json::json!({
+                "sandbox_id": sb.id,
+                "generation": sb.generation,
+                "policy_revision": sb.policy_revision,
+                "guest_os": sb.guest_os,
+                "resources": sb.resources,
+                "source": sb.source,
+                "spec": sb.machine,
+                "machine_id": sb.barrier.as_ref().map(|b| b.machine_id.clone()),
+                "engine_digest": self.compat.engine_digest,
+                "cpu_baseline": self.compat.cpu_baseline,
+                "os_build": self.compat.os_build,
+                "suspended_at_unix_ms": now_ms(),
+            });
+            durable_write(&sb.dir.join(SUSPEND_META), meta.to_string().as_bytes())
+        })();
+        if let Err(e) = committed {
+            // Not suspended: withdraw the record and the saved state, and
+            // let the guest run again with the host time (the same barrier,
+            // which also thaws a Linux guest's tasks).
+            let _ = std::fs::remove_file(sb.dir.join(SUSPEND_META));
+            let _ = std::fs::remove_file(sb.dir.join(SUSPEND_META).with_extension("tmp"));
+            let _ = fsutil::full_fsync(&sb.dir);
+            let _ = std::fs::remove_file(&state);
+            let w = Self::worker(sb)?;
+            let resumed = w.call(&Api::Resume {}, Duration::from_secs(60));
+            let barrier = resumed.and_then(|_| self.rebarrier(&vsock, sb));
+            if let Err(b) = barrier {
+                if sb.guest_os == "linux" {
+                    let _ = thaw_guest(&vsock);
+                }
+                sb.state = State::Failed(format!(
+                    "suspend failed after saving ({}) and the guest did not resume: {}",
+                    e.message, b.message
+                ));
+            }
+            return Err(e.context("suspend (not suspended)"));
         }
-        crash_point("suspend.synced");
-        let meta = serde_json::json!({
-            "sandbox_id": sb.id,
-            "generation": sb.generation,
-            "policy_revision": sb.policy_revision,
-            "guest_os": sb.guest_os,
-            "resources": sb.resources,
-            "source": sb.source,
-            "spec": sb.machine,
-            "machine_id": sb.barrier.as_ref().map(|b| b.machine_id.clone()),
-            "engine_digest": self.compat.engine_digest,
-            "cpu_baseline": self.compat.cpu_baseline,
-            "os_build": self.compat.os_build,
-            "suspended_at_unix_ms": now_ms(),
-        });
-        durable_write(&sb.dir.join(SUSPEND_META), meta.to_string().as_bytes())?;
         crash_point("suspend.committed");
         detail.insert("commit_us".into(), us(t.elapsed()));
         let t = Instant::now();
@@ -2075,8 +2292,12 @@ impl Engine {
         let live: BTreeSet<String> = self.sandboxes.lock().unwrap().keys().cloned().collect();
         self.captures.lock().unwrap().retain(|_, c| {
             let state = *c.restores.lock().unwrap();
+            // A local capture outlives its source (and a restart); a
+            // volatile one goes with its source.
             let consumed = state == CAPTURE_CONSUMED
-                || (state == CAPTURE_AVAILABLE && !live.contains(&c.source_sandbox));
+                || (state == CAPTURE_AVAILABLE
+                    && c.durability != "local"
+                    && !live.contains(&c.source_sandbox));
             if consumed {
                 let _ = std::fs::remove_dir_all(&c.dir);
                 if let Some(s) = &c.state {

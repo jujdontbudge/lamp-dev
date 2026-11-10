@@ -250,23 +250,23 @@ mod mac {
         format!("{sandbox_id}/{generation}/{exec_id}")
     }
 
-    fn read_limited(mut r: impl Read, limit: usize) -> (Vec<u8>, bool) {
-        let mut out = Vec::new();
+    /// Reads `r` to its end into `into` (at most `limit` bytes kept; the
+    /// flag says some were dropped).
+    fn read_into(mut r: impl Read, limit: usize, into: &Mutex<(Vec<u8>, bool)>) {
         let mut buf = [0u8; 16 << 10];
-        let mut truncated = false;
         loop {
             match r.read(&mut buf) {
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
-                    let room = limit.saturating_sub(out.len());
+                    let mut g = into.lock().unwrap();
+                    let room = limit.saturating_sub(g.0.len());
                     if n > room {
-                        truncated = true;
+                        g.1 = true;
                     }
-                    out.extend_from_slice(&buf[..n.min(room)]);
+                    g.0.extend_from_slice(&buf[..n.min(room)]);
                 }
             }
         }
-        (out, truncated)
     }
 
     fn exec(x: &Exec, state: &Shared, results: &Results) -> GuestResponse {
@@ -326,8 +326,23 @@ mod mac {
         std::thread::spawn(move || {
             let out = child.stdout.take().unwrap();
             let err = child.stderr.take().unwrap();
-            let o = std::thread::spawn(move || read_limited(out, limit));
-            let e = std::thread::spawn(move || read_limited(err, limit));
+            // Readers fill shared buffers: a background job that inherited
+            // a pipe must not hold the command's completion (see below).
+            let (read_done, reads) = std::sync::mpsc::channel::<()>();
+            let obuf = Arc::new(Mutex::new((Vec::new(), false)));
+            let ebuf = Arc::new(Mutex::new((Vec::new(), false)));
+            {
+                let (b, tx) = (obuf.clone(), read_done.clone());
+                std::thread::spawn(move || {
+                    read_into(out, limit, &b);
+                    let _ = tx.send(());
+                });
+                let (b, tx) = (ebuf.clone(), read_done);
+                std::thread::spawn(move || {
+                    read_into(err, limit, &b);
+                    let _ = tx.send(());
+                });
+            }
             let timed_out = Arc::new(std::sync::atomic::AtomicBool::new(false));
             // Dropped once the command has exited: the timeout then never
             // fires, so background jobs it started keep running.
@@ -346,8 +361,22 @@ mod mac {
             }
             let status = child.wait();
             drop(exited);
-            let (out, t1) = o.join().unwrap_or_default();
-            let (err, t2) = e.join().unwrap_or_default();
+            // The command has exited. Output still open after a short grace
+            // belongs to a background job it left running: reply with what
+            // was read so far (marked truncated) instead of waiting for it.
+            let grace = std::time::Instant::now() + Duration::from_millis(50);
+            let mut finished = 0;
+            while finished < 2 {
+                let left = grace.saturating_duration_since(std::time::Instant::now());
+                match reads.recv_timeout(left) {
+                    Ok(()) => finished += 1,
+                    Err(_) => break,
+                }
+            }
+            let still_open = finished < 2;
+            let (out, t1) = obuf.lock().unwrap().clone();
+            let (err, t2) = ebuf.lock().unwrap().clone();
+            let (t1, t2) = (t1 || still_open, t2);
             let (code, sig) = match status {
                 Ok(s) => (s.code().unwrap_or(-1), s.signal().unwrap_or(0)),
                 Err(_) => (-1, 0),

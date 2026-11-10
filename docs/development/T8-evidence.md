@@ -75,6 +75,30 @@ The confinement inventory is published by `lamp-vz profile --spec`; see
 
 No Mach service was added.
 
+## Review fixes after the demonstrations (not re-run)
+
+The PR #17 review found engine defects, which were fixed after the
+demonstrations above. The owner rule allowed no new tests or trial runs, so
+none of these was exercised on the Macs:
+
+- **Crash-safe resume.** A resume first pins the suspended disks (APFS
+  clones). The suspend record is removed only once the guest is back. A
+  failed resume, or recovery after a crash during one, puts the pinned disks
+  back under the saved RAM.
+- **Local captures survive a restart.** A `consistency=local` capture
+  commits a durable record. Recovery keeps committed local captures, and they
+  are not discarded when their source goes away.
+- **A failed capture restore gives its files back.** The files are re-sealed,
+  so the capture can be restored again. It is marked available only if all
+  its files are present.
+- **A failed suspend after the save resumes the guest.** The flush or record
+  write fails, the record and state are withdrawn, and the guest gets its
+  clock barrier and thaw again.
+- **The guest helper no longer waits on pipes a background job inherited.**
+  It waits a 50 ms grace, then replies with what it read, marked truncated.
+- **macOS creates refuse a disk size other than the template's.** The cloned
+  guest disk is not resized.
+
 ## Earlier trial runs (kept as run)
 
 | Run | Mac | Trials (measured) | Errors | Status |
