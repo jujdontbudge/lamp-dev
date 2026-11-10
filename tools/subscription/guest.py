@@ -273,7 +273,8 @@ class Native:
         self.start()
         if not self.signed_in():
             raise RuntimeError("subscription sign-in required")
-        prompt = "Call mcp__lamp__next_step exactly once, then stop and summarize that one result in one sentence. Do not invoke any other tool or call the tool a second time."
+        expected = "LAMP_SUBSCRIPTION_FORK_OK"
+        prompt = "Reply with exactly LAMP_SUBSCRIPTION_FORK_OK. Do not use any tools."
         if self.kind == "codex":
             if self.thread is None:
                 result = self.rpc("thread/start", {"cwd": str(HOME / "work"), "approvalPolicy": "never", "sandbox": "read-only"})
@@ -283,7 +284,16 @@ class Native:
             while True:
                 completed = self.notification("turn/completed")
                 if completed["turn"]["id"] == identifier:
-                    return completed["turn"]["status"] == "completed"
+                    responses = [
+                        event.get("params", {}).get("item", {}).get("text", "")
+                        for event in self.events
+                        if event.get("method") == "item/completed"
+                        and event.get("params", {}).get("turnId") == identifier
+                        and event.get("params", {}).get("item", {}).get("type") == "agentMessage"
+                    ]
+                    return completed["turn"]["status"] == "completed" and any(
+                        response.strip() == expected for response in responses
+                    )
         self.send({"type": "user", "message": {"role": "user", "content": prompt}})
         while True:
             message = self.next(600)
@@ -291,7 +301,7 @@ class Native:
                 if set(message.get("tools", [])) - {"mcp__lamp__next_step"}:
                     raise RuntimeError("native tools exceed installed bridge")
             if message.get("type") == "result":
-                return not message.get("is_error", True)
+                return not message.get("is_error", True) and message.get("result", "").strip() == expected
 
 
 class Daemon:

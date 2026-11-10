@@ -117,7 +117,8 @@ def setup(args):
     seed = "lamp-seed/lamp-subscription-t9@sha256:" + hashlib.sha256((args.seed / "seed.json").read_bytes()).hexdigest()
     templates = {}
     definitions = {}
-    for kind in ["task", "claude_code", "codex"]:
+    kinds = ["task", args.harness] if args.harness else ["task", "claude_code", "codex"]
+    for kind in kinds:
         script = (
             "import json,pathlib,subprocess\n"
             "root=pathlib.Path('/opt/lamp')\n"
@@ -151,7 +152,7 @@ def setup(args):
         fixture.record("template_built", {"harness": kind, "report": report})
     policy = {"owner_id": "pr_local", "custody_host_ids": ["hs_t9"], "templates": {},
               "task_template": templates["task"], "steps": []}
-    for kind in ["claude_code", "codex"]:
+    for kind in kinds[1:]:
         policy["templates"][templates[kind]] = {
             "harness": kind, "definition": definitions[kind],
             "approved_nonsecret_digest": hashlib.sha256(definitions[kind].encode()).hexdigest(),
