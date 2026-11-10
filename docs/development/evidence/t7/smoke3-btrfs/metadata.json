@@ -1,0 +1,412 @@
+{
+ "source_hashes": {
+  "lamp-contracts": "73f27cf2ec9a087caf68f7d0ccbcfe736ffb7bef60d0c0b1834a040f5f8f4637",
+  "lamp-engine": "4e4cf8cc0055432c9034733a3f795689846e695036f90518bf16da871eaebbdb",
+  "lamp-guard": "ad5d7fa0715525c148ed9e54dcde10cff30186ebcf9c222d4e93faf682453362",
+  "lamp-init": "9a6c2bd8585383ad81db83d8e6b224f548813b5d467ffccf9f964d641a197ec1",
+  "lamp-supervisor": "8e1487763d2e6fb7af3d94a248d03eb14b43d12660f62536b6c2c22994a0008e",
+  "lamp-worker-protocol": "2f340b054d7b0875b10277e919b1da93c8641861b27423d03b07047436694f50",
+  "go-control": "87353aff3cae0ca72ddaaddf250323808cfbcd229ad329e20e9118b9e9e8fec3",
+  "benchmarks": "aeea7da6f091212dabb35923581faa09ece79549b13af2dee188110f3e68ff8d",
+  "contracts": "965812d48856ff84ee57912b2ac77d4a9b120482be41dc404a5c3b2714b7ec73",
+  "images/linux-seed": "2fb9ef05b65380a63bd4d5507da4cad24e27d53ab90fa4b0683fe6196c33daae"
+ },
+ "dependency_hashes": {
+  "Cargo.lock": "84c235d4420487b1f6ac2ac7d58bdd3a57367591ebf06a6bb2120153cc3b851f",
+  "go.sum": "36daff4fd3264dce26d789beff556b5ae3031249acae9611de3d46ff199e2d4a",
+  "firecracker": "99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5",
+  "jailer": "65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f",
+  "/usr/bin/pasta": "a10789852407f65160c4abfac002efe511b254e6ab2cbfc658e807575db44832",
+  "/usr/bin/python3": "52e0a13e60a981d8c4b6478be2ba5176f69da07948a056bf49cf6f077e30cb41",
+  "/usr/bin/gcc-15": "b5f1b773a7c733738352000c92a077dc5852a1a2fc6d836b1e411be1e9ec5f88",
+  "/usr/sbin/nft": "7b3efd79bd3a70d72275b7bbfe19f2234a837968a3c0ad5528126a396a00d42f",
+  "/usr/bin/nsenter": "763259c01dca596ed903f1dc430599a938396294723165d0b0fdfdcc15d92aea",
+  "/usr/bin/fallocate": "fbe59ae07d2b272aac0748ff35a7a298bf9936ad8c56378b1cb8c2e0041b88f5"
+ },
+ "compiled_features": [
+  "ed25519-dalek v3.0.0 [default,fast,zeroize]",
+  "lamp-engine v0.1.0 (/home/johan/lamp-t7/crates/lamp-engine) []",
+  "lamp-guard v0.1.0 (/home/johan/lamp-t7/crates/lamp-guard) []",
+  "lamp-init v0.1.0 (/home/johan/lamp-t7/crates/lamp-init) []",
+  "lamp-supervisor v0.1.0 (/home/johan/lamp-t7/crates/lamp-supervisor) []",
+  "lamp-worker-protocol v0.1.0 (/home/johan/lamp-t7/crates/lamp-worker-protocol) []",
+  "libc v0.2.191 [default,std]",
+  "prost v0.14.4 [default,derive,std]",
+  "serde v1.0.229 [default,derive,serde_derive,std]",
+  "serde_json v1.0.154 [default,std]",
+  "go: go version go1.27.3 linux/amd64",
+  "lamp-supervisor E04 build: --features fault-injection"
+ ],
+ "hardware": {
+  "cpu_model": "Intel(R) Core(TM) Ultra 9 288V",
+  "logical_cpus": 8,
+  "memory_bytes": 32653447168,
+  "cpu_core_assignment": "native workload pinned to CPUs 0,1 (--native-cpus); guest VMM threads are not pinned (scheduler-placed across all 8)",
+  "swap_bytes": 8589930496
+ },
+ "os": {
+  "kernel": "Linux",
+  "kernel_version": "7.0.0-42-generic",
+  "distribution": "Ubuntu 26.04.1 LTS",
+  "machine": "x86_64",
+  "boot_id": "5f848740-7785-4c2d-931e-c1c11cc77b52"
+ },
+ "filesystem": {
+  "type": "ext4",
+  "block_size_bytes": 4096,
+  "directory": "/var/lib/lamp-t7/e04",
+  "mount": {
+   "source": "/dev/mapper/ubuntu--vg-ubuntu--lv",
+   "fstype": "ext4",
+   "options": "rw,relatime",
+   "target": "/"
+  },
+  "guest_disk_store": {
+   "source": "/dev/loop14",
+   "fstype": "xfs",
+   "options": "rw,relatime,inode64,logbufs=8,logbsize=32k,noquota",
+   "target": "/var/lib/lamp"
+  },
+  "memory_image_store": {
+   "source": "lamp-mem",
+   "fstype": "tmpfs",
+   "options": "rw,nosuid,nodev,noexec,relatime,size=23916100k,mode=711,inode64,huge=always",
+   "target": "/run/lamp/mem"
+  },
+  "audit_store": {
+   "source": "/dev/mapper/ubuntu--vg-ubuntu--lv",
+   "fstype": "ext4",
+   "options": "rw,relatime",
+   "target": "/"
+  }
+ },
+ "storage": {
+  "total_bytes": 1003736440832,
+  "free_bytes": 443303755776,
+  "physical": [
+   {
+    "name": "loop0",
+    "model": null,
+    "size": "4K",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop1",
+    "model": null,
+    "size": "66.8M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop2",
+    "model": null,
+    "size": "91.7M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop3",
+    "model": null,
+    "size": "283.4M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop4",
+    "model": null,
+    "size": "616M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop5",
+    "model": null,
+    "size": "14.2M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop6",
+    "model": null,
+    "size": "12.7M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop7",
+    "model": null,
+    "size": "1.5M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop8",
+    "model": null,
+    "size": "402M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop9",
+    "model": null,
+    "size": "18.4M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop10",
+    "model": null,
+    "size": "11.6M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop11",
+    "model": null,
+    "size": "44.7M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop12",
+    "model": null,
+    "size": "828K",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop13",
+    "model": null,
+    "size": "32.5M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop14",
+    "model": null,
+    "size": "300G",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop15",
+    "model": null,
+    "size": "20G",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop16",
+    "model": null,
+    "size": "64G",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "loop17",
+    "model": null,
+    "size": "256M",
+    "rota": false,
+    "type": "loop",
+    "tran": null
+   },
+   {
+    "name": "nvme0n1",
+    "model": "BM9C1 Samsung 1024GB",
+    "size": "953.9G",
+    "rota": false,
+    "type": "disk",
+    "tran": "nvme"
+   }
+  ],
+  "stack": "NAME                  TYPE  FSTYPE\nubuntu--vg-ubuntu--lv lvm   ext4\n\u2514\u2500dm_crypt-0          crypt LVM2_member\n  \u2514\u2500nvme0n1p3         part  crypto_LUKS\n    \u2514\u2500nvme0n1         disk"
+ },
+ "policy": {
+  "revision": 2,
+  "exceptions": [
+   {
+    "address": "10.250.0.2",
+    "transport": "tcp",
+    "port": 7001
+   },
+   {
+    "address": "10.250.0.2",
+    "transport": "udp",
+    "port": 7002
+   },
+   {
+    "address": "10.250.0.2",
+    "transport": "tcp",
+    "port": 7003
+   },
+   {
+    "address": "10.195.187.74",
+    "transport": "tcp",
+    "port": 7101
+   },
+   {
+    "address": "10.195.187.74",
+    "transport": "udp",
+    "port": 7102
+   },
+   {
+    "address": "10.195.187.74",
+    "transport": "tcp",
+    "port": 7103
+   }
+  ],
+  "file": "/etc/lamp/network.json",
+  "sha256": "111988f3a4b11e88a78c483626eacadc702b56d291b2d9ae08113c7b5aeac133"
+ },
+ "resources": {
+  "vcpus": 2,
+  "memory_mib": 4096,
+  "disk_gib": 20,
+  "pids_max": 4096
+ },
+ "durability": "local",
+ "durability_note": "Every E04 capture is a durable local capture.",
+ "power": {
+  "ac_online": 1,
+  "governors": [
+   "powersave"
+  ],
+  "energy_performance_preference": [
+   "balance_performance"
+  ],
+  "platform_profile": "balanced",
+  "battery_status": "Not charging"
+ },
+ "thermal": {
+  "samples_c": [
+   20.0,
+   64.05,
+   50.05,
+   63.05,
+   35.05,
+   86.05,
+   64.0,
+   65.0,
+   63.0,
+   20.0,
+   64.05,
+   50.05,
+   63.05,
+   35.05,
+   86.05,
+   63.0,
+   64.0,
+   63.0,
+   20.0,
+   63.05,
+   50.05,
+   63.05,
+   35.05,
+   70.05,
+   62.0,
+   63.0,
+   63.0,
+   20.0,
+   63.05,
+   50.05,
+   63.05,
+   35.05,
+   70.05,
+   62.0,
+   63.0,
+   63.0,
+   20.0,
+   63.05,
+   50.05,
+   63.05,
+   35.05,
+   70.05,
+   62.0,
+   63.0,
+   63.0
+  ],
+  "zones": {
+   "thermal_zone0": "INT3400 Thermal",
+   "thermal_zone1": "SEN1",
+   "thermal_zone2": "SEN2",
+   "thermal_zone3": "SEN3",
+   "thermal_zone4": "SEN4",
+   "thermal_zone5": "TCPU",
+   "thermal_zone6": "TCPU_PCI",
+   "thermal_zone7": "x86_pkg_temp",
+   "thermal_zone8": "iwlwifi_1"
+  }
+ },
+ "lane": "LX",
+ "topology": "native",
+ "controls": {
+  "guard": true,
+  "audit": true,
+  "cow": true,
+  "capture_tracking": true,
+  "detail": "per-sandbox lamp-guard (NFQUEUE, durable flow admission), guest process collector over vsock, mediated proxy, reflink CoW disks, full memory capture"
+ },
+ "artifacts": {
+  "/usr/local/lib/lamp/lamp-supervisor": "58a21f9751d952050e84ee83f6e33041b88f47c4b3b13fe7291d73f0b610fb7e",
+  "/usr/local/lib/lamp/lamp-guard": "c59d23db973154306fb53d5180d008bd394146e7368a5e366ca9d840ba8330d2",
+  "/home/johan/lamp-t6/bin/lampd": "c2b56f1b77bfaea8079d48bd4cec2816cc6412c6dab1dad34a4c8fbc777913e6",
+  "/home/johan/lamp-t6/bin/lamp": "c8d71aa2494c1f3fa5474e655db3fce8aabf77925e5d8211be9a6f94974c1ea4",
+  "benchmarks/workload.py (installed in template)": "7ef80949f5b68a839135d6ffb1ec5f246d3a67662b027280bb072dbff26a5cff",
+  "infra/linux/observer.py": "db1ed5377aef0fffd35939f2899e45f2483505fbe6057b9f66afe4192e6d2be2",
+  "/var/lib/lamp-t7/e04-template/mnt/templates/tp_09a71c56dd8afbd2768048656d/manifest.json": "09a71c56dd8afbd2768048656dd0f0f580fb3d05b8a26ee83d4e344f38d33dea",
+  "/var/lib/lamp-t7/e04-template/mnt/templates/tp_09a71c56dd8afbd2768048656d/provenance.json": "9bb7eeb64ae2e8e1ed0e03990760c39c17386d9df2edb1b2482cd1f8e291ce51",
+  "/var/lib/lamp-t7/e04-template/mnt/templates/tp_09a71c56dd8afbd2768048656d/vmlinux": "5cfda300efd1017d4284de6ac358a32208922efe19761211fd8a95ab2933e73c",
+  "/var/lib/lamp-t7/e04-template/mnt/templates/tp_09a71c56dd8afbd2768048656d/rootfs.ext4": "f0937e346a29c7a7ddd0329a3e23519fc2be50ea8687a94caa226140f1a1761e",
+  "/var/lib/lamp-t7/e04-template/mnt/seeds/9f2440dc6a5cc939d3c6ef4cf96a4bbc8a9312e28ca47d60eab7151fc45ddb83/seed.json": "9f2440dc6a5cc939d3c6ef4cf96a4bbc8a9312e28ca47d60eab7151fc45ddb83",
+  "/home/johan/t7/bin/lamp-supervisor-e04 (E04 fault-injection build)": "d1d4210c98e34215c42fb39920a415e7c283c23fd5fd1d005b0f4465083028ce",
+  "infra/linux/e04/fixture.py": "51c55e1eddbc69b0d59bd3188fffddd320dddae902d9f2ac65747b4d6cce1bb0",
+  "infra/linux/e04/logwrites.py": "d6bd84d79cee66be53de88edadb6ae39a15211f6b25498bc3b28397ffa9d03b5"
+ },
+ "access_route": "local: lamp CLI -> lampd Unix socket -> lamp.worker/1 Unix socket -> lamp-supervisor (no network hop)",
+ "template_id": "tp_09a71c56dd8afbd2768048656d",
+ "seed_ref": "lamp-seed/ubuntu-26.04@sha256:9f2440dc6a5cc939d3c6ef4cf96a4bbc8a9312e28ca47d60eab7151fc45ddb83",
+ "load": [
+  7.64794921875,
+  7.7353515625,
+  6.7216796875
+ ],
+ "collected_at": "2026-11-10T19:30:35Z",
+ "e04_volume": {
+  "lane_filesystem": "btrfs",
+  "mkfs": [
+   "mkfs.btrfs",
+   "-f",
+   "-q",
+   "-K"
+  ],
+  "mount_options": "commit=600",
+  "lamp_disk_backend": "reflink",
+  "stack": [
+   "tmpfs file",
+   "loop",
+   "dm-thin pool e04-btrfs-pool",
+   "thin snapshot of golden",
+   "dm-log-writes",
+   "btrfs"
+  ],
+  "kernel": "7.0.0-42-generic"
+ }
+}

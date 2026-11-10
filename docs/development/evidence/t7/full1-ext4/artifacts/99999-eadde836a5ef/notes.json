@@ -1,0 +1,38 @@
+{
+ "barrier": {
+  "entries": 2432,
+  "crash_index": 2299,
+  "last_flush_index": 2297,
+  "flushes_before_crash": 102,
+  "fua_before_crash": 71,
+  "durable_writes": 2197,
+  "volatile_applied": 0,
+  "volatile_dropped": 0
+ },
+ "recovered_list": {
+  "captures": [
+   {
+    "capture_id": "cp_eadde836a5ef_0",
+    "memory_base": null,
+    "parent": null,
+    "producer_key_id": "pk_cc2e8f828e8a89f2",
+    "reason": null,
+    "source_sandbox_id": "sb_eadde836a5ef_a",
+    "state": "committed",
+    "template_id": "tp_09a71c56dd8afbd2768048656d"
+   },
+   {
+    "capture_id": "cp_eadde836a5ef_x",
+    "memory_base": null,
+    "parent": "cp_eadde836a5ef_0",
+    "producer_key_id": "pk_cc2e8f828e8a89f2",
+    "reason": null,
+    "source_sandbox_id": "sb_eadde836a5ef_a",
+    "state": "committed",
+    "template_id": "tp_09a71c56dd8afbd2768048656d"
+   }
+  ],
+  "elapsed_ms": 0.017380999999999997,
+  "ok": true
+ }
+}

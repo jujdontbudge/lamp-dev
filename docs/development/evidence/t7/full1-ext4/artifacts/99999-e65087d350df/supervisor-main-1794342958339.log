@@ -1,0 +1,23 @@
+lamp-supervisor: store open (dm-thin disks, 0 durable capture(s)), 1 verified template(s) in 320 ms
+lamp-supervisor: serving lamp.worker/1 on /run/lamp-e04/ext4/main/worker.sock
+lamp-supervisor: op op_802e279314c0_1 sandbox sb_e65087d350df_a handle_us=642 
+lamp-supervisor: op op_802e279314c0_2 sandbox sb_e65087d350df_a handle_us=44118 attach_us=8334 barrier_us=10476 disk_attach_us=7704 load_us=3313 prepare_us=8144 spawn_us=13828 total_us=44106
+lamp-supervisor: op op_802e279314c0_3 sandbox sb_e65087d350df_a handle_us=19348 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_802e2b905dc6_1 sandbox sb_e65087d350df_a handle_us=1978 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_802e36b74e01_1 sandbox sb_e65087d350df_a handle_us=235953 disk_seal_us=5155 durable_commit_us=221 durable_encode_us=43154 durable_mem_sync_us=503 durable_sync_us=20201 durable_vmstate_us=19590 freeze_us=1758 full_write_us=142389 memory_bytes=536870912 publish_us=63651 reserve_us=444 source_pause_us=169173 spare=0 thaw_us=839 total_us=235947
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_802fb02effc_1 sandbox sb_e65087d350df_a handle_us=145674 disk_seal_us=947 durable_commit_us=275 durable_encode_us=36909 durable_mem_sync_us=502 durable_sync_us=21090 durable_vmstate_us=20142 freeze_us=3297 full_write_us=70478 memory_bytes=536870912 publish_us=58375 reserve_us=205 source_pause_us=82338 spare=0 thaw_us=1273 total_us=145668
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_802f13d7611b_1 sandbox sb_e65087d350df_b handle_us=701 
+lamp-supervisor: op op_802f13d7611b_2 sandbox sb_e65087d350df_b handle_us=53256 attach_us=10075 barrier_us=9645 disk_attach_us=8873 load_us=7155 prepare_us=8906 spawn_us=17368 total_us=53249
+lamp-supervisor: op op_802f13d7611b_3 sandbox sb_e65087d350df_b handle_us=18475 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_802f1851c026_1 sandbox sb_e65087d350df_a handle_us=30326 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_802f1a52e37a_1 sandbox sb_e65087d350df_b handle_us=6825 
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: fault injection: omitting directory_flush
+lamp-supervisor: op op_802f1e5d2e4e_1 sandbox sb_e65087d350df_b handle_us=171491 disk_seal_us=5814 durable_commit_us=162 durable_encode_us=37554 durable_mem_sync_us=473 durable_sync_us=10894 durable_vmstate_us=9925 freeze_us=1849 full_write_us=101853 memory_bytes=536870912 publish_us=48704 reserve_us=138 source_pause_us=120097 spare=0 thaw_us=628 total_us=171484
+lamp-engine: fault injection: crash at ack/after
