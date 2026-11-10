@@ -1,0 +1,50 @@
+=== RUN   TestEveryCommandHasJSONHelp
+--- PASS: TestEveryCommandHasJSONHelp (0.00s)
+=== RUN   TestJSONExitCodes
+=== RUN   TestJSONExitCodes/403
+=== RUN   TestJSONExitCodes/409
+=== RUN   TestJSONExitCodes/410
+=== RUN   TestJSONExitCodes/200
+=== RUN   TestJSONExitCodes/400
+=== RUN   TestJSONExitCodes/401
+--- PASS: TestJSONExitCodes (0.00s)
+    --- PASS: TestJSONExitCodes/403 (0.00s)
+    --- PASS: TestJSONExitCodes/409 (0.00s)
+    --- PASS: TestJSONExitCodes/410 (0.00s)
+    --- PASS: TestJSONExitCodes/200 (0.00s)
+    --- PASS: TestJSONExitCodes/400 (0.00s)
+    --- PASS: TestJSONExitCodes/401 (0.00s)
+PASS
+ok  	github.com/JohanSardar/lamp/cmd/lamp	0.365s
+=== RUN   TestStrictTransportContracts
+--- PASS: TestStrictTransportContracts (0.00s)
+=== RUN   TestEveryCanonicalBindingAndMCPSchema
+--- PASS: TestEveryCanonicalBindingAndMCPSchema (0.01s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/surface	0.494s
+=== RUN   TestDeleteFailedAndUnavailableSandboxes
+=== RUN   TestDeleteFailedAndUnavailableSandboxes/false
+=== RUN   TestDeleteFailedAndUnavailableSandboxes/true
+--- PASS: TestDeleteFailedAndUnavailableSandboxes (4.35s)
+    --- PASS: TestDeleteFailedAndUnavailableSandboxes/false (1.94s)
+    --- PASS: TestDeleteFailedAndUnavailableSandboxes/true (2.41s)
+=== RUN   TestControlCoreInterfacesAndAuthority
+    core_e2e_test.go:194: HTTP, real CLI, stdio MCP: same acceptance and denials; 20 retries => one resource; stale revision race => one effect; private owner isolation
+--- PASS: TestControlCoreInterfacesAndAuthority (2.45s)
+=== RUN   TestScopedKeysSecretOnceAndRestart
+    core_e2e_test.go:256: hashed 256-bit bearers, secret-once replay/restart, delegation intersection, empty selectors and descendant rejection passed
+--- PASS: TestScopedKeysSecretOnceAndRestart (2.69s)
+=== RUN   TestEventsReplayIsolationAndLiveRevoke
+    core_e2e_test.go:319: durable ordered events, owner-bound signed replay cursor, live SSE and active reader revocation passed
+--- PASS: TestEventsReplayIsolationAndLiveRevoke (1.27s)
+=== RUN   TestOneUseApprovalExactPlanAndRealEffect
+    core_e2e_test.go:386: 20 simultaneous distinct-key consumers => one durable approval consumption and one independently read file effect; changed destination rejected
+--- PASS: TestOneUseApprovalExactPlanAndRealEffect (1.56s)
+=== RUN   TestSharingModesAndRoleBoundaries
+    core_e2e_test.go:415: single-owner/team/public-service admission, owner/admin/member/viewer role separation and private content defaults passed
+--- PASS: TestSharingModesAndRoleBoundaries (1.65s)
+=== RUN   TestThirtyTwoCredentialedCallers
+    core_e2e_test.go:457: 32 simultaneous credentialed callers: 32 distinct durable resources, zero lost or cross-owner effects (protocol fixture; no speed qualification)
+--- PASS: TestThirtyTwoCredentialedCallers (7.66s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	23.546s

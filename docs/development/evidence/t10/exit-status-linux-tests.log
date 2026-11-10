@@ -1,0 +1,71 @@
+   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.66s
+     Running unittests src/lib.rs (target/debug/deps/lamp_guard-ea091b1ee171ffb5)
+
+running 20 tests
+test process::tests::killed_stopped_tracee_is_reaped_after_restart_esrch ... ok
+test audit::tests::full_spool_never_overwrites_acknowledged_history ... ok
+test netlink::tests::final_attribute_can_be_unpadded ... ok
+test netlink::tests::no_truncated_messages ... ok
+test audit::tests::ack_must_match ... ok
+test audit::tests::gap_is_not_acknowledged_or_spooled ... ok
+test process::tests::task_env_is_validated ... ok
+test proxy::tests::absolute_form_is_rewritten_to_origin_form ... ok
+test proxy::tests::policy_matches_the_guard ... ok
+test proxy::tests::unsafe_requests_are_refused ... ok
+test audit::tests::pipelined_frames_share_a_barrier_and_are_acked_in_order ... ok
+test tests::default_ceiling ... ok
+test tests::malformed_and_encapsulated_packets ... ok
+test runtime::tests::tcp_rst_then_reconnect_has_two_admissions ... ok
+test runtime::tests::fin_drains_and_same_isn_retransmission_does_not_readmit ... ok
+test runtime::tests::established_flow_adds_no_per_packet_durable_writes ... ok
+test runtime::tests::fin_then_peer_data_crash_remains_unterminated ... ok
+test runtime::tests::denials_are_batched_and_capacity_fails_closed ... ok
+test runtime::tests::idle_tick_expires_and_audit_failure_stops_established_traffic ... ok
+test audit::tests::a_slow_ack_is_waited_for_on_the_same_stream ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+
+     Running unittests src/main.rs (target/debug/deps/lamp_guard-52c054e5cf282275)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/lamp_init-25fc460f1c1a6f06)
+
+running 4 tests
+test tests::barrier_validation ... ok
+test tests::exec_environment_is_validated ... ok
+test tests::frames_roundtrip_and_reject_unknown ... ok
+test tests::base64_roundtrip ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/lamp-guest-helper.rs (target/debug/deps/lamp_guest_helper-239e9989e80e2a5a)
+
+running 2 tests
+test linux::status_tests::task_report_wins_even_when_collector_exit_arrives_first ... ok
+test linux::status_tests::malformed_report_cannot_fall_back_to_collector_success ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/lamp-init.rs (target/debug/deps/lamp_init-9b1689568ace22fc)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_guard
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_init
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

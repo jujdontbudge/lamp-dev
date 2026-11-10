@@ -1,0 +1,22 @@
+test_fixed_memory_boundary_and_two_sandbox_ceiling (test_admission_check.AllocationGuard.test_fixed_memory_boundary_and_two_sandbox_ceiling) ... ok
+test_launch_delay_and_timeouts_are_ignored (test_timing_run.ProductionScript.test_launch_delay_and_timeouts_are_ignored) ... ok
+test_production_file_has_no_hooks (test_timing_run.ProductionScript.test_production_file_has_no_hooks) ... ok
+test_sysctl_paths_are_fixed (test_timing_run.ProductionScript.test_sysctl_paths_are_fixed) ... ok
+test_command_ignoring_term_is_killed_then_services_restored (test_timing_run.TimingRun.test_command_ignoring_term_is_killed_then_services_restored) ... ok
+test_command_status_is_kept_and_services_restored (test_timing_run.TimingRun.test_command_status_is_kept_and_services_restored) ... ok
+test_failed_cache_drop_does_not_measure_even_if_compaction_succeeds (test_timing_run.TimingRun.test_failed_cache_drop_does_not_measure_even_if_compaction_succeeds) ... ok
+test_failed_compaction_does_not_measure (test_timing_run.TimingRun.test_failed_compaction_does_not_measure) ... ok
+test_failed_host_preparation_does_not_measure_and_restores (test_timing_run.TimingRun.test_failed_host_preparation_does_not_measure_and_restores) ... ok
+test_failed_restore_exits_nonzero (test_timing_run.TimingRun.test_failed_restore_exits_nonzero) ... ok
+test_failed_stop_does_not_measure (test_timing_run.TimingRun.test_failed_stop_does_not_measure) ... ok
+test_group_member_ignoring_term_is_killed_before_restore (test_timing_run.TimingRun.test_group_member_ignoring_term_is_killed_before_restore) ... ok
+test_signal_during_launch_is_held_until_the_command_is_recorded (test_timing_run.TimingRun.test_signal_during_launch_is_held_until_the_command_is_recorded) ... ok
+test_stragglers_after_a_normal_exit_are_stopped_before_restore (test_timing_run.TimingRun.test_stragglers_after_a_normal_exit_are_stopped_before_restore) ... ok
+test_success_stops_runs_and_restores (test_timing_run.TimingRun.test_success_stops_runs_and_restores) ... ok
+test_term_reaps_the_whole_process_group (test_timing_run.TimingRun.test_term_reaps_the_whole_process_group) ... ok
+test_term_stops_and_reaps_the_command_before_restoring (test_timing_run.TimingRun.test_term_stops_and_reaps_the_command_before_restoring) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 28.360s
+
+OK

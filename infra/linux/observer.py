@@ -20,6 +20,7 @@ jail disk metadata and the system journal.
 """
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -91,6 +92,18 @@ def source_pause_ms(source):
 
 def main():
     request = json.load(sys.stdin)
+    if request.get("operation") == "allocations":
+        ids, processes = [], {}
+        for group in os.scandir(CGROUP):
+            try:
+                if group.name.startswith("sb-"):
+                    identity = "sb_" + group.name.removeprefix("sb-")
+                    processes[identity] = [int(pid) for pid in Path(group.path, "cgroup.procs").read_text().split()]
+                    ids.append(identity)  # Empty groups still reserve an allocation.
+            except FileNotFoundError:
+                pass  # A concurrently released allocation is absent.
+        print(json.dumps({"sandbox_ids": sorted(ids), "processes": processes, "origin": "kernel_cgroup"}))
+        return
     sandbox = request.get("sandbox_id")
     result = {"rss_bytes": None, "disk_bytes": None, "pressure": None}
     if sandbox:

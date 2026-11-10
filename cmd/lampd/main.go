@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -10,6 +11,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
+	"runtime/pprof"
 	"syscall"
 	"time"
 
@@ -24,6 +27,8 @@ func main() {
 }
 func run() error {
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
+	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
+	profileDir := flags.String("profile-dir", "", "private CPU/mutex/block profiles for a diagnostic run")
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -44,10 +49,47 @@ func run() error {
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments")
 	}
+	if *profileDir != "" {
+		if err := control.PrivateDir(*profileDir); err != nil {
+			return err
+		}
+		cpu, err := os.OpenFile(filepath.Join(*profileDir, "cpu.pprof"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err != nil {
+			return err
+		}
+		if err := pprof.StartCPUProfile(cpu); err != nil {
+			cpu.Close()
+			return err
+		}
+		runtime.SetMutexProfileFraction(1)
+		runtime.SetBlockProfileRate(1)
+		defer func() {
+			pprof.StopCPUProfile()
+			cpu.Close()
+			for _, name := range []string{"mutex", "block"} {
+				file, err := os.OpenFile(filepath.Join(*profileDir, name+".pprof"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+				if err == nil {
+					pprof.Lookup(name).WriteTo(file, 0)
+					file.Close()
+				}
+			}
+		}()
+	}
 	if err := control.PrivateDir(filepath.Dir(*socket)); err != nil {
 		return err
 	}
-	service, err := control.Open(control.Config{StateDir: *state, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
+	var identity *control.IdentityConfig
+	if *identityFile != "" {
+		data, e := os.ReadFile(*identityFile)
+		if e != nil {
+			return e
+		}
+		identity = &control.IdentityConfig{}
+		if e = json.Unmarshal(data, identity); e != nil {
+			return e
+		}
+	}
+	service, err := control.Open(control.Config{Identity: identity, StateDir: *state, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
 	if err != nil {
 		return err
 	}
@@ -69,7 +111,7 @@ func run() error {
 	defer stop()
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(authenticated) }()
-	fmt.Fprintln(os.Stderr, "lampd: local demo API listening on", *socket)
+	fmt.Fprintln(os.Stderr, "lampd: control API listening on", *socket)
 	select {
 	case err := <-done:
 		if err != http.ErrServerClosed {

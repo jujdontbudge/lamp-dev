@@ -1,0 +1,11 @@
+=== RUN   TestCancelBeforeDispatchAndTerminalReplay
+--- PASS: TestCancelBeforeDispatchAndTerminalReplay (0.93s)
+=== RUN   TestExpiryAndCursorRetentionBoundaries
+--- PASS: TestExpiryAndCursorRetentionBoundaries (0.96s)
+=== RUN   TestActionBindingSnapshotsAndCanonicalObjectOrder
+--- PASS: TestActionBindingSnapshotsAndCanonicalObjectOrder (0.00s)
+=== RUN   TestOneUseApprovalExactPlanAndRealEffect
+    core_e2e_test.go:386: 20 simultaneous distinct-key consumers => one durable approval consumption and one independently read file effect; changed destination rejected
+--- PASS: TestOneUseApprovalExactPlanAndRealEffect (1.24s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	7.765s

@@ -2,6 +2,7 @@ package control
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,32 @@ func storeConfig(t *testing.T) Config {
 // t.TempDir cleanup could run.
 func storeConfigAt(dir string) Config {
 	return Config{StateDir: dir, Worker: WorkerConfig{Socket: "/unused", WorkerID: "w", BootID: "b", GrantID: "g", UID: os.Getuid(), PID: os.Getpid(), Timeout: time.Second}}
+}
+
+func TestLogReservationPreservesWrittenPrefixAndZeroTail(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "reserved-log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	s := &Service{log: f}
+	if err := s.reserveLogEnd(1 << 20); err != nil {
+		t.Fatal(err)
+	}
+	prefix := []byte("previously committed bytes")
+	if _, err := f.WriteAt(prefix, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := datasync(f); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.reserveLogEnd(2 << 20); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(f.Name())
+	if err != nil || len(data) != 2<<20 || !bytes.Equal(data[:len(prefix)], prefix) || !allZero(data[len(prefix):]) {
+		t.Fatalf("reservation changed committed bytes or exposed nonzero tail: %v", err)
+	}
 }
 
 func TestAppendJournalGateScaleReplayAndCompaction(t *testing.T) {
