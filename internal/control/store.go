@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -625,13 +626,18 @@ var markerStage = func(string) {}
 // commitTempPrefix names unpublished markers; Open removes any left behind.
 const commitTempPrefix = ".commit-"
 
+// removeCommitTemps lists dir literally: a state directory whose name holds
+// glob metacharacters must neither break Open nor reach another directory.
 func removeCommitTemps(dir string) error {
-	leftovers, err := filepath.Glob(filepath.Join(dir, commitTempPrefix+"*"))
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
-	for _, path := range leftovers {
-		if err := os.Remove(path); err != nil {
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), commitTempPrefix) {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dir, entry.Name())); err != nil {
 			return err
 		}
 	}

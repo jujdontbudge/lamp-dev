@@ -653,3 +653,44 @@ func TestJournalRefusesEmptyPublishedMarker(t *testing.T) {
 	}
 	mustRefuse(t, config, "empty published marker")
 }
+
+// A state directory named with glob metacharacters must open, clean only its
+// own unpublished markers, and never touch a directory the pattern would match.
+func TestCommitTempCleanupTreatsStateDirLiterally(t *testing.T) {
+	for _, name := range []string{"[a]", "state["} {
+		parent := t.TempDir()
+		config := storeConfig(t)
+		config.StateDir = filepath.Join(parent, name)
+		foreign := filepath.Join(parent, "a", commitTempPrefix+"foreign")
+		if err := os.MkdirAll(filepath.Dir(foreign), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(foreign, []byte("x"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		s, err := Open(config)
+		if err != nil {
+			t.Fatalf("%s: first open: %v", name, err)
+		}
+		if err := s.Close(); err != nil {
+			t.Fatal(err)
+		}
+		leftover := filepath.Join(config.StateDir, commitTempPrefix+"left")
+		if err := os.WriteFile(leftover, nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+		s, err = Open(config)
+		if err != nil {
+			t.Fatalf("%s: reopen: %v", name, err)
+		}
+		if err := s.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(leftover); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("%s: own leftover marker not removed: %v", name, err)
+		}
+		if _, err := os.Stat(foreign); err != nil {
+			t.Fatalf("%s: another directory's marker was touched: %v", name, err)
+		}
+	}
+}
