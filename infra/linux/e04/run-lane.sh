@@ -13,6 +13,12 @@
 # Not a hard timing run: no service is stopped. The fixture refuses to
 # start a scenario unless host memory stays above its floor.
 set -u
+# One exclusive timing window per lane on LX, shared with other tickets'
+# measurements (coordinator, 2026-11-10): the lock is held for this run only.
+LOCK=/tmp/lamp-lx-timing.lock
+if [ -z "${LAMP_LX_TIMING_LOCKED:-}" ]; then
+  LAMP_LX_TIMING_LOCKED=1 exec flock "$LOCK" "$0" "$@"
+fi
 LANE=$1; NAME=$2; shift 2
 SRC=$(cd "$(dirname "$0")/../../.." && pwd)
 BIN=${E04_BINARY:-$HOME/t7/bin/lamp-supervisor-e04}

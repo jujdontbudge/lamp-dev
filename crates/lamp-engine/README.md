@@ -47,10 +47,18 @@ never touch a live sandbox. `templates` takes no lock and writes nothing.
 
 ## Store
 
-`/var/lib/lamp` is XFS with `reflink=1` (on Ubuntu LX: a sparse loop image).
-Seeds, templates and private disks live there; every sandbox disk is a
-FICLONE reflink of its template or source disk, so creating one costs
-milliseconds and writes stay private. Templates are content-addressed: the
+The store is any local directory. Seeds, templates and private disks live
+there, and the disk backend follows the filesystem (`src/disk.rs`):
+
+- XFS with `reflink=1` or btrfs: every sandbox disk is a FICLONE reflink of
+  its template or source disk (the installed `/var/lib/lamp` on Ubuntu LX is
+  a sparse XFS loop image).
+- Ordinary ext4, or anything else without reflinks: Lamp runs its own dm-thin
+  pool on two sparse loop-backed files inside the store, and every disk is a
+  thin snapshot. Nobody reformats anything. `--disk-backend thin|reflink`
+  overrides the choice, and `--thin-data-gib` sizes the pool.
+
+Either way, creating a disk costs milliseconds and writes stay private. Templates are content-addressed: the
 object digest `sha256-c4m` is SHA-256 over the SHA-256 of each 4 MiB chunk
 (holes skipped), the manifest is canonical JSON (`lamp.template/v1`), and
 the template ID is `tp_` + the first 26 hex characters of the manifest
@@ -121,8 +129,46 @@ completed ones are kept. A freeze whose result is uncertain is always
 followed by a thaw; a sandbox whose thaw cannot be confirmed is marked
 failed.
 
-`consistency: local` additionally copies the image (non-zero pages), vmstate
-and disk into the store and fsyncs them before the capture is reported.
+## Durable captures (`local`)
+
+`consistency: local` commits the capture to the store before it is reported
+(`src/durable.rs`; architecture §6.4, §7):
+
+```text
+<store>/state/journal     preallocated, framed, append-only commit records
+<store>/state/objects/    memory deltas, vm state, reflink disks
+```
+
+The commit order is reserve → capture → seal → object_flush →
+directory_flush → heads → switch → journal_flush → publish → ack. After the
+ack come delete → gc → compact_objects → compact_redirect → compact_gc.
+Each step is a crash point of E04 (`--features fault-injection`, admin
+`state fault POINT SIDE [OMIT]`). The steps work as follows:
+
+- **Memory.** The memory object is a delta against the parent's image: a
+  header, a page bitmap and the changed pages. The pages are written with
+  O_DIRECT straight from the tmpfs image, and the `sha256-c4m` digest is
+  computed in memory alongside (`src/memimg.rs`).
+- **Disk.** A thin disk is a pool snapshot plus a forced pool metadata
+  commit. A reflink disk is a clone plus fsync.
+- **Commit record.** It carries the whole signed manifest and is written
+  over already-allocated journal blocks, so its fdatasync (`journal_flush`)
+  syncs no filesystem metadata. On btrfs, `object_flush` ends with `syncfs`,
+  because a later fsync there would otherwise also persist renames
+  (`btrfs_log_new_name`). Together these mean that only its own barrier
+  makes each step durable, so an omitted barrier is visible and is caught.
+- **Restart.** A restart replays committed records only. It verifies each
+  object against the signed manifest, and it quarantines a capture whose
+  producer key is not enrolled (`--trust-producer HEX` enrols another
+  host's key).
+- **Lineage.** A capture with a live descendant cannot be deleted. GC
+  removes unreferenced objects. Compaction re-encodes a chained capture's
+  memory against its template and atomically redirects the capture to the
+  new object (a signed redirect record), so its old delta and bases can go.
+
+Suspend is a durable capture followed by release. Resume is a create from
+that capture, after any restart (`infra/linux/ext4-durable-demo.py`).
+Evidence: `docs/development/T7-evidence.md`.
 
 ## Guest protocol
 
@@ -158,8 +204,8 @@ returns once each VMM process has exited.
 - There is no LSM profile; the jailer's UID, chroot, namespaces, cgroup and
   Firecracker's own seccomp filter are the boundary.
 - Volatile captures and sandboxes live only as long as the supervisor; a
-  restart discards them (by design for `volatile`). Nothing reloads `local`
-  captures after a restart yet.
+  restart discards them (by design for `volatile`). `local` captures survive
+  restarts; `replicated`/`backup` durability does not exist yet.
 - No network for builds or sandboxes until the T4 guard.
 - Handle grants are verified by the protocol crate but not yet accepted by
   this engine.
