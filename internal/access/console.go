@@ -56,6 +56,9 @@ func (b backend) call(ctx context.Context, name string, in map[string]any) (map[
 			if s, ok := detail["code"].(string); ok {
 				code = s
 			}
+			if strings.HasPrefix(name, "session_") && code == "NOT_FOUND" && text(detail, "message") == "operation not installed" {
+				return nil, errors.New("sessions are not available yet on this daemon")
+			}
 		}
 		return nil, fmt.Errorf("control %s: %s", name, code)
 	}
@@ -157,7 +160,7 @@ func (b backend) shell(s ssh.Session, id string) error {
 		if execID == "" {
 			return errors.New("missing guest exec identity")
 		}
-		if e = b.output(s.Context(), s, "exec_watch", "exec_id", execID); e != nil {
+		if e = b.output(s.Context(), s, s.Stderr(), "exec_watch", "exec_id", execID); e != nil {
 			return e
 		}
 		m, e = b.call(s.Context(), "exec_get", map[string]any{"exec_id": execID})
@@ -174,7 +177,7 @@ func (b backend) shell(s ssh.Session, id string) error {
 		}
 	}
 }
-func (b backend) output(ctx context.Context, w io.Writer, op, key, id string) error {
+func (b backend) output(ctx context.Context, stdout, stderr io.Writer, op, key, id string) error {
 	cursor := ""
 	for {
 		in := map[string]any{key: id, "wait_ms": uint64(1000)}
@@ -196,7 +199,11 @@ func (b backend) output(ctx context.Context, w io.Writer, op, key, id string) er
 			if e != nil {
 				return errors.New("invalid output frame")
 			}
-			if _, e = w.Write(data); e != nil {
+			writer := stdout
+			if channel == "stderr" {
+				writer = stderr
+			}
+			if _, e = writer.Write(data); e != nil {
 				return e
 			}
 		}
@@ -303,7 +310,7 @@ func (b backend) attach(s ssh.Session, id string) error {
 			}
 		}()
 	}
-	go func() { done <- b.output(ctx, s, "session_watch", "session_id", id) }()
+	go func() { done <- b.output(ctx, s, s.Stderr(), "session_watch", "session_id", id) }()
 	select {
 	case e = <-done:
 		if e == io.EOF {

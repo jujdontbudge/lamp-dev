@@ -44,17 +44,30 @@ func Proxy(ctx context.Context, address string, in io.Reader, out io.Writer) err
 	c.SetReadLimit(1 << 20)
 	nc := websocket.NetConn(ctx, c, websocket.MessageBinary)
 	defer nc.Close()
-	return copyStream(nc, in, out)
+	return copyStream(ctx, nc, in, out)
 }
-func copyStream(c net.Conn, in io.Reader, out io.Writer) error {
+func copyStream(ctx context.Context, c net.Conn, in io.Reader, out io.Writer) error {
 	go func() {
 		_, _ = io.Copy(c, in)
 		if v, ok := c.(interface{ CloseWrite() error }); ok {
 			_ = v.CloseWrite()
 		}
 	}()
-	_, e := io.Copy(out, c)
-	return e
+	done := make(chan error, 1)
+	go func() {
+		_, e := io.Copy(out, c)
+		done <- e
+	}()
+	select {
+	case e := <-done:
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return e
+	case <-ctx.Done():
+		_ = c.Close()
+		return ctx.Err()
+	}
 }
 
 // TailnetConnect is a ProxyCommand for clients without a system Tailscale daemon.
@@ -73,7 +86,7 @@ func TailnetConnect(ctx context.Context, dir string, t Tailscale, target string,
 		return e
 	}
 	defer c.Close()
-	return copyStream(c, in, out)
+	return copyStream(ctx, c, in, out)
 }
 
 type CIConfig struct {
@@ -181,12 +194,31 @@ func runTailnetSSH(ctx context.Context, node *tsnet.Server, c CIConfig, command 
 		return e
 	}
 	defer nc.Close()
-	conn, chans, reqs, e := ssh.NewClientConn(nc, c.Target, &ssh.ClientConfig{User: c.User, Auth: []ssh.AuthMethod{ssh.PublicKeys(certSigner)}, HostKeyCallback: checker.CheckHostKey, Timeout: 15 * time.Second})
+	// NewClientConn does not apply ClientConfig.Timeout itself. Bound both reads
+	// and writes during negotiation, and keep cancellation active through session
+	// creation and execution as well as the handshake.
+	stop := context.AfterFunc(ctx, func() { _ = nc.Close() })
+	defer stop()
+	config := &ssh.ClientConfig{User: c.User, Auth: []ssh.AuthMethod{ssh.PublicKeys(certSigner)}, HostKeyCallback: checker.CheckHostKey, Timeout: 15 * time.Second}
+	deadline := time.Now().Add(config.Timeout)
+	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
+		deadline = d
+	}
+	if e = nc.SetDeadline(deadline); e != nil {
+		return e
+	}
+	conn, chans, reqs, e := ssh.NewClientConn(nc, c.Target, config)
 	if e != nil {
+		if ctx.Err() != nil {
+			return fmt.Errorf("CI SSH negotiation cancelled: %w", ctx.Err())
+		}
 		return e
 	}
 	sshClient := ssh.NewClient(conn, chans, reqs)
 	defer sshClient.Close()
+	if e = nc.SetDeadline(time.Time{}); e != nil {
+		return e
+	}
 	session, e := sshClient.NewSession()
 	if e != nil {
 		return e

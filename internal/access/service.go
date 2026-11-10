@@ -129,6 +129,10 @@ func (s *Service) handler(lc *local.Client) http.Handler {
 	proxy := &httputil.ReverseProxy{Transport: transport, Rewrite: func(p *httputil.ProxyRequest) {
 		p.SetURL(&url.URL{Scheme: "http", Host: "lamp"})
 		p.Out.Host = "lamp"
+		// Rewrite runs after hop-by-hop stripping. Preserve the credential checked
+		// at the edge even if Connection nominated Authorization for removal;
+		// an absent bearer would otherwise select the Unix socket's owner mode.
+		p.Out.Header.Set("Authorization", p.In.Header.Get("Authorization"))
 		for k := range p.Out.Header {
 			if strings.HasPrefix(strings.ToLower(k), "x-lamp-") || strings.HasPrefix(strings.ToLower(k), "cf-") || strings.EqualFold(k, "Forwarded") {
 				p.Out.Header.Del(k)

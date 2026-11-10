@@ -70,12 +70,15 @@ public exec operations, preserves the last command's exit status, and ends at
 EOF or `exit`. It is a command console, not a persistent terminal: `cd`, exported
 variables, multiline syntax and interactive programs cannot span input lines.
 T21's session backend is required for real persistent terminal attachment.
+Guest stdout and stderr retain separate SSH channels, including when redirected.
 
 `sessions` calls `session_list`. `attach` obtains a bounded input lease, calls
 `session_attach`, streams public frames, and sends sequenced, location-epoch-bound
 input and PTY sizes with current revisions. It releases the input lease on exit
 and disconnects before the lease expires. Session movement requires reconnecting.
-An absent session backend fails explicitly; the access edge fabricates no session.
+An absent session backend reports `sessions are not available yet on this daemon`;
+the access edge fabricates no session. A missing individual session keeps its
+ordinary resource error.
 
 ## Embedded Tailscale
 
@@ -135,6 +138,9 @@ implementation to join an ephemeral embedded node, generates an in-memory SSH
 key, requests the short-lived user certificate, verifies the fleet host CA and
 runs the restricted SSH command. Node state and SSH keys stay in memory. The
 job stores no reusable Lamp bearer, tailnet auth key, OAuth secret or SSH key.
+SSH negotiation applies a connection deadline; cancellation closes the connection
+during negotiation, session creation and execution. The streaming proxy clients
+also close their connections and return when cancelled, including while idle.
 `TS_AUTHKEY` and `TS_CLIENT_SECRET` must be unset so upstream environment fallbacks
 cannot replace federation with a stored secret. Include the target's Tailscale
 hostname in the fleet host certificate's `hostnames`, as well as any domain name.

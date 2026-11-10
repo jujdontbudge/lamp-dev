@@ -108,3 +108,29 @@ formatting and Clippy. The full output is in
 [`make-verify.log`](evidence/t18/make-verify.log). Only focused builds, vet and the
 single session adapter test were used while editing.
 `docs/spec` and `docs/tickets` are unchanged.
+
+## Single review fixes
+
+Merged `origin/main` at `8e7636e` with a merge commit, retaining the access and
+fleet dependency sets. All four review findings were accepted and fixed:
+
+- The reverse proxy restores the checked inbound `Authorization` in its rewrite
+  callback, after hop-by-hop stripping. `Connection: Authorization` cannot turn
+  a bearer request into a credential-free Unix-socket owner request.
+- CI applies the configured SSH negotiation timeout as an actual connection
+  deadline, bounded by the caller's earlier deadline, and clears it only after
+  successful negotiation. Context cancellation closes that connection throughout
+  negotiation, session creation and execution.
+- Stream copying selects on cancellation and closes the connection before
+  returning, allowing an idle `tailnet-connect` to terminate on SIGTERM.
+- Public stdout and stderr frames go to their respective SSH channel writers
+  for both the guest command console and the session adapter.
+
+The daemon's explicit `operation not installed` response for session operations
+now becomes `sessions are not available yet on this daemon`. Ordinary missing
+session resources retain their original errors. No session backend was added.
+
+No tests were added or changed, and no trial or demonstration was rerun for
+this review. The single required review `make verify` invocation passed (exit 0),
+including builds, existing tests, contracts, interoperability and lint, as recorded in
+[`review-make-verify.log`](evidence/t18/review-make-verify.log).
