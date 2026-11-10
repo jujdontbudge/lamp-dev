@@ -1,0 +1,16 @@
+{"event": "demonstrated-binaries", "sha256": {"/tmp/lamp-access-t18-linux": "c192c7ba61e4150e959417990a110856bca134e691c1eaaaeb31566637d2454f", "/tmp/lampd-t18-linux": "83d0a1a7c8a88afc630e6925698821ba82e8ba20fc95b1d609158b1dd2187111", "/usr/local/lib/lamp/lamp-supervisor": "58a21f9751d952050e84ee83f6e33041b88f47c4b3b13fe7291d73f0b610fb7e"}}
+{"event": "allocation-admission", "firecracker_count": 0, "available_mib": 25842}
+{"event": "sandbox-created", "sandbox_id": "sb_f8749834079fc178ebeb032418ea4b91", "state": "ready"}
+{"event": "local-openssh-guest-shell", "stdout": "be1d8d39a2a68e6f17ce0ce8", "host_ca_verified": true}
+{"event": "guest-exit-status", "ssh_exit": 37}
+{"event": "websocket-openssh-guest-shell", "stdout": "be1d8d39a2a68e6f17ce0ce8"}
+{"event": "host-command-denied", "exit": 1, "stderr": "use sessions, attach <session_id>, or shell <sandbox_id>"}
+{"event": "forwarding-denied", "exit": 255, "stderr": "channel 0: open failed: unknown channel type: unsupported channel type\nstdio forwarding failed"}
+{"event": "session-backend-unavailable", "exit": 1, "stderr": "control session_list: NOT_FOUND"}
+{"event": "isolated-tailnet-enrolled", "addresses": ["100.127.240.1", "fd7a:115c:a1e0:ffff::1"], "control": "owner Headscale 0.29.7", "system_tailnet": "untouched"}
+{"event": "tailnet-openssh-guest-shell", "stdout": "be1d8d39a2a68e6f17ce0ce8", "system_tun": false}
+{"event": "tailnet-user-certificate", "certificate": "/var/tmp/lamp-t18-demo-32qha0mz/user-cert.pub:\n        Type: ssh-ed25519-cert-v01@openssh.com user certificate\n        Public key: ED25519-CERT SHA256:EBGXYmiWCYbV/xhuhGNBX001CRnNuTX49mHmoc26R/0\n        Signing CA: ED25519 SHA256:6THgeJjq8yV+keHxdFsYsASWoUg9UMBisMJ3OjJdi24 (using ssh-ed25519)\n        Key ID: \"lamp\"\n        Serial: 16661245152329427823\n        Valid: from 2026-11-10T17:57:58 to 2026-11-10T18:03:28\n        Principals: \n                owner\n        Critical Options: (none)\n        Extensions: \n                permit-pty"}
+{"event": "ephemeral-certificate-openssh-guest-shell", "stdout": "be1d8d39a2a68e6f17ce0ce8", "authorized_key_allowlist": false}
+{"event": "demonstration-complete", "root": "/var/tmp/lamp-t18-demo-32qha0mz", "features": ["local/offline route", "guest command console", "SSH over WebSocket", "embedded Tailscale/Headscale", "WhoIs-to-SSH user certificate", "fleet SSH host CA", "host shell and forwarding denied"]}
+{"event": "sandbox-released", "state": "deleted"}
+{"event": "cleanup-complete", "firecracker_count": 0, "owner_services": "untouched"}
