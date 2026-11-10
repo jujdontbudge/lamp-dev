@@ -169,7 +169,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasPrefix(path, "/v1/operations/"):
 			if rec, ok := s.durableOps[strings.TrimPrefix(path, "/v1/operations/")]; ok && s.operationAllowed(requestCaller(r), rec) {
-				send = prepareJSON(w, 200, api.OperationGetResult{Data: rec.Operation, RequestId: requestID})
+				send = prepareJSON(w, 200, api.OperationGetResult{Data: s.revocationOperation(rec.Operation), RequestId: requestID})
 				return
 			}
 		case strings.HasPrefix(path, "/v1/sandboxes/"):
@@ -219,7 +219,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		input = in
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		_, err := decodeInput(w, r, &in, "template_id host_id engine_id resources durability wait_ms")
+		_, err := decodeInput(w, r, &in, "template_id host_id engine_id resources durability task_id wait_ms")
 		in.IdempotencyKey = key
 		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "create requires template_id and Idempotency-Key; only demo body fields are admitted", nil)
@@ -248,6 +248,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		in.WaitMs = nil
 		input = in
 		sb = newSandbox()
+		sb.TaskId = in.TaskId
 		sb.Id = s.resourceID("sb")
 		sb.HostId = pointer(s.hostID())
 		sb.CustodyHostIds = pointer([]string{s.hostID()})
@@ -412,6 +413,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			sb = parent
 		}
 		if name == "sandbox_fork" {
+			sb.TaskId = parent.TaskId
 			sb.TemplateId = parent.TemplateId
 			sb.EngineId = parent.EngineId
 			sb.Resources = parent.Resources
@@ -419,6 +421,12 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			parent.UpdatedAt = timestamp()
 			updatedParent = &parent
 		}
+	}
+	if err := s.accountAdmission(a, name, sb); err != nil {
+		s.mu.Unlock()
+		e := err.(*coreError)
+		writeError(w, requestID, e.code, e.message, nil)
+		return
 	}
 	if s.fleet != nil {
 		if err := s.fleet.admit(a, name, sb); err != nil {
@@ -437,6 +445,21 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		s.journal.Sandboxes[source] = *updatedParent
 	}
 	sb.OwnerId = a.Principal
+	if name == "sandbox_create" || name == "sandbox_fork" {
+		s.bindDefaultTask(a, &sb)
+		if name == "sandbox_fork" {
+			s.chargeFork(sb)
+		}
+	}
+	visibility := "control"
+	if name == "exec_create" {
+		visibility = "opaque"
+	}
+	if name != "sandbox_delete" && !s.appendAudit(sb, visibility, name, "allow") {
+		s.mu.Unlock()
+		writeError(w, requestID, "CONTROL_QUOTA_EXCEEDED", "audit retention quota reached", nil)
+		return
+	}
 	ex.OwnerId = a.Principal
 	ref := api.ResourceRef{Kind: "sandbox", Id: sb.Id}
 	if name == "exec_create" {
@@ -459,7 +482,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			s.busy[source] = true
 		}
 	}
-	if err := s.saveConcurrent(id, ref.Id, source); err != nil {
+	if err := s.saveConcurrent(id, ref.Id, source, "$accountability"); err != nil {
 		s.broken = true
 		s.mu.Unlock()
 		writeError(w, requestID, "DATA_UNAVAILABLE", "cannot persist operation admission", nil)
@@ -568,6 +591,19 @@ func (s *Service) execute(id, source string) {
 		s.mu.Unlock()
 		return
 	}
+	if source != "" {
+		sb := s.journal.Sandboxes[source]
+		if sb.TaskId != nil {
+			t := s.journal.Accountability.Tasks[*sb.TaskId]
+			if t.DeadlineAt != nil {
+				if deadline, e := time.Parse(time.RFC3339Nano, *t.DeadlineAt); e == nil {
+					var stop context.CancelFunc
+					ctx, stop = context.WithDeadline(ctx, deadline)
+					defer stop()
+				}
+			}
+		}
+	}
 	rec.Operation.Phase = pointer("worker")
 	rec.Operation.State = "running"
 	rec.Operation.Revision++
@@ -594,7 +630,7 @@ func (s *Service) execute(id, source string) {
 		running <- nil
 	} else {
 		go func() {
-			err := s.saveConcurrent(id, ref.Id, source)
+			err := s.saveConcurrent(id, ref.Id, source, "$accountability")
 			if err != nil {
 				s.broken = true
 			}
@@ -819,7 +855,7 @@ func (s *Service) execute(id, source string) {
 		ex.UpdatedAt = now
 		s.journal.Execs[ex.Id] = ex
 	}
-	if err := s.saveConcurrent(id, ref.Id, source); err != nil {
+	if err := s.saveConcurrent(id, ref.Id, source, "$accountability"); err != nil {
 		s.broken = true
 	}
 	s.releaseAdmission(rec, source)
