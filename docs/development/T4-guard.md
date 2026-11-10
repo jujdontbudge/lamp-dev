@@ -115,9 +115,11 @@ here. No VPN, private connection exception or strict-sites mode is claimed.
 
 Connection `start`, `checkpoint` and `end` records contain the tuple, policy
 reason, unique flow identity, start/end times and cumulative accepted L3 bytes.
-RST durably ends and removes a flow. The first FIN durably closes its record,
-retaining a bounded drain entry for half-close data/final ACKs; their counters are
-batched as end updates. A fresh SYN on a closed tuple starts a new identity.
+RST durably ends and removes a flow. The first FIN durably checkpoints a bounded
+drain entry for half-close data/final ACKs. It and subsequent checkpoints remain
+explicitly unterminated (`closed:false`, `ended_at_ms:null`). Only retirement by
+RST, idle expiry or SYN replacement writes a terminal end and stops accepting
+packets under that identity. A fresh SYN on a draining tuple starts a new identity.
 An identical initial sequence number on an open tuple is a SYN retransmission;
 a changed ISN ends the previous identity and admits a new one. Idle expiry runs
 without incoming packets, records final counters and removes the entry.

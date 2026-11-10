@@ -89,10 +89,14 @@ def tcp():
   c,_=s.accept()
   def echo(c):
    try:
+    half_close=False
     while True:
      b=c.recv(4096)
      if not b: break
+     half_close=half_close or b==b'half-close'
      c.sendall(b)
+    if half_close:
+     c.sendall(b'peer-after-fin');threading.Event().wait()
    except ConnectionResetError: pass
    finally: c.close()
   threading.Thread(target=echo,args=(c,),daemon=True).start()
@@ -176,7 +180,7 @@ except OSError:print('blocked',flush=True)
         p = launch("ip", "netns", "exec", guest, "python3", "-u", "-c", live, kind, stdin=sp.PIPE)
         assert p.stdout.readline().strip() == "ready"
         active.append(p)
-    daemon.kill(); daemon.wait(timeout=3)
+    fin_then_peer_data_guard_kill_remains_unterminated(guest, daemon)
     for p in active:
         p.stdin.write("go\n");p.stdin.flush()
         assert p.stdout.readline().strip() == "blocked"
@@ -202,6 +206,36 @@ except OSError:print('blocked',flush=True)
     assert p.stdout.readline().strip() == "blocked";p.wait(timeout=3)
     probe("udp", "8.8.8.8", False)
     ok("idle audit spool exhaustion closes established and new traffic without another admission")
+
+
+def fin_then_peer_data_guard_kill_remains_unterminated(guest, daemon):
+    payload = r'''
+import os,signal,socket,sys
+s=socket.socket();s.settimeout(3);s.bind(('198.18.240.2',19002));s.connect(('8.8.8.8',18080))
+s.sendall(b'half-close');assert s.recv(32)==b'half-close';print('connected',flush=True)
+sys.stdin.readline();s.shutdown(socket.SHUT_WR);assert s.recv(32)==b'peer-after-fin'
+os.kill(int(sys.argv[1]),signal.SIGSTOP);print('peer-data',flush=True)
+sys.stdin.readline();s.close()
+'''
+    p=launch("ip","netns","exec",guest,"python3","-u","-c",payload,daemon.pid,stdin=sp.PIPE)
+    assert p.stdout.readline().strip()=="connected"
+    # Align just after a batch so FIN + peer data fit before the next one.
+    pulse=max((r["sequence"] for r in records("network") if r["details"].get("type")=="heartbeat"),default=0)
+    deadline=time.monotonic()+2
+    while not any(r["sequence"]>pulse and r["details"].get("type")=="heartbeat" for r in records("network")):
+        assert time.monotonic()<deadline
+        time.sleep(.005)
+    p.stdin.write("fin\n");p.stdin.flush()
+    assert p.stdout.readline().strip()=="peer-data"
+    # The peer data was delivered. The guard is now stopped and cannot flush
+    # those extra counters before SIGKILL; the durable FIN must not claim an end.
+    daemon.kill();daemon.wait(timeout=3)
+    rows=[r["details"] for r in records("network") if (r["details"].get("tuple") or {}).get("source_port")==19002]
+    fin=next(r for r in rows if r.get("reason")=="tcp_fin")
+    assert rows[-1]["bytes_received"]==fin["bytes_received"], "test missed the pre-batch crash window"
+    assert all(r["phase"]!="end" and r["closed"] is False and r["ended_at_ms"] is None for r in rows),rows
+    p.stdin.write("close\n");p.stdin.flush();assert p.wait(timeout=3)==0
+    ok("fin_then_peer_data_guard_kill_remains_unterminated")
 
 
 def rst_then_reconnect(guest):

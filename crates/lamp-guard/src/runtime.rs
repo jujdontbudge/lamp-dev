@@ -25,7 +25,7 @@ struct Flow {
     sent: u64,
     received: u64,
     syn: Option<u32>,
-    closed: bool,
+    draining: bool,
     dirty: bool,
 }
 impl Flow {
@@ -33,7 +33,7 @@ impl Flow {
         json!({"type":"connection","visibility":"opaque","phase":phase,"decision":"allow",
             "flow_id":self.id,"tuple":tuple,"reason":reason,"started_at_ms":self.start,
             "ended_at_ms":if phase=="end" {Some(self.last_ms)}else{None},
-            "bytes_sent":self.sent,"bytes_received":self.received,"closed":self.closed})
+            "bytes_sent":self.sent,"bytes_received":self.received,"closed":phase=="end"})
     }
 }
 #[derive(Hash, PartialEq, Eq)]
@@ -89,11 +89,7 @@ impl Connections {
             if f.dirty || expired {
                 events.push(f.record(
                     tuple,
-                    if f.closed || expired {
-                        "end"
-                    } else {
-                        "checkpoint"
-                    },
+                    if expired { "end" } else { "checkpoint" },
                     if expired {
                         "idle_deadline"
                     } else {
@@ -183,12 +179,15 @@ impl Connections {
                 None
             };
             // Same ISN on an open tuple is a SYN retransmission, not a new admission.
-            // A closed tuple or a different ISN must never inherit the old identity.
-            if syn.is_some() && self.flows.get(&t).is_some_and(|f| f.closed || f.syn != syn) {
+            // A draining tuple or a different ISN must never inherit the old identity.
+            if syn.is_some()
+                && self
+                    .flows
+                    .get(&t)
+                    .is_some_and(|f| f.draining || f.syn != syn)
+            {
                 let old = self.flows.remove(&t).unwrap();
-                if old.dirty || !old.closed {
-                    self.durable(spool, vec![old.record(&t, "end", "replaced_syn")])?;
-                }
+                self.durable(spool, vec![old.record(&t, "end", "replaced_syn")])?;
             }
             if !self.flows.contains_key(&t) {
                 if (t.protocol != 17 && syn.is_none()) || self.flows.len() == MAX_FLOWS {
@@ -207,7 +206,7 @@ impl Connections {
                     sent: p.bytes.len() as u64,
                     received: 0,
                     syn,
-                    closed: false,
+                    draining: false,
                     dirty: false,
                 };
                 self.durable(spool, vec![f.record(&t, "start", "public_transport")])?;
@@ -236,16 +235,20 @@ impl Connections {
         f.last_ms = now_ms();
         let rst = key.protocol == 6 && p.bytes[33] & 0x04 != 0;
         let fin = key.protocol == 6 && p.bytes[33] & 0x01 != 0;
-        if rst || (fin && !f.closed) {
-            f.closed = true;
+        if rst || (fin && !f.draining) {
+            f.draining = true;
             f.dirty = false;
-            let end = f.record(&key, "end", if rst { "tcp_rst" } else { "tcp_fin" });
-            self.durable(spool, vec![end])?;
+            let event = f.record(
+                &key,
+                if rst { "end" } else { "checkpoint" },
+                if rst { "tcp_rst" } else { "tcp_fin" },
+            );
+            self.durable(spool, vec![event])?;
             if rst {
                 self.flows.remove(&key);
             }
             // FIN retains a bounded drain entry for half-close data/final ACKs.
-            // Its counters are batched; any fresh SYN instead gets a new admission.
+            // It remains unterminated until RST, expiry or SYN replacement retires it.
         }
         Ok(true)
     }
@@ -437,7 +440,7 @@ mod tests {
         std::fs::remove_file(c.spool).unwrap();
     }
     #[test]
-    fn fin_closes_and_same_isn_retransmission_does_not_readmit() {
+    fn fin_drains_and_same_isn_retransmission_does_not_readmit() {
         let (c, mut s, mut state) = fixture("fin");
         let syn = tcp(2, 100, 0);
         for _ in 0..3 {
@@ -447,16 +450,52 @@ mod tests {
         assert!(state.packet(&c, 1, &mut s, &tcp(0x11, 101, 0)).unwrap());
         assert_eq!(s.durable_writes, 2);
         assert!(state.packet(&c, 1, &mut s, &syn).unwrap());
-        assert_eq!(s.durable_writes, 3);
+        assert_eq!(s.durable_writes, 4);
         assert!(state.packet(&c, 1, &mut s, &syn).unwrap());
-        assert_eq!(s.durable_writes, 3);
+        assert_eq!(s.durable_writes, 4);
         assert_eq!(state.flows.values().next().unwrap().id, 2);
         assert!(state.packet(&c, 1, &mut s, &tcp(2, 500, 0)).unwrap());
         assert_eq!(state.flows.values().next().unwrap().id, 3);
         assert_eq!(
-            s.durable_writes, 5,
+            s.durable_writes, 6,
             "a different ISN closes the old record and admits a new one"
         );
+        std::fs::remove_file(c.spool).unwrap();
+    }
+    #[test]
+    fn fin_then_peer_data_crash_remains_unterminated() {
+        let (c, mut s, mut state) = fixture("fin-crash");
+        assert!(state.packet(&c, 1, &mut s, &tcp(2, 100, 0)).unwrap());
+        assert!(state.packet(&c, 1, &mut s, &tcp(0x11, 101, 0)).unwrap());
+        let mut peer = tcp(0x18, 500, 100);
+        peer.input = 2;
+        peer.output = 1;
+        peer.bytes[12..16].copy_from_slice(&[8, 8, 8, 8]);
+        peer.bytes[16..20].copy_from_slice(&[198, 18, 240, 2]);
+        peer.bytes[20..22].copy_from_slice(&18080_u16.to_be_bytes());
+        peer.bytes[22..24].copy_from_slice(&12345_u16.to_be_bytes());
+        assert!(state.packet(&c, 1, &mut s, &peer).unwrap());
+        state.flush(&mut s, None).unwrap();
+        let durable = s.durable_writes;
+        assert!(state.packet(&c, 1, &mut s, &peer).unwrap());
+        assert_eq!(s.durable_writes, durable);
+        // Crash before the next batch loses the additional in-memory counters,
+        // but neither the FIN record nor a draining checkpoint may claim an end.
+        drop(state);
+        drop(s);
+        let rows = records(&c);
+        let connections: Vec<_> = rows
+            .iter()
+            .map(|r| &r["details"])
+            .filter(|r| r["type"] == "connection")
+            .collect();
+        assert!(connections.iter().any(|r| r["reason"] == "tcp_fin"));
+        assert_eq!(connections.last().unwrap()["bytes_received"], 140);
+        for r in connections {
+            assert_ne!(r["phase"], "end");
+            assert_eq!(r["closed"], false);
+            assert!(r["ended_at_ms"].is_null());
+        }
         std::fs::remove_file(c.spool).unwrap();
     }
     #[test]
