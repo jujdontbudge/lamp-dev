@@ -87,10 +87,15 @@ ABI and package format stay unfrozen until T14, after T7/T8/T9.
 
 ## Current executable behavior
 
-`go run ./cmd/lamp version --json` returns build/protocol metadata. Other CLI
-requests fail with exit 2. `lampd` reports that the service is not implemented and
-exits; it binds no listener. The Rust runtime crates contain documented library
-boundaries only. T2–T5 implement the actual product and independent harness.
+`lamp` supports the bounded demo's sandbox create/get/fork, exec create/get,
+and operation get over `lampd`'s owner-only local HTTP Unix socket. See
+[demo-control-path.md](demo-control-path.md) for startup, canonical API/CLI usage,
+worker integration semantics and explicit fixture/engine evidence boundaries.
+`version --json` still reports build/protocol metadata. The Linux engine
+(`lamp-supervisor`, T2) boots templates as Firecracker microVMs and forks them
+with memory; see [crates/lamp-engine/README.md](../../crates/lamp-engine/README.md)
+and [T2-evidence.md](T2-evidence.md). T6 joins the parallel tickets and runs
+the gate.
 
 ## CI on owner machines
 

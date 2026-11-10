@@ -1,0 +1,4 @@
+ok  	github.com/JohanSardar/lamp/cmd/lamp	1.270s
+ok  	github.com/JohanSardar/lamp/internal/control	29.902s
+
+exit_code=0

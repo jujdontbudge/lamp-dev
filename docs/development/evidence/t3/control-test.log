@@ -1,0 +1,54 @@
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/uid
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/pid
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/protocol
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/worker
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/boot
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/zero-max
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/large-max
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/context
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/negotiated-size
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/no-receipt
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/unknown
+--- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/uid (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/pid (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/protocol (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/worker (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/boot (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/zero-max (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/large-max (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/context (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/negotiated-size (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/no-receipt (0.00s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/unknown (0.00s)
+=== RUN   TestWorkerHandshakeHonorsCancellation
+--- PASS: TestWorkerHandshakeHonorsCancellation (0.00s)
+=== RUN   TestWorkerDoesNotSendOversizeNegotiatedRequest
+--- PASS: TestWorkerDoesNotSendOversizeNegotiatedRequest (0.00s)
+=== RUN   TestEndToEndCreateExecFork
+    e2e_test.go:329: real CLI -> HTTP/Unix -> lampd -> framed worker: create=sb_2a747b779218f7f14c8ea3a9a7baa837 exec=ex_03f9da5c3e701d54fe1df52ce1a8bb14 fork=sb_4ab44dbea49f39d441d8054d1fc498a2; acceptance stayed unready until marker
+--- PASS: TestEndToEndCreateExecFork (0.54s)
+=== RUN   TestIdempotencyValidationAndRevision
+--- PASS: TestIdempotencyValidationAndRevision (0.04s)
+=== RUN   TestUnknownWorkerOutcomeIsNotSuccess
+--- PASS: TestUnknownWorkerOutcomeIsNotSuccess (0.04s)
+=== RUN   TestForkFailureInvalidatesSourceReadiness
+--- PASS: TestForkFailureInvalidatesSourceReadiness (0.07s)
+=== RUN   TestRestartNeverRedeliversAcceptedEffects
+--- PASS: TestRestartNeverRedeliversAcceptedEffects (0.06s)
+=== RUN   TestWorkerRejectionRetainsFailedOperation
+--- PASS: TestWorkerRejectionRetainsFailedOperation (0.03s)
+=== RUN   TestCLIReadPreservesUInt64
+--- PASS: TestCLIReadPreservesUInt64 (0.04s)
+=== RUN   TestJournalFailureDoesNotPublishSuccess
+--- PASS: TestJournalFailureDoesNotPublishSuccess (0.03s)
+=== RUN   TestCLICreateAndReads
+--- PASS: TestCLICreateAndReads (0.04s)
+=== RUN   TestRustWorkerControlPath
+    rust_e2e_test.go:92: CLI -> HTTP/Unix -> lampd -> lamp.worker/1 -> Rust process: create=sb_c137cd526dda0dfb437269bba724396b exec=ex_6b1c742d8adba65160b974086ef24a4e fork=sb_e7118f2731d878ee09e6448d991cb7c6; independent command marker=control-path-ok
+--- PASS: TestRustWorkerControlPath (0.69s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	2.422s
+
+exit_code=0
