@@ -513,23 +513,6 @@ fn ctl(mut args: Vec<String>) {
             eprint!("{}", text(&r.stderr_tail));
             std::process::exit(r.exit_code);
         }
-        "capture" => {
-            let source = args.first().unwrap_or_else(|| die("capture ID CAPTURE_ID"));
-            let capture_id = args.get(1).unwrap_or_else(|| die("capture ID CAPTURE_ID"));
-            let receipt = c.call(
-                source,
-                request::Command::Capture(Capture {
-                    capture_id: capture_id.clone(),
-                    preserves_memory: true,
-                    consistency: durability,
-                    output_handles: vec![],
-                }),
-            );
-            println!(
-                "{}",
-                json!({"capture_id": capture_id, "state": receipt.state})
-            );
-        }
         "fork" => {
             let source = args
                 .first()

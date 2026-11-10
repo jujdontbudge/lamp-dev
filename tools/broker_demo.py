@@ -281,7 +281,7 @@ def main():
         exposed = [root / "transcript.jsonl", root / "broker.log", root / "audit.jsonl"]
         assert all(key not in p.read_bytes() for p in exposed)
         record("canary scan", {"provider_key_occurrences_in_output_and_logs": 0, "guest_and_capture": "not demonstrated by this host-only journey"})
-        record("remaining account evidence", {"OpenRouter": "credential access blocked", "Stripe": "test-account sign-in not available", "AWS": "scoped test-resource sign-in not available", "external_MCP": "not demonstrated"})
+        record("remaining account evidence", {"OpenRouter": "not exercised by this fixture-only journey", "Stripe": "not exercised", "AWS": "not exercised", "external_MCP": "not demonstrated"})
     finally:
         broker.terminate()
         broker.wait(timeout=50)

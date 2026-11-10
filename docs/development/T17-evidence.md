@@ -15,8 +15,14 @@ The model/MCP vendors in these demonstrations are explicitly disposable,
 authenticated fixtures, not OpenRouter or an external signed-in MCP provider.
 Real OpenRouter, Stripe and scoped AWS account demonstrations remain missing;
 Stripe/AWS command adapters are implemented but not claimed proven against those
-accounts. No credentials were acquired, printed or exported to work around the
-credential-access safety hold. No money was spent.
+accounts. One no-charge real `aws sts get-caller-identity` request through the
+broker returned HTTP 502 / `UPSTREAM_UNAVAILABLE`; the
+[redacted result](evidence/t17/aws-identity.json) records the failure without
+credentials or account details. The broker intentionally withheld CLI stderr,
+so this is not a claim about the presence/absence of AWS credentials. The host
+transcript's remaining-account labels describe unexercised routes, not an
+account inventory. No credentials were acquired, printed or exported to work
+around the credential-access safety hold. No money was spent.
 
 The initial usable interface is the broker's own owner/task HTTP protocol.
 Canonical `lampd` connection/settings lifecycle and attachment wiring, automatic
@@ -147,3 +153,23 @@ The required single `make verify` passed (exit **0**), including workspace build
 existing Go/Rust/Python suites, contract checks, cross-process interoperability,
 vet, formatting and clippy. The [complete log](evidence/t17/make-verify.log) is
 retained. No benchmark workload or trial loop was run.
+
+That full check and the pinned engine demonstration preceded integration of
+`origin/main`'s T7 storage merge (`09899fd`). The broker implementation was
+unchanged by the base update. Its overlapping supervisor flags/capture command
+were reconciled with T7's implementations rather than duplicated. Post-merge
+focused build/vet/format/clippy and Linux supervisor-check outcomes:
+
+- `go build -o /tmp/lamp-broker-t17-final ./cmd/lamp-broker`: **PASS**, exit 0.
+- `go vet ./internal/broker ./cmd/lamp-broker`: **PASS**, exit 0.
+- `cargo fmt --all -- --check`: **PASS**, exit 0.
+- `cargo clippy --locked -p lamp-supervisor --all-targets -- -D warnings`:
+  initially failed (exit 101) on the duplicate capture match introduced by the
+  merge; the duplicate was removed, and the final focused check **passed**,
+  exit 0 ([log](evidence/t17/post-merge-clippy.log)).
+- On LX, `cargo check --locked -p lamp-supervisor`: **PASS**, exit 0, without
+  warnings after reconciliation ([log](evidence/t17/post-merge-linux-check.log)).
+
+The full suite and real guest journey were not repeated after the base update;
+the exact demonstrated binaries remain pinned in the transcript. No new final
+engine/storage certification is implied by these focused compilation checks.
