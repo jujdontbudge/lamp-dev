@@ -1,12 +1,15 @@
 package control
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,7 +19,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const maxOperations = 1024
+const maxOperations = 1_000_000
+const compactEvery = 16384
 
 type record struct {
 	Operation api.Operation   `json:"operation"`
@@ -25,6 +29,8 @@ type record struct {
 	Resource  api.ResourceRef `json:"resource"`
 }
 type journal struct {
+	Sequence   uint64                 `json:"sequence,omitempty"`
+	Outputs    map[string][]api.Frame `json:"outputs,omitempty"`
 	Version    int                    `json:"version"`
 	Operations map[string]*record     `json:"operations"`
 	Sandboxes  map[string]api.Sandbox `json:"sandboxes"`
@@ -46,6 +52,8 @@ type Service struct {
 	wg          sync.WaitGroup
 	cancel      func()
 	broken      bool
+	keys        map[string]string
+	logRecords  int
 }
 
 func pointer[T any](v T) *T { return &v }
@@ -99,8 +107,8 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, fmt.Errorf("state directory is already in use: %w", err)
 	}
-	s := &Service{dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}}
-	s.journal = journal{1, map[string]*record{}, map[string]api.Sandbox{}, map[string]api.Exec{}}
+	s := &Service{dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, keys: map[string]string{}}
+	s.journal = journal{Version: 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
 	path := filepath.Join(s.dir, "journal.json")
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -116,7 +124,79 @@ func Open(config Config) (*Service, error) {
 			lock.Close()
 			return nil, errors.New("invalid operation journal version or maps")
 		}
+	}
+	if s.journal.Outputs == nil {
+		s.journal.Outputs = map[string][]api.Frame{}
+	}
+	// Replay only newline-terminated commits. A torn final append was never
+	// published; remove it before accepting more writes. Complete corrupt records
+	// fail closed rather than silently dropping admitted effects.
+	logPath := filepath.Join(s.dir, "journal.log")
+	log, err := os.OpenFile(logPath, os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600)
+	if err != nil {
+		lock.Close()
+		return nil, err
+	}
+	reader := bufio.NewReader(log)
+	var offset int64
+	for {
+		line, readErr := reader.ReadBytes('\n')
+		if readErr == io.EOF {
+			if len(line) != 0 {
+				err = log.Truncate(offset)
+			}
+			break
+		}
+		if readErr != nil {
+			err = readErr
+			break
+		}
+		var delta journal
+		if err = json.Unmarshal(bytes.TrimSpace(line), &delta); err != nil {
+			break
+		}
+		if delta.Version != 1 || delta.Sequence == 0 {
+			err = errors.New("invalid journal record")
+			break
+		}
+		offset += int64(len(line))
+		if delta.Sequence <= s.journal.Sequence {
+			continue
+		}
+		if delta.Sequence != s.journal.Sequence+1 {
+			err = errors.New("journal sequence gap")
+			break
+		}
+		for id, rec := range delta.Operations {
+			s.journal.Operations[id] = rec
+		}
+		for id, sb := range delta.Sandboxes {
+			s.journal.Sandboxes[id] = sb
+		}
+		for id, ex := range delta.Execs {
+			s.journal.Execs[id] = ex
+		}
+		for id, frames := range delta.Outputs {
+			s.journal.Outputs[id] = frames
+		}
+		s.journal.Sequence = delta.Sequence
+		s.logRecords++
+	}
+	if err == nil {
+		err = log.Sync()
+	}
+	log.Close()
+	if err != nil {
+		lock.Close()
+		return nil, fmt.Errorf("invalid operation log: %w", err)
+	}
+	if err := syncDirectory(s.dir); err != nil {
+		lock.Close()
+		return nil, err
+	}
+	{
 		for id, r := range s.journal.Operations {
+			s.keys[r.Key] = id
 			ch := make(chan struct{})
 			close(ch)
 			s.done[id] = ch
@@ -132,7 +212,7 @@ func Open(config Config) (*Service, error) {
 		// Reconciliation is T10. Never assert live engine readiness after a daemon
 		// restart merely because a previous process persisted a successful operation.
 		for id, sb := range s.journal.Sandboxes {
-			if sb.State != "failed" {
+			if sb.State != "failed" && sb.State != "deleted" {
 				sb.State = "unavailable"
 				sb.Revision++
 				sb.UpdatedAt = timestamp()
@@ -147,7 +227,7 @@ func Open(config Config) (*Service, error) {
 				s.journal.Execs[id] = ex
 			}
 		}
-		if err := s.save(); err != nil {
+		if err := s.compact(); err != nil {
 			lock.Close()
 			return nil, err
 		}
@@ -160,9 +240,63 @@ func terminal(state api.OperationState) bool {
 	return state == "succeeded" || state == "failed" || state == "outcome_unknown" || state == "canceled"
 }
 
-// save runs under mu. One atomic, fsynced journal commit precedes admission and
-// another precedes publication of terminal evidence. No engine bytes live here.
-func (s *Service) save() error {
+// save runs under mu. Only changed records are appended and fsynced before
+// dispatch/publication. IDs explicitly name the bounded mutation write set.
+func (s *Service) save(ids ...string) error {
+	delta := journal{Version: 1, Sequence: s.journal.Sequence + 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
+	for _, id := range ids {
+		if rec, ok := s.journal.Operations[id]; ok {
+			delta.Operations[id] = rec
+		}
+		if sb, ok := s.journal.Sandboxes[id]; ok {
+			delta.Sandboxes[id] = sb
+		}
+		if ex, ok := s.journal.Execs[id]; ok {
+			delta.Execs[id] = ex
+		}
+		if frames, ok := s.journal.Outputs[id]; ok {
+			delta.Outputs[id] = frames
+		}
+	}
+	data, err := json.Marshal(delta)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(filepath.Join(s.dir, "journal.log"), os.O_WRONLY|os.O_APPEND|unix.O_NOFOLLOW, 0600)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(append(data, '\n'))
+	if err == nil {
+		err = f.Sync()
+	}
+	closeErr := f.Close()
+	if err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return err
+	}
+	s.journal.Sequence = delta.Sequence
+	s.logRecords++
+	if s.logRecords >= compactEvery {
+		return s.compact()
+	}
+	return nil
+}
+func syncDirectory(path string) error {
+	dir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
+}
+
+// A sequence-stamped atomic snapshot makes replay safe even if a crash occurs
+// between the rename and truncation of the old log. Legacy journal.json opens
+// migrate here without losing existing operation/idempotency history.
+func (s *Service) compact() error {
 	data, err := json.Marshal(s.journal)
 	if err != nil {
 		return err
@@ -186,12 +320,22 @@ func (s *Service) save() error {
 	if err = os.Rename(path, filepath.Join(s.dir, "journal.json")); err != nil {
 		return err
 	}
-	dir, err := os.Open(s.dir)
+	if err = syncDirectory(s.dir); err != nil {
+		return err
+	}
+	log, err := os.OpenFile(filepath.Join(s.dir, "journal.log"), os.O_WRONLY|os.O_TRUNC|unix.O_NOFOLLOW, 0600)
 	if err != nil {
 		return err
 	}
-	defer dir.Close()
-	return dir.Sync()
+	err = log.Sync()
+	closeErr = log.Close()
+	if err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		s.logRecords = 0
+	}
+	return err
 }
 func (s *Service) Close() error {
 	s.mu.Lock()

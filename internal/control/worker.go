@@ -32,6 +32,8 @@ type workerClient struct {
 	mu      sync.Mutex
 	conn    *net.UnixConn
 	maximum uint32
+	pending map[string]*workerPending
+	closed  bool
 }
 type workerFailure struct {
 	code, message string
@@ -40,11 +42,32 @@ type workerFailure struct {
 }
 
 func (e *workerFailure) Error() string { return e.message }
-func (w *workerClient) close()         { w.mu.Lock(); defer w.mu.Unlock(); w.disconnect() }
+
+type workerReply struct {
+	receipt *pb.Receipt
+	err     error
+}
+type workerPending struct {
+	context *pb.Context
+	reply   chan workerReply
+}
+
+func (w *workerClient) close() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.closed = true
+	w.disconnect()
+}
+
+// Caller holds mu. Every attempted effect on a broken transport is uncertain.
 func (w *workerClient) disconnect() {
 	if w.conn != nil {
 		w.conn.Close()
 		w.conn = nil
+	}
+	for id, pending := range w.pending {
+		pending.reply <- workerReply{err: &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker transport lost", unknown: true}}
+		delete(w.pending, id)
 	}
 }
 func readBounded(r io.Reader, maximum uint32) (*pb.Frame, error) {
@@ -59,6 +82,9 @@ func readBounded(r io.Reader, maximum uint32) (*pb.Frame, error) {
 	return pb.ReadFrame(io.MultiReader(bytes.NewReader(prefix[:]), r))
 }
 func (w *workerClient) connect(ctx context.Context) error {
+	if w.closed {
+		return errors.New("worker client closed")
+	}
 	if w.conn != nil {
 		return nil
 	}
@@ -97,59 +123,94 @@ func (w *workerClient) connect(ctx context.Context) error {
 		return errors.New("unassigned worker or incompatible Hello")
 	}
 	w.maximum = got.MaxControlBytes
+	conn.SetDeadline(time.Time{})
+	if w.pending == nil {
+		w.pending = map[string]*workerPending{}
+	}
+	go w.readResponses(conn, w.maximum)
 	return nil
+}
+
+// One reader demultiplexes responses; mu protects the connection and the one
+// frame writer, never a wait for a reply. Replies may arrive in any order.
+func (w *workerClient) readResponses(conn *net.UnixConn, maximum uint32) {
+	for {
+		frame, err := readBounded(conn, maximum)
+		w.mu.Lock()
+		if w.conn != conn {
+			w.mu.Unlock()
+			return
+		}
+		if err != nil {
+			w.disconnect()
+			w.mu.Unlock()
+			return
+		}
+		response := frame.GetResponse()
+		if response == nil || response.Context == nil {
+			w.disconnect()
+			w.mu.Unlock()
+			return
+		}
+		pending := w.pending[response.Context.RequestId]
+		if pending == nil || !proto.Equal(pending.context, response.Context) {
+			w.disconnect()
+			w.mu.Unlock()
+			return
+		}
+		delete(w.pending, response.Context.RequestId)
+		reply := workerReply{receipt: response.GetReceipt()}
+		if e := response.GetError(); e != nil {
+			reply.err = &workerFailure{code: e.Code, message: e.Message, unknown: e.Code == "OUTCOME_UNKNOWN", retryable: e.Retryable}
+		} else if reply.receipt == nil || reply.receipt.OutcomeUnknown {
+			reply.err = &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker omitted known receipt", unknown: true}
+		}
+		pending.reply <- reply
+		w.mu.Unlock()
+	}
 }
 func (w *workerClient) call(ctx context.Context, r *pb.Request) (*pb.Receipt, error) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	if err := ctx.Err(); err != nil {
-		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error(), unknown: false}
+		w.mu.Unlock()
+		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error()}
 	}
 	if err := w.connect(ctx); err != nil {
-		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error(), unknown: false}
+		w.mu.Unlock()
+		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error()}
 	}
-	deadline, _ := ctx.Deadline()
-	w.conn.SetDeadline(deadline)
-	conn := w.conn
-	stopped := make(chan struct{})
-	stop := context.AfterFunc(ctx, func() { conn.Close(); close(stopped) })
-	defer func() {
-		if !stop() {
-			<-stopped
-		}
-	}()
 	f := &pb.Frame{Payload: &pb.Frame_Request{Request: r}}
 	if proto.Size(f) > int(w.maximum) {
-		return nil, &workerFailure{code: "INVALID_ARGUMENT", message: "request exceeds negotiated control maximum", unknown: false}
+		w.mu.Unlock()
+		return nil, &workerFailure{code: "INVALID_ARGUMENT", message: "request exceeds negotiated control maximum"}
 	}
-	// From the first attempted write onward, transport failure is uncertain. Never
-	// reconnect and redeliver this effect under another request/operation ID.
-	if err := pb.WriteFrame(conn, f); err != nil {
-		w.disconnect()
-		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: err.Error(), unknown: true}
+	if r.Context == nil || r.Context.RequestId == "" || w.pending[r.Context.RequestId] != nil {
+		w.mu.Unlock()
+		return nil, &workerFailure{code: "INVALID_ARGUMENT", message: "unique request context required"}
 	}
-	f, err := readBounded(conn, w.maximum)
+	pending := &workerPending{context: proto.Clone(r.Context).(*pb.Context), reply: make(chan workerReply, 1)}
+	w.pending[r.Context.RequestId] = pending
+	conn := w.conn
+	deadline, _ := ctx.Deadline()
+	conn.SetWriteDeadline(deadline)
+	stop := context.AfterFunc(ctx, func() { conn.Close() })
+	err := pb.WriteFrame(conn, f)
+	stop()
 	if err != nil {
 		w.disconnect()
-		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: err.Error(), unknown: true}
 	}
-	response := f.GetResponse()
-	if response == nil || !proto.Equal(response.Context, r.Context) {
-		w.disconnect()
-		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker response context mismatch", unknown: true}
+	w.mu.Unlock()
+	select {
+	case reply := <-pending.reply:
+		return reply.receipt, reply.err
+	case <-ctx.Done():
+		w.mu.Lock()
+		if w.conn == conn {
+			w.disconnect()
+		}
+		w.mu.Unlock()
+		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "deadline before worker response", unknown: true}
 	}
-	if e := response.GetError(); e != nil {
-		return nil, &workerFailure{code: e.Code, message: e.Message, unknown: e.Code == "OUTCOME_UNKNOWN", retryable: e.Retryable}
-	}
-	receipt := response.GetReceipt()
-	if receipt == nil {
-		w.disconnect()
-		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker omitted receipt", unknown: true}
-	}
-	if receipt.OutcomeUnknown {
-		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker reports uncertain effect", unknown: true}
-	}
-	return receipt, nil
 }
 
 // perform waits for the named evidence, never interpreting acceptance as success.

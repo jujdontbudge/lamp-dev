@@ -89,6 +89,31 @@ func TestRustWorkerControlPath(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, forked.Result.SandboxId+".started")); err != nil {
 		t.Fatal("fork child never ran a probe")
 	}
+	// Exercise the frozen independent caller unchanged, including its exact argv
+	// construction, output cursor loop, local fork durability, and cleanup.
+	harness := exec.Command("python3", "-c", `
+import os, sys
+sys.path.insert(0, "../..")
+from benchmarks.public import PublicLamp
+lamp = PublicLamp(cli=sys.argv[1], timeout=5)
+resources = {"vcpus":2,"memory_mib":4096,"disk_gib":20,"pids_max":4096}
+created = lamp.mutation("sandbox", "create", {"template_id":"tpl_demo", "resources":resources, "durability":"local"})["sandbox_id"]
+observed = lamp.get(created)
+assert observed["resources"] == resources and observed["durability"] == "local" and observed["boundary"] == "vm"
+assert lamp.execute(created, ["/bin/echo", '{"fixture":"ok"}']) == {"fixture":"ok"}
+child = lamp.mutation("sandbox", "fork", {"sandbox_id":created,"expected_revision":lamp.get(created)["revision"],"fork_mode":"memory","durability":"local"})["sandbox_id"]
+assert lamp.get(child)["resources"] == resources and lamp.get(child)["durability"] == "local"
+lamp.delete(child)
+lamp.delete(created)
+assert lamp.get(child)["state"] == "deleted" and lamp.get(created)["state"] == "deleted"
+print("unchanged PublicLamp CLI caller: create, exec completion/output, local fork, delete passed")
+`, lampBinary)
+	harness.Env = append(os.Environ(), "LAMP_SOCKET="+d.socket)
+	if output, err := harness.CombinedOutput(); err != nil {
+		t.Fatalf("independent caller: %v: %s", err, output)
+	} else {
+		t.Log(string(output))
+	}
 	t.Logf("CLI -> HTTP/Unix -> lampd -> lamp.worker/1 -> Rust process: create=%s exec=%s fork=%s; independent command marker=%s", created.Result.SandboxId, executed.Result.ExecId, forked.Result.SandboxId, data)
 	if evidence := os.Getenv("LAMP_CONTROL_EVIDENCE_DIR"); evidence != "" {
 		if err := os.MkdirAll(evidence, 0700); err != nil {

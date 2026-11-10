@@ -27,7 +27,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	if len(args) < 2 {
-		fmt.Fprintln(stderr, "usage: lamp sandbox {create|get|fork} | exec {create|get} | operation get [flags] [-- argv...]")
+		fmt.Fprintln(stderr, "usage: lamp sandbox {create|get|fork|delete} | exec {create|get|watch} | operation get [flags] [-- argv...]")
 		return 2
 	}
 	noun, action := args[0], args[1]
@@ -42,7 +42,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	asJSON := flags.Bool("json", false, "emit the canonical API response")
 	var templateID, engineID, sandboxID, operationID, execID, key, cwd *string
 	var wait, revision, vcpus, memory, disk, pids *uint64
-	var mode, durability *string
+	var mode, durability, resourcesJSON, argvJSON, cursor *string
+	var limit *uint64
+	mutation := action != "get" && action != "watch"
 	switch noun + "_" + action {
 	case "sandbox_create":
 		templateID = flags.String("template-id", "", "immutable template ID")
@@ -50,33 +52,64 @@ func run(args []string, stdout, stderr io.Writer) int {
 		vcpus = flags.Uint64("vcpus", 2, "vCPUs")
 		memory = flags.Uint64("memory-mib", 4096, "memory MiB")
 		disk = flags.Uint64("disk-gib", 20, "disk GiB")
-		pids = flags.Uint64("pids-max", 1024, "process limit")
-	case "sandbox_fork":
+		pids = flags.Uint64("pids-max", 4096, "process limit")
+		resourcesJSON = flags.String("resources-json", "", "canonical resources JSON")
+		durability = flags.String("durability", "volatile", "volatile or local")
+	case "sandbox_fork", "sandbox_delete":
 		sandboxID = flags.String("sandbox-id", "", "source sandbox ID")
 		revision = flags.Uint64("expected-revision", 0, "required source revision")
-		mode = flags.String("fork-mode", "memory", "memory only for demo")
-		durability = flags.String("durability", "volatile", "volatile only for demo")
+		if action == "fork" {
+			mode = flags.String("fork-mode", "memory", "memory only for demo")
+			durability = flags.String("durability", "volatile", "volatile or local")
+		}
 	case "sandbox_get":
 		sandboxID = flags.String("sandbox-id", "", "sandbox ID")
 	case "exec_create":
 		sandboxID = flags.String("sandbox-id", "", "sandbox ID")
 		cwd = flags.String("cwd", "/", "guest working directory")
-	case "exec_get":
+		argvJSON = flags.String("argv-json", "", "command argv JSON")
+	case "exec_get", "exec_watch":
 		execID = flags.String("exec-id", "", "exec ID")
+		if action == "watch" {
+			cursor = flags.String("cursor", "", "output cursor")
+			limit = flags.Uint64("limit", 100, "frame limit")
+			wait = flags.Uint64("wait-ms", 0, "output wait")
+		}
 	case "operation_get":
 		operationID = flags.String("operation-id", "", "operation ID")
 	default:
 		fmt.Fprintln(stderr, "unsupported engine demo command")
 		return 2
 	}
-	if action != "get" {
+	if mutation {
 		key = flags.String("idempotency-key", "", "retry key (generated if omitted)")
 		wait = flags.Uint64("wait-ms", 0, "bounded wait, 0 returns acceptance")
 	}
-	if err := flags.Parse(args[2:]); err != nil {
+	parseArgs := args[2:]
+	positional := ""
+	if action != "create" && len(parseArgs) > 0 && !strings.HasPrefix(parseArgs[0], "-") {
+		positional, parseArgs = parseArgs[0], parseArgs[1:]
+	}
+	if err := flags.Parse(parseArgs); err != nil {
 		return 2
 	}
-	if action != "get" && *key == "" {
+	if positional != "" {
+		var id *string
+		switch noun {
+		case "sandbox":
+			id = sandboxID
+		case "exec":
+			id = execID
+		case "operation":
+			id = operationID
+		}
+		if id == nil || (*id != "" && *id != positional) {
+			fmt.Fprintln(stderr, "conflicting resource IDs")
+			return 2
+		}
+		*id = positional
+	}
+	if mutation && *key == "" {
 		*key = fmt.Sprintf("cli-%d-%d", os.Getpid(), time.Now().UnixNano())
 	}
 	method, path := "GET", ""
@@ -89,6 +122,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 		in := api.SandboxCreateInput{TemplateId: templateID, IdempotencyKey: *key, WaitMs: wait, Resources: &api.Resources{Vcpus: *vcpus, MemoryMib: *memory, DiskGib: *disk, PidsMax: *pids}}
+		du := api.SandboxCreateInputDurability(*durability)
+		in.Durability = &du
+		if *resourcesJSON != "" {
+			var resources api.Resources
+			d := json.NewDecoder(strings.NewReader(*resourcesJSON))
+			d.DisallowUnknownFields()
+			if err := d.Decode(&resources); err != nil {
+				fmt.Fprintln(stderr, err)
+				return 2
+			}
+			if err := d.Decode(new(any)); err != io.EOF {
+				fmt.Fprintln(stderr, "expected one resources JSON object")
+				return 2
+			}
+			in.Resources = &resources
+		}
 		if *engineID != "" {
 			in.EngineId = engineID
 		}
@@ -103,12 +152,26 @@ func run(args []string, stdout, stderr io.Writer) int {
 		du := api.SandboxForkInputDurability(*durability)
 		input = api.SandboxForkInput{SandboxId: *sandboxID, ExpectedRevision: *revision, ForkMode: &fm, Durability: &du, IdempotencyKey: *key, WaitMs: wait}
 		method, path = "POST", "/v1/sandboxes/"+url.PathEscape(*sandboxID)+":fork"
+	case "sandbox_delete":
+		if !require(sandboxID) || *revision == 0 {
+			fmt.Fprintln(stderr, "sandbox ID and --expected-revision required")
+			return 2
+		}
+		input = api.SandboxDeleteInput{SandboxId: *sandboxID, ExpectedRevision: *revision, IdempotencyKey: *key, WaitMs: wait}
+		method, path = "DELETE", "/v1/sandboxes/"+url.PathEscape(*sandboxID)
 	case "exec_create":
-		if !require(sandboxID) || len(flags.Args()) == 0 {
+		argv := flags.Args()
+		if *argvJSON != "" {
+			if len(argv) != 0 || json.Unmarshal([]byte(*argvJSON), &argv) != nil {
+				fmt.Fprintln(stderr, "invalid or conflicting argv")
+				return 2
+			}
+		}
+		if !require(sandboxID) || len(argv) == 0 {
 			fmt.Fprintln(stderr, "--sandbox-id and -- argv... are required")
 			return 2
 		}
-		input = api.ExecCreateInput{SandboxId: *sandboxID, Argv: flags.Args(), Cwd: cwd, IdempotencyKey: *key, WaitMs: wait}
+		input = api.ExecCreateInput{SandboxId: *sandboxID, Argv: argv, Cwd: cwd, IdempotencyKey: *key, WaitMs: wait}
 		method, path = "POST", "/v1/execs"
 	case "sandbox_get":
 		if !require(sandboxID) {
@@ -116,12 +179,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 		path = "/v1/sandboxes/" + url.PathEscape(*sandboxID)
-	case "exec_get":
+	case "exec_get", "exec_watch":
 		if !require(execID) {
 			fmt.Fprintln(stderr, "--exec-id is required")
 			return 2
 		}
 		path = "/v1/execs/" + url.PathEscape(*execID)
+		if action == "watch" {
+			q := url.Values{"limit": {strconv.FormatUint(*limit, 10)}, "wait_ms": {strconv.FormatUint(*wait, 10)}}
+			if *cursor != "" {
+				q.Set("cursor", *cursor)
+			}
+			path += "/output?" + q.Encode()
+		}
 	case "operation_get":
 		if !require(operationID) {
 			fmt.Fprintln(stderr, "--operation-id is required")
@@ -138,7 +208,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 2
 	}
-	if action != "get" {
+	if mutation {
 		// Generated inputs are transport-neutral. REST carries authority selectors
 		// in headers, never as mutation body fields.
 		var body map[string]json.RawMessage
@@ -148,7 +218,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		delete(body, "idempotency_key")
 		delete(body, "expected_revision")
-		if noun == "sandbox" && action == "fork" {
+		if noun == "sandbox" && (action == "fork" || action == "delete") {
 			delete(body, "sandbox_id")
 		}
 		data, err = json.Marshal(body)
