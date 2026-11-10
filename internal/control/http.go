@@ -139,7 +139,7 @@ func decodeInput(w http.ResponseWriter, r *http.Request, out any, allowed string
 	}
 	return fields, nil
 }
-func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := newID("req")
 	w.Header().Set("X-Request-ID", requestID)
 	if r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/execs/") && strings.HasSuffix(r.URL.Path, "/output") {
@@ -161,17 +161,17 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		switch {
 		case strings.HasPrefix(path, "/v1/operations/"):
-			if rec, ok := s.journal.Operations[strings.TrimPrefix(path, "/v1/operations/")]; ok {
+			if rec, ok := s.journal.Operations[strings.TrimPrefix(path, "/v1/operations/")]; ok && s.operationAllowed(requestCaller(r), rec) {
 				send = prepareJSON(w, 200, api.OperationGetResult{Data: rec.Operation, RequestId: requestID})
 				return
 			}
 		case strings.HasPrefix(path, "/v1/sandboxes/"):
-			if sb, ok := s.journal.Sandboxes[strings.TrimPrefix(path, "/v1/sandboxes/")]; ok {
+			if sb, ok := s.journal.Sandboxes[strings.TrimPrefix(path, "/v1/sandboxes/")]; ok && s.sandboxAllowed(requestCaller(r), sb) {
 				send = prepareJSON(w, 200, api.SandboxGetResult{Data: sb, RequestId: requestID})
 				return
 			}
 		case strings.HasPrefix(path, "/v1/execs/"):
-			if ex, ok := s.journal.Execs[strings.TrimPrefix(path, "/v1/execs/")]; ok {
+			if ex, ok := s.journal.Execs[strings.TrimPrefix(path, "/v1/execs/")]; ok && s.execAllowed(requestCaller(r), ex) {
 				send = prepareJSON(w, 200, api.ExecGetResult{Data: ex, RequestId: requestID})
 				return
 			}
@@ -322,15 +322,26 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	encoded, _ := json.Marshal(input)
 	sum := sha256.Sum256(append([]byte(name+"\n"), encoded...))
 	hash := hex.EncodeToString(sum[:])
-	journalKey := name + "\n" + key
+	a := requestCaller(r)
+	journalKey := a.Principal + "\n" + name + "\n" + key
 	s.mu.Lock()
 	if s.broken {
 		s.mu.Unlock()
 		writeError(w, requestID, "DATA_UNAVAILABLE", "journal unavailable", nil)
 		return
 	}
+	if !s.can(a, strings.Replace(name, "_", ".", 1)) {
+		s.mu.Unlock()
+		writeError(w, requestID, "SCOPE_DENIED", "authority changed", nil)
+		return
+	}
 	if id, ok := s.keys[journalKey]; ok {
 		rec := s.journal.Operations[id]
+		if !s.operationAllowed(a, rec) {
+			s.mu.Unlock()
+			writeError(w, requestID, "NOT_FOUND", "operation not found", nil)
+			return
+		}
 		if rec.Hash != hash {
 			s.mu.Unlock()
 			writeError(w, requestID, "IDEMPOTENCY_CONFLICT", "key was already used with different inputs", pointer(id))
@@ -345,9 +356,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, requestID, "CONTROL_QUOTA_EXCEEDED", "demo journal operation limit reached", nil)
 		return
 	}
+	var updatedParent *api.Sandbox
 	if source != "" {
 		parent, ok := s.journal.Sandboxes[source]
-		if !ok {
+		if !ok || !s.sandboxAllowed(a, parent) {
 			s.mu.Unlock()
 			writeError(w, requestID, "NOT_FOUND", "sandbox not found", nil)
 			return
@@ -368,6 +380,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if name == "sandbox_delete" {
+			parent.Revision++
+			parent.UpdatedAt = timestamp()
 			sb = parent
 		}
 		if name == "sandbox_fork" {
@@ -376,9 +390,19 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			sb.Resources = parent.Resources
 			parent.Revision++
 			parent.UpdatedAt = timestamp()
-			s.journal.Sandboxes[source] = parent
+			updatedParent = &parent
 		}
 	}
+	if !s.admissionAllowed(a, name, sb) {
+		s.mu.Unlock()
+		writeError(w, requestID, "SCOPE_DENIED", "admission exceeds caller authority", nil)
+		return
+	}
+	if updatedParent != nil {
+		s.journal.Sandboxes[source] = *updatedParent
+	}
+	sb.OwnerId = a.Principal
+	ex.OwnerId = a.Principal
 	ref := api.ResourceRef{Kind: "sandbox", Id: sb.Id}
 	if name == "exec_create" {
 		ref = api.ResourceRef{Kind: "exec", Id: ex.Id}
@@ -389,8 +413,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	now := timestamp()
 	id := newID("op")
 	refs := []api.ResourceRef{ref}
-	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
-	s.journal.Operations[id] = &record{Operation: op, Hash: hash, Key: journalKey, Resource: ref}
+	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
+	s.journal.Operations[id] = &record{Operation: op, Hash: hash, Key: journalKey, Resource: ref, Caller: a}
 	s.keys[journalKey] = id
 	s.done[id] = make(chan struct{})
 	if source != "" {
@@ -409,7 +433,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func newSandbox() api.Sandbox {
 	now := timestamp()
-	return api.Sandbox{Id: newID("sb"), Kind: "sandbox", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", Generation: pointer(uint64(1)), EffectivePolicyRevision: pointer(uint64(1)), Durability: pointer(api.SandboxDurabilityVolatile), Boundary: pointer(api.SandboxBoundaryVm)}
+	return api.Sandbox{Id: newID("sb"), Kind: "sandbox", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", Generation: pointer(uint64(1)), EffectivePolicyRevision: pointer(uint64(1)), Durability: pointer(api.SandboxDurabilityVolatile), Boundary: pointer(api.SandboxBoundaryVm), Readiness: coreReadiness(false, nil)}
 }
 func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id string, replayed bool, wait *uint64) {
 	s.mu.Lock()
@@ -433,6 +457,10 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id 
 		return
 	}
 	rec := s.journal.Operations[id]
+	if a := requestCaller(r); a.Principal != "" && (!s.can(a, strings.Replace(value(rec.Operation.OperationName), "_", ".", 1)) || !s.operationAllowed(a, rec)) {
+		send = prepareError(w, requestID, api.ErrorDetail{Code: "SCOPE_DENIED", Message: "authority changed while waiting", OperationId: &id})
+		return
+	}
 	op := rec.Operation
 	if op.Error != nil {
 		send = prepareError(w, requestID, *op.Error)
@@ -452,6 +480,35 @@ func (s *Service) execute(id, source string) {
 	defer cancel()
 	s.mu.Lock()
 	rec := s.journal.Operations[id]
+	if rec.Operation.State == "canceled" {
+		delete(s.busy, source)
+		close(s.done[id])
+		s.mu.Unlock()
+		return
+	}
+	if rec.Caller.Principal != "" && !s.can(rec.Caller, strings.Replace(*rec.Operation.OperationName, "_", ".", 1)) {
+		rec.Operation.State = "failed"
+		rec.Operation.Error = &api.ErrorDetail{Code: "SCOPE_DENIED", Message: "authority changed before dispatch", OperationId: &id}
+		rec.Operation.Revision++
+		rec.Operation.CompletedAt = pointer(timestamp())
+		rec.Operation.UpdatedAt = timestamp()
+		rec.Operation.CleanupState = pointer(api.OperationCleanupStateComplete)
+		ref := rec.Resource
+		if ref.Kind == "sandbox" {
+			sb := s.journal.Sandboxes[ref.Id]
+			sb.State = "failed"
+			sb.Revision++
+			s.journal.Sandboxes[ref.Id] = sb
+		}
+		if err := s.save(id, ref.Id); err != nil {
+			s.broken = true
+		}
+		delete(s.busy, source)
+		close(s.done[id])
+		s.mu.Unlock()
+		return
+	}
+	rec.Operation.Phase = pointer("worker")
 	rec.Operation.State = "running"
 	rec.Operation.Revision++
 	rec.Operation.UpdatedAt = timestamp()
@@ -504,6 +561,8 @@ func (s *Service) execute(id, source string) {
 		return s.worker.perform(ctx, r, "command_started")
 	}
 	var err error
+	phase := "engine"
+	stage := func(next string) { phase = next }
 	// sourceIntact: a fork failed only after the source's capture
 	// completed, so the source itself was left running and unchanged.
 	sourceIntact := false
@@ -511,9 +570,11 @@ func (s *Service) execute(id, source string) {
 	case "sandbox_create":
 		err = allocate()
 		if err == nil {
+			stage("template")
 			err = restore(value(sb.TemplateId))
 		}
 		if err == nil {
+			stage("command")
 			err = start([]string{"/bin/true"}, "/", nil)
 		}
 	case "sandbox_fork":
@@ -536,11 +597,13 @@ func (s *Service) execute(id, source string) {
 			err = restore(capture)
 		}
 		if err == nil {
+			stage("command")
 			err = start([]string{"/bin/true"}, "/", nil)
 		}
 	case "sandbox_delete":
 		r := request("stop", sb.Id, generation)
 		r.Command = &pb.Request_Stop{Stop: &pb.Stop{Force: true}}
+		stage("cleanup")
 		err = s.worker.perform(ctx, r, "stopped")
 		if workerNotFound(err) {
 			err = nil
@@ -558,6 +621,7 @@ func (s *Service) execute(id, source string) {
 		if ex.Env != nil {
 			env = map[string]string(*ex.Env)
 		}
+		stage("command")
 		err = start(*ex.Argv, value(ex.Cwd), env)
 	}
 	if <-running != nil {
@@ -572,6 +636,7 @@ func (s *Service) execute(id, source string) {
 	defer s.mu.Unlock()
 	rec = s.journal.Operations[id]
 	op := &rec.Operation
+	op.Phase = &phase
 	op.CompletedAt = &now
 	op.UpdatedAt = now
 	op.Revision++
@@ -597,6 +662,13 @@ func (s *Service) execute(id, source string) {
 			s.journal.Sandboxes[source] = parent
 		}
 		if ref.Kind == "sandbox" {
+			sb.Readiness = coreReadiness(false, nil)
+			for i, check := range *sb.Readiness.Checks {
+				if string(check.Name) == phase {
+					(*sb.Readiness.Checks)[i].State = "failed"
+					(*sb.Readiness.Checks)[i].Error = op.Error
+				}
+			}
 			sb.State = "failed"
 		} else {
 			ex.State = "failed"
@@ -609,7 +681,7 @@ func (s *Service) execute(id, source string) {
 		var result api.AdapterDocument
 		if ref.Kind == "sandbox" {
 			sb.State = "ready"
-			sb.Readiness = &api.Readiness{CommandStartedAt: &now, Checks: &[]api.ReadinessCheck{{Name: "command", State: "passed"}}}
+			sb.Readiness = coreReadiness(true, &now)
 			result, _ = json.Marshal(api.SandboxCreateCompletion{SandboxId: sb.Id, SessionIds: []string{}})
 			if name == "sandbox_delete" {
 				sb.State = "deleted"
@@ -790,7 +862,7 @@ func (s *Service) watchOutput(w http.ResponseWriter, r *http.Request, requestID 
 			return
 		}
 		ex, ok := s.journal.Execs[id]
-		if !ok {
+		if !ok || !s.can(requestCaller(r), "exec.watch") || !s.execAllowed(requestCaller(r), ex) {
 			s.mu.Unlock()
 			writeError(w, requestID, "NOT_FOUND", "exec not found", nil)
 			return
@@ -806,7 +878,11 @@ func (s *Service) watchOutput(w http.ResponseWriter, r *http.Request, requestID 
 			// Sleep until the next durable journal change or the deadline.
 			changed := s.changed
 			s.mu.Unlock()
-			timer := time.NewTimer(time.Until(until))
+			delay := time.Until(until)
+			if delay > time.Second {
+				delay = time.Second
+			}
+			timer := time.NewTimer(delay)
 			select {
 			case <-r.Context().Done():
 				timer.Stop()

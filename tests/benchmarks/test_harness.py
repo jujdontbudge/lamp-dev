@@ -598,9 +598,14 @@ class HarnessTests(unittest.TestCase):
                 from benchmarks.workload import call_resident
                 import time
                 deadline = time.monotonic() + 5
-                while not Path(path).exists():
-                    self.assertLess(time.monotonic(), deadline)
-                    time.sleep(.01)
+                while True:
+                    try:
+                        call_resident(path, {"op": "ping"})
+                        break
+                    except (FileNotFoundError, ConnectionRefusedError):
+                        # bind creates the path before listen admits a caller.
+                        self.assertLess(time.monotonic(), deadline)
+                        time.sleep(.01)
                 before = call_resident(path, {"op": "state"})
                 self.assertEqual(check_state(before, "outside-history", 0, 8193), [])
                 after = call_resident(path, {"op": "write", "generation": 43})

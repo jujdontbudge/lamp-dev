@@ -1,0 +1,5 @@
+=== RUN   TestControlBoundaryDiagnostic
+    control_diagnostic_test.go:95: diagnostic only: {"boundary_ms": 35, "callers": 32, "control_status": "fail", "endpoint": "caller send through durable admission and worker command_started receipt; output/replay/isolation checked outside timer", "failures": 0, "integrated_e01_status": "incomplete", "p50_ms": 39.123553, "p95_ms": 67.610308, "p99_ms": 70.575689, "status": "fail", "trials": 64}
+--- PASS: TestControlBoundaryDiagnostic (4.00s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	5.339s

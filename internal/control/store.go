@@ -24,13 +24,18 @@ const maxOperations = 1_000_000
 const compactEvery = 16384
 
 type record struct {
+	Caller    caller          `json:"caller,omitempty"`
 	Operation api.Operation   `json:"operation"`
 	Hash      string          `json:"hash"`
 	Key       string          `json:"key"`
 	Resource  api.ResourceRef `json:"resource"`
 }
 type journal struct {
-	Sequence uint64 `json:"sequence,omitempty"`
+	EventSequence uint64        `json:"event_sequence,omitempty"`
+	EventFloor    uint64        `json:"event_floor,omitempty"`
+	Control       *controlState `json:"control,omitempty"`
+	Events        []storedEvent `json:"events,omitempty"`
+	Sequence      uint64        `json:"sequence,omitempty"`
 	// LogGeneration names the journal.log instance that follows this
 	// snapshot; every compaction starts a new one (see commitMark).
 	LogGeneration uint64                 `json:"log_generation,omitempty"`
@@ -41,23 +46,28 @@ type journal struct {
 	Execs         map[string]api.Exec    `json:"execs"`
 }
 type Config struct {
-	StateDir string
-	Worker   WorkerConfig
+	StateDir         string
+	Worker           WorkerConfig
+	Identity         *IdentityConfig
+	ProtectedActions map[string]ProtectedAction
 }
 type Service struct {
-	mu          sync.Mutex
-	journal     journal
-	dir         string
-	lock        *os.File
-	worker      workerClient
-	rootContext context.Context
-	done        map[string]chan struct{}
-	busy        map[string]bool
-	wg          sync.WaitGroup
-	cancel      func()
-	broken      bool
-	keys        map[string]string
-	logRecords  int
+	mu             sync.Mutex
+	identity       IdentityConfig
+	protected      map[string]ProtectedAction
+	eventRevisions map[string]uint64
+	journal        journal
+	dir            string
+	lock           *os.File
+	worker         workerClient
+	rootContext    context.Context
+	done           map[string]chan struct{}
+	busy           map[string]bool
+	wg             sync.WaitGroup
+	cancel         func()
+	broken         bool
+	keys           map[string]string
+	logRecords     int
 	// changed is closed (and replaced) whenever a journal change becomes
 	// durable, waking long-polling readers instead of having them spin.
 	changed chan struct{}
@@ -206,6 +216,11 @@ func Open(config Config) (*Service, error) {
 			for id, frames := range delta.Outputs {
 				s.journal.Outputs[id] = frames
 			}
+			if delta.Control != nil {
+				s.journal.Control = delta.Control
+			}
+			s.journal.Events = append(s.journal.Events, delta.Events...)
+			s.journal.EventSequence = delta.EventSequence
 			s.journal.Sequence = delta.Sequence
 			s.logRecords++
 			return nil
@@ -226,8 +241,26 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	if err := s.initAuthority(config); err != nil {
+		lock.Close()
+		return nil, err
+	}
+	s.protected = config.ProtectedActions
+	s.eventRevisions = map[string]uint64{}
+	for _, event := range s.journal.Events {
+		if event.Event.Sequence > s.journal.EventSequence {
+			s.journal.EventSequence = event.Event.Sequence
+		}
+	}
+	s.indexEventRevisions()
 	{
 		for id, r := range s.journal.Operations {
+			if strings.Count(r.Key, "\n") == 1 {
+				name, _, _ := strings.Cut(r.Key, "\n")
+				if name == "sandbox_create" || name == "sandbox_fork" || name == "sandbox_delete" || name == "exec_create" {
+					r.Key = r.Operation.OwnerId + "\n" + r.Key
+				}
+			}
 			s.keys[r.Key] = id
 			ch := make(chan struct{})
 			close(ch)
@@ -241,8 +274,8 @@ func Open(config Config) (*Service, error) {
 				r.Operation.UpdatedAt = timestamp()
 			}
 		}
-		// Reconciliation is T10. Never assert live engine readiness after a daemon
-		// restart merely because a previous process persisted a successful operation.
+		// Read-only reconciliation below must re-observe the original command
+		// before promoting a saved sandbox back to ready.
 		for id, sb := range s.journal.Sandboxes {
 			if sb.State != "failed" && sb.State != "deleted" {
 				sb.State = "unavailable"
@@ -259,12 +292,23 @@ func Open(config Config) (*Service, error) {
 				s.journal.Execs[id] = ex
 			}
 		}
+		recovery := journal{Control: s.journal.Control, Operations: s.journal.Operations, Sandboxes: s.journal.Sandboxes, Execs: s.journal.Execs}
+		s.addEvents(&recovery)
+		s.journal.Events = append(s.journal.Events, recovery.Events...)
+		s.journal.EventSequence = recovery.EventSequence
+		s.pruneEvents()
 		if err := s.compact(); err != nil {
 			lock.Close()
 			return nil, err
 		}
 	}
 	s.rootContext, s.cancel = context.WithCancel(context.Background())
+	for _, rec := range s.journal.Operations {
+		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
+			s.wg.Add(1)
+			go s.reconcileSandbox(rec.Resource.Id, rec.Operation.Id)
+		}
+	}
 	return s, nil
 }
 func (s *Service) context() context.Context { return s.rootContext }
@@ -290,6 +334,12 @@ func (s *Service) save(ids ...string) error {
 			delta.Outputs[id] = frames
 		}
 	}
+	for _, id := range ids {
+		if id == "$control" {
+			delta.Control = s.journal.Control
+		}
+	}
+	s.addEvents(&delta)
 	payload, err := json.Marshal(delta)
 	if err != nil {
 		return err
@@ -329,6 +379,9 @@ func (s *Service) save(ids ...string) error {
 	}
 	s.logEnd += int64(len(data))
 	s.journal.Sequence = delta.Sequence
+	s.journal.Events = append(s.journal.Events, delta.Events...)
+	s.journal.EventSequence = delta.EventSequence
+	s.pruneEvents()
 	s.logRecords++
 	close(s.changed)
 	s.changed = make(chan struct{})

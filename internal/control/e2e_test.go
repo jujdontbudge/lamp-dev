@@ -21,16 +21,23 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var lampBinary, daemonBinary string
+var lampBinary, daemonBinary, mcpBinary string
 
 func TestMain(m *testing.M) {
+	// Journal fault-injection children exercise only the store. Rebuilding
+	// transport binaries in every child delays their crash boundary and can
+	// exhaust the parent suite's deadline on a contended host.
+	if os.Getenv("LAMP_JOURNAL_WRITER_DIR") != "" || os.Getenv("LAMP_MARKER_CHILD_DIR") != "" {
+		os.Exit(m.Run())
+	}
 	dir, err := os.MkdirTemp("", "lamp-control-test-")
 	if err != nil {
 		panic(err)
 	}
 	lampBinary = filepath.Join(dir, "lamp")
 	daemonBinary = filepath.Join(dir, "lampd")
-	for _, b := range []struct{ path, pkg string }{{lampBinary, "../../cmd/lamp"}, {daemonBinary, "../../cmd/lampd"}} {
+	mcpBinary = filepath.Join(dir, "lamp-mcp")
+	for _, b := range []struct{ path, pkg string }{{lampBinary, "../../cmd/lamp"}, {daemonBinary, "../../cmd/lampd"}, {mcpBinary, "../../cmd/lamp-mcp"}} {
 		args := []string{"build", "-o", b.path, b.pkg}
 		if os.Getenv("LAMP_CONTROL_RACE") == "1" {
 			args = append([]string{"build", "-race"}, args[1:]...)

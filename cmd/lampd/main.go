@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -24,6 +25,7 @@ func main() {
 }
 func run() error {
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
+	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -47,7 +49,18 @@ func run() error {
 	if err := control.PrivateDir(filepath.Dir(*socket)); err != nil {
 		return err
 	}
-	service, err := control.Open(control.Config{StateDir: *state, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
+	var identity *control.IdentityConfig
+	if *identityFile != "" {
+		data, e := os.ReadFile(*identityFile)
+		if e != nil {
+			return e
+		}
+		identity = &control.IdentityConfig{}
+		if e = json.Unmarshal(data, identity); e != nil {
+			return e
+		}
+	}
+	service, err := control.Open(control.Config{Identity: identity, StateDir: *state, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
 	if err != nil {
 		return err
 	}
@@ -69,7 +82,7 @@ func run() error {
 	defer stop()
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(authenticated) }()
-	fmt.Fprintln(os.Stderr, "lampd: local demo API listening on", *socket)
+	fmt.Fprintln(os.Stderr, "lampd: control API listening on", *socket)
 	select {
 	case err := <-done:
 		if err != http.ErrServerClosed {

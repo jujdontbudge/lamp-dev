@@ -5,6 +5,7 @@ import platform
 import sys
 import traceback
 
+from benchmarks.control import control_suite
 from benchmarks.engine import EngineHarness
 from benchmarks.evidence import Evidence
 from benchmarks.protocol import plan
@@ -14,7 +15,7 @@ from benchmarks.storage import storage_suite
 
 def main():
     parser = argparse.ArgumentParser(description="Independent Lamp public-boundary engine gate")
-    parser.add_argument("--suite", choices=("E01", "E02", "E04", "all"), required=True)
+    parser.add_argument("--suite", choices=("E01", "E02", "E03", "E04", "all"), required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--metadata", required=True)
     transport = parser.add_mutually_exclusive_group()
@@ -34,6 +35,8 @@ def main():
     parser.add_argument("--native-cpus", help="comma-separated native CPU IDs; count must match guest vCPUs")
     parser.add_argument("--model", action="store_true", help="diagnostic disposable backend, never E04 qualification")
     parser.add_argument("--smoke", action="store_true", help="reduced diagnostic run; cannot pass a gate")
+    parser.add_argument("--callers", help="E03 JSON manifest: 32 distinct principal_id/sandbox_id/token_env records")
+    parser.add_argument("--integrated-e01", help="integrated E01 summary; absent or failed evidence cannot pass E03")
     args = parser.parse_args()
     metadata = json.loads(Path(args.metadata).read_text())
     configuration = {key: value for key, value in vars(args).items() if key != "metadata"}
@@ -53,6 +56,10 @@ def main():
                 results["E01"] = harness.e01(extra, args.smoke)
             if args.suite in ("E02", "all"):
                 results["E02"] = harness.e02(plan()[3], args.smoke)
+        if args.suite == "E03":
+            if not args.callers:
+                raise ValueError("E03 requires --callers with 32 prepared private sandboxes")
+            results["E03"] = control_suite(args.api_url, args.cli, json.loads(Path(args.callers).read_text()), evidence, args.integrated_e01, args.smoke)
         if args.suite in ("E04", "all"):
             if args.model:
                 command = [sys.executable, str(Path(__file__).with_name("block_fixture.py"))]

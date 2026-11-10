@@ -1,0 +1,87 @@
+{
+  "caller": {
+    "cpu_count": 10,
+    "disk": "Filesystem   1024-blocks      Used Available Capacity  iused     ifree %iused  Mounted on\n/dev/disk3s5   971298980 847569396  83781444    92% 10024866 837814440    1%   /System/Volumes/Data",
+    "load": [
+      3.59619140625,
+      4.93798828125,
+      5.78515625
+    ],
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=23068771)\t80%; AC attached; not charging present: true",
+    "pressure": {
+      "cpu": "unavailable",
+      "io": "unavailable",
+      "memory": "unavailable"
+    }
+  },
+  "configuration": {
+    "owner_services": "untouched",
+    "qualification": "diagnostic Rust protocol fixture",
+    "suite": "E03"
+  },
+  "harness_sources": {
+    "block_fixture.py": "0581cc103d180058e8a44d1ff0aaf07fab6881ebbb4a4fbe9258572a8d4f887e",
+    "control.py": "b68a44ec45988a3bd1a8f2da4e5cc1e3296caa2100a4e93bb1c3b53653ac2ea5",
+    "engine.py": "a5112217f7d326ff0519d405e0c23bd485ea6a16abcf4a3da74e43d9b210c5c5",
+    "evidence.py": "17a2a718f9d254bb937e5573fb04a251a5d0a127fd452e21e46333f6a37979ed",
+    "oracles.py": "dc4095c7b7a4b225802c756b6ac8e07a7d08c6f8fb5ed1f7392cb75dbe575320",
+    "protocol.py": "97bcc9a2c669ffc05e50d7d5c08e332349a744c9a706be12351acc4a9263d68f",
+    "public.py": "c07e57475260c74838b190654e1dd760beb88bbb3a5a1c3c64e43c2f3c1253f9",
+    "run.py": "3b44a93f5f11a803ba8e539350fdc022288d2e9569c3ed53061c47a392b5ebcd",
+    "storage.py": "2d4ea7a5a44970b9b86801ad304eb49feec6624a136743d9fc87b8ccae1136bc",
+    "workload.py": "7ef80949f5b68a839135d6ffb1ec5f246d3a67662b027280bb072dbff26a5cff"
+  },
+  "metadata": {},
+  "metadata_errors": [
+    "source_hashes missing",
+    "dependency_hashes missing",
+    "compiled_features missing",
+    "hardware missing",
+    "os missing",
+    "filesystem missing",
+    "storage missing",
+    "policy missing",
+    "resources missing",
+    "durability missing",
+    "power missing",
+    "thermal missing",
+    "lane missing",
+    "topology missing",
+    "controls missing",
+    "artifacts missing",
+    "access_route missing",
+    "durability invalid",
+    "lane invalid",
+    "topology invalid",
+    "hardware missing",
+    "os missing",
+    "filesystem missing",
+    "storage missing",
+    "policy missing",
+    "resources missing",
+    "power missing",
+    "thermal missing",
+    "guard is not enabled",
+    "audit is not enabled",
+    "cow is not enabled",
+    "capture_tracking is not enabled",
+    "source_hashes must pin SHA-256 digests",
+    "dependency_hashes must pin SHA-256 digests",
+    "artifacts must pin SHA-256 digests"
+  ],
+  "protocol": "lamp.benchmark/v1",
+  "started_at": "2026-11-10T17:54:38.724520+00:00",
+  "suite_digest": "33bc4a5033482514ac8dd849eb4bfa7d06462b658bfbef8ff0ee7f156fd9735c",
+  "thresholds": {
+    "create_p50_ms_exclusive": 500,
+    "creates": 200,
+    "fork_max_ms_exclusive": 1000,
+    "forks_per_row": 100,
+    "native_pairs_per_measure": 10,
+    "native_ratio_inclusive": 0.97,
+    "storage_forks": 1000,
+    "warmups": 20
+  }
+}
