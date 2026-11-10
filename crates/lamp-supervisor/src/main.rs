@@ -12,6 +12,7 @@
 //! lamp-supervisor ctl exec SANDBOX_ID -- ARGV...
 //! lamp-supervisor ctl fork SANDBOX_ID [CHILD_ID] [--durability volatile|local]
 //! lamp-supervisor ctl inspect [SANDBOX_ID] | release SANDBOX_ID
+//! lamp-supervisor ctl suspend SANDBOX_ID | resume SANDBOX_ID GENERATION
 //! lamp-supervisor ctl bench-create TEMPLATE COUNT [WARMUP]
 //! lamp-supervisor ctl bench-fork TEMPLATE DIRTY_MIB COUNT [WARMUP] [--durability D]
 //! lamp-supervisor ctl e05 TEMPLATE DIRTY_MIB COUNT [WARMUP] [--durability D]
@@ -282,9 +283,13 @@ fn host(cmd: &str, mut args: Vec<String>) {
     if let Some(r) = take_flag(&mut args, "--ram-dir") {
         cfg.ram_dir = if r.is_empty() { None } else { Some(r.into()) };
     }
-    if let Some(n) = take_flag(&mut args, "--identities") {
-        let n: usize = n.parse().unwrap_or_else(|_| die("bad --identities"));
-        cfg.identities.truncate(n);
+    if let Some(r) = take_flag(&mut args, "--identities") {
+        // FIRST-LAST of the _lampvmNN pool, so two stores never share one.
+        let (a, b) = r
+            .split_once('-')
+            .and_then(|(a, b)| Some((a.parse::<usize>().ok()?, b.parse::<usize>().ok()?)))
+            .unwrap_or_else(|| die("--identities FIRST-LAST"));
+        cfg.identities = (a..=b).map(|i| format!("_lampvm{i:02}")).collect();
     }
     if let Some(i) = args.iter().position(|a| a == "--no-confine") {
         // Diagnostics only: evidence runs always confine.
@@ -420,6 +425,8 @@ struct Ctl {
     /// Store whose grant directory `grant()` installs into (root only).
     store: Option<PathBuf>,
     deadline_ms: u64,
+    /// Generation used for sandboxes not in `gens` (`--generation`).
+    default_gen: u64,
 }
 
 fn rand_tag() -> String {
@@ -438,7 +445,7 @@ impl Ctl {
         if sandbox.is_empty() {
             return 0;
         }
-        let g = self.gens.get(sandbox).copied().unwrap_or(1);
+        let g = self.gens.get(sandbox).copied().unwrap_or(self.default_gen);
         if let Some(grant) = self.grants.get(&g) {
             self.client.grant_id = grant.clone();
         }
@@ -605,6 +612,9 @@ fn ctl(mut args: Vec<String>) {
         PathBuf::from(take_flag(&mut args, "--socket").unwrap_or_else(|| DEFAULT_SOCKET.into()));
     let durability = take_flag(&mut args, "--durability").unwrap_or_else(|| "volatile".into());
     let store = take_flag(&mut args, "--store").map(PathBuf::from);
+    let default_gen = take_flag(&mut args, "--generation")
+        .map(|g| g.parse().unwrap_or_else(|_| die("bad --generation")))
+        .unwrap_or(1);
     if args.is_empty() {
         die("ctl needs a subcommand");
     }
@@ -620,6 +630,7 @@ fn ctl(mut args: Vec<String>) {
         grants: Default::default(),
         store,
         deadline_ms: 120_000,
+        default_gen,
     };
     match sub.as_str() {
         "create" => {
@@ -683,6 +694,30 @@ fn ctl(mut args: Vec<String>) {
         "release" => {
             let id = args.first().cloned().unwrap_or_else(|| die("release ID"));
             c.release(&id);
+        }
+        "suspend" => {
+            let id = args.first().cloned().unwrap_or_else(|| die("suspend ID"));
+            let r = capture(&mut c, &id, "", "suspend", true).unwrap_or_else(|e| die(e));
+            println!(
+                "{}",
+                json!({"state": r.state, "handles": r.committed_handle_ids, "detail": r.detail})
+            );
+        }
+        "resume" => {
+            // resume ID GENERATION (LAMP_GRANT_ID must cover GENERATION).
+            let id = args
+                .first()
+                .cloned()
+                .unwrap_or_else(|| die("resume ID GENERATION"));
+            let g: u64 = args
+                .get(1)
+                .and_then(|g| g.parse().ok())
+                .unwrap_or_else(|| die("resume ID GENERATION"));
+            c.gens.insert(id.clone(), g);
+            let r = c
+                .try_restore(&id, &format!("suspend_{id}"))
+                .unwrap_or_else(|e| die(e));
+            println!("{}", json!({"state": r.state, "detail": r.detail}));
         }
         "bench-create" => bench_create(&mut c, &args),
         "bench-fork" => bench_fork(&mut c, &args, &durability),
@@ -1248,6 +1283,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
                     grants: Default::default(),
                     store: None,
                     deadline_ms: 900_000,
+                    default_gen: 1,
                 };
                 let out = r.try_create(&template, &id, Some(res));
                 if out.is_err() {

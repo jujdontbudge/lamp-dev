@@ -515,8 +515,20 @@ fn durable_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let tmp = path.with_extension("tmp");
     std::fs::write(&tmp, bytes).ctx(format!("write {}", tmp.display()))?;
     fsutil::full_fsync(&tmp)?;
+    crash_point("suspend.meta_written");
     std::fs::rename(&tmp, path).ctx(format!("rename {}", path.display()))?;
+    crash_point("suspend.meta_renamed");
     fsutil::full_fsync(path.parent().unwrap())
+}
+
+/// Process-crash fault injection for the APFS commit tests: when
+/// `LAMP_TEST_CRASH_AT` names this point, the process ends at once with
+/// status 79 (no unwinding, no cleanup, nothing flushed by Lamp).
+pub fn crash_point(name: &str) {
+    if std::env::var_os("LAMP_TEST_CRASH_AT").is_some_and(|v| v == name) {
+        // SAFETY: _exit only ends the process.
+        unsafe { libc::_exit(79) };
+    }
 }
 
 impl Engine {
@@ -593,9 +605,34 @@ impl Engine {
     /// unfinished sandboxes, and **keeps** durably suspended sandboxes (they
     /// still hold their macOS slot and resume with a new generation).
     fn recover(&self) {
+        // Only this store's workers (another store may share the Mac). They
+        // must be gone, with the Virtualization service each one owns, before
+        // any disk they held is reused: VZ refuses a disk another VM holds.
+        let pattern = format!(
+            "^{} worker --spec {}/sb/",
+            self.cfg.worker.display(),
+            self.cfg.store.display()
+        );
         let _ = Command::new("/usr/bin/pkill")
-            .args(["-f", &format!("{} worker", self.cfg.worker.display())])
+            .args(["-KILL", "-f", &pattern])
             .status();
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let alive = |args: &[&str]| {
+            Command::new("/usr/bin/pgrep")
+                .args(args)
+                .stdout(Stdio::null())
+                .status()
+                .is_ok_and(|s| s.success())
+        };
+        while Instant::now() < deadline
+            && (alive(&["-f", &pattern])
+                || self.cfg.identities.iter().any(|u| {
+                    lookup_user(u).is_some()
+                        && alive(&["-U", u, "-f", "com.apple.Virtualization.VirtualMachine"])
+                }))
+        {
+            std::thread::sleep(Duration::from_millis(20));
+        }
         for dir in ["captures", "staging"] {
             let p = self.cfg.store.join(dir);
             let _ = std::fs::remove_dir_all(&p);
@@ -1870,6 +1907,7 @@ impl Engine {
         let saved = w
             .call(&Api::Pause {}, Duration::from_secs(60))
             .and_then(|_| {
+                crash_point("suspend.paused");
                 w.call(
                     &Api::Save {
                         path: state.clone(),
@@ -1891,6 +1929,7 @@ impl Engine {
         };
         detail.insert("save_us".into(), us(t.elapsed()));
         detail.insert("memory_bytes".into(), reply.detail["bytes"].to_string());
+        crash_point("suspend.saved");
         let t = Instant::now();
         fsutil::full_fsync(&state)?;
         for f in [DISK, AUX] {
@@ -1899,6 +1938,7 @@ impl Engine {
                 fsutil::full_fsync(&p)?;
             }
         }
+        crash_point("suspend.synced");
         let meta = serde_json::json!({
             "sandbox_id": sb.id,
             "generation": sb.generation,
@@ -1913,6 +1953,7 @@ impl Engine {
             "suspended_at_unix_ms": now_ms(),
         });
         durable_write(&sb.dir.join(SUSPEND_META), meta.to_string().as_bytes())?;
+        crash_point("suspend.committed");
         detail.insert("commit_us".into(), us(t.elapsed()));
         let t = Instant::now();
         if let Some(mut w) = sb.worker.take() {
@@ -1922,6 +1963,7 @@ impl Engine {
             self.free_identity(&id);
         }
         detail.insert("teardown_us".into(), us(t.elapsed()));
+        crash_point("suspend.torn_down");
         sb.state = State::Suspended;
         sb.barrier = None;
         detail.insert("total_us".into(), us(t0.elapsed()));
