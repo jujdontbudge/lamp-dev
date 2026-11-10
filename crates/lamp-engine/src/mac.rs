@@ -730,7 +730,10 @@ impl Engine {
             captures: Vec::new(),
             barrier: None,
             commands: Arc::default(),
-            last_start: BTreeMap::new(),
+            last_start: meta["machine_id"]
+                .as_str()
+                .map(|m| BTreeMap::from([("machine_id".to_string(), m.to_string())]))
+                .unwrap_or_default(),
         })
     }
 
@@ -1286,7 +1289,18 @@ impl Engine {
         .map_err(|e| e.context("guest helper"))?;
         detail.insert("helper_ready_us".into(), us(t.elapsed()));
         let t = Instant::now();
-        let ack = self.barrier(&vsock, &sb.id, sb.generation)?;
+        // A resumed sandbox keeps its own identity (the suspend record
+        // carries it across a supervisor restart); a new machine gets one.
+        let keep = sb
+            .barrier
+            .as_ref()
+            .map(|b| b.machine_id.clone())
+            .or_else(|| sb.last_start.get("machine_id").cloned())
+            .filter(|_| resumed);
+        let ack = match keep {
+            Some(id) => self.barrier_with(&vsock, &sb.id, sb.generation, id)?,
+            None => self.barrier(&vsock, &sb.id, sb.generation)?,
+        };
         detail.insert("barrier_us".into(), us(t.elapsed()));
         detail.insert("rng_sample".into(), ack.rng_sample_hex.clone());
         detail.insert("machine_id".into(), ack.machine_id.clone());
@@ -2030,6 +2044,7 @@ impl Engine {
             "resources": sb.resources,
             "source": sb.source,
             "spec": sb.machine,
+            "machine_id": sb.barrier.as_ref().map(|b| b.machine_id.clone()),
             "engine_digest": self.compat.engine_digest,
             "cpu_baseline": self.compat.cpu_baseline,
             "os_build": self.compat.os_build,

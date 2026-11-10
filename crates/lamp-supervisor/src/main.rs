@@ -1230,7 +1230,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
         .first()
         .cloned()
         .unwrap_or_else(|| die("e06 TEMPLATE TRIALS [VCPUS MEMORY_MIB DISK_GIB]"));
-    let trials: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(100);
+    let trials: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
     let res = Resources {
         vcpus: args.get(2).and_then(|s| s.parse().ok()).unwrap_or(2),
         memory_mib: args.get(3).and_then(|s| s.parse().ok()).unwrap_or(4096),

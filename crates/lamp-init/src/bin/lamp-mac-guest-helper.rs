@@ -329,16 +329,23 @@ mod mac {
             let o = std::thread::spawn(move || read_limited(out, limit));
             let e = std::thread::spawn(move || read_limited(err, limit));
             let timed_out = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            // Dropped once the command has exited: the timeout then never
+            // fires, so background jobs it started keep running.
+            let (exited, exit_seen) = std::sync::mpsc::channel::<()>();
             if timeout > 0 {
                 let flag = timed_out.clone();
                 std::thread::spawn(move || {
-                    std::thread::sleep(Duration::from_millis(timeout));
-                    flag.store(true, std::sync::atomic::Ordering::SeqCst);
-                    // SAFETY: signals the command's own process group.
-                    unsafe { libc::kill(-pid, libc::SIGKILL) };
+                    if let Err(std::sync::mpsc::RecvTimeoutError::Timeout) =
+                        exit_seen.recv_timeout(Duration::from_millis(timeout))
+                    {
+                        flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                        // SAFETY: signals the command's own process group.
+                        unsafe { libc::kill(-pid, libc::SIGKILL) };
+                    }
                 });
             }
             let status = child.wait();
+            drop(exited);
             let (out, t1) = o.join().unwrap_or_default();
             let (err, t2) = e.join().unwrap_or_default();
             let (code, sig) = match status {
