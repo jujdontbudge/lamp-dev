@@ -2,9 +2,8 @@
 
 The local control core is implemented and exercised through credentialed HTTP,
 the actual `lamp` CLI and the actual stdio `lamp-mcp` binary. **T10 is not fully
-qualified: E03 has not passed.** The retained diagnostic timings exceed the
-unchanged 35 ms allocation; neither uses a qualified engine or complete §22
-metadata. T6's integrated engine gate remains failed. No deterministic test or
+qualified: E03 has not passed.** Full 6,400-command runs against the installed real LX engine exceed the
+unchanged 35 ms allocation and report command-effect failures. T6's integrated engine gate remains failed. No deterministic test or
 protocol fixture result below replaces that gate.
 
 ## Behavior exercised
@@ -61,28 +60,127 @@ bounded 30-second worker/wait allowance for this correctness test. The subsequen
 instrumented conformance run passed. This change does not modify the independent
 E03 timing constants or relabel the failed run.
 
+## Follow-up verification
+
+Fresh `make bootstrap verify` passed on LX after Linux preallocation:
+[`r1-preallocation-verify.log`](evidence/t10/r1-preallocation-verify.log).
+`make verify` also passed on the Mac for the preceding source generation in
+[`r1-current-verify.log`](evidence/t10/r1-current-verify.log). Final focused LX
+race checks, including the new reservation and review regressions, passed in
+[`r1-final-race.log`](evidence/t10/r1-final-race.log); the native 32-process
+6,400-row harness regression passed in
+[`r1-final-harness.log`](evidence/t10/r1-final-harness.log).
+The merged Mac run initially failed because its original-command assertion
+included the new sandbox readiness Inspect; the assertion now isolates requests
+after sandbox preparation. That failure remains in
+[`r1-merged-verify.log`](evidence/t10/r1-merged-verify.log). The earlier full race
+suite's ten-minute timeout stays in [`r1-race.log`](evidence/t10/r1-race.log).
+These are correctness checks, not speed evidence.
+
+## Review r1 corrections
+
+M1–M4 each have a behavioral regression that was first run with its fix removed
+in a temporary source overlay. Every negative control failed for the reproduced
+reason, then passed with the fix. The redacted transcript is
+[`r1-negative-regressions.log`](evidence/t10/r1-negative-regressions.log).
+
+- M1: owner management cannot mint or rotate another principal's bearer. Target
+  authentication uses a trusted custody enrollment, outside fleet HTTP writes.
+- M2: approval inspection and decisions apply sandbox, recipe, host and resource
+  selectors before mutation; denied decisions preserve revision and state.
+- M3: rotation retains inherited ancestry and rotating issuer constraints, or
+  rejects a rotation that cannot retain both.
+- M4: failed, pending and uncertain cleanup keep their sandbox reservation until
+  worker release is confirmed. Proven prevented create/fork is the exception.
+- M5: E03 now contends a concurrency-one key with 32 exec admissions. Independent
+  guest marker/PID observations and kernel allocation snapshots must agree with
+  exactly one accepted effect. Injected public and independent overspend both
+  fail the oracle. This exposed another core bug: a command-started Operation
+  had freed concurrency while the command was still running. Live and uncertain
+  Exec resources now keep that charge. Its negative control is retained in
+  [`r1-live-command-negative.log`](evidence/t10/r1-live-command-negative.log).
+- S1: `--suite all` includes E03, or explicitly reports it incomplete when caller
+  preparation is missing. Completeness checks include all four suites.
+
+Main was merged with a merge commit after PR #11 (`f36b2ff`), keeping its early
+kill-child TestMain exit and `storeConfigAt(dir)`, together with the ticket's
+race-instrumented transport binaries. Branch pushes now use main's dispatched
+CI policy.
+
 ## E03 remains failed and unqualified
 
-| Preserved run | Trials | Correctness failures | p99 | Fixed allocation | Result |
-| --- | ---: | ---: | ---: | ---: | --- |
-| [Mac diagnostic](evidence/t10/e03-mac-1/summary.json) | 64 | 0 | 3192.924375 ms | ≤35 ms | fail, diagnostic |
-| [LX diagnostic](evidence/t10/e03-lx-1/summary.json) | 64 | 0 | 70.575689 ms | ≤35 ms | fail, diagnostic |
+The smoke diagnostics below remain historical failures. The later runs use the
+real installed Firecracker supervisor, credentialed public HTTP over its Unix
+socket, actual measured metadata and the full 32 × 200 command plan. Every hard
+run goes through `infra/linux/timing-run.sh`, after scanning for another timing
+run and acquiring `/tmp/lamp-hard-timing.lock`. The wrapper logs the owner
+services originally running and restores exactly those. Docker and T3 Code
+are untouched.
 
-Each directory contains its manifest, summary, run log and compressed chained
-raw observations. These are earlier implementation-generation smoke diagnostics
-against the Rust protocol test worker, with incomplete metadata. They are not
-final-source certification. Owner services stayed running; Docker was untouched.
-Only ticket-owned source/evidence directories were written on LX.
+| Preserved run | Trials | Correctness failures | p99 ms | Result |
+| --- | ---: | ---: | ---: | --- |
+| [Mac smoke](evidence/t10/e03-mac-1/summary.json) | 64 | 0 | 3192.924375 | fail, fixture diagnostic |
+| [LX smoke](evidence/t10/e03-lx-1/summary.json) | 64 | 0 | 70.575689 | fail, fixture diagnostic |
+| [Actual engine 1](evidence/t10/e03-actual-1/summary.json) | 6400 rows; 2336 commands | 4065 | 3770.546617 | fail; barrier-abort bug made remaining rows errors |
+| [Lock profile](evidence/t10/e03-profile-1/summary.json) | 6400 | 1 | 1476.519540 | fail, diagnostic |
+| [Group commits](evidence/t10/e03-group-1/summary.json) | 6400 | 70 | 1636.435953 | fail |
+| [Snapshot profile](evidence/t10/e03-snapshot-profile-1/summary.json) | 6400 | 29 | 248.463165 | fail, diagnostic |
+| [Two sandboxes](evidence/t10/e03-two-sandboxes-1/summary.json) | 6400 | 24 | 172.010064 | fail |
+| [Linux processes](evidence/t10/e03-processes-1/summary.json) | 6400 | 1 | 510.440825 | fail |
 
-The new independent E03 runner requires 32 prepared private sandboxes with
-separate principals/credentials and 200 synchronized rounds per caller. It times
-caller send through durable admission and the worker command-start receipt,
-then independently checks output, replay and foreign-owner denial. It requires
-a matching-build/policy integrated E01 pass and complete qualified lane metadata.
-It never subtracts guessed engine overhead, changes a threshold, prepares a
-template in the timed path or stops an owner service. A smoke run cannot pass.
-An actual-engine 6,400-command qualified E03 run remains outstanding; the failed
-T6 integrated E01 is not superseded by this ticket.
+The fixed allocation is **p99 ≤35 ms**, with zero lost effects, cross-owner effects
+or quota overspend. Every run remains failed; profiles and earlier source
+snapshots are diagnostics, not final certification. T6's integrated E01 remains
+failed and independently prevents an E03 gate pass.
+
+The lock profile attributed 4,133.92 aggregate mutex-delay seconds to journal
+syncs under the control mutex. Engine writes now queue immutable bounded write
+sets for ordered group commits, releasing the mutex while the log and committed
+end marker sync. Dispatch still waits for durable admission. Public readers do
+not see staged records; a failed flush breaks publication and further dispatch.
+Per-operation committed snapshots also avoid waiting on unrelated output flushes.
+The next profile reduced aggregate mutex delay to 86.02 seconds. Its 10,116
+control sync calls totaled 21,388.896 ms (p50 1.355 ms, p99 15.856 ms), while the
+installed supervisor's command-start handler itself measured p99 66.925 ms.
+No measured time was subtracted from the result.
+
+After the owner's 18:57Z memory constraint, the driver uses **two owner-private
+sandboxes and 32 distinct keys**, with 16 callers per owner. It checks `free -m`
+before each allocation, aborts below 12 GiB available, and refuses an occupied
+two-sandbox ceiling. It retires the other owner's VM immediately after the
+fixed command plan; quota contention uses one held command in the remaining VM
+and allocates no third VM. Both VMs are released before slow evidence publication.
+The two-sandbox run passed the quota oracle: one accepted command among 32,
+matching guest marker/PID, six stable kernel allocation observations and no quota
+errors. All 24 command-effect failures were observed exit 70 with signal 0;
+matching stdout does not erase an unsuccessful exit. Accepted-to-worker-receipt
+spans were p50 39.113 ms / p99 134.722 ms; remaining caller time including the
+terminal commit was p50 17.454161 ms / p99 69.019686 ms.
+
+The subsequent run used 32 Linux caller processes instead of Python threads to
+remove shared-GIL caller scheduling. It retained the complete command count,
+barriers, effect checks and threshold, and still failed: p50 60.126641 ms, p95
+107.178550 ms, p99 510.440825 ms, one exit-70 failure with empty stderr. Quota
+contention passed, with one accepted effect and nine allocation samples.
+Both VMs were released and all four initially running owner services restored.
+The accepted-to-worker-receipt p99 was 98.441 ms; remaining caller time p99
+was 470.032002 ms. The journal synchronously zero-filled new capacity, including during
+compaction, before acknowledging commits. Linux log reservation now uses
+physical `fallocate` extents rather than synchronous zero filling; record and commit-marker durability barriers remain unchanged.
+Full control/crash-recovery tests and a prefix/zero-tail reservation regression
+passed. A new hard-run attempt was refused because T7 was running full E04
+(`benchmarks.run`, PID 3560538). No services were changed and no E03 measurement
+was started. The preallocation change therefore has no qualified timing result
+yet; [the blocked preflight](evidence/t10/e03-preallocation-preflight.txt) is
+retained. No installed shared-engine or guard binary was replaced. The process-runtime regression verifies all 6,400 rows
+and 32 distinct child PIDs on two logical owner sandboxes, including an injected
+individual failure without skipping later commands.
+
+Each published run retains its manifest, summary, compressed hash-chained raw
+observations, cleanup outcome and wrapper log. Current two-VM runs also retain
+allocation-guard observations. Private identity/token/state directories and
+worker grant files are excluded. The exact per-run source/artifact hashes remain
+in each manifest; the final source inventory is a separate snapshot.
 
 ## Integration boundaries
 

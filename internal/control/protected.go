@@ -20,7 +20,7 @@ func (s *Service) invokeProtected(w http.ResponseWriter, r *http.Request, reques
 	raw, _ := json.Marshal(canonical)
 	hash := bearerHash("connection_invoke\n" + string(raw))
 	key := a.Principal + "\nconnection_invoke\n" + input.IdempotencyKey
-	s.mu.Lock()
+	s.readLock()
 	if s.broken || !s.can(a, "connection.invoke") {
 		s.mu.Unlock()
 		writeError(w, requestID, "SCOPE_DENIED", "protected authority unavailable", nil)
@@ -118,9 +118,9 @@ func (s *Service) executeProtected(id string, in api.ConnectionInvokeInput, boun
 	defer s.wg.Done()
 	ctx, cancel := context.WithTimeout(s.context(), s.worker.config.Timeout)
 	defer cancel()
-	s.mu.Lock()
+	s.readLock()
 	rec := s.journal.Operations[id]
-	if rec.Operation.State == "canceled" {
+	if s.broken || rec.Operation.State == "canceled" {
 		close(s.done[id])
 		s.mu.Unlock()
 		return
@@ -153,7 +153,7 @@ func (s *Service) executeProtected(id string, in api.ConnectionInvokeInput, boun
 	if dispatched {
 		result, err = runProtected(ctx, adapter, bound)
 	}
-	s.mu.Lock()
+	s.readLock()
 	defer s.mu.Unlock()
 	rec = s.journal.Operations[id]
 	rec.Operation.State = "succeeded"

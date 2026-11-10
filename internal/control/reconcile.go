@@ -15,7 +15,7 @@ func (s *Service) reconcileSandbox(id, operationID string) {
 	defer s.wg.Done()
 	ctx, cancel := context.WithTimeout(s.context(), s.worker.config.Timeout)
 	defer cancel()
-	s.mu.Lock()
+	s.readLock()
 	sb, ok := s.journal.Sandboxes[id]
 	if !ok || sb.State != "unavailable" || sb.Readiness == nil || sb.Readiness.CommandStartedAt == nil {
 		s.mu.Unlock()
@@ -26,10 +26,10 @@ func (s *Service) reconcileSandbox(id, operationID string) {
 	s.mu.Unlock()
 	deadline, _ := ctx.Deadline()
 	receipt, err := s.worker.call(ctx, &pb.Request{Context: &pb.Context{RequestId: newID("req"), OperationId: newID("op"), DeadlineMs: uint64(deadline.UnixMilli()), SandboxId: id, Generation: generation, GrantId: s.worker.config.GrantID, PolicyRevision: 1}, Command: &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: operationID + ".start"}}})
-	if err != nil || receipt.Command == nil || receipt.Command.StartedAtUnixNs == 0 || receipt.Detail["generation"] != strconv.FormatUint(generation, 10) || receipt.State != "running" && receipt.State != "command_started" {
+	if err != nil || receipt.Command == nil || receipt.Command.StartedAtUnixNs == 0 || receipt.Command.FinishedAtUnixNs == 0 || receipt.Command.ExitCode != 0 || receipt.Command.Signal != 0 || receipt.Detail["generation"] != strconv.FormatUint(generation, 10) || receipt.State != "running" && receipt.State != "command_started" {
 		return
 	}
-	s.mu.Lock()
+	s.readLock()
 	defer s.mu.Unlock()
 	current := s.journal.Sandboxes[id]
 	if s.broken || current.Revision != revision || current.State != "unavailable" {

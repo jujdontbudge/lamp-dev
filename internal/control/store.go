@@ -53,6 +53,10 @@ type Config struct {
 }
 type Service struct {
 	mu             sync.Mutex
+	committing     bool
+	pending        []*pendingCommit
+	durableOps     map[string]*record
+	commitChanged  chan struct{}
 	identity       IdentityConfig
 	protected      map[string]ProtectedAction
 	eventRevisions map[string]uint64
@@ -63,6 +67,7 @@ type Service struct {
 	rootContext    context.Context
 	done           map[string]chan struct{}
 	busy           map[string]bool
+	starting       map[string]int
 	wg             sync.WaitGroup
 	cancel         func()
 	broken         bool
@@ -71,9 +76,9 @@ type Service struct {
 	// changed is closed (and replaced) whenever a journal change becomes
 	// durable, waking long-polling readers instead of having them spin.
 	changed chan struct{}
-	// log is journal.log, preallocated with real zero bytes past logEnd so
-	// that a commit overwrites initialized blocks and needs only fdatasync,
-	// not a filesystem metadata commit (see save).
+	// log is journal.log, physically reserved past logEnd. Linux reserves
+	// unwritten extents; other platforms initialize real zero bytes. Each
+	// commit fdatasyncs record data and required retrieval metadata (see save).
 	log    *os.File
 	logEnd int64
 	logCap int64
@@ -85,11 +90,26 @@ type Service struct {
 // logPrealloc is how far journal.log is extended with zeros at a time.
 const logPrealloc = 64 << 20
 
-// extendLog writes zeros up to at least need bytes and makes the new size
-// durable. Called under mu.
+// extendLog reserves physical capacity up to at least need bytes and makes
+// the new size durable. Called under mu.
 func (s *Service) extendLog(need int64) error {
+	end := s.logCap
+	for end < need || end < s.logEnd+logPrealloc/2 {
+		end += 1 << 20
+	}
+	return s.reserveLogEnd(end)
+}
+
+func (s *Service) reserveLogEnd(end int64) error {
+	if reserved, err := reserveLog(s.log, end); reserved || err != nil {
+		if err != nil {
+			return err
+		}
+		s.logCap = end
+		return s.log.Sync()
+	}
 	zeros := make([]byte, 1<<20)
-	for s.logCap < need || s.logCap < s.logEnd+logPrealloc/2 {
+	for s.logCap < end {
 		if _, err := s.log.WriteAt(zeros, s.logCap); err != nil {
 			return err
 		}
@@ -149,7 +169,7 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, fmt.Errorf("state directory is already in use: %w", err)
 	}
-	s := &Service{dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, keys: map[string]string{}, changed: make(chan struct{})}
+	s := &Service{dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
 	s.journal = journal{Version: 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
 	path := filepath.Join(s.dir, "journal.json")
 	data, err := os.ReadFile(path)
@@ -302,6 +322,7 @@ func Open(config Config) (*Service, error) {
 			return nil, err
 		}
 	}
+	s.durableOps = cloneOperations(s.journal.Operations)
 	s.rootContext, s.cancel = context.WithCancel(context.Background())
 	for _, rec := range s.journal.Operations {
 		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
@@ -319,28 +340,10 @@ func terminal(state api.OperationState) bool {
 // save runs under mu. Only changed records are appended and fsynced before
 // dispatch/publication. IDs explicitly name the bounded mutation write set.
 func (s *Service) save(ids ...string) error {
-	delta := journal{Version: 1, Sequence: s.journal.Sequence + 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
-	for _, id := range ids {
-		if rec, ok := s.journal.Operations[id]; ok {
-			delta.Operations[id] = rec
-		}
-		if sb, ok := s.journal.Sandboxes[id]; ok {
-			delta.Sandboxes[id] = sb
-		}
-		if ex, ok := s.journal.Execs[id]; ok {
-			delta.Execs[id] = ex
-		}
-		if frames, ok := s.journal.Outputs[id]; ok {
-			delta.Outputs[id] = frames
-		}
+	if s.broken {
+		return errors.New("journal unavailable")
 	}
-	for _, id := range ids {
-		if id == "$control" {
-			delta.Control = s.journal.Control
-		}
-	}
-	s.addEvents(&delta)
-	payload, err := json.Marshal(delta)
+	payload, delta, err := s.prepareDelta(ids...)
 	if err != nil {
 		return err
 	}
@@ -377,6 +380,7 @@ func (s *Service) save(ids ...string) error {
 	if err := s.writeCommitMark(commitMark{Generation: s.journal.LogGeneration, End: s.logEnd + int64(len(data)), Sequence: delta.Sequence}); err != nil {
 		return err
 	}
+	s.publishOperations(delta.Operations)
 	s.logEnd += int64(len(data))
 	s.journal.Sequence = delta.Sequence
 	s.journal.Events = append(s.journal.Events, delta.Events...)
@@ -697,7 +701,7 @@ func removeCommitTemps(dir string) error {
 	return nil
 }
 func (s *Service) Close() error {
-	s.mu.Lock()
+	s.readLock()
 	s.broken = true
 	if s.cancel != nil {
 		s.cancel()
@@ -712,4 +716,202 @@ func (s *Service) Close() error {
 		s.mark.Close()
 	}
 	return s.lock.Close()
+}
+
+// prepareDelta snapshots the bounded write set under mu. The encoded bytes
+// never alias the mutable journal while the group writer flushes them.
+func (s *Service) prepareDelta(ids ...string) ([]byte, journal, error) {
+	delta := journal{Version: 1, Sequence: s.journal.Sequence + 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
+	for _, id := range ids {
+		if rec, ok := s.journal.Operations[id]; ok {
+			delta.Operations[id] = rec
+		}
+		if sb, ok := s.journal.Sandboxes[id]; ok {
+			delta.Sandboxes[id] = sb
+		}
+		if ex, ok := s.journal.Execs[id]; ok {
+			delta.Execs[id] = ex
+		}
+		if frames, ok := s.journal.Outputs[id]; ok {
+			delta.Outputs[id] = frames
+		}
+	}
+	for _, id := range ids {
+		if id == "$control" {
+			delta.Control = s.journal.Control
+		}
+	}
+	s.addEvents(&delta)
+	payload, err := json.Marshal(delta)
+	if err != nil {
+		return nil, delta, err
+	}
+	return payload, delta, nil
+}
+
+type pendingCommit struct {
+	operations map[string]*record
+	data       []byte
+	mark       commitMark
+	done       chan struct{}
+	err        error
+}
+
+// readLock never exposes a staged record. Writers may reserve disjoint work
+// while a group is flushing, but readers and management transactions wait for
+// the complete staged prefix. On any flush error the service fails closed.
+func (s *Service) readLock() {
+	s.mu.Lock()
+	for s.committing {
+		changed := s.commitChanged
+		s.mu.Unlock()
+		<-changed
+		s.mu.Lock()
+	}
+}
+
+// saveConcurrent has save's durable-return contract, but releases mu while
+// waiting so concurrent admissions can share the two ordered sync barriers.
+// Callers must not retain mutable map entries across this call. Only the engine
+// write paths use it; management and protected actions take readLock first.
+func (s *Service) saveConcurrent(ids ...string) error {
+	if s.broken {
+		return errors.New("journal unavailable")
+	}
+	payload, delta, err := s.prepareDelta(ids...)
+	if err != nil {
+		return err
+	}
+	entry := &pendingCommit{data: frameRecord(payload), operations: cloneOperations(delta.Operations), done: make(chan struct{})}
+	s.logEnd += int64(len(entry.data))
+	s.journal.Sequence = delta.Sequence
+	s.journal.Events = append(s.journal.Events, delta.Events...)
+	s.journal.EventSequence = delta.EventSequence
+	s.logRecords++
+	entry.mark = commitMark{Generation: s.journal.LogGeneration, End: s.logEnd, Sequence: delta.Sequence}
+	s.pending = append(s.pending, entry)
+	if !s.committing {
+		s.committing = true
+		s.commitChanged = make(chan struct{})
+		go s.flushGroups()
+	}
+	s.mu.Unlock()
+	<-entry.done
+	s.mu.Lock()
+	return entry.err
+}
+
+func (s *Service) flushGroups() {
+	// A bounded coalescing window lets simultaneous callers share a barrier.
+	time.Sleep(200 * time.Microsecond)
+	for {
+		s.mu.Lock()
+		batch := s.pending
+		s.pending = nil
+		end := batch[len(batch)-1].mark
+		data := []byte{}
+		for _, entry := range batch {
+			data = append(data, entry.data...)
+		}
+		off := end.End - int64(len(data))
+		// Only this writer touches log/mark until committing becomes false.
+		// Extending is outside the caller mutex too.
+		s.mu.Unlock()
+		named, err := os.Stat(filepath.Join(s.dir, "journal.log"))
+		var held os.FileInfo
+		if err == nil {
+			held, err = s.log.Stat()
+		}
+		if err == nil && !os.SameFile(named, held) {
+			err = errors.New("journal.log was moved or replaced")
+		}
+		if err == nil && end.End > s.logCap {
+			err = s.extendGroupLog(end.End)
+		}
+		if err == nil {
+			_, err = writeRecordAt(s.log, data, off)
+		}
+		if err == nil {
+			err = datasync(s.log)
+		}
+		if err == nil {
+			err = s.writeCommitMark(end)
+		}
+		s.mu.Lock()
+		if err != nil {
+			s.broken = true
+			batch = append(batch, s.pending...)
+			s.pending = nil
+		}
+		// Compact only when the entire staged prefix is durable. Snapshot
+		// publication and log-generation changes cannot race the writer.
+		if err == nil && len(s.pending) == 0 && s.logRecords >= compactEvery {
+			err = s.compact()
+			if err != nil {
+				s.broken = true
+			}
+		}
+		for _, entry := range batch {
+			if err == nil {
+				for id, rec := range entry.operations {
+					s.durableOps[id] = rec
+				}
+			}
+			entry.err = err
+			close(entry.done)
+		}
+		close(s.changed)
+		s.changed = make(chan struct{})
+		if len(s.pending) == 0 {
+			s.pruneEvents()
+			s.committing = false
+			close(s.commitChanged)
+			s.mu.Unlock()
+			return
+		}
+		s.mu.Unlock()
+	}
+}
+
+// Unlike extendLog, the reservation end can advance concurrently. This writer
+// extends from its own batch boundary and never reads a mutable reservation.
+func (s *Service) extendGroupLog(need int64) error {
+	end := s.logCap
+	for end < need+logPrealloc/2 {
+		end += 1 << 20
+	}
+	return s.reserveLogEnd(end)
+}
+
+// publishOperations installs only immutable, committed response records. Engine
+// replies can use their own durable result without waiting for unrelated output
+// observations that have since joined another group.
+func cloneOperations(records map[string]*record) map[string]*record {
+	raw, _ := json.Marshal(records)
+	var snapshot map[string]*record
+	json.Unmarshal(raw, &snapshot)
+	return snapshot
+}
+func (s *Service) publishOperations(records map[string]*record) {
+	if s.durableOps == nil {
+		s.durableOps = map[string]*record{}
+	}
+	for id, rec := range cloneOperations(records) {
+		s.durableOps[id] = rec
+	}
+}
+
+// Exec starts may coexist; fork/delete hold an exclusive lifecycle admission.
+// The reservation remains held until the durable command-start result (or an
+// explicit failure). Completion of one start cannot release another's fence.
+func (s *Service) releaseAdmission(rec *record, source string) {
+	if value(rec.Operation.OperationName) == "exec_create" {
+		if s.starting[source] > 1 {
+			s.starting[source]--
+		} else {
+			delete(s.starting, source)
+		}
+	} else {
+		delete(s.busy, source)
+	}
 }

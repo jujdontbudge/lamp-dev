@@ -152,7 +152,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.URL.Path
 	if r.Method == "GET" {
-		s.mu.Lock()
+		s.readLock()
 		var send func()
 		defer func() { s.mu.Unlock(); send() }()
 		if s.broken {
@@ -161,7 +161,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		switch {
 		case strings.HasPrefix(path, "/v1/operations/"):
-			if rec, ok := s.journal.Operations[strings.TrimPrefix(path, "/v1/operations/")]; ok && s.operationAllowed(requestCaller(r), rec) {
+			if rec, ok := s.durableOps[strings.TrimPrefix(path, "/v1/operations/")]; ok && s.operationAllowed(requestCaller(r), rec) {
 				send = prepareJSON(w, 200, api.OperationGetResult{Data: rec.Operation, RequestId: requestID})
 				return
 			}
@@ -374,7 +374,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, requestID, "REVISION_CONFLICT", "sandbox revision changed", nil)
 			return
 		}
-		if (parent.State != "ready" && name != "sandbox_delete") || s.busy[source] {
+		if (parent.State != "ready" && name != "sandbox_delete") || s.busy[source] || (name != "exec_create" && s.starting[source] > 0) {
 			s.mu.Unlock()
 			writeError(w, requestID, "RESOURCE_IN_USE", "sandbox is not ready or has an in-flight operation", nil)
 			return
@@ -418,9 +418,13 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 	s.keys[journalKey] = id
 	s.done[id] = make(chan struct{})
 	if source != "" {
-		s.busy[source] = true
+		if name == "exec_create" {
+			s.starting[source]++
+		} else {
+			s.busy[source] = true
+		}
 	}
-	if err := s.save(id, ref.Id, source); err != nil {
+	if err := s.saveConcurrent(id, ref.Id, source); err != nil {
 		s.broken = true
 		s.mu.Unlock()
 		writeError(w, requestID, "DATA_UNAVAILABLE", "cannot persist operation admission", nil)
@@ -450,13 +454,23 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id 
 		}
 	}
 	s.mu.Lock()
+	for !s.broken && s.durableOps[id] == nil && s.committing {
+		changed := s.changed
+		s.mu.Unlock()
+		select {
+		case <-changed:
+		case <-r.Context().Done():
+			return
+		}
+		s.mu.Lock()
+	}
 	var send func()
 	defer func() { s.mu.Unlock(); send() }()
-	if s.broken {
+	if s.broken || s.durableOps[id] == nil {
 		send = prepareError(w, requestID, api.ErrorDetail{Code: "DATA_UNAVAILABLE", Message: "journal unavailable", OperationId: pointer(id)})
 		return
 	}
-	rec := s.journal.Operations[id]
+	rec := s.durableOps[id]
 	if a := requestCaller(r); a.Principal != "" && (!s.can(a, strings.Replace(value(rec.Operation.OperationName), "_", ".", 1)) || !s.operationAllowed(a, rec)) {
 		send = prepareError(w, requestID, api.ErrorDetail{Code: "SCOPE_DENIED", Message: "authority changed while waiting", OperationId: &id})
 		return
@@ -480,8 +494,13 @@ func (s *Service) execute(id, source string) {
 	defer cancel()
 	s.mu.Lock()
 	rec := s.journal.Operations[id]
+	if s.broken {
+		close(s.done[id])
+		s.mu.Unlock()
+		return
+	}
 	if rec.Operation.State == "canceled" {
-		delete(s.busy, source)
+		s.releaseAdmission(rec, source)
 		close(s.done[id])
 		s.mu.Unlock()
 		return
@@ -500,10 +519,10 @@ func (s *Service) execute(id, source string) {
 			sb.Revision++
 			s.journal.Sandboxes[ref.Id] = sb
 		}
-		if err := s.save(id, ref.Id); err != nil {
+		if err := s.saveConcurrent(id, ref.Id); err != nil {
 			s.broken = true
 		}
-		delete(s.busy, source)
+		s.releaseAdmission(rec, source)
 		close(s.done[id])
 		s.mu.Unlock()
 		return
@@ -524,21 +543,24 @@ func (s *Service) execute(id, source string) {
 	} else {
 		sb = s.journal.Sandboxes[source]
 	}
-	// The running transition is committed while the first worker request is
-	// already in flight. Readers still never see it before it is durable:
-	// this goroutine-handed lock is released only after the commit. Recovery
-	// is unchanged, because the durable accepted record already restarts as
-	// outcome_unknown. A failed commit breaks the journal (no further
-	// publication) and leaves the dispatched effect unknown.
+	// Accepted is the durable no-replay boundary. For exec, running is an
+	// internal dispatch fence; the next durable public transition is the worker
+	// command-start result. Readers use durableOps and never see this unsaved
+	// revision. A crash still recovers accepted work as outcome_unknown.
 	running := make(chan error, 1)
-	go func() {
-		err := s.save(id, ref.Id, source)
-		if err != nil {
-			s.broken = true
-		}
+	if name == "exec_create" {
 		s.mu.Unlock()
-		running <- err
-	}()
+		running <- nil
+	} else {
+		go func() {
+			err := s.saveConcurrent(id, ref.Id, source)
+			if err != nil {
+				s.broken = true
+			}
+			s.mu.Unlock()
+			running <- err
+		}()
+	}
 	generation := *sb.Generation
 	request := func(step, sandbox string, generation uint64) *pb.Request {
 		deadline, _ := ctx.Deadline()
@@ -624,9 +646,43 @@ func (s *Service) execute(id, source string) {
 		stage("command")
 		err = start(*ex.Argv, value(ex.Cwd), env)
 	}
+	if err == nil && (name == "sandbox_create" || name == "sandbox_fork") {
+		// In an audited guest, command_started can witness the guard wrapper.
+		// Ready additionally requires the real /bin/true probe to finish with
+		// exit zero. Inspect is read-only; an uncertain probe is never rerun.
+		for {
+			r := request("readiness", sb.Id, generation)
+			r.Command = &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: id + ".start"}}
+			receipt, inspectErr := s.worker.call(ctx, r)
+			if inspectErr != nil {
+				err = inspectErr
+				break
+			}
+			if receipt.Command != nil && receipt.Command.FinishedAtUnixNs != 0 {
+				if receipt.Command.ExitCode != 0 || receipt.Command.Signal != 0 {
+					err = &workerFailure{code: "AUDIT_UNAVAILABLE", message: "readiness command did not finish successfully"}
+				}
+				break
+			}
+			if receipt.Detail["command_state"] != "running" {
+				err = &workerFailure{code: "OUTCOME_UNKNOWN", message: "readiness command completion unavailable", unknown: true}
+				break
+			}
+			timer := time.NewTimer(time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				err = &workerFailure{code: "OUTCOME_UNKNOWN", message: "readiness deadline", unknown: true}
+			case <-timer.C:
+			}
+			if err != nil {
+				break
+			}
+		}
+	}
 	if <-running != nil {
 		s.mu.Lock()
-		delete(s.busy, source)
+		s.releaseAdmission(rec, source)
 		close(s.done[id])
 		s.mu.Unlock()
 		return
@@ -704,10 +760,10 @@ func (s *Service) execute(id, source string) {
 		ex.UpdatedAt = now
 		s.journal.Execs[ex.Id] = ex
 	}
-	if err := s.save(id, ref.Id, source); err != nil {
+	if err := s.saveConcurrent(id, ref.Id, source); err != nil {
 		s.broken = true
 	}
-	delete(s.busy, source)
+	s.releaseAdmission(rec, source)
 	close(s.done[id])
 	if name == "exec_create" && err == nil && !s.broken {
 		s.wg.Add(1)
@@ -809,7 +865,7 @@ func (s *Service) observeExec(id string, c *pb.Context, commandID string) {
 	ex.Revision++
 	ex.UpdatedAt = timestamp()
 	s.journal.Execs[id] = ex
-	if err := s.save(id); err != nil {
+	if err := s.saveConcurrent(id); err != nil {
 		s.broken = true
 	}
 }
@@ -855,7 +911,7 @@ func (s *Service) watchOutput(w http.ResponseWriter, r *http.Request, requestID 
 	}
 	until := time.Now().Add(time.Duration(wait) * time.Millisecond)
 	for {
-		s.mu.Lock()
+		s.readLock()
 		if s.broken {
 			s.mu.Unlock()
 			writeError(w, requestID, "DATA_UNAVAILABLE", "journal unavailable", nil)

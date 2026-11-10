@@ -170,7 +170,7 @@ func (s *Service) eventsHTTP(w http.ResponseWriter, r *http.Request, id string, 
 	first := true
 	until := time.Now().Add(time.Duration(wait) * time.Millisecond)
 	for {
-		s.mu.Lock()
+		s.readLock()
 		if s.broken || !s.can(a, "event.list") {
 			s.mu.Unlock()
 			if !streaming || first {
@@ -288,8 +288,13 @@ func (s *Service) waitOperation(w http.ResponseWriter, r *http.Request, id strin
 	}
 	until := time.Now().Add(time.Duration(timeout) * time.Millisecond)
 	for {
-		s.mu.Lock()
-		rec, ok := s.journal.Operations[opID]
+		s.readLock()
+		if s.broken {
+			s.mu.Unlock()
+			writeError(w, id, "DATA_UNAVAILABLE", "journal unavailable", nil)
+			return
+		}
+		rec, ok := s.durableOps[opID]
 		if !ok || !s.can(a, "operation.wait") || !s.operationAllowed(a, rec) {
 			s.mu.Unlock()
 			writeError(w, id, "NOT_FOUND", "operation not found", nil)

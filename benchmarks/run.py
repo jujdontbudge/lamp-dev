@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--metadata", required=True)
     transport = parser.add_mutually_exclusive_group()
     transport.add_argument("--api-url")
+    transport.add_argument("--api-socket", help="public HTTP API Unix socket on the measured host")
     transport.add_argument("--cli")
     parser.add_argument("--template", default="tp_bench")
     parser.add_argument("--workload", default="/opt/lamp/bench-workload.py")
@@ -35,7 +36,9 @@ def main():
     parser.add_argument("--native-cpus", help="comma-separated native CPU IDs; count must match guest vCPUs")
     parser.add_argument("--model", action="store_true", help="diagnostic disposable backend, never E04 qualification")
     parser.add_argument("--smoke", action="store_true", help="reduced diagnostic run; cannot pass a gate")
-    parser.add_argument("--callers", help="E03 JSON manifest: 32 distinct principal_id/sandbox_id/token_env records")
+    parser.add_argument("--caller-processes", action="store_true", help="E03 native Linux independent caller processes, avoiding one Python GIL")
+    parser.add_argument("--callers", help="E03 manifest: 32 principal_id/sandbox_id/token_env records with distinct credentials")
+    parser.add_argument("--allocation-observer", help="E03 JSON argv for independent kernel sandbox allocation snapshots")
     parser.add_argument("--integrated-e01", help="integrated E01 summary; absent or failed evidence cannot pass E03")
     args = parser.parse_args()
     metadata = json.loads(Path(args.metadata).read_text())
@@ -45,7 +48,7 @@ def main():
     lamp = None
     try:
         if args.suite in ("E01", "E02", "all"):
-            lamp = PublicLamp(args.api_url, args.cli, args.timeout, token_from_environment())
+            lamp = PublicLamp(args.api_url, args.cli, args.timeout, token_from_environment(), socket_path=args.api_socket)
             harness = EngineHarness(lamp, evidence, args.template, args.workload, args.guest_python, args.native_python,
                                     directory=args.directory,
                                     fixture=json.loads(Path(args.network_fixture).read_text()) if args.network_fixture else None,
@@ -56,10 +59,13 @@ def main():
                 results["E01"] = harness.e01(extra, args.smoke)
             if args.suite in ("E02", "all"):
                 results["E02"] = harness.e02(plan()[3], args.smoke)
-        if args.suite == "E03":
+        if args.suite in ("E03", "all"):
             if not args.callers:
-                raise ValueError("E03 requires --callers with 32 prepared private sandboxes")
-            results["E03"] = control_suite(args.api_url, args.cli, json.loads(Path(args.callers).read_text()), evidence, args.integrated_e01, args.smoke)
+                if args.suite == "E03":
+                    raise ValueError("E03 requires --callers with 32 credentials and prepared owner-private sandboxes")
+                results["E03"] = {"status": "incomplete", "reason": "E03 requires --callers with 32 credentials and prepared owner-private sandboxes"}
+            else:
+                results["E03"] = control_suite(args.api_url, args.cli, json.loads(Path(args.callers).read_text()), evidence, args.integrated_e01, args.smoke, socket_path=args.api_socket, allocation_observer=json.loads(args.allocation_observer) if args.allocation_observer else None, process_callers=args.caller_processes)
         if args.suite in ("E04", "all"):
             if args.model:
                 command = [sys.executable, str(Path(__file__).with_name("block_fixture.py"))]
@@ -76,7 +82,7 @@ def main():
             for call in lamp.calls:
                 evidence.observe("public_call", call)
         if args.suite == "all":
-            for name in ("E01", "E02", "E04"):
+            for name in ("E01", "E02", "E03", "E04"):
                 results.setdefault(name, {"status": "incomplete"})
         operating_system = metadata.get("os", {})
         native = metadata.get("lane") == "LX" and metadata.get("topology") == "native" and isinstance(operating_system, dict) and operating_system.get("kernel") == platform.system() == "Linux"

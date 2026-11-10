@@ -131,3 +131,45 @@ func valueString(s *string) string {
 	}
 	return *s
 }
+
+func TestApprovalContextSelectorsRejectWithoutMutation(t *testing.T) {
+	s, err := Open(storeConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	sb := newSandbox()
+	sb.RecipeId = pointer("rc_bound")
+	s.journal.Sandboxes[sb.Id] = sb
+	approval := api.Approval{Id: "ap_bound", State: "pending", Revision: 1, SandboxId: &sb.Id, ActionDigest: pointer("digest"), ExpiresAt: pointer(time.Now().Add(time.Minute).UTC().Format(time.RFC3339Nano))}
+	s.journal.Control.Approvals[approval.Id] = approval
+	for name, scope := range map[string]api.Scope{
+		"sandbox": {SandboxIds: &[]string{"sb_unrelated"}},
+		"recipe":  {RecipeIds: &[]string{"rc_unrelated"}},
+		"host":    {HostIds: &[]string{"hs_unrelated"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			actions := []api.ScopeActionsItem{"approval.approve", "approval.get", "approval.list"}
+			scope.Actions = &actions
+			s.journal.Control.Keys["key"] = storedKey{SHA256: bearerHash("fixture"), Key: api.Key{Id: "key", State: "active", PrincipalId: pointer("pr_local"), Scope: &scope}}
+			for _, route := range []struct{ method, path, body string }{
+				{"GET", "/v1/approvals/ap_bound", ""},
+				{"POST", "/v1/approvals/ap_bound:approve", `{"action_digest":"digest"}`},
+			} {
+				r := httptest.NewRequest(route.method, route.path, strings.NewReader(route.body))
+				r.Header.Set("Authorization", "Bearer fixture")
+				r.Header.Set("Idempotency-Key", name)
+				r.Header.Set("If-Match", "1")
+				w := httptest.NewRecorder()
+				s.ServeHTTP(w, r)
+				if w.Code != 404 {
+					t.Fatalf("%s: %d %s", route.path, w.Code, w.Body.String())
+				}
+			}
+			current := s.journal.Control.Approvals[approval.Id]
+			if current.Revision != 1 || current.State != "pending" {
+				t.Fatal("denied decision changed approval")
+			}
+		})
+	}
+}

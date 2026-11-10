@@ -19,8 +19,17 @@ import (
 // Empty configuration is the UID-authenticated, private Unix socket owner mode.
 // Once enrolled, a journal cannot be reopened in unauthenticated mode.
 type IdentityConfig struct {
-	OwnerID         string `json:"owner_id"`
-	BootstrapSHA256 string `json:"bootstrap_sha256"`
+	OwnerID         string              `json:"owner_id"`
+	BootstrapSHA256 string              `json:"bootstrap_sha256"`
+	Subjects        []SubjectEnrollment `json:"subjects,omitempty"`
+}
+
+// SubjectEnrollment is supplied by the trusted identity custodian, never by
+// fleet management APIs. Only the subject receives the corresponding bearer.
+type SubjectEnrollment struct {
+	Issuer  string `json:"issuer"`
+	Subject string `json:"subject"`
+	SHA256  string `json:"sha256"`
 }
 type storedKey struct {
 	Key    api.Key `json:"key"`
@@ -70,6 +79,15 @@ func (s *Service) initAuthority(config Config) error {
 			return errors.New("invalid owner enrollment or bootstrap SHA-256")
 		}
 		s.identity = *config.Identity
+		s.identity.Subjects = append([]SubjectEnrollment{}, config.Identity.Subjects...)
+		seen := map[string]bool{config.Identity.BootstrapSHA256: true}
+		for _, subject := range s.identity.Subjects {
+			hash, err := hex.DecodeString(subject.SHA256)
+			if err != nil || len(hash) != 32 || subject.Issuer == "" || subject.Subject == "" || seen[subject.SHA256] {
+				return errors.New("invalid or duplicate subject enrollment")
+			}
+			seen[subject.SHA256] = true
+		}
 	}
 	return nil
 }
@@ -90,6 +108,18 @@ func (s *Service) authenticate(r *http.Request) (caller, bool) {
 	hash := bearerHash(token)
 	if c.Credentialed && hash == s.identity.BootstrapSHA256 {
 		return caller{Principal: c.OwnerID}, true
+	}
+	for _, subject := range s.identity.Subjects {
+		if hash != subject.SHA256 {
+			continue
+		}
+		for _, principal := range c.Principals {
+			if value(principal.Issuer) == subject.Issuer && value(principal.Subject) == subject.Subject {
+				a := caller{Principal: principal.Id}
+				return a, s.current(a)
+			}
+		}
+		return caller{}, false
 	}
 	for id, k := range c.Keys {
 		if hash == k.SHA256 {
@@ -265,13 +295,13 @@ func (s *Service) admissionAllowed(a caller, name string, sb api.Sandbox) bool {
 				var n uint64
 				if name == "sandbox_create" || name == "sandbox_fork" {
 					for _, sandbox := range s.journal.Sandboxes {
-						if sandbox.OwnerId == a.Principal && sandbox.State != "deleted" && sandbox.State != "failed" {
+						if sandbox.OwnerId == a.Principal && s.sandboxCharged(sandbox) {
 							n++
 						}
 					}
 				} else {
-					for _, r := range s.journal.Operations {
-						if r.Operation.OwnerId == a.Principal && !terminal(r.Operation.State) {
+					for _, ex := range s.journal.Execs {
+						if ex.OwnerId == a.Principal && (ex.State == "accepted" || ex.State == "running" || ex.State == "outcome_unknown") {
 							n++
 						}
 					}
@@ -279,6 +309,20 @@ func (s *Service) admissionAllowed(a caller, name string, sb api.Sandbox) bool {
 				if n >= *l.Concurrency {
 					return false
 				}
+			}
+		}
+	}
+	return true
+}
+
+func (s *Service) sandboxCharged(sb api.Sandbox) bool {
+	if sb.State == "deleted" {
+		return false
+	} // Stop/Release independently confirmed.
+	if sb.State == "failed" {
+		for _, rec := range s.journal.Operations {
+			if rec.Resource.Kind == "sandbox" && rec.Resource.Id == sb.Id && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") && rec.Operation.State == "canceled" && value(rec.Operation.CancelEffect) == "prevented" && value(rec.Operation.CleanupState) == "complete" {
+				return false
 			}
 		}
 	}

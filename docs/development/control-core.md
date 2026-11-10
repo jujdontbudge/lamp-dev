@@ -69,20 +69,23 @@ A child key records its authenticated issuer as parent and inherits the
 intersection of actions, sandbox/recipe/host/resource selectors, numeric limits
 and expiry. Omission inherits; an explicit empty array grants nothing. Issuer
 role rights are frozen into the child's action ceiling as well as checked
-against its current role. Only the owner can issue another principal's key.
+against its current role. No caller, including the fleet owner, can issue or rotate another principal's credential. Management rights never return an impersonation bearer. The trusted identity custodian may configure `subjects` entries (`issuer`, `subject`, `sha256`) in the private startup enrollment file. Each entry authenticates the exact active principal and checks current membership/mode; only that subject receives its independently random bearer. The subject then issues its own narrowed keys. Fleet APIs cannot install bearer hashes. T9 owns external sign-in proof and custody.
 Rotation preserves/narrows the existing scope and expiry and revokes the old
-key. Descendant authentication checks every ancestor, expiry and current role.
+key. Rotation by a different key is rejected unless its live ancestry preserves the old inherited parent; rotating an ancestor of the issuer is rejected. Descendant authentication checks every ancestor, expiry and current role.
 
 The local worker host selector is `hs_local`. Prepared-template create cannot
 meet a supplied recipe selector or preexisting sandbox/resource selector, and
 is denied. Workload vCPU/RAM/disk limits are enforced at admission; concurrency
-bounds live sandbox admissions and simultaneous command operations for that
-principal. Deletion remains available for cleanup. Token, wall-time and retained
+bounds live sandbox admissions and commands in accepted, running or uncertain
+states for that principal. A command-start receipt does not release its charge;
+only observed completion does. Failed or uncertain cleanup remains charged until worker Stop/Release confirms release. A prevented create/fork can release its reservation because no allocation was dispatched. Deletion remains available for cleanup. Token, wall-time and retained
 state budgets require their owning subsystems and are rejected here rather than
 silently accepted. Fleet-wide accounting and the audit/revocation ledger remain
 T23's responsibility.
 
 ## Operations, readiness and retries
+
+Concurrent engine journal writes share ordered group commits: all record bytes are synced before the committed-end marker is synced. Save returns, worker dispatch and public readers remain behind the corresponding durability boundary. Immutable committed operation snapshots let each reply return its own result without waiting for unrelated output commits. Exec running is an internal dispatch fence; its accepted record is the durable no-replay boundary until command-start completion is committed. A flush failure breaks publication and dispatch.
 
 Acceptance durably records the Operation and partial resource before dispatch.
 Keys are scoped by principal + operation + key, with canonical input hashing;
@@ -106,7 +109,7 @@ Every sandbox exposes the ten canonical readiness checks. The current prepared
 worker path requests template, engine, identity and command checks; unrequested
 network/settings/kits/auth/connections/agent setup is explicitly skipped.
 Unsupported requested setup fields are rejected. Ready requires allocation,
-restore and an actual `/bin/true` command-start receipt. After restart the core
+restore and an actual `/bin/true` command-start receipt plus observed successful probe completion. A guard wrapper that starts but exits before a successful probe cannot advertise ready. After restart the core
 only restores readiness after read-only Inspect proves the original command,
 sandbox generation and live worker state. Otherwise it stays `unavailable`.
 An actual worker rejection identifies the failed engine/template/command phase.
@@ -141,7 +144,7 @@ This seam is for the broker/access tickets, not a generic host command runner.
 `approval create --input <file>` stores the validated immutable action plan
 (maximum 64 KiB), server-computed SHA-256 binding and explicit expiry of at most
 60 seconds. Owner-authenticated get/list/approve/deny/revoke inspect/decide this
-plan. Approval is consumed atomically with protected operation admission before
+plan. Sandbox, recipe, host and resource selectors apply before inspection or decision; denied decisions leave state and revision unchanged. Approval is consumed atomically with protected operation admission before
 one adapter dispatch. The enforcing adapter revalidates immediately before the
 effect. Changed targets/revisions/generations, expired/denied/revoked approvals
 and concurrent second consumption produce no effect. Ambiguous adapter errors
@@ -170,8 +173,12 @@ integers, forwards errors and never mints broader transport authority.
 
 The independent runner is `python3 -m benchmarks.run --suite E03 --api-url
 <origin> --callers <manifest.json> --metadata <observed.json> --output <new-dir>
---integrated-e01 <summary.json>`. Prepare the 32 sandboxes before timing, each
-owned by a distinct enrolled principal. The manifest is exactly 32 objects:
+--integrated-e01 <summary.json> --caller-processes`. Prepare owner-private
+sandboxes before timing and use 32 distinct credentials across at least two
+principals. On LX, `infra/linux/run-e03.py` prepares two sandboxes, one per owner,
+with 16 callers sharing each. It checks `free -m` before each allocation, refuses
+less than 12 GiB available and never exceeds two live sandboxes. The manifest
+is exactly 32 objects:
 `{"principal_id":"pr_…","sandbox_id":"sb_…","token_env":"LAMP_CALLER_0"}`.
 Environment variables contain their distinct bearers; evidence contains no
 bearers. The runner never prepares templates or starts/stops owner services.
@@ -181,7 +188,12 @@ concurrent callers. The endpoint includes authentication, durable admission and
 the actual worker command-start receipt. It includes some command-start work,
 so passing this upper bound also bounds the control allocation. After timing,
 the observer checks actual command output/owner, a stable-key replay and foreign
-resource denial. All failures and individual latencies stay in the hash-chained
+resource denial. A separate bounded-capacity phase holds a live command under
+a concurrency-one key while 32 admissions contend. Independently chosen guest
+marker files/PIDs and kernel allocation snapshots must agree with exactly one
+admitted effect; public acceptance or independent overspend fails the run.
+This phase allocates no additional VM. Prepared resources are released before
+evidence publication. All failures and individual latencies stay in the hash-chained
 run. The fixed p99 allocation is **≤35 ms**, with zero correctness failures.
 A matching-build/policy integrated E01 pass is also required; a failed E01 stays
 failed and missing/mismatched evidence remains incomplete. This endpoint may
@@ -195,3 +207,17 @@ TestControlBoundaryDiagnostic -v` runs the independent observer against the
 Rust **test protocol peer**, real process commands and real control journal.
 That fixture cannot qualify E03 or E01, even on LX. It is useful for finding
 control serialization and authority faults without stopping owner services.
+
+For hard timing on LX, build and install workload/templates before entering
+`infra/linux/timing-run.sh -- python3 infra/linux/run-e03.py ...`. Check for
+other `timing-run.sh`/`benchmarks.run` processes and acquire the shared timing
+lock first. The wrapper restores exactly the owner services it found running.
+`--suite all` requires E03 preparation inputs or reports that suite incomplete.
+The Linux process runtime avoids Python thread/GIL scheduling in the independent
+caller side; it does not subtract time, reduce counts or alter the threshold.
+
+Linux journal capacity uses `fallocate` to reserve physical blocks without
+writing tens of MiB of zeros during a commit. Record `fdatasync` still commits
+data and required extent metadata before the separate committed-end barrier.
+Unsupported filesystems retain zero-fill reservation; the protocol and crash
+recovery boundaries do not change.

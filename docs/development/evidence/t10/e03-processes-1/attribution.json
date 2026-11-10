@@ -1,0 +1,24 @@
+{
+  "method": "Reconstruct durable operations from private journal snapshot/log, join by the 6400 externally recorded operation IDs; completed_at is worker receipt before terminal save. Only aggregate statistics published.",
+  "accepted_to_worker_receipt_ms": {
+    "p50": 39.315,
+    "p95": 76.337,
+    "p99": 98.441,
+    "max": 188.264
+  },
+  "caller_elapsed_minus_receipt_span_ms": {
+    "p50": 16.445759,
+    "p95": 43.15694,
+    "p99": 470.032002,
+    "max": 1946.863524
+  },
+  "failures": [
+    {
+      "caller": 30,
+      "iteration": 1,
+      "exit_code": 70,
+      "signal": 0,
+      "stderr": ""
+    }
+  ]
+}

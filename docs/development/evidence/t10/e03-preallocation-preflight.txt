@@ -1,0 +1,6 @@
+2026-11-10 UTC — preflight refused the next E03 hard run.
+Another timing/benchmark process was active on LX:
+PID 3560538, python3 -m benchmarks.run --suite E04
+T7 full1-ext4 real storage fixture; observed elapsed 00:47.
+No E03 run directory was created; no owner services were changed.
+The post-fallocate optimization is tested but has no new hard timing evidence.

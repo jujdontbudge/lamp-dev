@@ -1,0 +1,6 @@
+=== RUN   TestLiveExecKeepsConcurrencyChargeAfterCommandStart
+    core_e2e_test.go:592: exec_create: status 200 want 403: {"operation_id":"op_f31350e50bd90bec52e7ca5e7ef186c7","resource_ids":[{"kind":"exec","id":"ex_9cf1e0c8a30ffba305d734fc82d47dcd"}],"request_id":"req_9f7b80fd20d7da38d99b8cd9ea1621c0","replayed":false,"operation":{"id":"op_f31350e50bd90bec52e7ca5e7ef186c7","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":3,"created_at":"2026-11-10T19:19:37.76601Z","updated_at":"2026-11-10T19:19:37.790704Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"exec_create","request_hash":"f6a349b7276b58c9882b48bbe4e1cb2c87edde435688c0f76b75ceae6cea8675","resource_ids":[{"kind":"exec","id":"ex_9cf1e0c8a30ffba305d734fc82d47dcd"}],"phase":"command","accepted_at":"2026-11-10T19:19:37.76601Z","completed_at":"2026-11-10T19:19:37.790704Z","outcome":{"result":{"exec_id":"ex_9cf1e0c8a30ffba305d734fc82d47dcd"}},"cleanup_state":"not_needed","durability":"volatile"},"result":{"exec_id":"ex_9cf1e0c8a30ffba305d734fc82d47dcd"}}
+--- FAIL: TestLiveExecKeepsConcurrencyChargeAfterCommandStart (0.89s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	2.505s
+FAIL

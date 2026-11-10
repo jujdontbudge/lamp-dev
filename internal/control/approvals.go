@@ -109,7 +109,7 @@ func (s *Service) approvalMutation(a caller, op api.OperationDescriptor, in map[
 		if !ok {
 			return fail("NOT_FOUND", "approval not found")
 		}
-		if !s.resourceAllowed(a, api.ResourceRef{Kind: "approval", Id: approval.Id}) {
+		if !s.resourceAllowed(a, api.ResourceRef{Kind: "approval", Id: approval.Id}) || !s.approvalSelectors(a, approval) {
 			return fail("NOT_FOUND", "approval not found")
 		}
 		if approval.Revision != uintField(in, "expected_revision") {
@@ -143,6 +143,19 @@ func (s *Service) approvalMutation(a caller, op api.OperationDescriptor, in map[
 	c.Approvals[approval.Id] = approval
 	ref.Id = approval.Id
 	return ref, map[string]any{"approval_id": approval.Id}, nil, nil, nil
+}
+
+func (s *Service) approvalSelectors(a caller, approval api.Approval) bool {
+	sb, ok := s.journal.Sandboxes[value(approval.SandboxId)]
+	if !ok {
+		return false
+	}
+	for _, scope := range s.scopes(a) {
+		if !has(scope.SandboxIds, sb.Id) || !has(scope.RecipeIds, value(sb.RecipeId)) || !has(scope.HostIds, "hs_local") {
+			return false
+		}
+	}
+	return true
 }
 
 // consumeApproval runs under the same journal mutex as protected admission.

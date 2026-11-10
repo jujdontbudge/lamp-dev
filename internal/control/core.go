@@ -128,7 +128,7 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	snapshot := &responseSnapshot{header: w.Header().Clone()}
 	original := w
 	w = snapshot
-	s.mu.Lock()
+	s.readLock()
 	defer func() {
 		s.mu.Unlock()
 		for k, v := range snapshot.header {
@@ -331,7 +331,7 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 			}
 		}
 	case "operation":
-		for _, v := range s.journal.Operations {
+		for _, v := range s.durableOps {
 			if s.operationAllowed(a, v) {
 				items = append(items, object(v.Operation))
 			}
@@ -359,6 +359,9 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	case "approval":
 		for _, v := range c.Approvals {
 			if value(v.PrincipalId) == a.Principal || s.role(a) == "owner" {
+				if !s.approvalSelectors(a, v) {
+					continue
+				}
 				if expired(v.ExpiresAt) && v.State != "consumed" && v.State != "denied" && v.State != "revoked" {
 					v.State = "expired"
 				}
@@ -532,7 +535,7 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 		var inheritedExpiry *string
 		if verb == "rotate" {
 			old := c.Keys[textField(m, "id")]
-			if value(old.Key.PrincipalId) != a.Principal && s.role(a) != "owner" {
+			if value(old.Key.PrincipalId) != a.Principal {
 				return fail("SCOPE_DENIED", "key not owned")
 			}
 			if old.Key.State != "active" {
@@ -548,6 +551,22 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 			// Self-rotation keeps the old ancestry without depending on the
 			// key that this transaction revokes.
 			if a.KeyID != "" && a.KeyID != old.Key.Id {
+				ancestor := value(old.Key.ParentKeyId)
+				if ancestor != "" {
+					found := false
+					for id := a.KeyID; id != ""; id = value(c.Keys[id].Key.ParentKeyId) {
+						if id == old.Key.Id {
+							return fail("SCOPE_DENIED", "cannot rotate an ancestor of the issuer")
+						}
+						if id == ancestor {
+							found = true
+							break
+						}
+					}
+					if !found {
+						return fail("SCOPE_DENIED", "rotation would drop inherited ancestry")
+					}
+				}
 				parent = a.KeyID
 			}
 			old.Key.State = "revoked"
@@ -558,7 +577,7 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 			if p := textField(in, "principal_id"); p != "" {
 				principal = p
 			}
-			if principal != a.Principal && s.role(a) != "owner" {
+			if principal != a.Principal {
 				return fail("SCOPE_DENIED", "cannot issue another principal's key")
 			}
 			if _, ok := in["parent_key_id"]; ok && textField(in, "parent_key_id") != parent {

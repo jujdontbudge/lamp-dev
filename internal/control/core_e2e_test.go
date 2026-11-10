@@ -25,14 +25,17 @@ import (
 	"github.com/JohanSardar/lamp/internal/control"
 	"github.com/JohanSardar/lamp/internal/surface"
 	"github.com/JohanSardar/lamp/pkg/api"
+	pb "github.com/JohanSardar/lamp/pkg/workerpb"
 )
 
 type coreFixture struct {
-	service *control.Service
-	server  *httptest.Server
-	config  control.Config
-	worker  *workerFixture
-	owner   string
+	service       *control.Service
+	server        *httptest.Server
+	config        control.Config
+	worker        *workerFixture
+	owner         string
+	subjectTokens []string
+	nextSubject   int
 }
 
 func newCore(t *testing.T, protected map[string]control.ProtectedAction) *coreFixture {
@@ -51,12 +54,20 @@ func newCore(t *testing.T, protected map[string]control.ProtectedAction) *coreFi
 	// Correctness fixtures tolerate race instrumentation and contended disks.
 	// Performance thresholds belong to the independent E03 runner.
 	config := control.Config{StateDir: filepath.Join(dir, "state"), Identity: &control.IdentityConfig{OwnerID: "pr_owner", BootstrapSHA256: hex.EncodeToString(sum[:])}, ProtectedActions: protected, Worker: control.WorkerConfig{Socket: w.listener.Addr().String(), WorkerID: "worker-test", BootID: "boot-test", UID: os.Getuid(), PID: os.Getpid(), GrantID: "grant-test", Timeout: 30 * time.Second}}
+	subjectTokens := make([]string, 128)
+	for i := range subjectTokens {
+		token := make([]byte, 32)
+		rand.Read(token)
+		subjectTokens[i] = hex.EncodeToString(token)
+		sum := sha256.Sum256([]byte(subjectTokens[i]))
+		config.Identity.Subjects = append(config.Identity.Subjects, control.SubjectEnrollment{Issuer: "fixture", Subject: fmt.Sprint(i), SHA256: hex.EncodeToString(sum[:])})
+	}
 	s, e := control.Open(config)
 	if e != nil {
 		t.Fatal(e)
 	}
 	server := httptest.NewServer(s)
-	f := &coreFixture{s, server, config, w, owner}
+	f := &coreFixture{service: s, server: server, config: config, worker: w, owner: owner, subjectTokens: subjectTokens}
 	t.Cleanup(func() { f.server.Close(); f.service.Close() })
 	return f
 }
@@ -87,9 +98,14 @@ func result(m map[string]any) map[string]any  { return m["result"].(map[string]a
 func data(m map[string]any) map[string]any    { return m["data"].(map[string]any) }
 func (f *coreFixture) member(t *testing.T, role string) (string, string) {
 	t.Helper()
-	p := result(f.mutation(t, f.owner, "principal_create", map[string]any{"issuer": "fixture", "subject": fmt.Sprintf("%s-%d", role, time.Now().UnixNano())}))["principal_id"].(string)
+	index := f.nextSubject
+	f.nextSubject++
+	p := result(f.mutation(t, f.owner, "principal_create", map[string]any{"issuer": "fixture", "subject": fmt.Sprint(index)}))["principal_id"].(string)
 	f.mutation(t, f.owner, "membership_create", map[string]any{"principal_id": p, "role": role})
-	k := result(f.mutation(t, f.owner, "key_create", map[string]any{"principal_id": p, "expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)}))
+	if role == "viewer" {
+		return p, f.subjectTokens[index]
+	}
+	k := result(f.mutation(t, f.subjectTokens[index], "key_create", map[string]any{"principal_id": p, "expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)}))
 	return p, k["secret"].(string)
 }
 func TestControlCoreInterfacesAndAuthority(t *testing.T) {
@@ -501,4 +517,105 @@ func TestRotationKeepsIssuingKeyAuthority(t *testing.T) {
 	f.call(t, replacement["secret"].(string), "key_get", map[string]any{"key_id": replacement["key_id"]}, 200)
 	f.call(t, self["secret"].(string), "key_get", map[string]any{"key_id": self["key_id"]}, 401)
 	t.Log("rotation preserves issuer action ceiling, expiry and live ancestry; self-rotation replaces the revoked key")
+}
+
+func TestOwnerCannotMintOrRotateAnotherPrincipalCredential(t *testing.T) {
+	f := newCore(t, nil)
+	f.mutation(t, f.owner, "fleet_update", map[string]any{"fleet_id": "fl_local", "mode": "team", "expected_revision": 1})
+	alice, token := f.member(t, "member")
+	created := f.call(t, token, "sandbox_create", map[string]any{"template_id": "tpl", "idempotency_key": "private", "wait_ms": 30000}, 200)
+	f.call(t, f.owner, "sandbox_get", map[string]any{"sandbox_id": result(created)["sandbox_id"]}, 404)
+	f.call(t, f.owner, "key_create", map[string]any{"principal_id": alice, "expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano), "idempotency_key": "impersonate"}, 403)
+	keys := f.call(t, token, "key_list", map[string]any{}, 200)["items"].([]any)
+	key := keys[0].(map[string]any)
+	f.call(t, f.owner, "key_rotate", map[string]any{"key_id": key["id"], "expected_revision": key["revision"], "idempotency_key": "foreign-rotate"}, 403)
+	f.call(t, token, "sandbox_get", map[string]any{"sandbox_id": result(created)["sandbox_id"]}, 200)
+}
+
+func TestRotationCannotDropIndependentInheritedAncestry(t *testing.T) {
+	f := newCore(t, nil)
+	expiry := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
+	a := result(f.mutation(t, f.owner, "key_create", map[string]any{"expires_at": expiry}))
+	b := result(f.mutation(t, a["secret"].(string), "key_create", map[string]any{"expires_at": expiry}))
+	c := result(f.mutation(t, f.owner, "key_create", map[string]any{"expires_at": expiry}))
+	f.call(t, c["secret"].(string), "key_rotate", map[string]any{"key_id": b["key_id"], "expected_revision": 1, "idempotency_key": "drop-A"}, 403)
+	f.mutation(t, f.owner, "key_delete", map[string]any{"key_id": a["key_id"], "expected_revision": 1})
+	f.call(t, b["secret"].(string), "sandbox_list", map[string]any{}, 401)
+}
+
+func TestPendingCleanupKeepsCapacityUntilRelease(t *testing.T) {
+	f := newCore(t, nil)
+	key := result(f.mutation(t, f.owner, "key_create", map[string]any{"expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano), "scope": map[string]any{"limits": map[string]any{"concurrency": 1}}}))["secret"].(string)
+	sb := result(f.call(t, key, "sandbox_create", map[string]any{"template_id": "tpl", "idempotency_key": "first", "wait_ms": 30000}, 200))["sandbox_id"]
+	before := data(f.call(t, key, "sandbox_get", map[string]any{"sandbox_id": sb}, 200))
+	f.worker.mu.Lock()
+	f.worker.fail = "HOST_UNAVAILABLE"
+	f.worker.mu.Unlock()
+	f.call(t, key, "sandbox_delete", map[string]any{"sandbox_id": sb, "expected_revision": before["revision"], "idempotency_key": "failed-release", "wait_ms": 30000}, 503)
+	f.worker.mu.Lock()
+	f.worker.fail = ""
+	f.worker.mu.Unlock()
+	for i := 0; i < 3; i++ {
+		f.call(t, key, "sandbox_create", map[string]any{"template_id": "tpl", "idempotency_key": fmt.Sprintf("overspend-%d", i), "wait_ms": 30000}, 403)
+	}
+	after := data(f.call(t, key, "sandbox_get", map[string]any{"sandbox_id": sb}, 200))
+	f.call(t, key, "sandbox_delete", map[string]any{"sandbox_id": sb, "expected_revision": after["revision"], "idempotency_key": "confirmed-release", "wait_ms": 30000}, 200)
+	f.call(t, key, "sandbox_create", map[string]any{"template_id": "tpl", "idempotency_key": "after-release", "wait_ms": 30000}, 200)
+}
+
+func TestReadinessRejectsFailedGuardProbe(t *testing.T) {
+	f := newCore(t, nil)
+	f.worker.mu.Lock()
+	f.worker.command = &pb.CommandResult{FinishedAtUnixNs: 1, ExitCode: 70}
+	f.worker.mu.Unlock()
+	result := f.call(t, f.owner, "sandbox_create", map[string]any{"template_id": "template", "idempotency_key": "failed-probe", "wait_ms": 60000}, 503)
+	op := result["error"].(map[string]any)["operation_id"].(string)
+	failed := f.call(t, f.owner, "operation_get", map[string]any{"operation_id": op}, 200)["data"].(map[string]any)
+	if failed["state"] != "failed" || failed["cleanup_state"] != "pending" {
+		t.Fatal(failed)
+	}
+	items := f.call(t, f.owner, "sandbox_list", map[string]any{}, 200)["items"].([]any)
+	if len(items) != 1 || items[0].(map[string]any)["state"] == "ready" {
+		t.Fatal("failed guard probe advertised ready", items)
+	}
+}
+
+func TestLiveExecKeepsConcurrencyChargeAfterCommandStart(t *testing.T) {
+	f := newCore(t, nil)
+	sb := field(result(f.call(t, f.owner, "sandbox_create", map[string]any{"template_id": "tpl", "idempotency_key": "live-limit-sb", "wait_ms": 60000}, 200)), "sandbox_id")
+	key := f.call(t, f.owner, "key_create", map[string]any{"scope": map[string]any{"limits": map[string]any{"concurrency": 1}}, "expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano), "idempotency_key": "live-limit-key"}, 200)["result"].(map[string]any)["secret"].(string)
+	f.worker.mu.Lock()
+	f.worker.commandState = "running"
+	f.worker.command = &pb.CommandResult{}
+	f.worker.mu.Unlock()
+	f.call(t, key, "exec_create", map[string]any{"sandbox_id": sb, "argv": []string{"/bin/true"}, "idempotency_key": "live-one", "wait_ms": 60000}, 200)
+	f.call(t, key, "exec_create", map[string]any{"sandbox_id": sb, "argv": []string{"/bin/true"}, "idempotency_key": "live-two", "wait_ms": 60000}, 403)
+	f.worker.mu.Lock()
+	f.worker.commandState = "exited"
+	f.worker.command = &pb.CommandResult{FinishedAtUnixNs: 1}
+	f.worker.mu.Unlock()
+}
+
+func TestConcurrentExecStartsShareSandboxWithoutDroppingAdmissions(t *testing.T) {
+	f := newCore(t, nil)
+	sb := field(result(f.call(t, f.owner, "sandbox_create", map[string]any{"template_id": "tpl", "idempotency_key": "shared-exec-sb", "wait_ms": 60000}, 200)), "sandbox_id")
+	var wg sync.WaitGroup
+	ids := make(chan string, 32)
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			result := f.call(t, f.owner, "exec_create", map[string]any{"sandbox_id": sb, "argv": []string{"/bin/true"}, "idempotency_key": fmt.Sprint("shared-", i), "wait_ms": 60000}, 200)
+			ids <- result["result"].(map[string]any)["exec_id"].(string)
+		}(i)
+	}
+	wg.Wait()
+	close(ids)
+	distinct := map[string]bool{}
+	for id := range ids {
+		distinct[id] = true
+	}
+	if len(distinct) != 32 {
+		t.Fatal("lost or repeated concurrent start", len(distinct))
+	}
 }

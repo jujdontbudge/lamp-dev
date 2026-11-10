@@ -1,0 +1,11 @@
+{
+  "method": "Reconstruct durable operations, join externally recorded operation IDs; completed_at is worker receipt before terminal save. No time is subtracted from E03 result.",
+  "accepted_to_worker_receipt_ms": {
+    "p50": 39.113,
+    "p99": 134.722
+  },
+  "caller_elapsed_minus_receipt_span_ms": {
+    "p50": 17.454161,
+    "p99": 69.019686
+  }
+}

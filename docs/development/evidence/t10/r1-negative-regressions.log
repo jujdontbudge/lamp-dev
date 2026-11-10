@@ -1,0 +1,35 @@
+=== RUN   TestOwnerCannotMintOrRotateAnotherPrincipalCredential
+    core_e2e_test.go:527: key_create: status 200 want 403: {"operation_id":"op_c0f874b77946b6a790832a0fa760aa74","resource_ids":[{"kind":"key","id":"key_6208420b09c7f0a5be6786527b1661c6"}],"request_id":"req_d4b5ed5895b8e0485902a730717d85b7","replayed":false,"operation":{"id":"op_c0f874b77946b6a790832a0fa760aa74","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":1,"created_at":"2026-11-10T18:57:18.491693Z","updated_at":"2026-11-10T18:57:18.491693Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"key_create","request_hash":"25113cdd7dcbb18a4381fde5dd7e9ece9ca22b00351ab0c9a716d606cd825014","resource_ids":[{"kind":"key","id":"key_6208420b09c7f0a5be6786527b1661c6"}],"accepted_at":"2026-11-10T18:57:18.491693Z","completed_at":"2026-11-10T18:57:18.491693Z","outcome":{"result":{"key_id":"key_6208420b09c7f0a5be6786527b1661c6","secret_available":false}},"cleanup_state":"not_needed"},"result":{"key_id":"key_6208420b09c7f0a5be6786527b1661c6","secret":"[redacted synthetic bearer]","secret_available":true}}
+--- FAIL: TestOwnerCannotMintOrRotateAnotherPrincipalCredential (1.80s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	3.938s
+FAIL
+
+=== RUN   TestApprovalContextSelectorsRejectWithoutMutation
+=== RUN   TestApprovalContextSelectorsRejectWithoutMutation/host
+    core_state_test.go:166: /v1/approvals/ap_bound:approve: 200 {"operation_id":"op_2a955cfb6f357e1224a02b7cb4d7bb18","resource_ids":[{"kind":"approval","id":"ap_bound"}],"request_id":"req_7f37ac306bf62e649e6f3e7307c12fa6","replayed":false,"operation":{"id":"op_2a955cfb6f357e1224a02b7cb4d7bb18","kind":"operation","fleet_id":"fl_local","owner_id":"pr_local","revision":1,"created_at":"2026-11-10T18:57:29.473856Z","updated_at":"2026-11-10T18:57:29.473856Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"approval_approve","request_hash":"99d2629a291998d0e76049aeacbd84fbfebd9629b8ed7f93b073c374954004d0","resource_ids":[{"kind":"approval","id":"ap_bound"}],"accepted_at":"2026-11-10T18:57:29.473856Z","completed_at":"2026-11-10T18:57:29.473856Z","outcome":{"result":{"approval_id":"ap_bound"}},"cleanup_state":"not_needed"},"result":{"approval_id":"ap_bound"}}
+=== RUN   TestApprovalContextSelectorsRejectWithoutMutation/sandbox
+    core_state_test.go:166: /v1/approvals/ap_bound:approve: 409 {"error":{"code":"REVISION_CONFLICT","message":"current revision is 2","retryable":false},"request_id":"req_e04fc62433867dc2768dc1e1340da150"}
+=== RUN   TestApprovalContextSelectorsRejectWithoutMutation/recipe
+    core_state_test.go:166: /v1/approvals/ap_bound:approve: 409 {"error":{"code":"REVISION_CONFLICT","message":"current revision is 2","retryable":false},"request_id":"req_a2e3f8b1a3196d4c812e372e259854da"}
+--- FAIL: TestApprovalContextSelectorsRejectWithoutMutation (1.65s)
+    --- FAIL: TestApprovalContextSelectorsRejectWithoutMutation/host (0.02s)
+    --- FAIL: TestApprovalContextSelectorsRejectWithoutMutation/sandbox (0.00s)
+    --- FAIL: TestApprovalContextSelectorsRejectWithoutMutation/recipe (0.00s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	4.949s
+FAIL
+
+=== RUN   TestRotationCannotDropIndependentInheritedAncestry
+    core_e2e_test.go:540: key_rotate: status 200 want 403: {"operation_id":"op_3cfa9305eee5a80bff04877d24c6e8f8","resource_ids":[{"kind":"key","id":"key_19a694deb3c8a5524b788008add605b7"}],"request_id":"req_d7fbb59c4405aa772556ea96440488e5","replayed":false,"operation":{"id":"op_3cfa9305eee5a80bff04877d24c6e8f8","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":1,"created_at":"2026-11-10T18:57:38.643402Z","updated_at":"2026-11-10T18:57:38.643402Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"key_rotate","request_hash":"be51ec4b8b81861f7baa9c9fc17a7434d89b8ab1e099ab58a221fc8a263cd518","resource_ids":[{"kind":"key","id":"key_19a694deb3c8a5524b788008add605b7"}],"accepted_at":"2026-11-10T18:57:38.643402Z","completed_at":"2026-11-10T18:57:38.643402Z","outcome":{"result":{"key_id":"key_19a694deb3c8a5524b788008add605b7","secret_available":false}},"cleanup_state":"not_needed"},"result":{"key_id":"key_19a694deb3c8a5524b788008add605b7","secret":"[redacted synthetic bearer]","secret_available":true}}
+--- FAIL: TestRotationCannotDropIndependentInheritedAncestry (1.45s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	3.719s
+FAIL
+
+=== RUN   TestPendingCleanupKeepsCapacityUntilRelease
+    core_e2e_test.go:558: sandbox_create: status 200 want 403: {"operation_id":"op_6cf6a016f12d21fe465c6c3b5b7ad376","resource_ids":[{"kind":"sandbox","id":"sb_caea87934c61de5e3ef2d3806cd2af03"}],"request_id":"req_4c9faaa22edb7af61123c53b473b88f8","replayed":false,"operation":{"id":"op_6cf6a016f12d21fe465c6c3b5b7ad376","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":3,"created_at":"2026-11-10T18:57:48.834005Z","updated_at":"2026-11-10T18:57:48.882689Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"sandbox_create","request_hash":"dc3bde2da613ac845f4b07be37b67d385236f93aa35eba1f2fb745224eb534aa","resource_ids":[{"kind":"sandbox","id":"sb_caea87934c61de5e3ef2d3806cd2af03"}],"phase":"command","accepted_at":"2026-11-10T18:57:48.834005Z","completed_at":"2026-11-10T18:57:48.882689Z","outcome":{"result":{"sandbox_id":"sb_caea87934c61de5e3ef2d3806cd2af03","session_ids":[]}},"cleanup_state":"not_needed","durability":"volatile"},"result":{"sandbox_id":"sb_caea87934c61de5e3ef2d3806cd2af03","session_ids":[]}}
+--- FAIL: TestPendingCleanupKeepsCapacityUntilRelease (0.96s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	3.235s
+FAIL
