@@ -31,6 +31,9 @@ func TestSlowResponseDoesNotHoldServiceMutex(t *testing.T) {
 			ex := api.Exec{Id: "ex_test", Argv: pointer([]string{strings.Repeat("x", 60000)})}
 			op := api.Operation{Id: "op_test", State: "succeeded", Outcome: &api.Outcome{Result: pointer(api.AdapterDocument(json.RawMessage(`{"exec_id":"ex_test"}`)))}}
 			s := &Service{journal: journal{Operations: map[string]*record{op.Id: {Operation: op, Resource: api.ResourceRef{Kind: "exec", Id: ex.Id}}}, Sandboxes: map[string]api.Sandbox{sb.Id: sb}, Execs: map[string]api.Exec{ex.Id: ex}}, done: map[string]chan struct{}{op.Id: make(chan struct{})}}
+			if err := s.initAuthority(Config{}); err != nil {
+				t.Fatal(err)
+			}
 			if route == "respond-error" {
 				s.journal.Operations[op.Id].Operation.Error = &api.ErrorDetail{Code: "AUDIT_UNAVAILABLE", Message: "audit is down", Retryable: true}
 			}

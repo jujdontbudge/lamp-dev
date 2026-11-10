@@ -10,6 +10,16 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+// Only echo a bounded inert JSON marker. This extends the transport diagnostic,
+// never allows arbitrary host commands, shell text or environment overrides.
+fn diagnostic_echo(argv: &[String]) -> bool {
+    argv.len() == 2
+        && argv[0] == "/bin/echo"
+        && argv[1].len() <= 512
+        && argv[1].starts_with("{\"principal_id\":")
+        && argv[1].contains("\"nonce\":")
+}
+
 fn serve(
     mut stream: UnixStream,
     directory: &std::path::Path,
@@ -99,6 +109,7 @@ fn serve(
                 if start.argv != ["/bin/true"]
                     && start.argv != marker_argv
                     && start.argv != ["/bin/echo", "{\"fixture\":\"ok\"}"]
+                    && !diagnostic_echo(&start.argv)
                 {
                     return Err("fixture rejects arbitrary host commands".into());
                 }

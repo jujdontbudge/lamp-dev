@@ -139,7 +139,7 @@ func decodeInput(w http.ResponseWriter, r *http.Request, out any, allowed string
 	}
 	return fields, nil
 }
-func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := newID("req")
 	w.Header().Set("X-Request-ID", requestID)
 	if r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/execs/") && strings.HasSuffix(r.URL.Path, "/output") {
@@ -159,7 +159,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" {
-		s.mu.Lock()
+		s.readLock()
 		var send func()
 		defer func() { s.mu.Unlock(); send() }()
 		if s.broken {
@@ -168,17 +168,17 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		switch {
 		case strings.HasPrefix(path, "/v1/operations/"):
-			if rec, ok := s.journal.Operations[strings.TrimPrefix(path, "/v1/operations/")]; ok {
+			if rec, ok := s.durableOps[strings.TrimPrefix(path, "/v1/operations/")]; ok && s.operationAllowed(requestCaller(r), rec) {
 				send = prepareJSON(w, 200, api.OperationGetResult{Data: rec.Operation, RequestId: requestID})
 				return
 			}
 		case strings.HasPrefix(path, "/v1/sandboxes/"):
-			if sb, ok := s.journal.Sandboxes[strings.TrimPrefix(path, "/v1/sandboxes/")]; ok {
+			if sb, ok := s.journal.Sandboxes[strings.TrimPrefix(path, "/v1/sandboxes/")]; ok && s.sandboxAllowed(requestCaller(r), sb) {
 				send = prepareJSON(w, 200, api.SandboxGetResult{Data: sb, RequestId: requestID})
 				return
 			}
 		case strings.HasPrefix(path, "/v1/execs/"):
-			if ex, ok := s.journal.Execs[strings.TrimPrefix(path, "/v1/execs/")]; ok {
+			if ex, ok := s.journal.Execs[strings.TrimPrefix(path, "/v1/execs/")]; ok && s.execAllowed(requestCaller(r), ex) {
 				send = prepareJSON(w, 200, api.ExecGetResult{Data: ex, RequestId: requestID})
 				return
 			}
@@ -329,15 +329,26 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	encoded, _ := json.Marshal(input)
 	sum := sha256.Sum256(append([]byte(name+"\n"), encoded...))
 	hash := hex.EncodeToString(sum[:])
-	journalKey := name + "\n" + key
+	a := requestCaller(r)
+	journalKey := a.Principal + "\n" + name + "\n" + key
 	s.mu.Lock()
 	if s.broken {
 		s.mu.Unlock()
 		writeError(w, requestID, "DATA_UNAVAILABLE", "journal unavailable", nil)
 		return
 	}
+	if !s.can(a, strings.Replace(name, "_", ".", 1)) {
+		s.mu.Unlock()
+		writeError(w, requestID, "SCOPE_DENIED", "authority changed", nil)
+		return
+	}
 	if id, ok := s.keys[journalKey]; ok {
 		rec := s.journal.Operations[id]
+		if !s.operationAllowed(a, rec) {
+			s.mu.Unlock()
+			writeError(w, requestID, "NOT_FOUND", "operation not found", nil)
+			return
+		}
 		if rec.Hash != hash {
 			s.mu.Unlock()
 			writeError(w, requestID, "IDEMPOTENCY_CONFLICT", "key was already used with different inputs", pointer(id))
@@ -352,9 +363,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, requestID, "CONTROL_QUOTA_EXCEEDED", "demo journal operation limit reached", nil)
 		return
 	}
+	var updatedParent *api.Sandbox
 	if source != "" {
 		parent, ok := s.journal.Sandboxes[source]
-		if !ok {
+		if !ok || !s.sandboxAllowed(a, parent) {
 			s.mu.Unlock()
 			writeError(w, requestID, "NOT_FOUND", "sandbox not found", nil)
 			return
@@ -369,12 +381,14 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, requestID, "REVISION_CONFLICT", "sandbox revision changed", nil)
 			return
 		}
-		if (parent.State != "ready" && name != "sandbox_delete") || s.busy[source] {
+		if (parent.State != "ready" && name != "sandbox_delete") || s.busy[source] || (name != "exec_create" && s.starting[source] > 0) {
 			s.mu.Unlock()
 			writeError(w, requestID, "RESOURCE_IN_USE", "sandbox is not ready or has an in-flight operation", nil)
 			return
 		}
 		if name == "sandbox_delete" {
+			parent.Revision++
+			parent.UpdatedAt = timestamp()
 			sb = parent
 		}
 		if name == "exec_create" && value(parent.CaptureTrust) == "owner_private" && !admittedSubscriptionExec(ex) {
@@ -388,9 +402,19 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			sb.Resources = parent.Resources
 			parent.Revision++
 			parent.UpdatedAt = timestamp()
-			s.journal.Sandboxes[source] = parent
+			updatedParent = &parent
 		}
 	}
+	if !s.admissionAllowed(a, name, sb) {
+		s.mu.Unlock()
+		writeError(w, requestID, "SCOPE_DENIED", "admission exceeds caller authority", nil)
+		return
+	}
+	if updatedParent != nil {
+		s.journal.Sandboxes[source] = *updatedParent
+	}
+	sb.OwnerId = a.Principal
+	ex.OwnerId = a.Principal
 	ref := api.ResourceRef{Kind: "sandbox", Id: sb.Id}
 	if name == "exec_create" {
 		ref = api.ResourceRef{Kind: "exec", Id: ex.Id}
@@ -401,14 +425,18 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	now := timestamp()
 	id := newID("op")
 	refs := []api.ResourceRef{ref}
-	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
-	s.journal.Operations[id] = &record{Operation: op, Hash: hash, Key: journalKey, Resource: ref}
+	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
+	s.journal.Operations[id] = &record{Operation: op, Hash: hash, Key: journalKey, Resource: ref, Caller: a}
 	s.keys[journalKey] = id
 	s.done[id] = make(chan struct{})
 	if source != "" {
-		s.busy[source] = true
+		if name == "exec_create" {
+			s.starting[source]++
+		} else {
+			s.busy[source] = true
+		}
 	}
-	if err := s.save(id, ref.Id, source); err != nil {
+	if err := s.saveConcurrent(id, ref.Id, source); err != nil {
 		s.broken = true
 		s.mu.Unlock()
 		writeError(w, requestID, "DATA_UNAVAILABLE", "cannot persist operation admission", nil)
@@ -421,7 +449,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func newSandbox() api.Sandbox {
 	now := timestamp()
-	return api.Sandbox{Id: newID("sb"), Kind: "sandbox", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", Generation: pointer(uint64(1)), EffectivePolicyRevision: pointer(uint64(1)), Durability: pointer(api.SandboxDurabilityVolatile), Boundary: pointer(api.SandboxBoundaryVm)}
+	return api.Sandbox{Id: newID("sb"), Kind: "sandbox", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", Generation: pointer(uint64(1)), EffectivePolicyRevision: pointer(uint64(1)), Durability: pointer(api.SandboxDurabilityVolatile), Boundary: pointer(api.SandboxBoundaryVm), Readiness: coreReadiness(false, nil)}
 }
 func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id string, replayed bool, wait *uint64) {
 	s.mu.Lock()
@@ -438,13 +466,27 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id 
 		}
 	}
 	s.mu.Lock()
+	for !s.broken && s.durableOps[id] == nil && s.committing {
+		changed := s.changed
+		s.mu.Unlock()
+		select {
+		case <-changed:
+		case <-r.Context().Done():
+			return
+		}
+		s.mu.Lock()
+	}
 	var send func()
 	defer func() { s.mu.Unlock(); send() }()
-	if s.broken {
+	if s.broken || s.durableOps[id] == nil {
 		send = prepareError(w, requestID, api.ErrorDetail{Code: "DATA_UNAVAILABLE", Message: "journal unavailable", OperationId: pointer(id)})
 		return
 	}
-	rec := s.journal.Operations[id]
+	rec := s.durableOps[id]
+	if a := requestCaller(r); a.Principal != "" && (!s.can(a, strings.Replace(value(rec.Operation.OperationName), "_", ".", 1)) || !s.operationAllowed(a, rec)) {
+		send = prepareError(w, requestID, api.ErrorDetail{Code: "SCOPE_DENIED", Message: "authority changed while waiting", OperationId: &id})
+		return
+	}
 	op := rec.Operation
 	if op.Error != nil {
 		send = prepareError(w, requestID, *op.Error)
@@ -464,6 +506,46 @@ func (s *Service) execute(id, source string) {
 	defer cancel()
 	s.mu.Lock()
 	rec := s.journal.Operations[id]
+	if s.broken {
+		close(s.done[id])
+		s.mu.Unlock()
+		return
+	}
+	if rec.Operation.State == "canceled" {
+		s.releaseAdmission(rec, source)
+		close(s.done[id])
+		s.mu.Unlock()
+		return
+	}
+	if rec.Caller.Principal != "" && !s.can(rec.Caller, strings.Replace(*rec.Operation.OperationName, "_", ".", 1)) {
+		rec.Operation.State = "failed"
+		rec.Operation.Error = &api.ErrorDetail{Code: "SCOPE_DENIED", Message: "authority changed before dispatch", OperationId: &id}
+		rec.Operation.Revision++
+		rec.Operation.CompletedAt = pointer(timestamp())
+		rec.Operation.UpdatedAt = timestamp()
+		rec.Operation.CleanupState = pointer(api.OperationCleanupStateComplete)
+		ref := rec.Resource
+		if ref.Kind == "sandbox" {
+			sb := s.journal.Sandboxes[ref.Id]
+			sb.State = "failed"
+			sb.Revision++
+			s.journal.Sandboxes[ref.Id] = sb
+		} else if ref.Kind == "exec" {
+			ex := s.journal.Execs[ref.Id]
+			ex.State = "failed"
+			ex.Revision++
+			ex.UpdatedAt = timestamp()
+			s.journal.Execs[ref.Id] = ex
+		}
+		if err := s.saveConcurrent(id, ref.Id); err != nil {
+			s.broken = true
+		}
+		s.releaseAdmission(rec, source)
+		close(s.done[id])
+		s.mu.Unlock()
+		return
+	}
+	rec.Operation.Phase = pointer("worker")
 	rec.Operation.State = "running"
 	rec.Operation.Revision++
 	rec.Operation.UpdatedAt = timestamp()
@@ -479,21 +561,24 @@ func (s *Service) execute(id, source string) {
 	} else {
 		sb = s.journal.Sandboxes[source]
 	}
-	// The running transition is committed while the first worker request is
-	// already in flight. Readers still never see it before it is durable:
-	// this goroutine-handed lock is released only after the commit. Recovery
-	// is unchanged, because the durable accepted record already restarts as
-	// outcome_unknown. A failed commit breaks the journal (no further
-	// publication) and leaves the dispatched effect unknown.
+	// Accepted is the durable no-replay boundary. For exec, running is an
+	// internal dispatch fence; the next durable public transition is the worker
+	// command-start result. Readers use durableOps and never see this unsaved
+	// revision. A crash still recovers accepted work as outcome_unknown.
 	running := make(chan error, 1)
-	go func() {
-		err := s.save(id, ref.Id, source)
-		if err != nil {
-			s.broken = true
-		}
+	if name == "exec_create" {
 		s.mu.Unlock()
-		running <- err
-	}()
+		running <- nil
+	} else {
+		go func() {
+			err := s.saveConcurrent(id, ref.Id, source)
+			if err != nil {
+				s.broken = true
+			}
+			s.mu.Unlock()
+			running <- err
+		}()
+	}
 	generation := *sb.Generation
 	request := func(step, sandbox string, generation uint64) *pb.Request {
 		deadline, _ := ctx.Deadline()
@@ -534,6 +619,8 @@ func (s *Service) execute(id, source string) {
 		return s.worker.perform(ctx, r, "command_started")
 	}
 	var err error
+	phase := "engine"
+	stage := func(next string) { phase = next }
 	// sourceIntact: a fork failed only after the source's capture
 	// completed, so the source itself was left running and unchanged.
 	sourceIntact := false
@@ -541,9 +628,11 @@ func (s *Service) execute(id, source string) {
 	case "sandbox_create":
 		err = allocate()
 		if err == nil {
+			stage("template")
 			err = restore(value(sb.TemplateId))
 		}
 		if err == nil {
+			stage("command")
 			err = start([]string{"/bin/true"}, "/", nil)
 		}
 	case "sandbox_fork":
@@ -566,11 +655,13 @@ func (s *Service) execute(id, source string) {
 			err = restore(capture)
 		}
 		if err == nil {
+			stage("command")
 			err = start([]string{"/bin/true"}, "/", nil)
 		}
 	case "sandbox_delete":
 		r := request("stop", sb.Id, generation)
 		r.Command = &pb.Request_Stop{Stop: &pb.Stop{Force: true}}
+		stage("cleanup")
 		err = s.worker.perform(ctx, r, "stopped")
 		if workerNotFound(err) {
 			err = nil
@@ -588,11 +679,46 @@ func (s *Service) execute(id, source string) {
 		if ex.Env != nil {
 			env = map[string]string(*ex.Env)
 		}
+		stage("command")
 		err = start(*ex.Argv, value(ex.Cwd), env)
+	}
+	if err == nil && (name == "sandbox_create" || name == "sandbox_fork") {
+		// In an audited guest, command_started can witness the guard wrapper.
+		// Ready additionally requires the real /bin/true probe to finish with
+		// exit zero. Inspect is read-only; an uncertain probe is never rerun.
+		for {
+			r := request("readiness", sb.Id, generation)
+			r.Command = &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: id + ".start"}}
+			receipt, inspectErr := s.worker.call(ctx, r)
+			if inspectErr != nil {
+				err = inspectErr
+				break
+			}
+			if receipt.Command != nil && receipt.Command.FinishedAtUnixNs != 0 {
+				if receipt.Command.ExitCode != 0 || receipt.Command.Signal != 0 {
+					err = &workerFailure{code: "AUDIT_UNAVAILABLE", message: "readiness command did not finish successfully"}
+				}
+				break
+			}
+			if receipt.Detail["command_state"] != "running" {
+				err = &workerFailure{code: "OUTCOME_UNKNOWN", message: "readiness command completion unavailable", unknown: true}
+				break
+			}
+			timer := time.NewTimer(time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				err = &workerFailure{code: "OUTCOME_UNKNOWN", message: "readiness deadline", unknown: true}
+			case <-timer.C:
+			}
+			if err != nil {
+				break
+			}
+		}
 	}
 	if <-running != nil {
 		s.mu.Lock()
-		delete(s.busy, source)
+		s.releaseAdmission(rec, source)
 		close(s.done[id])
 		s.mu.Unlock()
 		return
@@ -602,6 +728,7 @@ func (s *Service) execute(id, source string) {
 	defer s.mu.Unlock()
 	rec = s.journal.Operations[id]
 	op := &rec.Operation
+	op.Phase = &phase
 	op.CompletedAt = &now
 	op.UpdatedAt = now
 	op.Revision++
@@ -627,6 +754,13 @@ func (s *Service) execute(id, source string) {
 			s.journal.Sandboxes[source] = parent
 		}
 		if ref.Kind == "sandbox" {
+			sb.Readiness = coreReadiness(false, nil)
+			for i, check := range *sb.Readiness.Checks {
+				if string(check.Name) == phase {
+					(*sb.Readiness.Checks)[i].State = "failed"
+					(*sb.Readiness.Checks)[i].Error = op.Error
+				}
+			}
 			sb.State = "failed"
 		} else {
 			ex.State = "failed"
@@ -639,7 +773,7 @@ func (s *Service) execute(id, source string) {
 		var result api.AdapterDocument
 		if ref.Kind == "sandbox" {
 			sb.State = "ready"
-			sb.Readiness = &api.Readiness{CommandStartedAt: &now, Checks: &[]api.ReadinessCheck{{Name: "command", State: "passed"}}}
+			sb.Readiness = coreReadiness(true, &now)
 			result, _ = json.Marshal(api.SandboxCreateCompletion{SandboxId: sb.Id, SessionIds: []string{}})
 			if name == "sandbox_delete" {
 				sb.State = "deleted"
@@ -662,10 +796,10 @@ func (s *Service) execute(id, source string) {
 		ex.UpdatedAt = now
 		s.journal.Execs[ex.Id] = ex
 	}
-	if err := s.save(id, ref.Id, source); err != nil {
+	if err := s.saveConcurrent(id, ref.Id, source); err != nil {
 		s.broken = true
 	}
-	delete(s.busy, source)
+	s.releaseAdmission(rec, source)
 	close(s.done[id])
 	if name == "exec_create" && err == nil && !s.broken {
 		s.wg.Add(1)
@@ -774,7 +908,7 @@ func (s *Service) observeExec(id string, c *pb.Context, commandID string) {
 	ex.Revision++
 	ex.UpdatedAt = timestamp()
 	s.journal.Execs[id] = ex
-	if err := s.save(id); err != nil {
+	if err := s.saveConcurrent(id); err != nil {
 		s.broken = true
 	}
 }
@@ -820,14 +954,14 @@ func (s *Service) watchOutput(w http.ResponseWriter, r *http.Request, requestID 
 	}
 	until := time.Now().Add(time.Duration(wait) * time.Millisecond)
 	for {
-		s.mu.Lock()
+		s.readLock()
 		if s.broken {
 			s.mu.Unlock()
 			writeError(w, requestID, "DATA_UNAVAILABLE", "journal unavailable", nil)
 			return
 		}
 		ex, ok := s.journal.Execs[id]
-		if !ok {
+		if !ok || !s.can(requestCaller(r), "exec.watch") || !s.execAllowed(requestCaller(r), ex) {
 			s.mu.Unlock()
 			writeError(w, requestID, "NOT_FOUND", "exec not found", nil)
 			return
@@ -843,7 +977,11 @@ func (s *Service) watchOutput(w http.ResponseWriter, r *http.Request, requestID 
 			// Sleep until the next durable journal change or the deadline.
 			changed := s.changed
 			s.mu.Unlock()
-			timer := time.NewTimer(time.Until(until))
+			delay := time.Until(until)
+			if delay > time.Second {
+				delay = time.Second
+			}
+			timer := time.NewTimer(delay)
 			select {
 			case <-r.Context().Done():
 				timer.Stop()

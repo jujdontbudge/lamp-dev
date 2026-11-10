@@ -69,7 +69,7 @@ func (s *Service) authorizePublicRequest(ctx context.Context, method, path strin
 	if peer.principal == "" || method != "GET" {
 		return false
 	}
-	s.mu.Lock()
+	s.readLock()
 	defer s.mu.Unlock()
 	if s.broken {
 		return false

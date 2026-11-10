@@ -1,0 +1,70 @@
+=== RUN   TestCancelBeforeDispatchAndTerminalReplay
+--- PASS: TestCancelBeforeDispatchAndTerminalReplay (1.30s)
+=== RUN   TestExpiryAndCursorRetentionBoundaries
+--- PASS: TestExpiryAndCursorRetentionBoundaries (1.13s)
+=== RUN   TestActionBindingSnapshotsAndCanonicalObjectOrder
+--- PASS: TestActionBindingSnapshotsAndCanonicalObjectOrder (0.00s)
+=== RUN   TestControlCoreInterfacesAndAuthority
+    core_e2e_test.go:194: HTTP, real CLI, stdio MCP: same acceptance and denials; 20 retries => one resource; stale revision race => one effect; private owner isolation
+--- PASS: TestControlCoreInterfacesAndAuthority (2.55s)
+=== RUN   TestScopedKeysSecretOnceAndRestart
+    core_e2e_test.go:256: hashed 256-bit bearers, secret-once replay/restart, delegation intersection, empty selectors and descendant rejection passed
+--- PASS: TestScopedKeysSecretOnceAndRestart (3.17s)
+=== RUN   TestEventsReplayIsolationAndLiveRevoke
+    core_e2e_test.go:319: durable ordered events, owner-bound signed replay cursor, live SSE and active reader revocation passed
+--- PASS: TestEventsReplayIsolationAndLiveRevoke (1.65s)
+=== RUN   TestOneUseApprovalExactPlanAndRealEffect
+    core_e2e_test.go:386: 20 simultaneous distinct-key consumers => one durable approval consumption and one independently read file effect; changed destination rejected
+--- PASS: TestOneUseApprovalExactPlanAndRealEffect (2.15s)
+=== RUN   TestSharingModesAndRoleBoundaries
+    core_e2e_test.go:415: single-owner/team/public-service admission, owner/admin/member/viewer role separation and private content defaults passed
+--- PASS: TestSharingModesAndRoleBoundaries (1.96s)
+=== RUN   TestThirtyTwoCredentialedCallers
+    core_e2e_test.go:434: sandbox_create: status 503 want 200: {"error":{"code":"HOST_UNAVAILABLE","message":"context deadline exceeded","retryable":false,"operation_id":"op_d3812574093258ad6fde89d08e859e3a"},"request_id":"req_676bd2907fce3ef1759fb3adcc25e882"}
+    core_e2e_test.go:434: sandbox_create: status 409 want 200: {"error":{"code":"OUTCOME_UNKNOWN","message":"lost terminal evidence after acceptance: deadline before worker response","retryable":false,"operation_id":"op_01ad993649682f824f5b527ad37b0710"},"request_id":"req_fd27c4f9cc4a7a315cebeaf478d710b8"}
+    core_e2e_test.go:434: sandbox_create: status 503 want 200: {"error":{"code":"HOST_UNAVAILABLE","message":"context deadline exceeded","retryable":false,"operation_id":"op_348639431e0e011c42c4d3b247aacda1"},"request_id":"req_4b6d2dc743893ced0268269221feff8e"}
+    core_e2e_test.go:434: sandbox_create: status 503 want 200: {"error":{"code":"HOST_UNAVAILABLE","message":"context deadline exceeded","retryable":false,"operation_id":"op_6347469fdb82e077858383edfede48d6"},"request_id":"req_40e2431f29fe8ffabeaf92ba906219b2"}
+    core_e2e_test.go:434: sandbox_create: status 409 want 200: {"error":{"code":"OUTCOME_UNKNOWN","message":"deadline before worker evidence","retryable":false,"operation_id":"op_ed66afdf4b73b63f62f7f777f00562ad"},"request_id":"req_b07096795dce46b3ed649339626e1180"}
+    core_e2e_test.go:434: sandbox_create: status 503 want 200: {"error":{"code":"HOST_UNAVAILABLE","message":"context deadline exceeded","retryable":false,"operation_id":"op_9698ead481fbf941c205ad65ecc05ab5"},"request_id":"req_38ba181c02e6e0c7f788d1cbcb08bcb9"}
+    core_e2e_test.go:434: sandbox_create: status 503 want 200: {"error":{"code":"HOST_UNAVAILABLE","message":"context deadline exceeded","retryable":false,"operation_id":"op_5f002ca1a9f9038dbdb736ad3804c2b4"},"request_id":"req_d814d47b666367c6f28fbd1e5220fffc"}
+    core_e2e_test.go:455: resources 25
+--- FAIL: TestThirtyTwoCredentialedCallers (9.93s)
+=== RUN   TestDeniedAdmissionDoesNotAdvanceSourceRevision
+--- PASS: TestDeniedAdmissionDoesNotAdvanceSourceRevision (2.78s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	34.547s
+=== RUN   TestStrictTransportContracts
+--- PASS: TestStrictTransportContracts (0.00s)
+=== RUN   TestEveryCanonicalBindingAndMCPSchema
+--- PASS: TestEveryCanonicalBindingAndMCPSchema (0.03s)
+=== RUN   TestAuthenticatedClientRejectsRedirectAndUnsafeOrigin
+--- PASS: TestAuthenticatedClientRejectsRedirectAndUnsafeOrigin (0.00s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/surface	1.423s
+=== RUN   TestCLIUsesCanonicalMutationHeaders
+=== RUN   TestCLIUsesCanonicalMutationHeaders/create
+=== RUN   TestCLIUsesCanonicalMutationHeaders/exec
+=== RUN   TestCLIUsesCanonicalMutationHeaders/fork
+--- PASS: TestCLIUsesCanonicalMutationHeaders (0.12s)
+    --- PASS: TestCLIUsesCanonicalMutationHeaders/create (0.04s)
+    --- PASS: TestCLIUsesCanonicalMutationHeaders/exec (0.04s)
+    --- PASS: TestCLIUsesCanonicalMutationHeaders/fork (0.04s)
+=== RUN   TestEveryCommandHasJSONHelp
+--- PASS: TestEveryCommandHasJSONHelp (0.05s)
+=== RUN   TestJSONExitCodes
+=== RUN   TestJSONExitCodes/400
+=== RUN   TestJSONExitCodes/401
+=== RUN   TestJSONExitCodes/403
+=== RUN   TestJSONExitCodes/409
+=== RUN   TestJSONExitCodes/410
+=== RUN   TestJSONExitCodes/200
+--- PASS: TestJSONExitCodes (0.01s)
+    --- PASS: TestJSONExitCodes/400 (0.00s)
+    --- PASS: TestJSONExitCodes/401 (0.00s)
+    --- PASS: TestJSONExitCodes/403 (0.00s)
+    --- PASS: TestJSONExitCodes/409 (0.00s)
+    --- PASS: TestJSONExitCodes/410 (0.00s)
+    --- PASS: TestJSONExitCodes/200 (0.00s)
+PASS
+ok  	github.com/JohanSardar/lamp/cmd/lamp	1.836s
+FAIL

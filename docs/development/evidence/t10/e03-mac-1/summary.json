@@ -1,0 +1,38 @@
+{
+  "caller_after": {
+    "cpu_count": 10,
+    "disk": "Filesystem   1024-blocks      Used Available Capacity  iused     ifree %iused  Mounted on\n/dev/disk3s5   971298980 847610540  83740300    92% 10024866 837403000    1%   /System/Volumes/Data",
+    "load": [
+      3.51708984375,
+      4.87451171875,
+      5.751953125
+    ],
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=23068771)\t80%; AC attached; not charging present: true",
+    "pressure": {
+      "cpu": "unavailable",
+      "io": "unavailable",
+      "memory": "unavailable"
+    }
+  },
+  "completed_at": "2026-11-10T17:54:50.269602+00:00",
+  "diagnostic": true,
+  "last_observation_hash": "8a1831fb071a4a7968c61e84e98fb2021099d05ebb61a4a9df8ec8f5a2344923",
+  "results": {
+    "E03": {
+      "boundary_ms": 35,
+      "callers": 32,
+      "control_status": "fail",
+      "endpoint": "caller send through durable admission and worker command_started receipt; output/replay/isolation checked outside timer",
+      "failures": 0,
+      "integrated_e01_status": "incomplete",
+      "p50_ms": 2466.915208,
+      "p95_ms": 3117.064917,
+      "p99_ms": 3192.924375,
+      "status": "fail",
+      "trials": 64
+    }
+  },
+  "status": "fail"
+}

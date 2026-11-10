@@ -95,16 +95,19 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 		return true
 	}
 	if r.Method == "GET" && (strings.HasPrefix(path, "/v1/snapshots/") || strings.HasPrefix(path, "/v1/shares/")) {
-		s.mu.Lock()
+		s.readLock()
 		var send func()
 		if s.broken {
 			send = prepareError(w, requestID, api.ErrorDetail{Code: "DATA_UNAVAILABLE", Message: "journal unavailable"})
 		} else if strings.HasPrefix(path, "/v1/snapshots/") {
-			if value, ok := s.journal.Snapshots[strings.TrimPrefix(path, "/v1/snapshots/")]; ok {
-				send = prepareJSON(w, 200, api.SnapshotGetResult{RequestId: requestID, Data: value.Snapshot})
+			if snapshot, ok := s.journal.Snapshots[strings.TrimPrefix(path, "/v1/snapshots/")]; ok && s.sandboxAllowed(requestCaller(r), s.journal.Sandboxes[value(snapshot.Snapshot.SandboxId)]) && s.resourceAllowed(requestCaller(r), api.ResourceRef{Kind: "snapshot", Id: snapshot.Snapshot.Id}) {
+				send = prepareJSON(w, 200, api.SnapshotGetResult{RequestId: requestID, Data: snapshot.Snapshot})
 			}
-		} else if value, ok := s.journal.Shares[strings.TrimPrefix(path, "/v1/shares/")]; ok {
-			send = prepareJSON(w, 200, api.ShareGetResult{RequestId: requestID, Data: value})
+		} else if share, ok := s.journal.Shares[strings.TrimPrefix(path, "/v1/shares/")]; ok {
+			a := requestCaller(r)
+			if a.Principal == "" || (s.own(a, share.OwnerId) && s.resourceAllowed(a, api.ResourceRef{Kind: "share", Id: share.Id})) {
+				send = prepareJSON(w, 200, api.ShareGetResult{RequestId: requestID, Data: share})
+			}
 		}
 		if send == nil {
 			send = prepareError(w, requestID, api.ErrorDetail{Code: "NOT_FOUND", Message: "resource not found"})
@@ -210,13 +213,22 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 	encoded, _ := json.Marshal(input)
 	sum := sha256.Sum256(append([]byte(plan.Name+"\n"), encoded...))
 	hash := hex.EncodeToString(sum[:])
-	journalKey := plan.Name + "\n" + key
-	s.mu.Lock()
+	a := requestCaller(r)
+	journalKey := a.Principal + "\n" + plan.Name + "\n" + key
+	s.readLock()
 	if s.broken {
 		s.mu.Unlock()
 		return fail("DATA_UNAVAILABLE", "journal unavailable")
 	}
+	if !s.can(a, strings.Replace(plan.Name, "_", ".", 1)) {
+		s.mu.Unlock()
+		return fail("SCOPE_DENIED", "authority changed")
+	}
 	if id, ok := s.keys[journalKey]; ok {
+		if !s.operationAllowed(a, s.journal.Operations[id]) {
+			s.mu.Unlock()
+			return fail("NOT_FOUND", "operation not found")
+		}
 		if s.journal.Operations[id].Hash != hash {
 			s.mu.Unlock()
 			return fail("IDEMPOTENCY_CONFLICT", "idempotency key was already used")
@@ -230,7 +242,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 		return fail("CONTROL_QUOTA_EXCEEDED", "operation quota exceeded")
 	}
 	sb, ok := s.journal.Sandboxes[plan.Source]
-	if !ok {
+	if !ok || !s.sandboxAllowed(a, sb) {
 		s.mu.Unlock()
 		return fail("NOT_FOUND", "sandbox not found")
 	}
@@ -242,7 +254,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 	if resume {
 		expected = "suspended"
 	}
-	if (sb.State != expected && !(plan.Clean && (sb.State == "suspended" || sb.State == "unavailable"))) || s.busy[plan.Source] {
+	if (sb.State != expected && !(plan.Clean && (sb.State == "suspended" || sb.State == "unavailable"))) || s.busy[plan.Source] || s.starting[plan.Source] > 0 {
 		s.mu.Unlock()
 		return fail("RESOURCE_IN_USE", "sandbox is not in the required state")
 	}
@@ -263,6 +275,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 		plan.SnapshotID = *sb.SnapshotId
 	}
 	if plan.Name == "share_create" {
+		share.OwnerId = sb.OwnerId
 		s.journal.Shares[share.Id] = share
 		ref = api.ResourceRef{Kind: "share", Id: share.Id}
 	}
@@ -284,7 +297,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 
 func (s *Service) executeCustody(id string) {
 	defer s.wg.Done()
-	s.mu.Lock()
+	s.readLock()
 	rec := s.journal.Operations[id]
 	plan, ref := *rec.Custody, rec.Resource
 	sb := s.journal.Sandboxes[plan.Source]
@@ -357,7 +370,7 @@ func (s *Service) executeCustody(id string) {
 			_, err = call("stop", &pb.Stop{Force: true})
 		}
 	}
-	s.mu.Lock()
+	s.readLock()
 	defer s.mu.Unlock()
 	rec = s.journal.Operations[id]
 	now := timestamp()

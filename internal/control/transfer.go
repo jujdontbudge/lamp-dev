@@ -17,8 +17,18 @@ import (
 
 var exportBlobID = regexp.MustCompile(`^bl_[0-9a-f]{64}$`)
 
+func (s *Service) cleanExportAllowed(r *http.Request, export cleanExport) bool {
+	a := requestCaller(r)
+	if a.Principal == "" {
+		return true // The outer router already checks an enrolled reader's projection.
+	}
+	return s.current(a) && s.own(a, export.OwnerID) && s.resourceAllowed(a,
+		api.ResourceRef{Kind: "template", Id: export.TemplateID},
+		api.ResourceRef{Kind: "blob", Id: export.BlobID})
+}
+
 func (s *Service) serveExport(w http.ResponseWriter, r *http.Request, requestID string) {
-	s.mu.Lock()
+	s.readLock()
 	if s.broken {
 		s.mu.Unlock()
 		writeError(w, requestID, "DATA_UNAVAILABLE", "journal unavailable", nil)
@@ -27,7 +37,7 @@ func (s *Service) serveExport(w http.ResponseWriter, r *http.Request, requestID 
 	if strings.HasPrefix(r.URL.Path, "/v1/templates/") {
 		id := strings.TrimPrefix(r.URL.Path, "/v1/templates/")
 		value, ok := s.journal.Templates[id]
-		if !ok {
+		if !ok || !s.cleanExportAllowed(r, value) {
 			s.mu.Unlock()
 			writeError(w, requestID, "NOT_FOUND", "clean template not found", nil)
 			return
@@ -45,7 +55,7 @@ func (s *Service) serveExport(w http.ResponseWriter, r *http.Request, requestID 
 	}
 	var object cleanExport
 	for _, candidate := range s.journal.Templates {
-		if candidate.BlobID == id {
+		if candidate.BlobID == id && s.cleanExportAllowed(r, candidate) {
 			object = candidate
 			break
 		}
