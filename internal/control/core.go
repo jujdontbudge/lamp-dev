@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -176,6 +177,24 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	}
 	// Stage management state privately; any validation failure discards all edits.
 	old := s.journal.Control
+	undoCancel := func() {}
+	if s.fleet != nil && op.Name == "operation_cancel" {
+		target := textField(in, "operation_id")
+		if rec := s.journal.Operations[target]; rec != nil {
+			before := cloneOperations(map[string]*record{target: rec})[target]
+			sb, hasSandbox := s.journal.Sandboxes[rec.Resource.Id]
+			ex, hasExec := s.journal.Execs[rec.Resource.Id]
+			undoCancel = func() {
+				s.journal.Operations[target] = before
+				if hasSandbox {
+					s.journal.Sandboxes[sb.Id] = sb
+				}
+				if hasExec {
+					s.journal.Execs[ex.Id] = ex
+				}
+			}
+		}
+	}
 	clone := &controlState{}
 	b, _ := json.Marshal(old)
 	json.Unmarshal(b, clone)
@@ -204,6 +223,17 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	s.done[operationID] = done
 	changed = append(changed, "$control", operationID)
 	if err := s.save(changed...); err != nil {
+		if errors.Is(err, errAuthorityConflict) {
+			// Consensus definitively rejected this transaction before save wrote
+			// anything. Discard its receipt and every staged cancellation edit.
+			s.journal.Control = old
+			undoCancel()
+			delete(s.journal.Operations, operationID)
+			delete(s.keys, key)
+			delete(s.done, operationID)
+			writeError(w, id, "REVISION_CONFLICT", "fleet authority changed; retry the same request", nil)
+			return
+		}
 		s.broken = true
 		writeError(w, id, "DATA_UNAVAILABLE", "cannot commit management operation", pointer(operationID))
 		return

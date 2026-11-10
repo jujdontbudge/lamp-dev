@@ -49,6 +49,7 @@ func (s *Service) invokeProtected(w http.ResponseWriter, r *http.Request, reques
 		return
 	}
 	bound, err := adapter.ValidateInvocation(input)
+	approvalBefore := s.journal.Control.Approvals[value(input.ApprovalId)]
 	if err == nil {
 		bound = cloneBoundAction(bound)
 	}
@@ -81,6 +82,17 @@ func (s *Service) invokeProtected(w http.ResponseWriter, r *http.Request, reques
 	s.keys[key] = id
 	s.done[id] = make(chan struct{})
 	if err := s.save("$control", id); err != nil {
+		if errors.Is(err, errAuthorityConflict) {
+			// No local write or protected dispatch occurred on a definite CAS
+			// rejection. Restore consumption and discard the staged admission.
+			s.journal.Control.Approvals[value(input.ApprovalId)] = approvalBefore
+			delete(s.journal.Operations, id)
+			delete(s.keys, key)
+			delete(s.done, id)
+			s.mu.Unlock()
+			writeError(w, requestID, "REVISION_CONFLICT", "fleet authority changed; retry the same request", nil)
+			return
+		}
 		s.broken = true
 		s.mu.Unlock()
 		writeError(w, requestID, "DATA_UNAVAILABLE", "cannot commit approval consumption and admission", pointer(id))

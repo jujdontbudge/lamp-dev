@@ -394,6 +394,11 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			parent.UpdatedAt = timestamp()
 			sb = parent
 		}
+		if name == "exec_create" {
+			// Admission needs the actual host and resource limits of the
+			// authorized source, rather than an empty hs_local sandbox.
+			sb = parent
+		}
 		if name == "sandbox_fork" {
 			sb.TemplateId = parent.TemplateId
 			sb.EngineId = parent.EngineId

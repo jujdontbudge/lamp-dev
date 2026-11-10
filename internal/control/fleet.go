@@ -345,6 +345,9 @@ func (f *Fleet) command(command fleetCommand) error {
 		return err
 	}
 	defer reply.Body.Close()
+	if reply.StatusCode == http.StatusConflict {
+		return errAuthorityConflict
+	}
 	if reply.StatusCode != 200 {
 		return errors.New("authority quorum unavailable or revision changed")
 	}
@@ -520,6 +523,10 @@ func (f *Fleet) peerHTTP(w http.ResponseWriter, r *http.Request) {
 			err = errors.New("invalid authority command")
 		}
 		if err != nil {
+			if errors.Is(err, errAuthorityConflict) {
+				http.Error(w, err.Error(), http.StatusConflict)
+				return
+			}
 			http.Error(w, "authority unavailable", 503)
 			return
 		}

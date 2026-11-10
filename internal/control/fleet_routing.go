@@ -135,6 +135,10 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		f.catalogHTTP(w, r, id, a, op, selectors)
 		return
 	}
+	if op.Name == "event_list" && !routed {
+		f.eventsHTTP(w, r, id, a, selectors)
+		return
+	}
 	if op.Name == "fleet_get" || op.Name == "fleet_list" {
 		s.readLock()
 		fleet := s.journal.Control.Fleet
@@ -202,7 +206,9 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		}
 	}
 	if op.Name == "operation_get" || op.Name == "operation_wait" {
-		if rec := f.fsm.snapshot().Records[textField(selectors, "operation_id")]; rec != nil && terminal(rec.Operation.State) {
+		if rec := f.fsm.snapshot().Records[textField(selectors, "operation_id")]; rec != nil && terminal(rec.Operation.State) && rec.Resource.Kind != "sandbox" && rec.Resource.Kind != "exec" {
+			// Engine receipts still require their home's sandbox/exec records
+			// for authorization, even when a terminal receipt was replicated.
 			home = ""
 		}
 	}

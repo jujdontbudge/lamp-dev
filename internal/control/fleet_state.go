@@ -33,6 +33,10 @@ type fleetFSM struct {
 	state fleetState
 }
 
+// A definite CAS rejection precedes any local journal write or dispatch. It is
+// safe to discard the staged mutation and let the caller retry after projection.
+var errAuthorityConflict = errors.New("authority revision changed")
+
 func (f *fleetFSM) snapshot() fleetState {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -63,7 +67,7 @@ func (f *fleetFSM) Apply(log *raft.Log) any {
 	}
 	if command.Control != nil {
 		if command.Expected != digest(f.state.Control) {
-			return errors.New("authority revision changed")
+			return errAuthorityConflict
 		}
 		f.state.Control = command.Control
 		for id, rec := range command.Records {

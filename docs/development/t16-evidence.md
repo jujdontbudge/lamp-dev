@@ -86,3 +86,16 @@ Verification: the single required `make verify` invocation passed (exit 0).
 The retained [verification log](evidence/t16/make-verify.log) includes workspace
 builds/tests, contract checks, interoperability, generated checks, Go vet, Rust
 formatting and Clippy. No new tests were added and no benchmark/trial loops ran.
+
+The single review identified four defects: authority CAS conflicts disabled the
+requesting host, exec admission used an empty source sandbox, replicated engine
+receipts bypassed their authorization home, and ingress-local events omitted
+remote work. The fixes distinguish definite CAS rejection from ambiguous or
+durability failures and roll back staged edits; pass the actual source sandbox
+to exec admission; keep terminal engine receipts routed home; and merge
+authorized per-host event pages with signed resumable vector cursors for JSON
+and SSE. The cursor retains unsent and unavailable-host positions.
+
+Per the owner's review instruction, no new tests or demonstration/trial runs
+were added. Review-fix verification: the single `make verify` invocation passed (exit 0);
+the complete [review verification log](evidence/t16/review-make-verify.log) is retained.

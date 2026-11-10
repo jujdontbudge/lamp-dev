@@ -121,6 +121,18 @@ last sandbox remains visible as `unavailable`, retaining `host_id` and
 outputs and guest bytes still require the actual home. The cache is observational
 and cannot create authority or promote missing private disks.
 
+`event list` and SSE follow merge pages from each resource home's journal using
+the caller's original credential. The fleet cursor contains signed per-host
+replay positions and can be resumed through another ingress. A fetched event is
+not consumed until it is emitted; an unavailable host retains its position for
+rejoin. Ordering is per host, without imposing a global wall-clock order. A home
+whose replay position has expired returns `CURSOR_EXPIRED` for resource resync.
+
+A definite authority revision conflict returns `REVISION_CONFLICT` after
+discarding the staged mutation, including cancellation edits or approval
+consumption. It does not disable the host. Unknown commit outcomes and local
+durability failures still fail closed.
+
 Keep `guard_dir` outside state-directory backups and never restore it backwards.
 Its fsynced watermark advances before a home commit is acknowledged/dispatched.
 A journal behind that watermark, or an existing journal missing its watermark,
