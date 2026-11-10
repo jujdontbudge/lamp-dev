@@ -521,6 +521,44 @@ fn durable_write(path: &Path, bytes: &[u8]) -> Result<()> {
     fsutil::full_fsync(path.parent().unwrap())
 }
 
+/// Whether the Mac's console session is locked (or nobody is logged in at
+/// the console). Virtualization.framework seals every saved machine state
+/// with a Secure Enclave key of the console session: a state saved while
+/// locked is fine, but none can be restored again until the session is
+/// unlocked (T8 finding; VZ reports "permission denied").
+pub fn console_locked() -> bool {
+    let Ok(out) = Command::new("/usr/sbin/ioreg")
+        .args(["-n", "Root", "-d1", "-a"])
+        .output()
+    else {
+        return false;
+    };
+    console_locked_in(&String::from_utf8_lossy(&out.stdout))
+}
+
+fn plist_true_after(plist: &str, key: &str) -> Option<bool> {
+    let i = plist.find(&format!("<key>{key}</key>"))? + key.len() + 11;
+    Some(plist[i..].trim_start().starts_with("<true/>"))
+}
+
+fn console_locked_in(plist: &str) -> bool {
+    let on_console = plist_true_after(plist, "kCGSSessionOnConsoleKey").unwrap_or(false);
+    let locked = plist_true_after(plist, "CGSSessionScreenIsLocked").unwrap_or(false);
+    !on_console || locked
+}
+
+fn refuse_if_locked(what: &str) -> Result<()> {
+    if console_locked() {
+        return Err(EngineError::new(
+            "HOST_UNAVAILABLE",
+            format!(
+                "{what} needs this Mac's console session unlocked: Virtualization.framework cannot open saved machine state while it is locked (state kept; retry after unlock)"
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// Process-crash fault injection for the APFS commit tests: when
 /// `LAMP_TEST_CRASH_AT` names this point, the process ends at once with
 /// status 79 (no unwinding, no cleanup, nothing flushed by Lamp).
@@ -1320,16 +1358,24 @@ impl Engine {
             }
         };
         detail.insert("prepare_us".into(), us(t0.elapsed()));
-        let state = t.variant.as_ref().map(|_| t.dir.join(STATE_FILE));
+        // While the console is locked the prepared state cannot be opened;
+        // a Linux template then cold-boots its own sealed disk (about as
+        // fast; the receipt says which way it started).
+        let locked = t.variant.is_some() && console_locked();
+        let state = t
+            .variant
+            .as_ref()
+            .filter(|_| !locked)
+            .map(|_| t.dir.join(STATE_FILE));
         let mut spec = spec;
         spec.read_paths.extend(state.clone());
         self.spawn(sb, spec, state.as_deref(), &mut detail)?;
         detail.insert(
             "create_mode".into(),
-            if state.is_some() {
-                "prepared_restore"
-            } else {
-                "fresh_boot"
+            match (&state, locked) {
+                (Some(_), _) => "prepared_restore",
+                (None, true) => "cold_boot_console_locked",
+                (None, false) => "fresh_boot",
             }
             .into(),
         );
@@ -1342,6 +1388,9 @@ impl Engine {
     }
 
     fn restore_capture(&self, sb: &mut Sandbox, c: &CaptureRec, t0: Instant) -> Result<Outcome> {
+        if c.state.is_some() {
+            refuse_if_locked("restoring a memory capture")?;
+        }
         let mut detail = BTreeMap::new();
         self.new_dir(sb)?;
         let mut spec = c.spec.clone();
@@ -1441,6 +1490,7 @@ impl Engine {
                 "{capture_id} is not this sandbox's suspended state"
             )));
         }
+        refuse_if_locked("resuming a suspended sandbox")?;
         if sb.guest_os == "macos" {
             // Already holds its slot while suspended.
             self.take_macos_slot(&sb.id)?;
@@ -1734,6 +1784,9 @@ impl Engine {
                 "DEVICE_NOT_FORKABLE",
                 "no supported independent RAM fork for native macOS guests; use fork_mode=disk_only (fresh boot, preserves_memory=false) or suspend",
             ));
+        }
+        if preserves_memory {
+            refuse_if_locked("a memory fork")?;
         }
         if sb.guest_os == "linux" && !preserves_memory {
             return Err(EngineError::invalid(
@@ -2271,6 +2324,22 @@ mod tests {
         assert_eq!(std::fs::read(&p).unwrap(), b"two");
         assert!(!p.with_extension("tmp").exists());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn console_lock_is_read_from_the_console_session() {
+        let user = |locked: &str| {
+            format!(
+                "<dict><key>kCGSSessionOnConsoleKey</key>\n\t<true/><key>CGSSessionScreenIsLocked</key>\n\t<{locked}/></dict>"
+            )
+        };
+        assert!(console_locked_in(&user("true")));
+        assert!(!console_locked_in(&user("false")));
+        // Unlocked sessions often omit the key; no console user counts as locked.
+        assert!(!console_locked_in(
+            "<key>kCGSSessionOnConsoleKey</key><true/>"
+        ));
+        assert!(console_locked_in("<dict></dict>"));
     }
 
     #[test]

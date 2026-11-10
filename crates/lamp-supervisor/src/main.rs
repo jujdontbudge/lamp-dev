@@ -574,6 +574,26 @@ impl Ctl {
         (cap, restored)
     }
 
+    fn try_fork(
+        &mut self,
+        source: &str,
+        child: &str,
+        durability: &str,
+    ) -> Result<(Receipt, Receipt), String> {
+        let capture_id = format!("cp_{}", &child[3..]);
+        let cap = self.try_call(
+            source,
+            request::Command::Capture(Capture {
+                capture_id: capture_id.clone(),
+                preserves_memory: true,
+                consistency: durability.into(),
+                output_handles: vec![],
+            }),
+        )?;
+        let restored = self.try_create(&capture_id, child, None)?;
+        Ok((cap, restored))
+    }
+
     fn release(&mut self, sandbox: &str) {
         self.call(sandbox, request::Command::Release(Release {}));
     }
@@ -1004,13 +1024,34 @@ fn e05(c: &mut Ctl, args: &[String], durability: &str) {
     };
     let (mut ms, mut pauses, mut rss) = (Vec::new(), Vec::new(), Vec::new());
     let (mut failures, mut state_err, mut clock_err, mut iso_err) = (0, 0, 0, 0);
+    let (mut lock_waits, mut lock_wait_s, mut lock_refusals) = (0usize, 0.0f64, 0usize);
     for i in 0..warmup + count {
         // Rewrite the whole working set: every trial forks full-dirty RAM.
         let gen_now = ask(c, &source, "rewrite");
         let before = ask(c, &source, "status");
-        let child = format!("sb_e5c_{}_{i}", c.tag);
-        let t = Instant::now();
-        let (cap, restored) = c.fork(&source, &child, durability);
+        // A Mac can only open saved VZ state while its console session is
+        // unlocked: wait for that, and count (never hide) any refusal a lock
+        // caused; the trial is then taken again once unlocked.
+        let mut attempt = 0;
+        let (child, t, cap, restored) = loop {
+            let waited = wait_unlocked();
+            if waited > 0.0 {
+                lock_waits += 1;
+                lock_wait_s += waited;
+            }
+            let child = format!("sb_e5c_{}_{i}_{attempt}", c.tag);
+            attempt += 1;
+            let t = Instant::now();
+            match c.try_fork(&source, &child, durability) {
+                Ok((cap, restored)) => break (child, t, cap, restored),
+                Err(e) if lock_related(&e) => {
+                    lock_refusals += 1;
+                    println!("{}", json!({"trial": i, "lock_refusal": e, "child": child}));
+                    let _ = c.try_call(&child, request::Command::Release(Release {}));
+                }
+                Err(e) => die(e),
+            }
+        };
         let a = c.exec(&child, &["sh", "-c", "echo fork-ok-$(hostname)"]);
         let b = c.exec(&source, &["sh", "-c", "echo source-ok-$(hostname)"]);
         let elapsed = t.elapsed().as_secs_f64() * 1000.0;
@@ -1122,6 +1163,8 @@ fn e05(c: &mut Ctl, args: &[String], durability: &str) {
             ms,
             json!({"failures": failures, "state_errors": state_err, "clock_errors": clock_err,
                    "isolation_errors": iso_err, "template": template,
+                   "console_lock_waits": lock_waits, "console_lock_wait_s": lock_wait_s,
+                   "console_lock_refusals": lock_refusals,
                    "source_pause_p50_ms": percentile(&pauses, 50.0), "source_pause_p99_ms": percentile(&pauses, 99.0),
                    "source_pause_max_ms": pauses.last().copied().unwrap_or(f64::NAN),
                    "pair_rss_p50_mib": percentile(&rss, 50.0), "pair_rss_max_mib": rss.last().copied().unwrap_or(f64::NAN)}),
@@ -1537,4 +1580,35 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
         )
     );
     eprintln!("{}", summary("e06 resume_to_command", res_ms, json!({})));
+}
+
+/// Seconds spent waiting for the Mac's console session to be unlocked.
+fn wait_unlocked() -> f64 {
+    #[cfg(target_os = "macos")]
+    {
+        let t = Instant::now();
+        while lamp_engine::engine::console_locked() {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+        }
+        let waited = t.elapsed().as_secs_f64();
+        if waited > 0.01 { waited } else { 0.0 }
+    }
+    #[cfg(not(target_os = "macos"))]
+    0.0
+}
+
+/// A refusal caused by a locked console (the engine's own refusal, or VZ's
+/// "permission denied" when the lock fell between the check and the call).
+fn lock_related(e: &str) -> bool {
+    e.contains("console session unlocked")
+        || (e.contains("permission denied") && {
+            #[cfg(target_os = "macos")]
+            {
+                lamp_engine::engine::console_locked()
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                false
+            }
+        })
 }
