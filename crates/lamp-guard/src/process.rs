@@ -222,26 +222,30 @@ fn task_seccomp() {
     check(unsafe { libc::prctl(libc::PR_SET_SECCOMP, 2, ptr::from_ref(&program), 0, 0) });
 }
 
-/// The variable through which a caller hands the collector the task's
-/// environment: a JSON object of string keys to string values. The collector
-/// never passes its own environment to the task; the task gets the fixed
-/// defaults (PATH, HOME) overridden by exactly these entries.
-pub const TASK_ENV: &str = "LAMP_TASK_ENV";
+/// Upper bound on the task environment JSON read from `env:FD`. The public
+/// contract allows 64 values of 4096 characters; JSON escaping can grow a
+/// character to 6 bytes, so ~1.5 MiB plus names is the realistic maximum.
+pub const MAX_TASK_ENV_BYTES: u64 = 8 << 20;
 
-/// Parses and validates a [`TASK_ENV`] value. Keys are non-empty and contain
+/// Parses and validates the task environment: a JSON object of string names
+/// to string values. The collector never passes its own environment to the
+/// task; the task gets the fixed defaults (PATH, HOME) overridden by exactly
+/// these entries. Keys are non-empty and contain
 /// neither `=` nor NUL; values contain no NUL.
 pub fn task_env(json: &str) -> io::Result<Vec<(CString, CString)>> {
-    let map: std::collections::BTreeMap<String, String> =
-        serde_json::from_str(json).map_err(|e| io::Error::other(format!("{TASK_ENV}: {e}")))?;
+    let map: std::collections::BTreeMap<String, String> = serde_json::from_str(json)
+        .map_err(|e| io::Error::other(format!("task environment: {e}")))?;
     map.into_iter()
         .map(|(k, v)| {
             if k.is_empty() || k.contains('=') {
-                return Err(io::Error::other(format!("{TASK_ENV}: invalid name {k:?}")));
+                return Err(io::Error::other(format!(
+                    "task environment: invalid name {k:?}"
+                )));
             }
-            let key = CString::new(k)
-                .map_err(|_| io::Error::other(format!("{TASK_ENV}: NUL in name")))?;
-            let value = CString::new(v)
-                .map_err(|_| io::Error::other(format!("{TASK_ENV}: NUL in value")))?;
+            let key =
+                CString::new(k).map_err(|_| io::Error::other("task environment: NUL in name"))?;
+            let value =
+                CString::new(v).map_err(|_| io::Error::other("task environment: NUL in value"))?;
             Ok((key, value))
         })
         .collect()

@@ -322,37 +322,53 @@ print('command-done',flush=True)
     ok(f"background job outlives its command ({early:.3f}s status, {late:.3f}s collector exit) and stays audited")
 
 
+def collect_with_env(namespace, name, env_json, payload):
+    """Runs payload under the collector with env_json on a dedicated pipe (env:FD)."""
+    import threading
+    a, b = socket.socketpair()
+    r, w = os.pipe()
+    sink = launch(BINARY, "receive", config(name), a.fileno(), pass_fds=(a.fileno(),))
+    collect = launch("ip", "netns", "exec", namespace, BINARY, "collect", b.fileno(), 1000000, f"env:{r}", "--",
+                     "/usr/bin/python3", "-u", "-c", payload, pass_fds=(b.fileno(), r),
+                     env={"COLLECTOR_ONLY": "host-secret", "PATH": "/usr/sbin:/usr/bin:/sbin:/bin"})
+    a.close(); b.close(); os.close(r)
+    def feed():
+        try:
+            with os.fdopen(w, "wb") as pipe:
+                pipe.write(env_json.encode())
+        except BrokenPipeError:
+            pass
+    writer = threading.Thread(target=feed); writer.start()
+    out, error = collect.communicate(timeout=20)
+    writer.join(timeout=5)
+    return sink, collect, out, error
+
+
 def task_environment(namespace):
-    # The requested environment reaches the task exactly; the collector's own
+    # The requested environment reaches the task exactly, including the public
+    # contract's maximum (64 values of 4096 characters, ~1.5 MiB of JSON, far
+    # over Linux's 128 KiB per argv/env string); the collector's own
     # environment never does; an invalid request runs nothing.
     # /proc/self/environ is the environment exactly as exec'd (Python's own
     # locale coercion only edits os.environ afterwards).
     payload = ("import json;e=open('/proc/self/environ','rb').read().split(b'\\0');"
                "print(json.dumps(dict(x.decode().split('=',1) for x in e if x)),flush=True)")
-    request = {"FOO": "value", "PATH": "/usr/bin:/bin:/opt/task", "EMPTY": ""}
-    a, b = socket.socketpair()
-    sink = launch(BINARY, "receive", config("task-env"), a.fileno(), pass_fds=(a.fileno(),))
-    collect = launch("ip", "netns", "exec", namespace, BINARY, "collect", b.fileno(), 1000000, "--",
-                     "/usr/bin/python3", "-u", "-c", payload, pass_fds=(b.fileno(),),
-                     env={"LAMP_TASK_ENV": json.dumps(request), "COLLECTOR_ONLY": "host-secret",
-                          "PATH": "/usr/sbin:/usr/bin:/sbin:/bin"})
-    a.close(); b.close()
-    out, error = collect.communicate(timeout=10)
-    assert collect.returncode == 0, (out, error)
-    assert sink.wait(timeout=3) == 0
-    seen = json.loads(out.strip().splitlines()[-1])
-    assert seen == {**request, "HOME": "/tmp"}, seen
-    for bad in ('{"A=B":"x"}', '{"A":"x\\u0000y"}', "not json"):
-        a, b = socket.socketpair()
-        sink = launch(BINARY, "receive", config("task-env-bad"), a.fileno(), pass_fds=(a.fileno(),))
-        collect = launch("ip", "netns", "exec", namespace, BINARY, "collect", b.fileno(), 1000000, "--",
-                         "/usr/bin/python3", "-c", "print('RAN')", pass_fds=(b.fileno(),),
-                         env={"LAMP_TASK_ENV": bad, "PATH": "/usr/sbin:/usr/bin:/sbin:/bin"})
-        a.close(); b.close()
-        out, error = collect.communicate(timeout=10)
-        assert collect.returncode == 70 and "RAN" not in out, (bad, out, error)
+    small = {"FOO": "value", "PATH": "/usr/bin:/bin:/opt/task", "EMPTY": ""}
+    large = {f"V{i:02d}": ("\x01" if i % 2 else '"') * 4096 for i in range(64)}
+    for label, request in (("small", small), ("contract maximum", large)):
+        encoded = json.dumps(request)
+        if request is large:
+            assert len(encoded) > 128 * 1024, len(encoded)
+        sink, collect, out, error = collect_with_env(namespace, f"task-env-{len(request)}", encoded, payload)
+        assert collect.returncode == 0, (label, error[-2000:])
+        assert sink.wait(timeout=3) == 0
+        seen = json.loads(out.strip().splitlines()[-1])
+        assert seen == {"PATH": "/usr/bin:/bin", "HOME": "/tmp", **request}, (label, sorted(seen))
+    for bad in ('{"A=B":"x"}', '{"A":"x\\u0000y"}', "not json", "{" + '"A":"' + "x" * (9 << 20) + '"}'):
+        sink, collect, out, error = collect_with_env(namespace, "task-env-bad", bad, "print('RAN')")
+        assert collect.returncode == 70 and "RAN" not in out, (bad[:40], out, error)
         sink.kill(); sink.wait(timeout=3)
-    ok("audited task gets exactly the requested environment; invalid requests run nothing")
+    ok("audited task gets exactly the requested environment up to the contract maximum; invalid requests run nothing")
 
 
 def processes(namespace):

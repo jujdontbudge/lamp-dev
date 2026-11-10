@@ -55,26 +55,56 @@ fn main() {
                 Ok(0)
             }
             Some("collect") if args.len() >= 6 => {
-                // collect FD|vsock:PORT UID [status:FD] -- ARGV...
+                // collect FD|vsock:PORT UID [status:FD] [env:FD] -- ARGV...
                 // `status:FD` receives the command's wait status when the
-                // command exits, before its background jobs do.
-                let (status_fd, rest) = match args[4].strip_prefix("status:") {
-                    Some(n) if args.get(5).map(String::as_str) == Some("--") => (Some(fd(n)?), 6),
-                    None if args[4] == "--" => (None, 5),
-                    _ => return Err(io::Error::other(usage)),
-                };
+                // command exits, before its background jobs do. `env:FD` is
+                // read to EOF before anything runs: the task's environment as
+                // a JSON object (see process::task_env).
+                let (mut status_fd, mut env_fd) = (None, None);
+                let mut i = 4;
+                while i < args.len() && args[i] != "--" {
+                    if let Some(n) = args[i].strip_prefix("status:")
+                        && status_fd.is_none()
+                    {
+                        status_fd = Some(fd(n)?);
+                    } else if let Some(n) = args[i].strip_prefix("env:")
+                        && env_fd.is_none()
+                    {
+                        env_fd = Some(fd(n)?);
+                    } else {
+                        return Err(io::Error::other(usage));
+                    }
+                    i += 1;
+                }
+                let rest = i + 1;
                 if rest >= args.len() {
                     return Err(io::Error::other(usage));
                 }
-                if status_fd.is_some_and(|f| f < 3) {
-                    return Err(io::Error::other("status needs a dedicated descriptor >=3"));
+                if status_fd.is_some_and(|f| f < 3) || env_fd.is_some_and(|f| f < 3) {
+                    return Err(io::Error::other(
+                        "status and env need dedicated descriptors >=3",
+                    ));
                 }
-                // The task's environment comes only from LAMP_TASK_ENV,
-                // validated before anything runs.
-                let task_env = match env::var(process::TASK_ENV) {
-                    Ok(json) => process::task_env(&json)?,
-                    Err(env::VarError::NotPresent) => Vec::new(),
-                    Err(e) => return Err(io::Error::other(format!("{}: {e}", process::TASK_ENV))),
+                if status_fd.is_some() && status_fd == env_fd {
+                    return Err(io::Error::other("status and env need distinct descriptors"));
+                }
+                let task_env = match env_fd {
+                    Some(f) => {
+                        use std::io::Read;
+                        use std::os::fd::FromRawFd;
+                        // SAFETY: the descriptor was passed for this purpose
+                        // alone; reading it to EOF and closing it here means
+                        // it never reaches the task.
+                        let file = unsafe { fs::File::from_raw_fd(f) };
+                        let mut json = String::new();
+                        file.take(process::MAX_TASK_ENV_BYTES + 1)
+                            .read_to_string(&mut json)?;
+                        if json.len() as u64 > process::MAX_TASK_ENV_BYTES {
+                            return Err(io::Error::other("task environment too large"));
+                        }
+                        process::task_env(&json)?
+                    }
+                    None => Vec::new(),
                 };
                 let mut keep: Vec<i32> = status_fd.into_iter().collect();
                 // `vsock:PORT` (guest): the collector owns its host stream and

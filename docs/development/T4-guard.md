@@ -47,9 +47,13 @@ root shell or skip a collector to meet a timing target.
    `/proc`, mounts a task-only procfs, maps namespace root to the assigned
    subordinate UID/GID, empties groups/environment and closes inherited FDs.
    Only PATH and HOME are supplied, overridden by exactly the requested task
-   environment that the caller passes as a JSON object in `LAMP_TASK_ENV`
-   (validated before anything runs: names are non-empty without `=`/NUL, and
-   values have no NUL). The collector's own environment never reaches the task. `no_new_privs` is inherited. Task root has no
+   environment. The caller passes it as a JSON object on a dedicated
+   descriptor (`collect … [status:FD] [env:FD] -- argv`), which the collector
+   reads to EOF, up to 8 MiB, before anything runs. A pipe has no 128 KiB
+   per-string argv/env limit, so the public contract's maximum fits (64 values
+   of 4096 characters). Names must be non-empty and contain no `=` or NUL;
+   values must contain no NUL. The collector's own environment never reaches
+   the task. `no_new_privs` is inherited. Task root has no
    capabilities in the ancestor kernel/network namespace, cannot see/signal the
    tracer, and cannot acquire its audit socket. Do not grant a task unrestricted
    guest-kernel root or initial-user-namespace capabilities. No audit process

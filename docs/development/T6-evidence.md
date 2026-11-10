@@ -187,8 +187,8 @@ It found three real defects, all fixed before `e01-final`:
    36–66 ms per fsync during a fork, three per operation. Fixes: the journal
    log is preallocated with real zero bytes and committed in place with
    `fdatasync` (path identity re-checked per commit). After review, each
-   record is framed with a CRC32C, and replay fails closed on damaged history.
-   Only a sector-torn final commit, which was never acknowledged, is dropped; the pre-dispatch commit overlaps the first worker RPC (readers
+   record is framed with a CRC32C. Replay stops cleanly only at the all-zero
+   tail and fails closed on any other bytes after the last valid record; the pre-dispatch commit overlaps the first worker RPC (readers
    still only see it once durable; recovery is unchanged because the durable
    accepted record already restarts as `outcome_unknown`); `exec watch`
    waits on a commit notification instead of a 1 ms spin under the service
@@ -234,10 +234,12 @@ Code server, the Lamp CI runner and Docker are never touched.
 After review round 1 (the recorded runs used the earlier version), the
 wrapper handles failures as follows:
 
-- If a stop or the host preparation fails, the suite does not run, and the
-  wrapper restores what it stopped and exits 75.
-- TERM, INT and HUP are forwarded to the suite. The wrapper waits for it to be
-  reaped (KILL after a grace period) before restoring any service.
+- If a stop or either host-preparation write fails, the suite does not run,
+  and the wrapper restores what it stopped and exits 75.
+- The suite runs in its own process group. After TERM, INT or HUP, and also
+  after a normal exit, the whole group gets TERM (KILL after a grace period),
+  and no service is restored until the group is empty. A signal that arrives
+  while the suite is being launched is held until its PID is recorded.
 - Every restored unit is checked to be active. If a restore fails, the
   wrapper exits 76.
 

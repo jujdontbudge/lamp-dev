@@ -199,10 +199,13 @@ Every 16,384 records (and on open), compaction writes and fsyncs an atomic
 `journal.json` snapshot, fsyncs the directory, then truncates/fsyncs `journal.log`.
 Sequence numbers make a crash between snapshot rename and log truncation safe.
 Open migrates existing JSON snapshots and replays checksum-valid records up to
-the zero tail. It drops only a torn final commit, one whose sectors are each
-either fully written or still zero and which only zeros follow. Any other
-invalid record (a flipped byte, a lost newline, a stray NUL, or damage before
-later commits) fails closed, leaves the log untouched, and does not compact. A write failure
+the zero tail, where no byte of a further commit reached the disk. Any other
+bytes after the last valid record fail closed, whether they come from a
+damaged acknowledged record or from a commit cut off by power loss before its
+`fdatasync` returned: the two cannot be told apart, and dropping either kind
+could silently erase acknowledged history and its idempotency keys. Open then
+refuses the state directory, leaves the log untouched, and does not compact;
+the operator inspects it. A write failure
 closes admission and reads with
 `DATA_UNAVAILABLE` rather than exposing an uncommitted success. This local
 journal is deliberately not the later replicated/SQLite control core.

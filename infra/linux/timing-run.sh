@@ -10,9 +10,13 @@
 # Failure handling:
 # - If any stop or host preparation fails, COMMAND is not run; whatever was
 #   stopped is restored and the wrapper exits 75.
-# - TERM, INT or HUP to the wrapper is forwarded to COMMAND, which is waited
-#   for (KILLed after STOP_GRACE seconds) before any service is restored, so
-#   no measurement runs with the services already back.
+# - COMMAND runs in its own process group. On TERM, INT or HUP to the wrapper,
+#   and also after COMMAND exits, the whole group is sent TERM (KILL after
+#   STOP_GRACE seconds), and no service is restored until the group is empty,
+#   so no part of a measurement runs with the services already back. A signal
+#   that arrives while COMMAND is being launched is held until its PID is
+#   recorded. (A process that leaves the group with setsid escapes this; the
+#   benchmark runner does not do that.)
 # - Every stopped unit is started and then verified active. If any restore
 #   fails, the wrapper exits 76, whatever COMMAND's status was.
 #
@@ -24,9 +28,14 @@ set -u
 OWNER_UNITS=(excerlock-dm-tt.service excerlock-dm-ig.service excerlock-dm-chrome.service excerlock-beeper.service)
 STOP_GRACE=${TIMING_RUN_STOP_GRACE:-60}
 RESTORE_WAIT=${TIMING_RUN_RESTORE_WAIT:-10}
+# Test hooks only (tests/infra/test_timing_run.py): where the vm sysctls live,
+# and a pause between launching COMMAND and recording its PID.
+VM_DIR=${TIMING_RUN_VM_DIR:-/proc/sys/vm}
+LAUNCH_DELAY=${TIMING_RUN_TEST_LAUNCH_DELAY:-}
 stopped=()
-child=
+group=
 finishing=
+pending=
 
 log() { echo "timing-run: $*" >&2; }
 
@@ -48,27 +57,32 @@ restore() {
 	return "$failed"
 }
 
-# Stops the measurement and waits for it to exit, so services are never
-# restored while it is still running.
+group_alive() { [ -n "$group" ] && kill -0 -- "-$group" 2>/dev/null; }
+
+# Stops every process of the measurement's group and waits until the group is
+# empty, so services are never restored while any part of it still runs.
 reap() {
-	[ -n "$child" ] || return 0
-	if kill -0 "$child" 2>/dev/null; then
-		kill -TERM "$child" 2>/dev/null
-		local i
+	[ -n "$group" ] || return 0
+	local i
+	if group_alive; then
+		kill -TERM -- "-$group" 2>/dev/null
 		for ((i = 0; i < STOP_GRACE * 10; i++)); do
-			kill -0 "$child" 2>/dev/null || break
+			group_alive || break
 			sleep 0.1
 		done
-		if kill -0 "$child" 2>/dev/null; then
-			log "command ignored TERM for ${STOP_GRACE}s; killing it"
-			kill -KILL "$child" 2>/dev/null
+		if group_alive; then
+			log "command group ignored TERM for ${STOP_GRACE}s; killing it"
+			kill -KILL -- "-$group" 2>/dev/null
 		fi
+		i=0
+		while group_alive; do
+			i=$((i + 1))
+			[ $((i % 100)) -eq 0 ] && log "waiting for the command group to exit"
+			sleep 0.1
+		done
 	fi
-	# A signal can interrupt `wait`; keep waiting until the child is reaped.
-	while kill -0 "$child" 2>/dev/null; do
-		wait "$child" 2>/dev/null
-	done
-	child=
+	wait "$group" 2>/dev/null
+	group=
 }
 
 finish() {
@@ -92,9 +106,12 @@ on_signal() {
 	log "received $1; stopping the command before restoring services"
 	finish $((128 + $2))
 }
-trap 'on_signal TERM 15' TERM
-trap 'on_signal INT 2' INT
-trap 'on_signal HUP 1' HUP
+handle_signals() {
+	trap 'on_signal TERM 15' TERM
+	trap 'on_signal INT 2' INT
+	trap 'on_signal HUP 1' HUP
+}
+handle_signals
 
 [ "${1:-}" = "--" ] && shift
 if [ $# -eq 0 ]; then
@@ -123,7 +140,9 @@ if [ ${#stopped[@]} -gt 0 ]; then
 	done
 fi
 if [ "$prepared" = 1 ]; then
-	if ! sync || ! sudo -n sh -c 'echo 3 > /proc/sys/vm/drop_caches; echo 1 > /proc/sys/vm/compact_memory'; then
+	# Both writes must succeed: a failed drop_caches is not hidden by a
+	# successful compact_memory.
+	if ! sync || ! sudo -n sh -c 'echo 3 > "$1/drop_caches" && echo 1 > "$1/compact_memory"' sh "$VM_DIR"; then
 		log "host memory preparation failed"
 		prepared=0
 	fi
@@ -134,12 +153,23 @@ if [ "$prepared" = 0 ]; then
 fi
 log "buddyinfo $(grep Normal /proc/buddyinfo 2>/dev/null)"
 
-# COMMAND runs as a background child so the wrapper can forward signals and
-# reap it; `wait` returns early when a trapped signal arrives.
-"$@" &
-child=$!
-wait "$child"
+# COMMAND runs as a background job in its own process group (job control on
+# for the launch only); `wait` returns early when a trapped signal arrives.
+# Signals are held from the launch until the group is recorded.
+trap 'pending="TERM 15"' TERM
+trap 'pending="INT 2"' INT
+trap 'pending="HUP 1"' HUP
+set -m
+"$@" </dev/null &
+set +m
+[ -n "$LAUNCH_DELAY" ] && sleep "$LAUNCH_DELAY"
+group=$!
+handle_signals
+if [ -n "$pending" ]; then
+	# shellcheck disable=SC2086 # "NAME NUMBER"
+	on_signal $pending
+fi
+wait "$group"
 status=$?
-child=
 log "command exit $status"
 finish "$status"

@@ -50,13 +50,25 @@ func TestAppendJournalGateScaleReplayAndCompaction(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	// A partial final write must not hide earlier acknowledged commits.
-	f, err := os.OpenFile(filepath.Join(config.StateDir, "journal.log"), os.O_WRONLY|os.O_APPEND, 0600)
+	// Unrecognized bytes after the last commit are refused, never dropped:
+	// they cannot be told apart from a damaged acknowledged record.
+	logPath := filepath.Join(config.StateDir, "journal.log")
+	clean, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString(`{"version":1,"sequence":`)
+	f, err := os.OpenFile(logPath, os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString(`J1 00000000 {"version":1,"sequence":`)
 	f.Close()
+	if s, err := Open(config); err == nil {
+		s.Close()
+		t.Fatal("partial bytes after the last commit were dropped")
+	}
+	// Once the operator removes them, all acknowledged history is intact.
+	writeLog(t, config, clean)
 	s, err = Open(config)
 	if err != nil {
 		t.Fatal(err)
@@ -219,59 +231,95 @@ func TestJournalRefusesDamagedFinalRecord(t *testing.T) {
 	}
 }
 
-// A commit cut off at a sector boundary before fdatasync returned was never
-// acknowledged: replay keeps every earlier commit and drops only that one.
-func TestJournalRecoversTornFinalCommit(t *testing.T) {
-	config, data, starts := journalWithCommits(t, 3, 3000)
-	torn := append([]byte(nil), data...)
-	// Keep the third record's first sector-aligned chunk; zero the rest of it,
-	// as if its later sectors never reached the disk.
-	cut := (starts[2]/sectorSize + 2) * sectorSize
-	if cut >= starts[3] {
-		t.Fatal("record too small to tear")
+const sector = 512
+
+// recordEndingAt returns a log whose first record's newline is at byte offset
+// newline (the review case uses 512, the first byte of the second sector).
+func recordEndingAt(t *testing.T, newline int64) (Config, []byte, []int64) {
+	t.Helper()
+	for pad := 0; pad < 2*sector; pad++ {
+		config, data, starts := journalWithCommits(t, 1, pad)
+		if starts[1]-1 == newline {
+			return config, data, starts
+		}
+		if starts[1]-1 > newline {
+			break
+		}
 	}
-	for i := cut; i < starts[3]; i++ {
-		torn[i] = 0
-	}
-	writeLog(t, config, torn)
-	s, err := Open(config)
-	if err != nil {
-		t.Fatalf("torn final commit refused: %v", err)
-	}
-	if len(s.journal.Operations) != 2 || s.keys["key_op_0"] != "op_0" || s.keys["key_op_1"] != "op_1" {
-		t.Fatalf("committed history lost: %d operations", len(s.journal.Operations))
-	}
-	// Recovery compacted; new commits after it replay normally.
-	s.journal.Operations["op_new"] = &record{Key: "key_new", Hash: "h", Operation: api.Operation{Id: "op_new", State: "succeeded"}}
-	if err := s.save("op_new"); err != nil {
-		t.Fatal(err)
-	}
-	s.Close()
-	s, err = Open(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-	if len(s.journal.Operations) != 3 || s.keys["key_new"] != "op_new" {
-		t.Fatal("commit after torn-tail recovery lost")
+	t.Fatalf("no padding puts the newline at %d", newline)
+	return Config{}, nil, nil
+}
+
+// The review reproduction: an acknowledged record whose newline is the first
+// byte of a sector, with only that newline turned into NUL, must not reopen
+// as an empty journal and compact its idempotency key away.
+func TestJournalRefusesNULNewlineAtSectorBoundary(t *testing.T) {
+	for _, newline := range []int64{sector - 1, sector, sector + 1} {
+		config, data, starts := recordEndingAt(t, newline)
+		damaged := append([]byte(nil), data...)
+		damaged[starts[1]-1] = 0
+		writeLog(t, config, damaged)
+		mustRefuse(t, config, fmt.Sprintf("NUL newline at %d", newline))
+		// Undamaged, the same log reopens with its key.
+		writeLog(t, config, data)
+		s, err := Open(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s.keys["key_op_0"] != "op_0" {
+			t.Fatal("record lost")
+		}
+		s.Close()
 	}
 }
 
-// A sector torn out of the middle of the final record is still a torn write.
-func TestJournalRecoversFinalCommitWithMissingMiddleSector(t *testing.T) {
-	config, data, starts := journalWithCommits(t, 2, 3000)
-	torn := append([]byte(nil), data...)
-	sector := (starts[1]/sectorSize + 2) * sectorSize
-	for i := sector; i < sector+sectorSize; i++ {
-		torn[i] = 0
+// Whole zeroed sectors look exactly like an interrupted write. Wherever they
+// fall, Open refuses rather than guessing that the record was unacknowledged.
+func TestJournalRefusesSectorAlignedDamage(t *testing.T) {
+	config, data, starts := journalWithCommits(t, 3, 3000)
+	zero := func(b []byte, from, to int64) {
+		for i := from; i < to; i++ {
+			b[i] = 0
+		}
 	}
-	writeLog(t, config, torn)
+	firstFull := func(start int64) int64 { return (start/sector + 1) * sector }
+	for name, mutate := range map[string]func([]byte) []byte{
+		"final record's later sectors zero": func(b []byte) []byte {
+			zero(b, firstFull(starts[2])+sector, starts[3])
+			return b
+		},
+		"one middle sector of the final record zero": func(b []byte) []byte {
+			at := firstFull(starts[2])
+			zero(b, at, at+sector)
+			return b
+		},
+		"one sector of an earlier record zero": func(b []byte) []byte {
+			at := firstFull(starts[0])
+			zero(b, at, at+sector)
+			return b
+		},
+		"final record's first sector zero": func(b []byte) []byte {
+			zero(b, starts[2], firstFull(starts[2]))
+			return b
+		},
+		"file cut at a sector boundary inside the final record": func(b []byte) []byte {
+			return b[:firstFull(starts[2])]
+		},
+	} {
+		damaged := mutate(append([]byte(nil), data...))
+		writeLog(t, config, damaged)
+		mustRefuse(t, config, name)
+	}
+	// A commit none of whose bytes reached the disk is just zero tail.
+	clean := append([]byte(nil), data...)
+	zero(clean, starts[2], starts[3])
+	writeLog(t, config, clean)
 	s, err := Open(config)
 	if err != nil {
-		t.Fatalf("torn final commit refused: %v", err)
+		t.Fatalf("unwritten final commit refused: %v", err)
 	}
 	defer s.Close()
-	if len(s.journal.Operations) != 1 || s.keys["key_op_0"] != "op_0" {
-		t.Fatal("committed history lost")
+	if len(s.journal.Operations) != 2 || s.keys["key_op_1"] != "op_1" {
+		t.Fatal("history lost")
 	}
 }

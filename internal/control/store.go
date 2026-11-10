@@ -353,18 +353,16 @@ func allZero(b []byte) bool {
 	return true
 }
 
-// replayLog applies every committed record in order and stops cleanly at the
-// unused zero tail.
+// replayLog applies every committed record in order and stops cleanly only at
+// the unused zero tail, where no byte of a new commit reached the disk.
 //
-// It accepts at most one torn final record: a commit whose write was cut off
-// (power loss) before fdatasync returned, so it was never acknowledged. Storage
-// tears whole sectors, so the record is recognizable: within its span every
-// sector holds either only written bytes or only the preallocated zeros, at
-// least one sector is still zero, and nothing but zeros follows.
-//
-// Every other invalid record is damaged history: a flipped byte, a lost
-// newline or a single NUL byte. Replay then fails closed and does not drop
-// acknowledged commits, or the idempotency keys they carry.
+// Any other bytes after the last valid record fail closed. A record that was
+// damaged after it was acknowledged (a flipped byte, a lost or NUL newline)
+// cannot be told apart from a commit cut off by power loss before fdatasync
+// returned: both leave partly written, invalid bytes. Dropping such bytes could
+// silently erase acknowledged history and the idempotency keys it carries, so
+// Open refuses the state directory and leaves the log untouched for the
+// operator to inspect.
 func replayLog(data []byte, apply func(journal) error) error {
 	for pos := 0; pos < len(data); {
 		rest := data[pos:]
@@ -372,52 +370,23 @@ func replayLog(data []byte, apply func(journal) error) error {
 			return nil
 		}
 		nl := bytes.IndexByte(rest, '\n')
-		if nl >= 0 {
-			if payload, ok := parseRecord(rest[:nl]); ok {
-				var delta journal
-				if err := json.Unmarshal(payload, &delta); err != nil {
-					return fmt.Errorf("journal record at offset %d: %w", pos, err)
-				}
-				if err := apply(delta); err != nil {
-					return fmt.Errorf("journal record at offset %d: %w", pos, err)
-				}
-				pos += nl + 1
-				continue
-			}
+		if nl < 0 {
+			return fmt.Errorf("unterminated journal record at offset %d (damaged or interrupted commit; refusing to drop it)", pos)
 		}
-		line, after := rest, []byte(nil)
-		if nl >= 0 {
-			line, after = rest[:nl], rest[nl+1:]
+		payload, ok := parseRecord(rest[:nl])
+		if !ok {
+			return fmt.Errorf("invalid journal record at offset %d (damaged or interrupted commit; refusing to drop it)", pos)
 		}
-		if tornAtSectors(line, pos) && allZero(after) {
-			return nil
+		var delta journal
+		if err := json.Unmarshal(payload, &delta); err != nil {
+			return fmt.Errorf("journal record at offset %d: %w", pos, err)
 		}
-		return fmt.Errorf("damaged journal record at offset %d", pos)
+		if err := apply(delta); err != nil {
+			return fmt.Errorf("journal record at offset %d: %w", pos, err)
+		}
+		pos += nl + 1
 	}
 	return nil
-}
-
-const sectorSize = 512
-
-// tornAtSectors reports whether span (at file offset start) looks like a
-// partially persisted write: it contains NUL bytes, and in every sector it
-// overlaps, its bytes are either all NUL or all non-NUL.
-func tornAtSectors(span []byte, start int) bool {
-	if bytes.IndexByte(span, 0) < 0 {
-		return false
-	}
-	for i := 0; i < len(span); {
-		end := (start+i)/sectorSize*sectorSize + sectorSize - start
-		if end > len(span) {
-			end = len(span)
-		}
-		chunk := span[i:end]
-		if !allZero(chunk) && bytes.IndexByte(chunk, 0) >= 0 {
-			return false
-		}
-		i = end
-	}
-	return true
 }
 
 func syncDirectory(path string) error {
