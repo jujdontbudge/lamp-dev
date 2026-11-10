@@ -2,6 +2,10 @@
 //!
 //! ```text
 //! lamp-supervisor serve [--socket P] [--store P] [--allow-uid UID]... [--network-policy FILE]
+//!                 [--admin-socket P] [--mem-dir P] [--netns-dir P] [--uid-base N]
+//!                 [--disk-backend auto|reflink|thin] [--thin-data-gib N]
+//! lamp-supervisor state [--admin-socket P] status|list|gc|delete C|compact C|verify C
+//!                 |export C DIR|import DIR|fault POINT SIDE [OMIT]   (root)
 //! lamp-supervisor seed-import DIR            (root, service stopped; prints the seed_ref)
 //! lamp-supervisor template-build FILE.lamp   (root, service stopped; builds, probes, publishes)
 //! lamp-supervisor templates                  (root; read-only listing, safe next to the service)
@@ -11,6 +15,8 @@
 //! lamp-supervisor ctl [--socket P] create TEMPLATE [SANDBOX_ID]
 //! lamp-supervisor ctl exec SANDBOX_ID -- ARGV...
 //! lamp-supervisor ctl fork SANDBOX_ID [CHILD_ID] [--durability volatile|local]
+//! lamp-supervisor ctl capture SANDBOX_ID CAPTURE_ID [--durability volatile|local]
+//! lamp-supervisor ctl suspend SANDBOX_ID CAPTURE_ID   (durable capture, then release)
 //! lamp-supervisor ctl inspect [SANDBOX_ID] | release SANDBOX_ID
 //! lamp-supervisor ctl bench-create TEMPLATE COUNT [WARMUP]
 //! lamp-supervisor ctl bench-fork TEMPLATE DIRTY_MIB COUNT [WARMUP] [--durability D]
@@ -59,6 +65,16 @@ fn main() {
         "serve" | "seed-import" | "template-build" | "templates" | "grant-install"
         | "grant-revoke" => host(&cmd, args),
         "ctl" => ctl(args),
+        #[cfg(target_os = "linux")]
+        "state" => {
+            let socket = take_flag(&mut args, "--admin-socket")
+                .unwrap_or_else(|| format!("{DEFAULT_SOCKET}.admin"));
+            let reply = lamp_supervisor::admin::client(std::path::Path::new(&socket), &args);
+            println!("{reply}");
+            if reply.get("ok") != Some(&json!(true)) {
+                std::process::exit(1);
+            }
+        }
         other => die(format!("unknown command {other}")),
     }
 }
@@ -151,7 +167,29 @@ fn host(cmd: &str, mut args: Vec<String>) {
     while let Some(uid) = take_flag(&mut args, "--allow-uid") {
         allowed.push(uid.parse().unwrap_or_else(|_| die("bad --allow-uid")));
     }
+    let admin_socket = PathBuf::from(
+        take_flag(&mut args, "--admin-socket")
+            .unwrap_or_else(|| format!("{}.admin", socket.display())),
+    );
     let mut cfg = Config::defaults(store.clone());
+    if let Some(d) = take_flag(&mut args, "--mem-dir") {
+        cfg.mem_dir = d.into();
+    }
+    if let Some(d) = take_flag(&mut args, "--netns-dir") {
+        cfg.netns_dir = d.into();
+    }
+    if let Some(n) = take_flag(&mut args, "--uid-base") {
+        cfg.uid_base = n.parse().unwrap_or_else(|_| die("bad --uid-base"));
+    }
+    if let Some(b) = take_flag(&mut args, "--disk-backend") {
+        cfg.disk_backend = b;
+    }
+    if let Some(n) = take_flag(&mut args, "--thin-data-gib") {
+        cfg.thin.data_bytes = n
+            .parse::<u64>()
+            .unwrap_or_else(|_| die("bad --thin-data-gib"))
+            << 30;
+    }
     if let Some(fc) = take_flag(&mut args, "--firecracker") {
         cfg.bins.firecracker = fc.into();
     }
@@ -173,7 +211,9 @@ fn host(cmd: &str, mut args: Vec<String>) {
     let t = Instant::now();
     let engine = Arc::new(Engine::open(cfg, mode).unwrap_or_else(|e| die(e)));
     eprintln!(
-        "lamp-supervisor: store open, {} verified template(s) in {} ms",
+        "lamp-supervisor: store open ({} disks, {} durable capture(s)), {} verified template(s) in {} ms",
+        engine.disk.name(),
+        engine.state_list().len(),
         engine.templates().len(),
         t.elapsed().as_millis()
     );
@@ -187,6 +227,8 @@ fn host(cmd: &str, mut args: Vec<String>) {
                     grants,
                 },
             ));
+            lamp_supervisor::admin::serve(engine.clone(), &admin_socket)
+                .unwrap_or_else(|e| die(format!("admin socket: {e}")));
             let e2 = engine.clone();
             let sock2 = socket.clone();
             std::thread::spawn(move || {
@@ -455,6 +497,31 @@ fn ctl(mut args: Vec<String>) {
         "release" => {
             let id = args.first().cloned().unwrap_or_else(|| die("release ID"));
             c.release(&id);
+        }
+        "capture" | "suspend" => {
+            let (Some(id), Some(cid)) = (args.first().cloned(), args.get(1).cloned()) else {
+                die("capture|suspend SANDBOX_ID CAPTURE_ID")
+            };
+            let consistency = if sub == "suspend" { "local".to_string() } else { durability };
+            let t = Instant::now();
+            let r = c.call(
+                &id,
+                request::Command::Capture(Capture {
+                    capture_id: cid.clone(),
+                    preserves_memory: true,
+                    consistency,
+                    output_handles: vec![],
+                }),
+            );
+            let capture_ms = t.elapsed().as_secs_f64() * 1000.0;
+            if sub == "suspend" {
+                c.release(&id);
+            }
+            println!(
+                "{}",
+                json!({"sandbox_id": id, "capture_id": cid, "state": r.state, "capture_ms": capture_ms,
+                       "released": sub == "suspend", "detail": r.detail})
+            );
         }
         "bench-create" => bench_create(&mut c, &args),
         "bench-fork" => bench_fork(&mut c, &args, &durability),

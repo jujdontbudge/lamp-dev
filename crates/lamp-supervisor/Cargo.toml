@@ -16,3 +16,6 @@ prost.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
+
+[features]
+fault-injection = ["lamp-engine/fault-injection"]
