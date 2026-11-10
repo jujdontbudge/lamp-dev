@@ -1,27 +1,25 @@
-# Install, update, recovery and SDK packages
+# Install, update and SDKs
 
 ## Goal
-Make Lamp something a person can install, update and remove safely on their own machines. When this is done: signed packages install, restart and uninstall cleanly on every lane (the Ubuntu laptop, its nested Linux lanes, the M5 and the Air), and uninstall never silently deletes the owner's data (PRD-002); automatic updates start disabled, update one host at a time, verify release trust, preserve active and saved state, and stop and roll back on failure (HST-005); every reused component has a recorded reason, pinned provenance and a maintenance owner, with a release SBOM (ENG-002); TypeScript and Python SDKs are generated from the canonical schema and packaged for release (INT-002, O1); and E14 passes, including restoring encrypted data onto a clean replacement OS without the original key store.
-
-Lamp is self-hosted, so installing and updating it on your own laptop has to be as safe as the sandboxes are. Owning your machines and data is one of its four equal goals.
+Make Lamp safe to install, update, recover and remove on supported Linux and Mac hosts. Signed packages install and restart normally; uninstall offers explicit choices and never silently deletes owner data. Automatic updates start disabled, roll one host at a time, verify release trust, preserve active and saved work, and stop or roll back on failure. Reused components follow the owner's security-or-speed reuse rule and retain their licenses. TypeScript and Python SDKs are generated from the canonical schema and packaged for release. Encrypted data can be restored on a replacement OS with the owner's recovery material rather than relying on the lost original key store (PRD-002, HST-005, ENG-002, INT-002). This makes ownership practical beyond the first installation.
 
 ## Context
-- Ticket T28 of 31; `docs/tickets/README.md` lists them all and what each waits for. This builds on T15's Mac work, T16's fleet and T20's Linux lanes. Three tickets run at the same time: T25 (harness catalogue), T26 (CI core and GitHub) and T27 (dashboard). This ticket owns packaging, update trust and the SDK packages. T30 certifies it and T31 publishes.
-- The Ubuntu laptop (lane `LX`) is `ssh ubuntu-server` from the M5 Mac, and `sudo -n` works there. The owner's own services also run on it: mainly a Chrome service (`excerlock-dm-chrome.service`, a user systemd unit) that held about 20 of its 30 GiB of memory on 2026-11-09, plus Beeper and a T3 Code server. No Docker containers were running.
-- The M5 Mac (lane `M5`) is the machine this ticket starts on. The MacBook Air (lane `AIR`, 8 GB, no fan) is `ssh johansardars-macbook-air` from it. `sudo -n` works without a password on both. Both are the owner's everyday machines and run the owner's own apps.
+- Feature prerequisites: T15, T16, T20. [README.md](README.md) and [map.html](map.html) show the same dependencies. Shared interfaces may allow work to overlap.
+- The Ubuntu laptop is reached with `ssh ubuntu-server` from the M5. It also runs the owner’s Chrome, Beeper and T3 Code services; leave them and Docker’s existing resources alone.
+- This ticket starts on the M5 Mac. The MacBook Air (M2, 8 GB, fanless) is reached with `ssh johansardars-macbook-air`. All three are the owner’s everyday machines.
 - The M5's login keychain holds a "Developer ID Application" signing identity and no "Developer ID Installer" one. The Air holds only an "Apple Development" identity. The owner is signed in to the Apple Developer Program on both, and said on 2026-11-09 that the build may create the missing signing certificates itself.
 - The owner agreed on 2026-11-09 to package, firewall and kernel-setting changes on the Ubuntu laptop, including reboots.
-- This ticket lands as one pull request into `main` on GitHub (`JohanSardar/lamp`, private; `gh` on the M5 is signed in as that account). The owner's pull request conventions are in `/Users/johansardar/.claude/skills/file-pr/SKILL.md`. The owner's coordinating session stays on `main`: it watches the pull request, sends back failed checks and review findings for this ticket to fix, and merges it once the checks pass.
+- Land one PR from this ticket’s own branch and checkout. The coordinating session stays on `main`, reviews the PR and merges it. Follow `/Users/johansardar/.claude/skills/file-pr/SKILL.md`.
 
 ## Constraints
-- On both Macs, never put a password or approval dialog on the owner's screen. `sudo` itself is fine: the owner said on 2026-11-09 to use it freely, including to install Lamp's privileged service and to run sleep and wake tests.
+- Build the features and show one real end-to-end demonstration covering this ticket’s goal. Add almost no tests: only where the feature cannot be shown working another way. Run only what iteration needs; speed measurements happen once at release and never block work or release.
 - Nothing is published to npm, PyPI or any other public place here. T31 does that.
 - Never drive the owner's visible screen, apps or browser windows. Headless tools only; the owner is working on these machines.
 - Never print, log or commit a secret.
-- The owner's own services on the Ubuntu laptop may be stopped only for a hard timing run, and are started again as soon as the run ends (owner, 2026-11-09). The T3 Code server there stays up. Never use, change or remove Docker's existing containers, images or networks on that machine.
-- The owner's thresholds are fixed: none changes after a failed run, and a failed run stays on record as failed (ENG-001).
 - Commit only to this ticket's own branch in its own checkout, push it, and open the pull request yourself. Never push to `main` or to another ticket's branch (owner, 2026-11-09).
 - Model tokens are the only thing money may be spent on (owner, 2026-11-09): buy, rent or subscribe to nothing else. Each pay-per-use key stays under a hard cap of $25 a month, set in its provider's dashboard.
+- Keep the owner’s services running and leave existing Docker containers, images and networks alone. On the Ubuntu laptop, allow at most 2 live Lamp sandboxes across all tickets: check `pgrep -c firecracker` is below 2 and `free -m` shows at least 12 GiB available before creating one; release it promptly.
+- On Macs, never run commands that ask for a password or approval dialog. Do not drive the owner’s visible screen, apps or browser. Use disposable state and public third-party projects for the demonstration, never the owner’s projects or real vault items.
 
 ## Evidence of done
 Show evidence that the goal is done, taken from the real thing: an end-to-end test, a video, screenshots, or whatever fits.
