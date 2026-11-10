@@ -193,7 +193,7 @@
     "infra/linux/lamp-supervisor.service": "54de950766ecbe07ce6c205704d75ff2599999317f21d85006324faf7f629040",
     "infra/linux/observer.py": "af111af356cd4d026863e856defb6aa1aafe309a0253e73cc4b41951e8f0d83a",
     "infra/linux/run-e03.py": "7288a310c5447fbdf0f056bd1e0e40c7499acad49c96e216b41329f307fb63c4",
-    "infra/linux/run-metadata.py": "adc838a5b8dac10260ddc97313cd380d356a91daac2e7e6d15db2ab5d6f68fe0",
+    "infra/linux/run-metadata.py": "93f38616ea645758ef405f1fdfcf15dacd7e837516c0b984ceb14e2eab79d92e",
     "infra/linux/timing-run.sh": "4d9da295022d9caac51c7042fc8dc71a18ac8277d277199ed2a8e0eb7f24ec98",
     "infra/linux/var-lib-lamp.mount": "e6a0ca9f7f9c14acd5f6e287a03874cfd6d366f348eee024fa39e0114cef9566",
     "internal/control/approvals.go": "ff07c88d879ebe32262f3535d31911ed053a5c82946e868c71aa0c231ec3f6d2",

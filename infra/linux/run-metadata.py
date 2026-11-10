@@ -103,7 +103,9 @@ st = os.statvfs(DIRECTORY)
 lsblk = json.loads(run("lsblk", "-J", "-d", "-o", "NAME,MODEL,SIZE,ROTA,TYPE,TRAN"))
 lamp_fs = json.loads(run("findmnt", "-J", "-T", str(args.store), "-o", "SOURCE,FSTYPE,OPTIONS,TARGET"))["filesystems"][0]
 mem_fs = json.loads(run("findmnt", "-J", "-T", "/run/lamp/mem", "-o", "SOURCE,FSTYPE,OPTIONS,TARGET"))["filesystems"][0]
-audit_fs = json.loads(run("findmnt", "-J", "-T", policy["audit_dir"], "-o", "SOURCE,FSTYPE,OPTIONS,TARGET"))["filesystems"][0]
+# The audit spool is deliberately root-only. Resolve its actual mount as the
+# same privileged observer used for template hashes, without weakening access.
+audit_fs = json.loads(subprocess.check_output(["sudo", "-n", "findmnt", "-J", "-T", policy["audit_dir"], "-o", "SOURCE,FSTYPE,OPTIONS,TARGET"], text=True))["filesystems"][0]
 
 governors = sorted({read(p) for p in Path("/sys/devices/system/cpu").glob("cpu[0-9]*/cpufreq/scaling_governor")})
 epp = sorted({read(p) for p in Path("/sys/devices/system/cpu").glob("cpu[0-9]*/cpufreq/energy_performance_preference")})

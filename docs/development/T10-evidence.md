@@ -188,6 +188,16 @@ quantiles for this incomplete preparation. The queued private-template attempt
 now waits inside the shared lock for zero Firecracker processes, zero observed
 allocations and at least 12 GiB available before preparation and timing.
 
+The private-guest attempt [`e03-preallocated-guest-1`](evidence/t10/e03-preallocated-guest-1/wrapper.log)
+acquired the lock, built the private template and prepared both ready sandboxes.
+It failed before timing trials when unprivileged `findmnt` could not traverse
+the protected audit directory. The metadata collector now resolves that actual
+mount through `sudo -n findmnt`; permissions remain unchanged. A real metadata
+preflight and the infrastructure suite pass; full Mac `make verify` passes in
+[`metadata-verify-mac.log`](evidence/t10/metadata-verify-mac.log). This attempt has no quantiles;
+both resources were released and all four stopped owner services restored.
+The private template is `tp_6b295ecbcad03c2a3b7370e577`.
+
 Each published run retains its manifest, summary, compressed hash-chained raw
 observations, cleanup outcome and wrapper log. Current two-VM runs also retain
 allocation-guard observations. Private identity/token/state directories and
