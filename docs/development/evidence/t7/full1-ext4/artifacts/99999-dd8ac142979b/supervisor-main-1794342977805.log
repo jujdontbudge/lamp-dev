@@ -1,0 +1,14 @@
+lamp-supervisor: store open (dm-thin disks, 1 durable capture(s)), 1 verified template(s) in 1986 ms
+lamp-supervisor: serving lamp.worker/1 on /run/lamp-e04/ext4/main/worker.sock
+lamp-supervisor: op op_804330a5389d_1 sandbox sb_dd8ac142979b_r0 handle_us=2138 
+lamp-supervisor: op op_804330a5389d_2 sandbox sb_dd8ac142979b_r0 handle_us=98694 attach_us=6162 barrier_us=5879 disk_attach_us=5432 load_us=5552 materialize_us=63155 prepare_us=68602 spawn_us=12477 total_us=98684
+lamp-supervisor: op op_804330a5389d_3 sandbox sb_dd8ac142979b_r0 handle_us=5456 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_80433733b14f_1 sandbox sb_dd8ac142979b_r0 handle_us=3787 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_804338d0df40_1 sandbox sb_dd8ac142979b_r0 handle_us=16406 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_80443f2c0bf_1 sandbox sb_dd8ac142979b_r0 handle_us=29176 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

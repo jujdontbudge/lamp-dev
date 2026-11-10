@@ -16,3 +16,7 @@ toml.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc.workspace = true
+
+[features]
+# E04 crash/omitted-barrier injection. Never in a production build.
+fault-injection = []

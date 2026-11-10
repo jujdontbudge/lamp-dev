@@ -1,0 +1,48 @@
+{
+ "barrier": {
+  "entries": 2258,
+  "crash_index": 2160,
+  "last_flush_index": 2159,
+  "flushes_before_crash": 102,
+  "fua_before_crash": 67,
+  "durable_writes": 2058,
+  "volatile_applied": 0,
+  "volatile_dropped": 0
+ },
+ "recovered_list": {
+  "captures": [
+   {
+    "capture_id": "cp_e65087d350df_0",
+    "memory_base": null,
+    "parent": null,
+    "producer_key_id": "pk_cc2e8f828e8a89f2",
+    "reason": null,
+    "source_sandbox_id": "sb_e65087d350df_a",
+    "state": "committed",
+    "template_id": "tp_09a71c56dd8afbd2768048656d"
+   },
+   {
+    "capture_id": "cp_e65087d350df_x",
+    "memory_base": null,
+    "parent": "cp_e65087d350df_0",
+    "producer_key_id": "pk_cc2e8f828e8a89f2",
+    "reason": null,
+    "source_sandbox_id": "sb_e65087d350df_a",
+    "state": "committed",
+    "template_id": "tp_09a71c56dd8afbd2768048656d"
+   },
+   {
+    "capture_id": "cp_e65087d350df_1",
+    "memory_base": null,
+    "parent": null,
+    "producer_key_id": "",
+    "reason": "DATA_UNAVAILABLE: object cp_e65087d350df_1-mem-9b7ac049 is missing or truncated",
+    "source_sandbox_id": "",
+    "state": "damaged",
+    "template_id": ""
+   }
+  ],
+  "elapsed_ms": 0.010674,
+  "ok": true
+ }
+}

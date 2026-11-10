@@ -1,0 +1,138 @@
+{
+ "run": "x100-xfs",
+ "status": "pass",
+ "completed_at": "2026-11-10T21:22:26.246530+00:00",
+ "e04": {
+  "failures": [],
+  "forks": 100,
+  "missing_qualification_evidence": [],
+  "negative_controls": [
+   {
+    "caught": true,
+    "errors": [
+     "lost acknowledged object 1"
+    ],
+    "omitted": "object_flush"
+   },
+   {
+    "caught": true,
+    "errors": [
+     "lost acknowledged object 1"
+    ],
+    "omitted": "directory_flush"
+   },
+   {
+    "caught": true,
+    "errors": [
+     "lost acknowledged object 1"
+    ],
+    "omitted": "journal_flush"
+   }
+  ],
+  "qualification": "real-filesystem-block-barrier",
+  "required": 100,
+  "status": "pass",
+  "unauthorized_capture_caught": false,
+  "unauthorized_capture_rejected": true
+ },
+ "crash_coverage": [
+  "ack:after",
+  "ack:before",
+  "capture:after",
+  "capture:before",
+  "compact_gc:after",
+  "compact_gc:before",
+  "compact_objects:after",
+  "compact_objects:before",
+  "compact_redirect:after",
+  "compact_redirect:before",
+  "delete:after",
+  "delete:before",
+  "directory_flush:after",
+  "directory_flush:before",
+  "gc:after",
+  "gc:before",
+  "heads:after",
+  "heads:before",
+  "journal_flush:after",
+  "journal_flush:before",
+  "object_flush:after",
+  "object_flush:before",
+  "publish:after",
+  "publish:before",
+  "reserve:after",
+  "reserve:before",
+  "seal:after",
+  "seal:before",
+  "switch:after",
+  "switch:before"
+ ],
+ "recoveries_observed": 104,
+ "wall_s": 301.9,
+ "filesystem_backend": {
+  "xfs/reflink": 104
+ },
+ "per_point": {
+  "omit:directory_flush ack:after": 1,
+  "omit:journal_flush ack:after": 1,
+  "omit:object_flush ack:after": 1,
+  "scenario ack:after": 3,
+  "scenario ack:before": 3,
+  "scenario capture:after": 4,
+  "scenario capture:before": 4,
+  "scenario compact_gc:after": 3,
+  "scenario compact_gc:before": 3,
+  "scenario compact_objects:after": 3,
+  "scenario compact_objects:before": 3,
+  "scenario compact_redirect:after": 3,
+  "scenario compact_redirect:before": 3,
+  "scenario delete:after": 3,
+  "scenario delete:before": 3,
+  "scenario directory_flush:after": 4,
+  "scenario directory_flush:before": 4,
+  "scenario gc:after": 3,
+  "scenario gc:before": 3,
+  "scenario heads:after": 3,
+  "scenario heads:before": 3,
+  "scenario journal_flush:after": 3,
+  "scenario journal_flush:before": 3,
+  "scenario object_flush:after": 4,
+  "scenario object_flush:before": 4,
+  "scenario publish:after": 3,
+  "scenario publish:before": 3,
+  "scenario reserve:after": 4,
+  "scenario reserve:before": 4,
+  "scenario seal:after": 4,
+  "scenario seal:before": 4,
+  "scenario switch:after": 3,
+  "scenario switch:before": 3,
+  "unauthorized none:after": 1
+ },
+ "per_fault": {
+  "omit:directory_flush discard": 1,
+  "omit:journal_flush discard": 1,
+  "omit:object_flush discard": 1,
+  "scenario discard": 50,
+  "scenario reorder": 50,
+  "unauthorized discard": 1
+ },
+ "recovered_generations": {
+  "omit:directory_flush 0": 1,
+  "omit:journal_flush 0": 1,
+  "omit:object_flush 0": 1,
+  "scenario 0": 55,
+  "scenario 0,1": 45,
+  "unauthorized 0": 1
+ },
+ "block_trace_totals": {
+  "crash_index": 168702,
+  "durable_writes": 166191,
+  "entries": 183333,
+  "flushes_before_crash": 2511,
+  "fua_before_crash": 2436,
+  "last_flush_index": 168547,
+  "volatile_applied": 0,
+  "volatile_dropped": 0
+ },
+ "last_observation_hash": "adaf4bdd55d3993a91b2dc2c027b1dd41cd6b48b3b9fcb936270c942657048d4"
+}

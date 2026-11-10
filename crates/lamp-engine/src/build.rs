@@ -7,7 +7,9 @@ use crate::error::{EngineError, IoContext, Result};
 use crate::fc::{self, Jail, Limits};
 use crate::fsutil::{self, now_ms, random_bytes};
 use crate::guest;
-use crate::manifest::{self, AccelerationVariant, Manifest, Object, Provenance, StepRecord};
+use crate::manifest::{
+    self, AccelerationVariant, Manifest, Object, Provenance, Resources, StepRecord,
+};
 use lamp_init::{Empty, Exec, GuestRequest, GuestResponse};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
@@ -252,6 +254,10 @@ fn seal(path: &Path) -> Result<()> {
 pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildReport> {
     let started = Instant::now();
     let def: Definition = definition::parse(definition_text)?;
+    let resources = Resources {
+        memory_mib: def.memory_mib.unwrap_or(STANDARD.memory_mib),
+        ..STANDARD
+    };
     if def.arch != host_arch() {
         return Err(EngineError::new(
             "ENGINE_UNQUALIFIED",
@@ -405,7 +411,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
             engine,
             &seed.kernel.cmdline,
             STANDARD.vcpus,
-            STANDARD.memory_mib,
+            resources.memory_mib,
             true,
         )?;
         let _ = writeln!(log, "template VM booted in {} ms", t.elapsed().as_millis());
@@ -481,7 +487,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         ),
         acceleration_variants: vec![AccelerationVariant {
             compatibility: compat.clone(),
-            resources: STANDARD,
+            resources: resources.clone(),
             memory: fsutil::digest_file(&st.join(fc::MEM))?,
             vmstate: fsutil::digest_file(&st.join(fc::VMSTATE))?,
             disk: fsutil::digest_file(&st.join(fc::ROOTFS))?,
@@ -535,7 +541,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         }
     };
     engine.register_template(template);
-    if let Err(e) = probe(engine, &id, &tag) {
+    if let Err(e) = probe(engine, &id, &tag, &resources) {
         engine.unregister_template(&id);
         quarantine(engine, &dest, &id);
         return Err(e.context("boot probe"));
@@ -564,14 +570,14 @@ fn quarantine(engine: &Engine, dir: &Path, id: &str) {
 }
 
 /// Creates a real sandbox from the new template and runs a command.
-fn probe(engine: &Engine, template_id: &str, tag: &str) -> Result<()> {
+fn probe(engine: &Engine, template_id: &str, tag: &str, resources: &Resources) -> Result<()> {
     let sid = format!("sb_probe_{tag}");
     let auth = Authority {
         sandbox_id: &sid,
         generation: 1,
         policy_revision: 0,
     };
-    engine.allocate(auth, None)?;
+    engine.allocate(auth, Some(resources.clone()))?;
     let result = engine.restore(auth, template_id).and_then(|_| {
         engine.run(
             auth,

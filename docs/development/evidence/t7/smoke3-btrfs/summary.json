@@ -1,0 +1,90 @@
+{
+  "caller_after": {
+    "cpu_count": 8,
+    "disk": "Filesystem                        1K-blocks      Used Available Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv 980211368 497089644 433255996  54% /",
+    "load": [
+      7.02099609375,
+      7.64111328125,
+      6.81396484375
+    ],
+    "machine": "x86_64",
+    "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+    "power": "powersave",
+    "pressure": {
+      "cpu": "some avg10=8.00 avg60=9.06 avg300=8.47 total=7435880662\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+      "io": "some avg10=9.42 avg60=11.55 avg300=13.73 total=8741426307\nfull avg10=4.68 avg60=6.55 avg300=8.75 total=7566325129\n",
+      "memory": "some avg10=0.00 avg60=0.01 avg300=0.05 total=635670678\nfull avg10=0.00 avg60=0.01 avg300=0.05 total=479640623\n"
+    }
+  },
+  "completed_at": "2026-11-10T19:32:30.494895+00:00",
+  "diagnostic": true,
+  "last_observation_hash": "33a41a393d01eb53308808efee1fae33af836882bf10b989198ff2a059e9f58c",
+  "results": {
+    "E04": {
+      "crash_coverage": [
+        "ack:after",
+        "ack:before",
+        "capture:after",
+        "capture:before",
+        "compact_gc:after",
+        "compact_gc:before",
+        "compact_objects:after",
+        "compact_objects:before",
+        "compact_redirect:after",
+        "compact_redirect:before",
+        "delete:after",
+        "delete:before",
+        "directory_flush:after",
+        "directory_flush:before",
+        "gc:after",
+        "gc:before",
+        "heads:after",
+        "heads:before",
+        "journal_flush:after",
+        "journal_flush:before",
+        "object_flush:after",
+        "object_flush:before",
+        "publish:after",
+        "publish:before",
+        "reserve:after",
+        "reserve:before",
+        "seal:after",
+        "seal:before",
+        "switch:after",
+        "switch:before"
+      ],
+      "failures": [],
+      "forks": 30,
+      "missing_qualification_evidence": [],
+      "negative_controls": [
+        {
+          "caught": true,
+          "errors": [
+            "lost acknowledged object 1"
+          ],
+          "omitted": "object_flush"
+        },
+        {
+          "caught": true,
+          "errors": [
+            "lost acknowledged object 1"
+          ],
+          "omitted": "directory_flush"
+        },
+        {
+          "caught": true,
+          "errors": [
+            "lost acknowledged object 1"
+          ],
+          "omitted": "journal_flush"
+        }
+      ],
+      "qualification": "unqualified-external-fixture",
+      "required": 1000,
+      "status": "incomplete",
+      "unauthorized_capture_caught": false,
+      "unauthorized_capture_rejected": true
+    }
+  },
+  "status": "incomplete"
+}
