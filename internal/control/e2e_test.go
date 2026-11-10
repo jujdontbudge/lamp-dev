@@ -24,9 +24,9 @@ import (
 var lampBinary, daemonBinary, mcpBinary string
 
 func TestMain(m *testing.M) {
-	// Journal fault-injection children exercise only the store. Rebuilding
-	// transport binaries in every child delays their crash boundary and can
-	// exhaust the parent suite's deadline on a contended host.
+	// Journal kill-test children exercise only the store: rebuilding CLI
+	// binaries delays their crash boundary and leaks files when killed.
+
 	if os.Getenv("LAMP_JOURNAL_WRITER_DIR") != "" || os.Getenv("LAMP_MARKER_CHILD_DIR") != "" {
 		os.Exit(m.Run())
 	}

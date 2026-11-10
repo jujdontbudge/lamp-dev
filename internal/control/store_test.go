@@ -17,7 +17,13 @@ import (
 
 func storeConfig(t *testing.T) Config {
 	t.Helper()
-	return Config{StateDir: filepath.Join(t.TempDir(), "state"), Worker: WorkerConfig{Socket: "/unused", WorkerID: "w", BootID: "b", GrantID: "g", UID: os.Getuid(), PID: os.Getpid(), Timeout: time.Second}}
+	return storeConfigAt(filepath.Join(t.TempDir(), "state"))
+}
+
+// storeConfigAt is for the kill-test children: they are killed before a
+// t.TempDir cleanup could run.
+func storeConfigAt(dir string) Config {
+	return Config{StateDir: dir, Worker: WorkerConfig{Socket: "/unused", WorkerID: "w", BootID: "b", GrantID: "g", UID: os.Getuid(), PID: os.Getpid(), Timeout: time.Second}}
 }
 
 func TestAppendJournalGateScaleReplayAndCompaction(t *testing.T) {
@@ -508,8 +514,7 @@ func TestJournalWriterProcess(t *testing.T) {
 	if dir == "" {
 		t.Skip("writer child only")
 	}
-	config := storeConfig(t)
-	config.StateDir = dir
+	config := storeConfigAt(dir)
 	s, err := Open(config)
 	if err != nil {
 		fmt.Println("open failed", err)
@@ -634,8 +639,7 @@ func TestJournalMarkerKillChild(t *testing.T) {
 			select {} // wait to be killed
 		}
 	}
-	config := storeConfig(t)
-	config.StateDir = dir
+	config := storeConfigAt(dir)
 	if _, err := Open(config); err != nil {
 		fmt.Println("open failed", err)
 		os.Exit(2)

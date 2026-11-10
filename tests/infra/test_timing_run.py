@@ -10,6 +10,7 @@ ProductionScript tests run the real file with every former hook variable set
 and show it ignores them.
 """
 import os
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -76,6 +77,7 @@ def patched_script(directory, vm, launch_delay=None):
 class TimingRun(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp(prefix="timing-run-"))
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         (self.dir / "bin").mkdir()
         (self.dir / "active").mkdir()
         for name, body in (("systemctl", SYSTEMCTL), ("sudo", SUDO)):
