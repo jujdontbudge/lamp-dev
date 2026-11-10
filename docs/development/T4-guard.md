@@ -46,7 +46,10 @@ root shell or skip a collector to meet a timing target.
    collector creates a separate PID/mount/user namespace, detaches the inherited
    `/proc`, mounts a task-only procfs, maps namespace root to the assigned
    subordinate UID/GID, empties groups/environment and closes inherited FDs.
-   Only PATH and HOME are supplied. `no_new_privs` is inherited. Task root has no
+   Only PATH and HOME are supplied, overridden by exactly the requested task
+   environment that the caller passes as a JSON object in `LAMP_TASK_ENV`
+   (validated before anything runs: names are non-empty without `=`/NUL, and
+   values have no NUL). The collector's own environment never reaches the task. `no_new_privs` is inherited. Task root has no
    capabilities in the ancestor kernel/network namespace, cannot see/signal the
    tracer, and cannot acquire its audit socket. Do not grant a task unrestricted
    guest-kernel root or initial-user-namespace capabilities. No audit process

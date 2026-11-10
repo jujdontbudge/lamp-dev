@@ -557,17 +557,29 @@ mod linux {
             }
             None => x.argv.clone(),
         };
+        lamp_init::validate_env(&x.env)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         let mut command = Command::new(&argv[0]);
+        command.args(&argv[1..]).env_clear();
+        if x.audit.is_some() {
+            // The collector never forwards its own environment to the task
+            // (it clears it before the task exec); it applies exactly this
+            // requested environment over its defaults.
+            command.env(
+                "LAMP_TASK_ENV",
+                serde_json::to_string(&x.env).map_err(io::Error::other)?,
+            );
+        } else {
+            command
+                .env(
+                    "PATH",
+                    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                )
+                .env("HOME", "/root")
+                .env("LANG", "C.UTF-8")
+                .envs(&x.env);
+        }
         command
-            .args(&argv[1..])
-            .env_clear()
-            .env(
-                "PATH",
-                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            )
-            .env("HOME", "/root")
-            .env("LANG", "C.UTF-8")
-            .envs(&x.env)
             .current_dir(if x.cwd.is_empty() { "/root" } else { &x.cwd })
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

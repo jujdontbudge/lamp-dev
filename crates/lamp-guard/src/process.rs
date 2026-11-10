@@ -222,6 +222,31 @@ fn task_seccomp() {
     check(unsafe { libc::prctl(libc::PR_SET_SECCOMP, 2, ptr::from_ref(&program), 0, 0) });
 }
 
+/// The variable through which a caller hands the collector the task's
+/// environment: a JSON object of string keys to string values. The collector
+/// never passes its own environment to the task; the task gets the fixed
+/// defaults (PATH, HOME) overridden by exactly these entries.
+pub const TASK_ENV: &str = "LAMP_TASK_ENV";
+
+/// Parses and validates a [`TASK_ENV`] value. Keys are non-empty and contain
+/// neither `=` nor NUL; values contain no NUL.
+pub fn task_env(json: &str) -> io::Result<Vec<(CString, CString)>> {
+    let map: std::collections::BTreeMap<String, String> =
+        serde_json::from_str(json).map_err(|e| io::Error::other(format!("{TASK_ENV}: {e}")))?;
+    map.into_iter()
+        .map(|(k, v)| {
+            if k.is_empty() || k.contains('=') {
+                return Err(io::Error::other(format!("{TASK_ENV}: invalid name {k:?}")));
+            }
+            let key = CString::new(k)
+                .map_err(|_| io::Error::other(format!("{TASK_ENV}: NUL in name")))?;
+            let value = CString::new(v)
+                .map_err(|_| io::Error::other(format!("{TASK_ENV}: NUL in value")))?;
+            Ok((key, value))
+        })
+        .collect()
+}
+
 /// No shell expansion. Caller assigns a unique subordinate UID/GID per sandbox.
 /// This collector is a demo correctness path, not E02 performance qualification.
 /// Runs `argv` as the task, traced and audited. `exit_report`, if given, receives
@@ -232,6 +257,7 @@ pub fn run(
     emitter: Emitter,
     uid: u32,
     argv: Vec<String>,
+    env: Vec<(CString, CString)>,
     mut exit_report: Option<fs::File>,
 ) -> io::Result<i32> {
     if unsafe { libc::geteuid() } != 0 || uid < 65536 || uid == u32::MAX || argv.is_empty() {
@@ -311,6 +337,11 @@ pub fn run(
                     1,
                 ));
                 check(libc::setenv(c("HOME").as_ptr(), c("/tmp").as_ptr(), 1));
+                // The requested task environment, validated before fork,
+                // applied last so it overrides the defaults.
+                for (key, value) in &env {
+                    check(libc::setenv(key.as_ptr(), value.as_ptr(), 1));
+                }
                 // This process is PID 1 of the task namespace: if it were the
                 // command, the kernel would kill every background job the
                 // moment the command exits. It forks the command and reaps
@@ -597,4 +628,32 @@ pub fn run(
         json!({"type":"collector_complete","exit_code":result}),
     )?;
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn task_env_is_validated() {
+        let env = super::task_env(r#"{"FOO":"value","PATH":"/opt/bin","EMPTY":""}"#).unwrap();
+        let pairs: Vec<(String, String)> = env
+            .into_iter()
+            .map(|(k, v)| (k.into_string().unwrap(), v.into_string().unwrap()))
+            .collect();
+        assert_eq!(
+            pairs,
+            [("EMPTY", ""), ("FOO", "value"), ("PATH", "/opt/bin")]
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+        );
+        for bad in [
+            r#"{"":"x"}"#,
+            r#"{"A=B":"x"}"#,
+            r#"{"A\u0000":"x"}"#,
+            r#"{"A":"x\u0000y"}"#,
+            r#"{"A":1}"#,
+            "[]",
+            "not json",
+        ] {
+            assert!(super::task_env(bad).is_err(), "{bad} accepted");
+        }
+    }
 }

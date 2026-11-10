@@ -1,7 +1,6 @@
 package control
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -9,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
@@ -153,59 +153,41 @@ func Open(config Config) (*Service, error) {
 	if s.journal.Outputs == nil {
 		s.journal.Outputs = map[string][]api.Frame{}
 	}
-	// Replay only newline-terminated commits. A torn final append was never
-	// published; remove it before accepting more writes. Complete corrupt records
-	// fail closed rather than silently dropping admitted effects.
+	// Replay framed, checksummed commits (see frameRecord and replayLog).
 	logPath := filepath.Join(s.dir, "journal.log")
 	log, err := os.OpenFile(logPath, os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600)
 	if err != nil {
 		lock.Close()
 		return nil, err
 	}
-	reader := bufio.NewReader(log)
-	var offset int64
-	for {
-		line, readErr := reader.ReadBytes('\n')
-		// The log ends at its first torn record or at the preallocated zero
-		// tail; no committed record contains a NUL byte. The compaction
-		// below rewrites both away before any new commit.
-		if readErr == io.EOF || bytes.IndexByte(line, 0) >= 0 {
-			break
-		}
-		if readErr != nil {
-			err = readErr
-			break
-		}
-		var delta journal
-		if err = json.Unmarshal(bytes.TrimSpace(line), &delta); err != nil {
-			break
-		}
-		if delta.Version != 1 || delta.Sequence == 0 {
-			err = errors.New("invalid journal record")
-			break
-		}
-		offset += int64(len(line))
-		if delta.Sequence <= s.journal.Sequence {
-			continue
-		}
-		if delta.Sequence != s.journal.Sequence+1 {
-			err = errors.New("journal sequence gap")
-			break
-		}
-		for id, rec := range delta.Operations {
-			s.journal.Operations[id] = rec
-		}
-		for id, sb := range delta.Sandboxes {
-			s.journal.Sandboxes[id] = sb
-		}
-		for id, ex := range delta.Execs {
-			s.journal.Execs[id] = ex
-		}
-		for id, frames := range delta.Outputs {
-			s.journal.Outputs[id] = frames
-		}
-		s.journal.Sequence = delta.Sequence
-		s.logRecords++
+	logData, err := io.ReadAll(log)
+	if err == nil {
+		err = replayLog(logData, func(delta journal) error {
+			if delta.Version != 1 || delta.Sequence == 0 {
+				return errors.New("invalid journal record")
+			}
+			if delta.Sequence <= s.journal.Sequence {
+				return nil
+			}
+			if delta.Sequence != s.journal.Sequence+1 {
+				return errors.New("journal sequence gap")
+			}
+			for id, rec := range delta.Operations {
+				s.journal.Operations[id] = rec
+			}
+			for id, sb := range delta.Sandboxes {
+				s.journal.Sandboxes[id] = sb
+			}
+			for id, ex := range delta.Execs {
+				s.journal.Execs[id] = ex
+			}
+			for id, frames := range delta.Outputs {
+				s.journal.Outputs[id] = frames
+			}
+			s.journal.Sequence = delta.Sequence
+			s.logRecords++
+			return nil
+		})
 	}
 	if err == nil {
 		err = log.Sync()
@@ -283,11 +265,11 @@ func (s *Service) save(ids ...string) error {
 			delta.Outputs[id] = frames
 		}
 	}
-	data, err := json.Marshal(delta)
+	payload, err := json.Marshal(delta)
 	if err != nil {
 		return err
 	}
-	data = append(data, '\n')
+	data := frameRecord(payload)
 	// The held descriptor must still be the state directory's journal.log: a
 	// moved or replaced state directory would otherwise take commits that a
 	// restart can never find.
@@ -325,6 +307,119 @@ func (s *Service) save(ids ...string) error {
 	}
 	return nil
 }
+
+// journal.log framing. Each commit is one line
+//
+//	J1 <crc32c of payload, 8 hex> <JSON payload>\n
+//
+// written in place over preallocated zero bytes and made durable with
+// fdatasync before the next commit starts. JSON never contains a raw NUL or
+// newline, so a committed record contains neither.
+const recordMagic = "J1 "
+
+var crcTable = crc32.MakeTable(crc32.Castagnoli)
+
+func frameRecord(payload []byte) []byte {
+	out := make([]byte, 0, len(recordMagic)+9+len(payload)+1)
+	out = append(out, recordMagic...)
+	out = fmt.Appendf(out, "%08x ", crc32.Checksum(payload, crcTable))
+	out = append(out, payload...)
+	return append(out, '\n')
+}
+
+// parseRecord validates one line (without its newline) and returns its payload.
+func parseRecord(line []byte) ([]byte, bool) {
+	header := len(recordMagic) + 9
+	if len(line) <= header || string(line[:len(recordMagic)]) != recordMagic || line[header-1] != ' ' {
+		return nil, false
+	}
+	var sum uint32
+	if _, err := fmt.Sscanf(string(line[len(recordMagic):header-1]), "%08x", &sum); err != nil {
+		return nil, false
+	}
+	payload := line[header:]
+	if crc32.Checksum(payload, crcTable) != sum {
+		return nil, false
+	}
+	return payload, true
+}
+
+func allZero(b []byte) bool {
+	for _, c := range b {
+		if c != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// replayLog applies every committed record in order and stops cleanly at the
+// unused zero tail.
+//
+// It accepts at most one torn final record: a commit whose write was cut off
+// (power loss) before fdatasync returned, so it was never acknowledged. Storage
+// tears whole sectors, so the record is recognizable: within its span every
+// sector holds either only written bytes or only the preallocated zeros, at
+// least one sector is still zero, and nothing but zeros follows.
+//
+// Every other invalid record is damaged history: a flipped byte, a lost
+// newline or a single NUL byte. Replay then fails closed and does not drop
+// acknowledged commits, or the idempotency keys they carry.
+func replayLog(data []byte, apply func(journal) error) error {
+	for pos := 0; pos < len(data); {
+		rest := data[pos:]
+		if allZero(rest) {
+			return nil
+		}
+		nl := bytes.IndexByte(rest, '\n')
+		if nl >= 0 {
+			if payload, ok := parseRecord(rest[:nl]); ok {
+				var delta journal
+				if err := json.Unmarshal(payload, &delta); err != nil {
+					return fmt.Errorf("journal record at offset %d: %w", pos, err)
+				}
+				if err := apply(delta); err != nil {
+					return fmt.Errorf("journal record at offset %d: %w", pos, err)
+				}
+				pos += nl + 1
+				continue
+			}
+		}
+		line, after := rest, []byte(nil)
+		if nl >= 0 {
+			line, after = rest[:nl], rest[nl+1:]
+		}
+		if tornAtSectors(line, pos) && allZero(after) {
+			return nil
+		}
+		return fmt.Errorf("damaged journal record at offset %d", pos)
+	}
+	return nil
+}
+
+const sectorSize = 512
+
+// tornAtSectors reports whether span (at file offset start) looks like a
+// partially persisted write: it contains NUL bytes, and in every sector it
+// overlaps, its bytes are either all NUL or all non-NUL.
+func tornAtSectors(span []byte, start int) bool {
+	if bytes.IndexByte(span, 0) < 0 {
+		return false
+	}
+	for i := 0; i < len(span); {
+		end := (start+i)/sectorSize*sectorSize + sectorSize - start
+		if end > len(span) {
+			end = len(span)
+		}
+		chunk := span[i:end]
+		if !allZero(chunk) && bytes.IndexByte(chunk, 0) >= 0 {
+			return false
+		}
+		i = end
+	}
+	return true
+}
+
 func syncDirectory(path string) error {
 	dir, err := os.Open(path)
 	if err != nil {

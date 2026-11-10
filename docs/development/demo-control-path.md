@@ -190,15 +190,19 @@ create latency. No 500 ms or memory-fork performance result is claimed by T3.
 
 ## Failure and replay rules
 
-The owner-private journal appends one newline-delimited JSON write-set record
-and fsyncs it for each state change. Save work is independent of retained history;
+The owner-private journal appends one framed write-set record per state change,
+`J1 <CRC32C hex> <JSON>\n`, written in place over preallocated zero bytes and
+made durable with `fdatasync`. Save work is independent of retained history;
 idempotency lookups use an in-memory index rebuilt on open. Admission is durable
 before effect dispatch; terminal evidence is durable before publication.
 Every 16,384 records (and on open), compaction writes and fsyncs an atomic
 `journal.json` snapshot, fsyncs the directory, then truncates/fsyncs `journal.log`.
 Sequence numbers make a crash between snapshot rename and log truncation safe.
-Open migrates existing JSON snapshots, replays complete log records, and drops
-only a torn final line; complete corrupt records fail closed. A write failure
+Open migrates existing JSON snapshots and replays checksum-valid records up to
+the zero tail. It drops only a torn final commit, one whose sectors are each
+either fully written or still zero and which only zeros follow. Any other
+invalid record (a flipped byte, a lost newline, a stray NUL, or damage before
+later commits) fails closed, leaves the log untouched, and does not compact. A write failure
 closes admission and reads with
 `DATA_UNAVAILABLE` rather than exposing an uncommitted success. This local
 journal is deliberately not the later replicated/SQLite control core.

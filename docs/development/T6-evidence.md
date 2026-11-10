@@ -29,8 +29,10 @@ Evidence: [summary](evidence/t6/e01-final/summary.json),
 [log](evidence/t6/e01-final/e01-final.log) and all 49,158 chained
 observations ([gzip](evidence/t6/e01-final/e01-final-observations.jsonl.gz),
 last hash `ed8fc97a…1004172`). Status **fail**; no cleanup errors. 660 resource
-samples are listed as missing: they belong to the fork trials that were never
-reached in the `replicated` rows.
+samples are listed as missing: one per `replicated` create attempt (3 rows ×
+(20 warmups + 200 measured)). Each attempt was refused with `QUORUM_REQUIRED`
+before a sandbox existed, so the observer had nothing to sample. The
+`replicated` fork trials were never reached, so they have no sample slots.
 
 Targets: create p50 < 500 ms; every fork < 1000 ms with the source running and
 the fork useful; zero state errors. Times are caller-to-useful-command in ms.
@@ -71,17 +73,21 @@ Evidence: [summary](evidence/t6/e02-final-2/summary.json),
 [metadata](evidence/t6/e02-final-2/e02-final-metadata.json),
 [log](evidence/t6/e02-final-2/e02-final-2.log) and the chained observations
 ([gzip](evidence/t6/e02-final-2/observations.jsonl.gz)). Status **fail**; no
-missing observations or cleanup errors. Each measure has ten randomized
-secured/native pairs. The ratio is secured/native in the "higher is better"
-direction, given as the paired geometric mean and the seeded paired-bootstrap
-one-sided 95 % lower bound. The binding target is ≥ 0.97; the confidence
-objective is provisional.
+missing observations or cleanup errors. Each measure ran ten randomized
+secured/native pairs. One of them failed: `udp_goodput` pair 1 (secured half
+first) ended with "workload exited unsuccessfully" in the guest. That failed
+trial stays in the observations, so `udp_goodput` has 9 completed pairs. The
+ratio is secured/native in the "higher is better" direction, given as the
+paired geometric mean and the seeded paired-bootstrap one-sided 95 % lower
+bound. A measure passes only with all 10 pairs and a point ratio ≥ 0.97
+(`benchmarks/protocol.py`). The lower bound is the provisional confidence
+objective and does not decide the status.
 
 | Measure | Point ratio | 95 % lower | Pair range | Result |
 | --- | --- | --- | --- | --- |
 | `compile` | 0.287 | 0.221 | 0.132–0.566 | **fail** |
 | `compression` | 0.966 | 0.930 | 0.806–1.018 | **fail** |
-| `crypto` | 0.970 | 0.962 | 0.948–0.999 | **fail** (point at the line, bound below) |
+| `crypto` | 0.9699 | 0.962 | 0.948–0.999 | **fail** (point 0.96990 < 0.97) |
 | `tree` | 18.106 | 13.928 | 8.205–38.663 | pass, see caveat |
 | `seq_read` | 2.311 | 2.014 | 1.218–2.756 | pass, see caveat |
 | `seq_write` | 4.163 | 3.530 | 3.032–11.178 | pass, see caveat |
@@ -91,7 +97,7 @@ objective is provisional.
 | `cow_first_write` | 2.819 | 2.092 | 0.805–5.249 | pass, see caveat |
 | `tcp_goodput` | 0.258 | 0.239 | 0.198–0.306 | **fail** |
 | `tcp_packets` | 0.865 | 0.826 | 0.768–1.080 | **fail** |
-| `udp_goodput` | 0.807 | 0.734 | 0.595–0.997 | **fail** |
+| `udp_goodput` | 0.807 | 0.734 | 0.595–0.997 | **fail** (9 of 10 pairs, 1 failed trial; point < 0.97) |
 | `udp_packets` | 0.771 | 0.702 | 0.492–0.880 | **fail** |
 | `small_flows` | 0.315 | 0.258 | 0.166–0.600 | **fail** |
 | `request_latency` | 0.860 | 0.760 | 0.513–1.145 | **fail** |
@@ -112,8 +118,8 @@ Where compute and network fall short:
 
 - `compile` (0.29) runs `cc -O2` on a fresh process tree. Each guest process
   pays the guard's audit-before-effect cost, about 7.5 ms, for its durable fork
-  and exec records. `compression` and `crypto`, single-process loops, land at
-  0.93–0.97.
+  and exec records. `compression` (point 0.966) and `crypto` (point 0.96990),
+  single-process loops, fall just short of 0.97.
 - Network goes TAP → NFQUEUE guard → pasta. Every packet is inspected in user
   space, so packet rates reach 0.70–0.87 and goodput 0.24–0.81. `small_flows`
   and `proxy` (0.21–0.26) also pay a connection setup through the guard, and
@@ -180,8 +186,9 @@ It found three real defects, all fixed before `e01-final`:
    ext4 metadata (the engine's jail and reflink files on the same disk):
    36–66 ms per fsync during a fork, three per operation. Fixes: the journal
    log is preallocated with real zero bytes and committed in place with
-   `fdatasync` (path identity re-checked per commit, torn tail ignored on
-   replay); the pre-dispatch commit overlaps the first worker RPC (readers
+   `fdatasync` (path identity re-checked per commit). After review, each
+   record is framed with a CRC32C, and replay fails closed on damaged history.
+   Only a sector-torn final commit, which was never acknowledged, is dropped; the pre-dispatch commit overlaps the first worker RPC (readers
    still only see it once durable; recovery is unchanged because the durable
    accepted record already restarts as `outcome_unknown`); `exec watch`
    waits on a commit notification instead of a 1 ms spin under the service
@@ -223,6 +230,18 @@ owner's services that are running (`excerlock-dm-tt`, `-dm-ig`, `-dm-chrome`,
 KVM vCPU creation with an order-5 allocation failure during development), runs
 the suite, and restarts exactly what it stopped whatever the outcome. The T3
 Code server, the Lamp CI runner and Docker are never touched.
+
+After review round 1 (the recorded runs used the earlier version), the
+wrapper handles failures as follows:
+
+- If a stop or the host preparation fails, the suite does not run, and the
+  wrapper restores what it stopped and exits 75.
+- TERM, INT and HUP are forwarded to the suite. The wrapper waits for it to be
+  reaped (KILL after a grace period) before restoring any service.
+- Every restored unit is checked to be active. If a restore fails, the
+  wrapper exits 76.
+
+Stub reproductions for each case are in `tests/infra/test_timing_run.py`.
 
 - `e01-final` and `e02-final-2`: the wrapper stopped `dm-tt`, `dm-ig` and
   `dm-chrome` and restarted all three; each reports `active` at the end of its

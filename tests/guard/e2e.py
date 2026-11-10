@@ -322,6 +322,39 @@ print('command-done',flush=True)
     ok(f"background job outlives its command ({early:.3f}s status, {late:.3f}s collector exit) and stays audited")
 
 
+def task_environment(namespace):
+    # The requested environment reaches the task exactly; the collector's own
+    # environment never does; an invalid request runs nothing.
+    # /proc/self/environ is the environment exactly as exec'd (Python's own
+    # locale coercion only edits os.environ afterwards).
+    payload = ("import json;e=open('/proc/self/environ','rb').read().split(b'\\0');"
+               "print(json.dumps(dict(x.decode().split('=',1) for x in e if x)),flush=True)")
+    request = {"FOO": "value", "PATH": "/usr/bin:/bin:/opt/task", "EMPTY": ""}
+    a, b = socket.socketpair()
+    sink = launch(BINARY, "receive", config("task-env"), a.fileno(), pass_fds=(a.fileno(),))
+    collect = launch("ip", "netns", "exec", namespace, BINARY, "collect", b.fileno(), 1000000, "--",
+                     "/usr/bin/python3", "-u", "-c", payload, pass_fds=(b.fileno(),),
+                     env={"LAMP_TASK_ENV": json.dumps(request), "COLLECTOR_ONLY": "host-secret",
+                          "PATH": "/usr/sbin:/usr/bin:/sbin:/bin"})
+    a.close(); b.close()
+    out, error = collect.communicate(timeout=10)
+    assert collect.returncode == 0, (out, error)
+    assert sink.wait(timeout=3) == 0
+    seen = json.loads(out.strip().splitlines()[-1])
+    assert seen == {**request, "HOME": "/tmp"}, seen
+    for bad in ('{"A=B":"x"}', '{"A":"x\\u0000y"}', "not json"):
+        a, b = socket.socketpair()
+        sink = launch(BINARY, "receive", config("task-env-bad"), a.fileno(), pass_fds=(a.fileno(),))
+        collect = launch("ip", "netns", "exec", namespace, BINARY, "collect", b.fileno(), 1000000, "--",
+                         "/usr/bin/python3", "-c", "print('RAN')", pass_fds=(b.fileno(),),
+                         env={"LAMP_TASK_ENV": bad, "PATH": "/usr/sbin:/usr/bin:/sbin:/bin"})
+        a.close(); b.close()
+        out, error = collect.communicate(timeout=10)
+        assert collect.returncode == 70 and "RAN" not in out, (bad, out, error)
+        sink.kill(); sink.wait(timeout=3)
+    ok("audited task gets exactly the requested environment; invalid requests run nothing")
+
+
 def processes(namespace):
     workload = r'''
 import ctypes,errno,json,os,platform,socket,threading
@@ -389,6 +422,7 @@ os.waitpid(p,0)
     ok("task root cannot access tracer/audit FD; CLONE_UNTRACED denied and clone3 forced to traced fallback")
 
     background(namespace)
+    task_environment(namespace)
 
     sink, collect = pair("collector-loss", "import time;print('running',flush=True)\nwhile True: pass", namespace)
     assert collect.stdout.readline().strip() == "running"

@@ -69,6 +69,13 @@ fn main() {
                 if status_fd.is_some_and(|f| f < 3) {
                     return Err(io::Error::other("status needs a dedicated descriptor >=3"));
                 }
+                // The task's environment comes only from LAMP_TASK_ENV,
+                // validated before anything runs.
+                let task_env = match env::var(process::TASK_ENV) {
+                    Ok(json) => process::task_env(&json)?,
+                    Err(env::VarError::NotPresent) => Vec::new(),
+                    Err(e) => return Err(io::Error::other(format!("{}: {e}", process::TASK_ENV))),
+                };
                 let mut keep: Vec<i32> = status_fd.into_iter().collect();
                 // `vsock:PORT` (guest): the collector owns its host stream and
                 // reconnects after Firecracker resets vsock at a snapshot.
@@ -94,6 +101,7 @@ fn main() {
                     emitter,
                     args[3].parse().map_err(io::Error::other)?,
                     args[rest..].to_vec(),
+                    task_env,
                     status,
                 )
             }

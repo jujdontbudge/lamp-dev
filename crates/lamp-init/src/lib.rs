@@ -60,6 +60,21 @@ pub struct Barrier {
     pub unix_time_ns: u64,
 }
 
+/// Checks an exec's requested environment before anything runs: names are
+/// non-empty and contain neither `=` nor NUL, values contain no NUL. Both the
+/// direct and the audited (collector) paths apply exactly this environment.
+pub fn validate_env(env: &BTreeMap<String, String>) -> Result<(), String> {
+    for (k, v) in env {
+        if k.is_empty() || k.contains('=') || k.contains('\0') {
+            return Err(format!("invalid environment name {k:?}"));
+        }
+        if v.contains('\0') {
+            return Err(format!("environment value for {k:?} contains NUL"));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Exec {
@@ -303,6 +318,16 @@ pub fn validate_barrier(b: &Barrier) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn exec_environment_is_validated() {
+        let env = |k: &str, v: &str| BTreeMap::from([(k.to_string(), v.to_string())]);
+        assert!(validate_env(&env("FOO", "value")).is_ok());
+        assert!(validate_env(&env("FOO", "")).is_ok());
+        for (k, v) in [("", "x"), ("A=B", "x"), ("A\0", "x"), ("A", "x\0y")] {
+            assert!(validate_env(&env(k, v)).is_err(), "{k:?}={v:?} accepted");
+        }
+    }
+
     use super::*;
 
     #[test]
