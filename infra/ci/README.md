@@ -1,8 +1,11 @@
 # Owner-machine CI
 
 This repository's persistent runners are **private-only, owner-only**. No hosted
-runner fallback exists. A push to main or t3/** starts three jobs; PR events do
-not start jobs. Push checks attach to the PR's head SHA. Manual runs also work.
+runner fallback exists. A push to main starts three jobs; PR events do not start
+jobs. A ticket branch (t3/**) runs only when dispatched, once it is ready for
+review: `gh workflow run check.yml -R JohanSardar/lamp --ref <branch>`. The
+checks attach to the branch's head SHA, so they show on its PR. The owner chose
+on 2026-11-10 to stop rerunning every work-in-progress push on the three machines.
 
 | Runner / labels | Execution host | Persistence |
 | --- | --- | --- |
@@ -101,7 +104,13 @@ runners. T1 does not claim a fresh macOS-VM public CI system is already built.
 
 Run infra/ci/install.py --lane lx|m5|la on the named host, piping a fresh
 repository registration token to stdin. It needs Python 3.12+ with venv, free
-network downloads, a working Go/Rust/C toolchain and git/make. Linux users need
+network downloads, a working Go/Rust/C toolchain and git/make. Plugin boundary
+tests additionally require Linux bubblewrap (`/usr/bin/bwrap`), cgroup v2
+memory/CPU delegation and a working user systemd manager; install the free
+`bubblewrap` OS package before running verification. The LA provisioner includes
+it. macOS tests use the built-in sandbox-exec and explicitly mark resource limits
+diagnostic; production native starts remain fail-closed until hard quotas qualify.
+Linux users need
 lingering already enabled; the installer does not elevate privileges. Package
 version and SHA-256 are pinned in runner-packages.json from the official release.
 It installs under ~/.local/share/lamp-ci, not the repository, and enables the
