@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -176,6 +177,24 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	}
 	// Stage management state privately; any validation failure discards all edits.
 	old := s.journal.Control
+	undoCancel := func() {}
+	if s.fleet != nil && op.Name == "operation_cancel" {
+		target := textField(in, "operation_id")
+		if rec := s.journal.Operations[target]; rec != nil {
+			before := cloneOperations(map[string]*record{target: rec})[target]
+			sb, hasSandbox := s.journal.Sandboxes[rec.Resource.Id]
+			ex, hasExec := s.journal.Execs[rec.Resource.Id]
+			undoCancel = func() {
+				s.journal.Operations[target] = before
+				if hasSandbox {
+					s.journal.Sandboxes[sb.Id] = sb
+				}
+				if hasExec {
+					s.journal.Execs[ex.Id] = ex
+				}
+			}
+		}
+	}
 	clone := &controlState{}
 	b, _ := json.Marshal(old)
 	json.Unmarshal(b, clone)
@@ -191,7 +210,7 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		return
 	}
 	now := timestamp()
-	operationID := newID("op")
+	operationID := s.resourceID("op")
 	refs := []api.ResourceRef{ref}
 	resultRaw, _ := json.Marshal(result)
 	adapter := api.AdapterDocument(resultRaw)
@@ -204,6 +223,17 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	s.done[operationID] = done
 	changed = append(changed, "$control", operationID)
 	if err := s.save(changed...); err != nil {
+		if errors.Is(err, errAuthorityConflict) {
+			// Consensus definitively rejected this transaction before save wrote
+			// anything. Discard its receipt and every staged cancellation edit.
+			s.journal.Control = old
+			undoCancel()
+			delete(s.journal.Operations, operationID)
+			delete(s.keys, key)
+			delete(s.done, operationID)
+			writeError(w, id, "REVISION_CONFLICT", "fleet authority changed; retry the same request", nil)
+			return
+		}
 		s.broken = true
 		writeError(w, id, "DATA_UNAVAILABLE", "cannot commit management operation", pointer(operationID))
 		return
@@ -263,7 +293,7 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 			writeError(w, id, "NOT_FOUND", "documentation topic not found", nil)
 			return
 		}
-		prepareJSON(w, 200, map[string]any{"topic": topic, "format": "text/markdown", "text": content, "installed_operations": surface.CoreNames, "request_id": id})()
+		prepareJSON(w, 200, map[string]any{"topic": topic, "format": "text/markdown", "text": content, "installed_operations": s.installedOperations(), "request_id": id})()
 		return
 	}
 	kind, action, _ := strings.Cut(op.Scope, ".")
@@ -362,7 +392,7 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 				if !s.approvalSelectors(a, v) {
 					continue
 				}
-				if expired(v.ExpiresAt) && v.State != "consumed" && v.State != "denied" && v.State != "revoked" {
+				if s.expired(v.ExpiresAt) && v.State != "consumed" && v.State != "denied" && v.State != "revoked" {
 					v.State = "expired"
 				}
 				items = append(items, object(v))
@@ -720,4 +750,16 @@ func (w *responseSnapshot) Write(b []byte) (int, error) {
 		w.status = 200
 	}
 	return w.body.Write(b)
+}
+
+func (s *Service) installedOperations() map[string]bool {
+	installed := map[string]bool{}
+	for name, value := range surface.CoreNames {
+		installed[name] = value
+	}
+	if s.fleet != nil {
+		installed["host_get"] = true
+		installed["host_list"] = true
+	}
+	return installed
 }

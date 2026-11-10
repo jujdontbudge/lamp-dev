@@ -28,9 +28,16 @@ func (c *Client) httpClient() (*http.Client, error) {
 		return c.HTTP, nil
 	}
 	transport := &http.Transport{}
+	var roundTripper http.RoundTripper = transport
 	if c.URL == "" {
 		transport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, "unix", c.Socket)
+		}
+	} else if strings.HasPrefix(c.URL, "lamp+fleet:") {
+		var err error
+		roundTripper, err = newFleetTransport(c.URL)
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		u, err := url.Parse(c.URL)
@@ -44,7 +51,7 @@ func (c *Client) httpClient() (*http.Client, error) {
 			return nil, fmt.Errorf("remote API requires HTTPS")
 		}
 	}
-	c.HTTP = &http.Client{Transport: transport, Timeout: 65 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return fmt.Errorf("API redirects are not permitted") }}
+	c.HTTP = &http.Client{Transport: roundTripper, Timeout: 65 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return fmt.Errorf("API redirects are not permitted") }}
 	return c.HTTP, nil
 }
 func (c *Client) Close() {
@@ -61,7 +68,7 @@ func (c *Client) Open(ctx context.Context, op api.OperationDescriptor, input map
 		return nil, err
 	}
 	base := strings.TrimSuffix(c.URL, "/")
-	if base == "" {
+	if base == "" || strings.HasPrefix(base, "lamp+fleet:") {
 		base = "http://lamp"
 	}
 	r, err := http.NewRequestWithContext(ctx, strings.ToUpper(op.Method), base+path, bytes.NewReader(data))

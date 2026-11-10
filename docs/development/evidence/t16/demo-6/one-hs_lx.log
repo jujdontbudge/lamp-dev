@@ -1,0 +1,3 @@
+2026-11-10T17:15:58.570-0500 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-10T17:15:58.570-0500 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:40517 [Follower]" leader-address= leader-id=
+lampd: listen tcp 127.0.0.1:40518: bind: address already in use
