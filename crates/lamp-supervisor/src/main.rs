@@ -16,7 +16,7 @@
 //! lamp-supervisor ctl bench-create TEMPLATE COUNT [WARMUP]
 //! lamp-supervisor ctl bench-fork TEMPLATE DIRTY_MIB COUNT [WARMUP] [--durability D]
 //! lamp-supervisor ctl e05 TEMPLATE DIRTY_MIB COUNT [WARMUP] [--durability D]
-//! lamp-supervisor ctl e06 TEMPLATE TRIALS --store P   (root: installs one grant per generation)
+//! lamp-supervisor ctl e06 TEMPLATE TRIALS [VCPUS MEM DISK] [--two-running] --store P   (root: one grant per generation)
 //! lamp-supervisor template-prepare SEED NAME [--vcpus N --memory-mib M --disk-gib G]   (Mac)
 //! lamp-supervisor template-import-macos VMDIR NAME [--min-vcpus ..] [--vcpus ..]       (Mac)
 //! ```
@@ -1173,6 +1173,16 @@ fn unix_s() -> f64 {
 ///     process survives each one with the same PID and boot session, the
 ///     clock is corrected and the disk keeps every acknowledged marker.
 fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
+    // --two-running: SBX-003's exact sequence (create 2, suspend 1, reject
+    // the third, delete 1 and retry), for Macs with RAM for two guests.
+    let two_running = args.iter().any(|a| a == "--two-running");
+    let mut args: Vec<String> = args
+        .iter()
+        .filter(|a| *a != "--two-running")
+        .cloned()
+        .collect();
+    // A Linux template on the same Mac: Linux allocations take no macOS slot.
+    let linux = take_flag(&mut args, "--linux-template");
     let template = args
         .first()
         .cloned()
@@ -1235,18 +1245,30 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
         &a,
         "echo before-suspend > /var/db/lamp/m0 && sync && cat /var/db/lamp/m0",
     );
+    let mut rb = None;
+    if two_running {
+        let r = c.try_create(&template, &b, Some(res.clone()));
+        step(
+            "create_b_both_running",
+            r.is_ok(),
+            json!({"error": r.as_ref().err(), "slots": slots(c)}),
+        );
+        rb = Some(r);
+    }
     let s = capture(c, &a, "", "suspend", true);
     step(
         "suspend_a",
         s.is_ok() && marker0 == "before-suspend",
         json!({"result": s.as_ref().map(|r| r.detail.clone()).map_err(|e| e.clone()), "slots": slots(c)}),
     );
-    let rb = c.try_create(&template, &b, Some(res.clone()));
-    step(
-        "create_b_while_a_suspended",
-        rb.is_ok(),
-        json!({"error": rb.as_ref().err(), "slots": slots(c)}),
-    );
+    if rb.is_none() {
+        let r = c.try_create(&template, &b, Some(res.clone()));
+        step(
+            "create_b_while_a_suspended",
+            r.is_ok(),
+            json!({"error": r.as_ref().err(), "slots": slots(c)}),
+        );
+    }
     let rx = c.try_create(&template, &x, Some(res.clone()));
     let refused = matches!(&rx, Err(e) if e.starts_with("NO_CAPACITY"));
     step(
@@ -1259,7 +1281,29 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
     } else {
         let _ = c.try_call(&x, request::Command::Release(Release {}));
     }
+    if let Some(lt) = &linux {
+        let l = format!("sb_m6l_{tag}");
+        let rl = c.try_create(lt, &l, None);
+        let ok = rl.is_ok() && sh(c, &l, "uname -s") == "Linux";
+        step(
+            "linux_allocation_takes_no_macos_slot",
+            ok,
+            json!({"error": rl.as_ref().err(), "slots": slots(c)}),
+        );
+        let _ = c.try_call(&l, request::Command::Release(Release {}));
+    }
     c.release(&b);
+    if two_running {
+        // Delete one, retry: the third now fits.
+        let x2 = format!("sb_m6y_{tag}");
+        let retry = c.try_create(&template, &x2, Some(res.clone()));
+        step(
+            "retry_after_delete",
+            retry.is_ok(),
+            json!({"error": retry.as_ref().err(), "slots": slots(c)}),
+        );
+        let _ = c.try_call(&x2, request::Command::Release(Release {}));
+    }
     // Race two creates for the one free slot from two connections.
     let race: Vec<_> = (0..2)
         .map(|i| {
@@ -1312,6 +1356,24 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
     for w in winners {
         c.release(&w);
     }
+
+    // An explicitly undersized request is refused before any slot is taken.
+    let small = format!("sb_m6s_{tag}");
+    let under = c.try_create(
+        &template,
+        &small,
+        Some(Resources {
+            memory_mib: 2048,
+            ..res.clone()
+        }),
+    );
+    let before = slots(c);
+    step(
+        "undersized_refused",
+        matches!(&under, Err(e) if e.starts_with("INVALID_ARGUMENT")),
+        json!({"result": format!("{:?}", under.as_ref().map(|r| r.state.clone())), "slots": before}),
+    );
+    let _ = c.try_call(&small, request::Command::Release(Release {}));
 
     // Resume A (generation 2) for the rest.
     let mut generation = 1;
