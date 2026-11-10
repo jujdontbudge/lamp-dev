@@ -13,6 +13,12 @@
     "further_attempts": "stopped per owner instruction"
   },
   "format_freeze_authorized": false,
+  "single_review_fixes": {
+    "details": "single-review-fixes.md",
+    "confirmed_and_fixed_findings": [1, 2, 3, 4, 5, 6],
+    "tests_authored_or_extended": false,
+    "new_trial_runs": false
+  },
   "requirements": ["CRED-003", "CRED-004", "E07"],
   "subscription_routes": {
     "claude_code": {"status": "sign_in_not_completed", "qualified": false},
@@ -83,6 +89,17 @@
       "logs": ["verify-macos-proxy-20261110-02.log"]
     },
     "latest_main_merge": {
+      "main": "09899fd704a0cfd02112bd677e692931ad562a0d",
+      "verified_source": "9febad2042c7d976de3a414d8070b973b88095ac",
+      "command": "make verify (one invocation)",
+      "status": "pass",
+      "command_exit_code": 0,
+      "linux_target_compile": "pass",
+      "linux_target_clippy": "pass",
+      "linux_runtime_trial": false,
+      "logs": ["verify-review-main-09899fd-01.log"]
+    },
+    "t10_main_merge": {
       "main": "2ce9e8c8c3a2b02aac787f006d2d4f04294732ab",
       "verified_source": "66df8f8c1a90069626c2386fdedac8c0c5233f10",
       "command": "make verify (one invocation)",
