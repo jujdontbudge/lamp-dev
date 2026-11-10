@@ -1,0 +1,7 @@
+{"event": "network-namespace", "routes": ""}
+{"event": "host-command-denied", "exit": 1, "stderr": "use sessions, attach <session_id>, or shell <sandbox_id>"}
+{"event": "sessions-backend", "exit": 1, "stderr": "control session_list: NOT_FOUND"}
+{"event": "websocket-openssh", "exit": 1, "stderr": "use sessions, attach <session_id>, or shell <sandbox_id>"}
+{"event": "local-api", "fleet": "fl_local"}
+{"event": "forwarding-denied", "exit": 255, "stderr": "channel 0: open failed: unknown channel type: unsupported channel type\nstdio forwarding failed"}
+{"event": "local-demo", "root": "/tmp/lamp-t18-local-4jy_piqs", "no_external_routes": true, "host_ca_verified": true}

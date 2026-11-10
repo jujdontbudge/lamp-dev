@@ -1,18 +1,19 @@
-# Control path for the engine demo
+# Demo control path
 
 ## Goal
-Build the smallest real control path that lets a caller create a sandbox from a template, run a command in it and fork it, the way ENG-001's interfaces show: `lamp sandbox create --template-id … --json`, `POST /v1/sandboxes`, then `sandbox_fork`. When this is done, those calls travel from the CLI and the HTTP API through `lampd` to the Rust worker over `lamp.worker/1` and return the canonical operation and resource shapes, and being accepted is never reported as being ready (architecture §6.2).
-
-The engine gate times create from the moment the caller sends the request to a running command, through the same path real callers will use, so this path's overhead counts against the 500 ms target. Go owning control and Rust owning the engine is a fixed decision (ENG-003).
+Build the local control path for creating a sandbox from a template, running a command, forking it and reading its Operation. CLI and HTTP API calls travel through `lampd` to the Rust worker over `lamp.worker/1` and return canonical operation and resource shapes. Accepted work is distinct from command-ready work (architecture §6.2). T10 grows this into the complete control surface.
 
 ## Context
-- Ticket T3 of 31; `docs/tickets/README.md` lists them all and what each waits for. T1 delivered the repository layout and the contracts. Three tickets run at the same time, each in its own checkout: T2 builds the Linux engine and owns the worker side of `lamp.worker/1`; T4 builds the host guard and audit collectors; T5 builds the independent oracles and benchmarks, which drive Lamp only through this ticket's CLI and API. T6 then joins the four and runs the gate. This ticket owns `lampd` and the `lamp` CLI. After the gate, T10 grows this into the full control core.
-- This ticket lands as one pull request into `main` on GitHub (`JohanSardar/lamp`, private; `gh` on the M5 is signed in as that account). The owner's pull request conventions are in `/Users/johansardar/.claude/skills/file-pr/SKILL.md`. The owner's coordinating session stays on `main`: it watches the pull request, sends back failed checks and review findings for this ticket to fix, and merges it once the checks pass.
+- Feature prerequisites: T1. [README.md](README.md) and [map.html](map.html) show the same dependencies. Shared interfaces may allow work to overlap.
+- Land one PR from this ticket’s own branch and checkout. The coordinating session stays on `main`, reviews the PR and merges it. Follow `/Users/johansardar/.claude/skills/file-pr/SKILL.md`.
 
 ## Constraints
-- Only what the demo needs: create, run a command, fork and read the operation, for one local caller. The owner's rule (ENG-001) is no product expansion before the engine gate; T10 builds the rest.
+- Build the features and show one real end-to-end demonstration covering this ticket’s goal. Add almost no tests: only where the feature cannot be shown working another way. Run only what iteration needs; speed measurements happen once at release and never block work or release.
+- Keep this to local create, exec, fork and Operation reads; T10 owns the complete control core.
 - Commit only to this ticket's own branch in its own checkout, push it, and open the pull request yourself. Never push to `main` or to another ticket's branch (owner, 2026-11-09).
 - Model tokens are the only thing money may be spent on (owner, 2026-11-09): buy, rent or subscribe to nothing else. Each pay-per-use key stays under a hard cap of $25 a month, set in its provider's dashboard.
+- Keep the owner’s services running and leave existing Docker containers, images and networks alone. On the Ubuntu laptop, allow at most 2 live Lamp sandboxes across all tickets: check `pgrep -c firecracker` is below 2 and `free -m` shows at least 12 GiB available before creating one; release it promptly.
+- On Macs, never run commands that ask for a password or approval dialog. Do not drive the owner’s visible screen, apps or browser. Use disposable state and public third-party projects for the demonstration, never the owner’s projects or real vault items.
 
 ## Evidence of done
 Show evidence that the goal is done, taken from the real thing: an end-to-end test, a video, screenshots, or whatever fits.

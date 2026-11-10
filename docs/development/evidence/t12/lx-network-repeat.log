@@ -1,0 +1,60 @@
+REPEAT 1
+PASS revision channel retains subordinate UID, seccomp and assigned-descriptor-only profile
+PASS allowlisted public TCP/UDP and an exact private TCP service work
+PASS independent sinks see zero denied IPv4/IPv6, LAN, metadata, neighbour, wrong-port or wrong-transport packets
+PASS guest root firewall changes and source spoofing do not widen host policy
+PASS unavailable strict-site mediation is rejected without mutating the active revision
+PASS atomic CAS narrowing fences live TCP/UDP and private grants; widening cannot remove immutable parent ceiling
+PASS supervisor channel death drops both established and new traffic with kernel queue rules intact
+PASS durable flow fences and new admissions carry correct revisions, policy digests and consecutive audit sequences
+PASS proxy hot-update admission refuses an uncoordinated partial policy swap
+PASS real numeric HTTP proxy enforces the same parent, explicit-deny, exception and safety decisions; denied origins see zero packets
+EVIDENCE /var/tmp/lamp-t12-network-bjpv4o1_
+REPEAT 2
+PASS revision channel retains subordinate UID, seccomp and assigned-descriptor-only profile
+PASS allowlisted public TCP/UDP and an exact private TCP service work
+PASS independent sinks see zero denied IPv4/IPv6, LAN, metadata, neighbour, wrong-port or wrong-transport packets
+PASS guest root firewall changes and source spoofing do not widen host policy
+PASS unavailable strict-site mediation is rejected without mutating the active revision
+PASS atomic CAS narrowing fences live TCP/UDP and private grants; widening cannot remove immutable parent ceiling
+PASS supervisor channel death drops both established and new traffic with kernel queue rules intact
+PASS durable flow fences and new admissions carry correct revisions, policy digests and consecutive audit sequences
+PASS proxy hot-update admission refuses an uncoordinated partial policy swap
+PASS real numeric HTTP proxy enforces the same parent, explicit-deny, exception and safety decisions; denied origins see zero packets
+EVIDENCE /var/tmp/lamp-t12-network-duy9_oau
+REPEAT 3
+PASS revision channel retains subordinate UID, seccomp and assigned-descriptor-only profile
+PASS allowlisted public TCP/UDP and an exact private TCP service work
+PASS independent sinks see zero denied IPv4/IPv6, LAN, metadata, neighbour, wrong-port or wrong-transport packets
+PASS guest root firewall changes and source spoofing do not widen host policy
+PASS unavailable strict-site mediation is rejected without mutating the active revision
+PASS atomic CAS narrowing fences live TCP/UDP and private grants; widening cannot remove immutable parent ceiling
+PASS supervisor channel death drops both established and new traffic with kernel queue rules intact
+PASS durable flow fences and new admissions carry correct revisions, policy digests and consecutive audit sequences
+PASS proxy hot-update admission refuses an uncoordinated partial policy swap
+PASS real numeric HTTP proxy enforces the same parent, explicit-deny, exception and safety decisions; denied origins see zero packets
+EVIDENCE /var/tmp/lamp-t12-network-gwqqbtt8
+REPEAT 4
+PASS revision channel retains subordinate UID, seccomp and assigned-descriptor-only profile
+PASS allowlisted public TCP/UDP and an exact private TCP service work
+PASS independent sinks see zero denied IPv4/IPv6, LAN, metadata, neighbour, wrong-port or wrong-transport packets
+PASS guest root firewall changes and source spoofing do not widen host policy
+PASS unavailable strict-site mediation is rejected without mutating the active revision
+PASS atomic CAS narrowing fences live TCP/UDP and private grants; widening cannot remove immutable parent ceiling
+PASS supervisor channel death drops both established and new traffic with kernel queue rules intact
+PASS durable flow fences and new admissions carry correct revisions, policy digests and consecutive audit sequences
+PASS proxy hot-update admission refuses an uncoordinated partial policy swap
+PASS real numeric HTTP proxy enforces the same parent, explicit-deny, exception and safety decisions; denied origins see zero packets
+EVIDENCE /var/tmp/lamp-t12-network-6oqnxhcp
+REPEAT 5
+PASS revision channel retains subordinate UID, seccomp and assigned-descriptor-only profile
+PASS allowlisted public TCP/UDP and an exact private TCP service work
+PASS independent sinks see zero denied IPv4/IPv6, LAN, metadata, neighbour, wrong-port or wrong-transport packets
+PASS guest root firewall changes and source spoofing do not widen host policy
+PASS unavailable strict-site mediation is rejected without mutating the active revision
+PASS atomic CAS narrowing fences live TCP/UDP and private grants; widening cannot remove immutable parent ceiling
+PASS supervisor channel death drops both established and new traffic with kernel queue rules intact
+PASS durable flow fences and new admissions carry correct revisions, policy digests and consecutive audit sequences
+PASS proxy hot-update admission refuses an uncoordinated partial policy swap
+PASS real numeric HTTP proxy enforces the same parent, explicit-deny, exception and safety decisions; denied origins see zero packets
+EVIDENCE /var/tmp/lamp-t12-network-q15zxpup

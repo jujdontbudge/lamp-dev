@@ -1,6 +1,6 @@
 //! Vendor-only CONNECT proxy. Resolve policy names before entering confinement;
 //! the serving loop only dials those pinned public addresses, without threads.
-use crate::{Config, public_v4};
+use crate::{Config, Tuple, policy, public_v4};
 use std::collections::BTreeMap;
 use std::io;
 use std::net::{SocketAddr, TcpListener, ToSocketAddrs};
@@ -35,7 +35,15 @@ impl ResolvedVendors {
                 .into_iter()
                 .filter(|address| {
                     matches!(address, SocketAddr::V4(v4)
-                    if v4.port() == 443 && public_v4(*v4.ip(), &config.host_denies))
+                    if v4.port() == 443
+                        && public_v4(*v4.ip(), &config.host_denies)
+                        && policy::decision(config, &Tuple {
+                            source: config.guest_ip,
+                            destination: *v4.ip(),
+                            source_port: 0,
+                            destination_port: v4.port(),
+                            protocol: 6,
+                        }).is_ok())
                 })
                 .take(8)
                 .collect();

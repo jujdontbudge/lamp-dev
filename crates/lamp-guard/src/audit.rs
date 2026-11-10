@@ -72,6 +72,14 @@ impl Spool {
             durable_writes: 0,
         })
     }
+    /// Called only after the guard durably records and fences the old revision.
+    pub(crate) fn set_policy_revision(&mut self, revision: u64) -> io::Result<()> {
+        if revision <= self.attribution.policy_revision {
+            return Err(io::Error::other("audit policy revision must increase"));
+        }
+        self.attribution.policy_revision = revision;
+        Ok(())
+    }
     /// Admission ACK/verdict is forbidden until this durable write succeeds.
     pub fn record(&mut self, source: &str, details: Value) -> io::Result<()> {
         self.record_batch(source, [details])

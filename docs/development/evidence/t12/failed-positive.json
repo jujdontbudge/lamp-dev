@@ -1,0 +1,15 @@
+{
+  "qualification": "isolated-linux-transport-policy-regression-not-E09",
+  "passed": [
+    "revision channel retains subordinate UID, seccomp and assigned-descriptor-only profile"
+  ],
+  "failure": "AssertionError: ('udp', '8.8.8.8', 18080, 'denied')",
+  "cleanup_errors": [
+    "process 2703198 did not terminate"
+  ],
+  "observations": [],
+  "kernel": "7.0.0-42-generic",
+  "architecture": "x86_64",
+  "binary_sha256": "74da5af095530301f92a0b8b8a807f1e4c6a7971c4c3dd57bbe01f234ab71a59",
+  "test_sha256": "1d87b301448bf655527833d61dca01656e0b2acd15a3cf08f8578ae1aa703cea"
+}

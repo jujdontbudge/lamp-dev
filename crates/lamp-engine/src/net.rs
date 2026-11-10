@@ -64,6 +64,19 @@ pub struct Policy {
     /// Exact destination exceptions (see lamp-guard `Exception`).
     #[serde(default)]
     pub exceptions: Vec<serde_json::Value>,
+    /// Explicit immutable host/fleet denies, including any destination which
+    /// must remain forbidden even when an exact private exception is present.
+    #[serde(default)]
+    pub safety_denies: Vec<lamp_guard::Prefix>,
+    /// Immutable parent/CI ceilings for the generation.
+    #[serde(default)]
+    pub policy_ceiling: Vec<lamp_guard::policy::Layer>,
+    /// Initial transport layers installed before any task is released.
+    #[serde(default)]
+    pub policy_layers: Vec<lamp_guard::policy::Layer>,
+    /// Trusted public/unknown-visibility forge intake must set this ceiling.
+    #[serde(default)]
+    pub require_allowlist: bool,
     /// Owner/principal recorded in attribution.
     #[serde(default = "local_principal")]
     pub principal_id: String,
@@ -85,6 +98,17 @@ impl Policy {
                 "network policy revision must be nonzero",
             ));
         }
+        lamp_guard::policy::validate_layers(&p.policy_ceiling, false)
+            .and_then(|()| {
+                lamp_guard::policy::validate_layers(
+                    &p.policy_layers,
+                    p.require_allowlist
+                        && !p.policy_ceiling.iter().any(|layer| {
+                            layer.default_egress == lamp_guard::policy::DefaultEgress::Deny
+                        }),
+                )
+            })
+            .map_err(|_| EngineError::invalid("unsupported or invalid network policy"))?;
         Ok(p)
     }
 }
@@ -247,6 +271,9 @@ impl Attachment {
                 "guard_uid": guard_uid, "host_denies": denies,
                 "spool": spool, "spool_bytes": bytes, "exceptions": policy.exceptions,
                 "subscription_domains": policy.subscription_domains,
+                "safety_denies": policy.safety_denies, "policy_layers": policy.policy_layers,
+                "policy_ceiling": policy.policy_ceiling,
+                "require_allowlist": policy.require_allowlist,
                 "proxy": {"address": PROXY_ADDR, "port": PROXY_PORT},
             })
         };

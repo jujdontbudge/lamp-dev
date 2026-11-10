@@ -1,8 +1,9 @@
 use crate::{
     Config, Tuple,
     audit::{Spool, now_ms},
+    control::{Control, Message, Update},
     netlink::Queue,
-    packet, public_v4,
+    packet, policy,
 };
 use serde_json::json;
 use std::{
@@ -154,6 +155,56 @@ impl Connections {
         d.last = now;
         Ok(false)
     }
+    /// Fence all old flow identities before acknowledging a revision. This
+    /// deliberately also retires still-allowed TCP flows: they must reconnect
+    /// with a fresh SYN rather than inherit an admission from an older policy.
+    fn apply(&mut self, config: &mut Config, spool: &mut Spool, update: Update) -> io::Result<()> {
+        let mut next = config.clone();
+        next.policy_layers = update.policy_layers;
+        next.attribution.policy_revision = update.revision;
+        let digest = next.policy_digest()?;
+        self.flush(spool, None)?;
+        let mut events: Vec<_> = self
+            .flows
+            .iter()
+            .map(|(t, f)| f.record(t, "end", "policy_revision_fence"))
+            .collect();
+        events.push(
+            json!({"type":"policy_change","previous_revision":config.attribution.policy_revision,
+            "effective_policy_revision":update.revision,"policy_sha256":digest,"flow_action":"retire_all"}),
+        );
+        self.durable(spool, events)?;
+        self.flows.clear();
+        spool.set_policy_revision(update.revision)?;
+        *config = next;
+        Ok(())
+    }
+    fn control(
+        &mut self,
+        control: &mut Control,
+        config: &mut Config,
+        spool: &mut Spool,
+    ) -> io::Result<()> {
+        if let Some(message) = control.receive()? {
+            let error = match message {
+                Message::Invalid => Some("INVALID_POLICY"),
+                Message::Update(update) => match update.validate(
+                    config.attribution.policy_revision,
+                    config.revision_requires_allowlist(),
+                ) {
+                    Err(error) => Some(error),
+                    Ok(()) => {
+                        self.apply(config, spool, update)?;
+                        None
+                    }
+                },
+            };
+            // If the supervisor cannot observe this ACK, stop instead of
+            // admitting traffic under an uncertain revision.
+            control.reply(config.attribution.policy_revision, error)?;
+        }
+        Ok(())
+    }
     fn packet(
         &mut self,
         config: &Config,
@@ -178,10 +229,14 @@ impl Connections {
             if config.subscription_domains.is_some() && !proxied_in {
                 return self.deny(spool, Some(t), "subscription_proxy_only", &p.bytes);
             }
-            let excepted = !proxied_in && config.excepted(&t);
-            if !proxied_in && !excepted && !public_v4(t.destination, &config.host_denies) {
-                return self.deny(spool, Some(t), "private_lan_metadata_or_host", &p.bytes);
-            }
+            let reason = if proxied_in {
+                "mediated_proxy"
+            } else {
+                match policy::decision(config, &t) {
+                    Ok(reason) => reason,
+                    Err(reason) => return self.deny(spool, Some(t), reason, &p.bytes),
+                }
+            };
             let syn = if t.protocol == 6 && p.bytes[33] & 0x17 == 0x02 {
                 Some(u32::from_be_bytes(p.bytes[24..28].try_into().unwrap()))
             } else {
@@ -217,13 +272,6 @@ impl Connections {
                     syn,
                     draining: false,
                     dirty: false,
-                };
-                let reason = if proxied_in {
-                    "mediated_proxy"
-                } else if excepted {
-                    "policy_exception"
-                } else {
-                    "public_transport"
                 };
                 self.durable(spool, vec![f.record(&t, "start", reason)])?;
                 self.flows.insert(t.clone(), f);
@@ -271,7 +319,18 @@ impl Connections {
 }
 
 pub fn run(config: Config) -> io::Result<()> {
+    run_with_control(config, None)
+}
+
+pub fn run_with_control(mut config: Config, mut control: Option<Control>) -> io::Result<()> {
     config.validate()?;
+    if control.is_some() && config.proxy.is_some() {
+        // The old single-request proxy has no active-stream revision fence.
+        // Refuse partial updates rather than leave its upstream dials stale.
+        return Err(io::Error::other(
+            "live revisions require transport-only guard; proxy must be fenced and recreated",
+        ));
+    }
     if std::fs::read_link("/proc/self/ns/net")? == std::fs::read_link("/proc/1/ns/net")? {
         return Err(io::Error::other(
             "guard requires a supervisor-owned private network namespace",
@@ -302,13 +361,13 @@ pub fn run(config: Config) -> io::Result<()> {
         return Err(io::Error::other("nft policy install failed"));
     }
     use std::os::fd::AsRawFd;
-    crate::confinement::enter(
-        config.guard_uid,
-        true,
-        &[spool.as_raw_fd(), queue.as_raw_fd()],
-    )?;
-    spool.record("host_guard",json!({"type":"lifecycle","state":"ready","filter_mode":"transport",
-        "ipv6":"deny","max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis(),
+    let mut keep = vec![spool.as_raw_fd(), queue.as_raw_fd()];
+    if let Some(control) = &control {
+        keep.push(control.as_raw_fd());
+    }
+    crate::confinement::enter(config.guard_uid, true, &keep)?;
+    spool.record("host_guard",json!({"type":"lifecycle","state":"ready","filter_mode":"transport","policy_sha256":config.policy_digest()?,
+        "ipv6":"deny","policy_layers":config.policy_layers.len(),"policy_ceiling_layers":config.policy_ceiling.len(),"require_allowlist":config.require_allowlist,"live_revisions":control.is_some(),"max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis(),
         "audit_batch_ms":AUDIT_BATCH.as_millis(),"exceptions":config.exceptions,"proxy":config.proxy,"audit_deadline_ms":AUDIT_DEADLINE.as_millis(),"max_pending_denials":MAX_DENIALS}))?;
     println!(
         "{}",
@@ -316,8 +375,14 @@ pub fn run(config: Config) -> io::Result<()> {
     );
     let mut connections = Connections::new();
     loop {
+        if let Some(control) = &mut control {
+            connections.control(control, &mut config, &mut spool)?;
+        }
         connections.tick(&mut spool)?;
         for p in queue.packets()? {
+            if let Some(control) = &mut control {
+                connections.control(control, &mut config, &mut spool)?;
+            }
             connections.tick(&mut spool)?;
             let allow = connections.packet(&config, interface, &mut spool, &p)?;
             // No kernel bypass: queue/socket/guard loss still drops established
@@ -374,6 +439,69 @@ mod tests {
             .lines()
             .map(|s| serde_json::from_str(s).unwrap())
             .collect()
+    }
+    #[test]
+    fn revision_fences_existing_authority_and_preserves_parent_ceiling() {
+        let (mut c, mut s, mut state) = fixture("revision-fence");
+        c.policy_ceiling = serde_json::from_value(json!([{
+            "filter_mode":"transport", "default_egress":"deny",
+            "allow":[{"cidr":"8.8.8.8/32","protocol":"tcp","ports":[18080]}]
+        }]))
+        .unwrap();
+        c.require_allowlist = true;
+        c.validate().unwrap();
+        assert!(state.packet(&c, 1, &mut s, &tcp(2, 1, 0)).unwrap());
+        let update: Update = serde_json::from_value(json!({"expected_revision":1,"revision":2,
+            "policy_layers":[{"filter_mode":"transport","default_egress":"deny"}]}))
+        .unwrap();
+        update.validate(1, c.revision_requires_allowlist()).unwrap();
+        state.apply(&mut c, &mut s, update).unwrap();
+        assert_eq!(c.attribution.policy_revision, 2);
+        assert!(state.flows.is_empty());
+        assert!(!state.packet(&c, 1, &mut s, &tcp(0x18, 2, 100)).unwrap());
+        assert!(!state.packet(&c, 1, &mut s, &tcp(2, 3, 0)).unwrap());
+        let update = Update {
+            expected_revision: 2,
+            revision: 3,
+            policy_layers: vec![],
+        };
+        update.validate(2, c.revision_requires_allowlist()).unwrap();
+        state.apply(&mut c, &mut s, update).unwrap();
+        // ACK/data on an old tuple cannot borrow the previous TCP admission.
+        assert!(!state.packet(&c, 1, &mut s, &tcp(0x18, 2, 100)).unwrap());
+        assert!(state.packet(&c, 1, &mut s, &tcp(2, 4, 0)).unwrap());
+        let mut forbidden = tcp(2, 5, 0);
+        forbidden.bytes[16..20].copy_from_slice(&[1, 1, 1, 1]);
+        assert!(!state.packet(&c, 1, &mut s, &forbidden).unwrap());
+        let rows = records(&c);
+        assert!(
+            rows.iter()
+                .any(|r| r["details"]["reason"] == "policy_revision_fence"
+                    && r["attribution"]["policy_revision"] == 1)
+        );
+        assert!(
+            rows.iter()
+                .any(|r| r["details"]["phase"] == "start"
+                    && r["attribution"]["policy_revision"] == 3)
+        );
+        std::fs::remove_file(c.spool).unwrap();
+    }
+    #[test]
+    fn failed_revision_barrier_never_changes_active_policy() {
+        let (mut c, mut s, mut state) = fixture("revision-spool-failure");
+        while s
+            .record("test", json!({"padding":"x".repeat(2048)}))
+            .is_ok()
+        {}
+        while s.record("test", json!({"type":"heartbeat"})).is_ok() {}
+        let update = Update {
+            expected_revision: 1,
+            revision: 2,
+            policy_layers: vec![],
+        };
+        assert!(state.apply(&mut c, &mut s, update).is_err());
+        assert_eq!(c.attribution.policy_revision, 1);
+        std::fs::remove_file(c.spool).unwrap();
     }
     #[test]
     fn established_flow_adds_no_per_packet_durable_writes() {

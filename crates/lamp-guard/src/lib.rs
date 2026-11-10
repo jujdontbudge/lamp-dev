@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::{io, net::Ipv4Addr};
 
 #[cfg(target_os = "linux")]
+pub mod control;
+pub mod policy;
+
+#[cfg(target_os = "linux")]
 pub mod audit;
 #[cfg(target_os = "linux")]
 pub mod confinement;
@@ -111,6 +115,11 @@ impl From<Prefix> for String {
 }
 impl Prefix {
     pub fn contains(self, ip: Ipv4Addr) -> bool {
+        // Prefix is public for the original T4 callers; invalid hand-built
+        // prefixes must not underflow or silently become a catch-all.
+        if self.1 > 32 {
+            return false;
+        }
         let mask = u32::MAX.checked_shl(32 - self.1 as u32).unwrap_or(0);
         u32::from(ip) & mask == u32::from(self.0) & mask
     }
@@ -134,6 +143,21 @@ pub struct Config {
     /// Supervisor supplies *all* host addresses, on-link routes and fleet/control ranges,
     /// including publicly numbered LANs. Empty lists are rejected.
     pub host_denies: Vec<Prefix>,
+    /// Explicit host/fleet safety ceiling. Unlike the legacy inventory default,
+    /// exact service exceptions can never override these entries.
+    #[serde(default)]
+    pub safety_denies: Vec<Prefix>,
+    /// Immutable parent/CI/host transport ceilings for this generation. A live
+    /// revision can replace sandbox layers, never remove these ceilings.
+    #[serde(default)]
+    pub policy_ceiling: Vec<policy::Layer>,
+    /// Intersected recipe/task/sandbox/attachment transport layers.
+    #[serde(default)]
+    pub policy_layers: Vec<policy::Layer>,
+    /// Set by trusted forge intake for public or unknown repository visibility.
+    /// Revisions cannot remove the required default-deny ceiling.
+    #[serde(default)]
+    pub require_allowlist: bool,
     pub spool: String,
     pub spool_bytes: u64,
     /// Explicit, exact destination exceptions (address, transport and port)
@@ -178,6 +202,21 @@ impl Exception {
     }
 }
 impl Config {
+    /// Stable binding from audit readiness/revision records to the effective
+    /// host-owned decision inputs, without copying a large rule set into audit.
+    pub fn policy_digest(&self) -> io::Result<String> {
+        use sha2::{Digest, Sha256};
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "interface":self.interface,"guest_ip":self.guest_ip,"proxy":self.proxy,
+            "host_denies":self.host_denies,"safety_denies":self.safety_denies,"special_use_v4":DENIED_V4,
+            "exceptions":self.exceptions,"policy_ceiling":self.policy_ceiling,
+            "policy_layers":self.policy_layers,"require_allowlist":self.require_allowlist
+        }))?;
+        Ok(Sha256::digest(bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect())
+    }
     pub fn excepted(&self, t: &Tuple) -> bool {
         self.exceptions.iter().any(|e| e.matches(t))
     }
@@ -190,8 +229,17 @@ impl Config {
                 && t.destination_port == p.port
         })
     }
+    pub fn revision_requires_allowlist(&self) -> bool {
+        self.require_allowlist
+            && !self
+                .policy_ceiling
+                .iter()
+                .any(|p| p.default_egress == policy::DefaultEgress::Deny)
+    }
     pub fn validate(&self) -> io::Result<()> {
         self.attribution.validate()?;
+        policy::validate_layers(&self.policy_ceiling, false)?;
+        policy::validate_layers(&self.policy_layers, self.revision_requires_allowlist())?;
         if self.interface.is_empty()
             || self.interface.len() > 15
             || !self
@@ -199,6 +247,11 @@ impl Config {
                 .bytes()
                 .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-')
             || self.host_denies.is_empty()
+            || self
+                .host_denies
+                .iter()
+                .chain(&self.safety_denies)
+                .any(|p| p.1 > 32)
             || self.spool_bytes < 4096
             || self.guard_uid < 65536
             || self.guard_uid == u32::MAX
