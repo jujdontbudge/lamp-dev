@@ -18,6 +18,8 @@ import (
 	"github.com/JohanSardar/lamp/internal/network"
 )
 
+const maxControlActionBytes = 1 << 20
+
 type serviceConfig struct {
 	GuardUID         int      `json:"guard_uid"`
 	ControlFD        int      `json:"control_fd"`
@@ -201,7 +203,7 @@ func runService(path string) error {
 		case "direct":
 			provider = network.NewDirectProvider(nil)
 		case "ssh_connect":
-			provider, err = network.NewConnectProvider(c.Provider.Endpoint, nil)
+			provider, err = network.NewConnectProvider(c.Provider.Endpoint)
 		case "private_member":
 			if member == nil {
 				return network.ErrDenied
@@ -283,15 +285,23 @@ func runService(path string) error {
 		}
 	}()
 	actions := make(chan controlAction)
-	decodeErrors := make(chan error, 1)
 	go func() {
 		defer close(actions)
-		decoder := json.NewDecoder(io.LimitReader(controller, 1<<20))
+		limited := &io.LimitedReader{R: controller}
+		decoder := json.NewDecoder(limited)
 		decoder.DisallowUnknownFields()
 		for {
+			// Renew the byte budget per JSON value, accounting for decoder
+			// read-ahead. Keep the same decoder so concatenated values and
+			// buffered bytes survive; there is no cumulative stream limit.
+			buffered, err := io.Copy(io.Discard, decoder.Buffered())
+			if err != nil || buffered > maxControlActionBytes {
+				return
+			}
+			limited.N = maxControlActionBytes + 1 - buffered
+			start := decoder.InputOffset()
 			var action controlAction
-			if err := decoder.Decode(&action); err != nil {
-				decodeErrors <- err
+			if err := decoder.Decode(&action); err != nil || decoder.InputOffset()-start > maxControlActionBytes {
 				return
 			}
 			select {

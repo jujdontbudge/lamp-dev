@@ -94,7 +94,6 @@ func (l *SandboxLink) Close() error {
 		for f := range d.active {
 			if f.destination == l.destination {
 				_ = f.Conn.Close()
-				f.timer.Stop()
 				delete(d.active, f)
 			}
 		}

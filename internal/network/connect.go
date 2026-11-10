@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +14,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/net/dns/dnsmessage"
+	"golang.org/x/net/idna"
 )
 
 const maxHead = 16 << 10
@@ -26,18 +30,14 @@ const maxDatagram = 65507
 type ConnectProvider struct {
 	life     providerLife
 	endpoint netip.AddrPort
-	resolver Resolver
 	dialer   net.Dialer
 }
 
-func NewConnectProvider(endpoint netip.AddrPort, resolver Resolver) (*ConnectProvider, error) {
+func NewConnectProvider(endpoint netip.AddrPort) (*ConnectProvider, error) {
 	if !endpoint.IsValid() || endpoint.Port() == 0 || !endpoint.Addr().IsLoopback() || endpoint.Addr().Zone() != "" {
 		return nil, ErrDenied
 	}
-	if resolver == nil {
-		resolver = net.DefaultResolver
-	}
-	return &ConnectProvider{endpoint: endpoint, resolver: resolver}, nil
+	return &ConnectProvider{endpoint: endpoint}, nil
 }
 func (p *ConnectProvider) Resolve(ctx context.Context, name string) ([]netip.Addr, error) {
 	if !p.life.alive() {
@@ -46,7 +46,77 @@ func (p *ConnectProvider) Resolve(ctx context.Context, name string) ([]netip.Add
 	if ip, err := netip.ParseAddr(name); err == nil {
 		return []netip.Addr{ip.Unmap()}, nil
 	}
-	return p.resolver.LookupNetIP(ctx, "ip", name)
+	name, err := exitDNSName(name)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, DialTimeout)
+	defer cancel()
+	raw, err := p.dialer.DialContext(ctx, "tcp", p.endpoint.String())
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	conn, err := p.life.own(raw)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	deadline, _ := ctx.Deadline()
+	if conn.SetDeadline(deadline) != nil {
+		return nil, ErrUnavailable
+	}
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
+	// The owned endpoint resolves in the remote exit's DNS context. No local
+	// resolver (including a caller-injected resolver) is involved or retried.
+	target := net.JoinHostPort(name, "53")
+	if writeAll(conn, []byte("CONNECT "+target+" HTTP/1.1\r\nHost: "+target+"\r\nX-Lamp-Transport: dns\r\n\r\n")) != nil {
+		return nil, ErrUnavailable
+	}
+	reader := bufio.NewReader(conn)
+	head, err := readHead(reader)
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	response, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(head)), nil)
+	if err != nil || response.StatusCode != 200 || len(response.Header.Values("X-Lamp-Transport")) != 1 || response.Header.Get("X-Lamp-Transport") != "dns" || len(response.TransferEncoding) != 0 || response.ContentLength <= 0 || response.ContentLength > 4096 {
+		return nil, ErrUnavailable
+	}
+	body := make([]byte, int(response.ContentLength))
+	if _, err := io.ReadFull(reader, body); err != nil {
+		return nil, ErrUnavailable
+	}
+	var addresses []netip.Addr
+	if json.Unmarshal(body, &addresses) != nil || len(addresses) == 0 || len(addresses) > 64 || ctx.Err() != nil || !p.life.alive() {
+		return nil, ErrUnavailable
+	}
+	for i, address := range addresses {
+		if !address.IsValid() || address.Zone() != "" {
+			return nil, ErrUnavailable
+		}
+		addresses[i] = address.Unmap()
+	}
+	return addresses, nil
+}
+
+// Restrict the extension to a DNS hostname, not arbitrary CONNECT authorities
+// or header bytes. Literal addresses take the numeric path instead.
+func exitDNSName(name string) (string, error) {
+	name, err := idna.Lookup.ToASCII(strings.TrimSuffix(name, "."))
+	if err != nil || name == "" || len(name) > 253 {
+		return "", ErrDenied
+	}
+	for _, label := range strings.Split(name, ".") {
+		if label == "" || len(label) > 63 || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
+			return "", ErrDenied
+		}
+		for _, c := range label {
+			if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-') {
+				return "", ErrDenied
+			}
+		}
+	}
+	return strings.ToLower(name) + ".", nil
 }
 func (p *ConnectProvider) NumericDial(ctx context.Context, d Destination) (net.Conn, error) {
 	d = d.canonical()
@@ -244,7 +314,9 @@ func ServeConnect(ctx context.Context, listener net.Listener, director *Director
 	}
 }
 func serveConnectOne(ctx context.Context, client net.Conn, director *Director) {
-	_ = client.SetDeadline(time.Now().Add(FlowLease))
+	if client.SetDeadline(time.Now().Add(DialTimeout)) != nil {
+		return
+	}
 	reader := bufio.NewReader(client)
 	head, err := readHead(reader)
 	refuse := func(status int) {
@@ -259,9 +331,8 @@ func serveConnectOne(ctx context.Context, client net.Conn, director *Director) {
 		refuse(400)
 		return
 	}
-	ap, err := netip.ParseAddrPort(request.RequestURI)
 	transport := request.Header.Get("X-Lamp-Transport")
-	if err != nil || ap.Port() == 0 || request.Method != "CONNECT" || request.Proto != "HTTP/1.1" || request.Host != request.RequestURI || len(request.Header.Values("X-Lamp-Transport")) != 1 || (transport != "tcp" && transport != "udp") || len(request.TransferEncoding) != 0 || request.ContentLength > 0 {
+	if request.Method != "CONNECT" || request.Proto != "HTTP/1.1" || request.Host != request.RequestURI || len(request.Header.Values("X-Lamp-Transport")) != 1 || (transport != "tcp" && transport != "udp" && transport != "dns") || len(request.TransferEncoding) != 0 || request.ContentLength > 0 {
 		refuse(400)
 		return
 	}
@@ -270,6 +341,34 @@ func serveConnectOne(ctx context.Context, client net.Conn, director *Director) {
 			refuse(400)
 			return
 		}
+	}
+	if transport == "dns" {
+		host, port, err := net.SplitHostPort(request.RequestURI)
+		name, nameErr := exitDNSName(host)
+		if err != nil || port != "53" || nameErr != nil {
+			refuse(400)
+			return
+		}
+		resolve, cancel := context.WithTimeout(ctx, DialTimeout)
+		defer cancel()
+		addresses, err := director.dnsIPs(resolve, name, dnsmessage.TypeALL)
+		if err != nil || len(addresses) == 0 {
+			refuse(502)
+			return
+		}
+		body, err := json.Marshal(addresses)
+		if err != nil || len(body) > 4096 {
+			refuse(502)
+			return
+		}
+		_ = writeAll(client, []byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nX-Lamp-Transport: dns\r\nContent-Length: %d\r\n\r\n", len(body))))
+		_ = writeAll(client, body)
+		return
+	}
+	ap, err := netip.ParseAddrPort(request.RequestURI)
+	if err != nil || ap.Port() == 0 {
+		refuse(400)
+		return
 	}
 	target := Destination{Address: ap.Addr(), Protocol: transport, Port: ap.Port()}
 	permit, err := director.Authorize(director.subject, target)
@@ -286,6 +385,11 @@ func serveConnectOne(ctx context.Context, client net.Conn, director *Director) {
 	if err := writeAll(client, []byte("HTTP/1.1 200 Connected\r\nX-Lamp-Transport: "+transport+"\r\n\r\n")); err != nil {
 		return
 	}
+	// Handshake timeout is not a session lifetime. Route/policy/context closure
+	// still fences the tracked connection without a periodic renewal protocol.
+	if client.SetDeadline(time.Time{}) != nil {
+		return
+	}
 	var inbound net.Conn = &bufferedConn{Conn: client, reader: reader}
 	if transport == "udp" {
 		inbound = &datagramConn{Conn: inbound}
@@ -293,12 +397,30 @@ func serveConnectOne(ctx context.Context, client net.Conn, director *Director) {
 	relay(ctx, inbound, upstream, transport)
 }
 func relay(ctx context.Context, a, b net.Conn, protocol string) {
+	refreshUDP := func() error {
+		until := time.Now().Add(UDPIdleTimeout)
+		if err := a.SetReadDeadline(until); err != nil {
+			return err
+		}
+		return b.SetReadDeadline(until)
+	}
+	if protocol == "udp" && refreshUDP() != nil {
+		a.Close()
+		b.Close()
+		return
+	}
 	pump := func(dst, src net.Conn) error {
 		if protocol == "udp" {
 			buf := make([]byte, maxDatagram)
 			for {
 				n, err := src.Read(buf)
 				if err != nil {
+					return err
+				}
+				if err := refreshUDP(); err != nil {
+					return err
+				}
+				if err := dst.SetWriteDeadline(time.Now().Add(DialTimeout)); err != nil {
 					return err
 				}
 				written, err := dst.Write(buf[:n])

@@ -131,9 +131,12 @@ func (b *FrameBridge) dnsAnswer(query []byte) []byte {
 }
 func (b *FrameBridge) serveDNS(conn net.Conn, protocol string) {
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(FlowLease))
 	buffer := make([]byte, 4096)
 	for {
+		// Bound an idle DNS conversation, not its total active lifetime.
+		if conn.SetReadDeadline(time.Now().Add(UDPIdleTimeout)) != nil {
+			return
+		}
 		var data []byte
 		if protocol == "tcp" {
 			var size [2]byte
@@ -157,6 +160,9 @@ func (b *FrameBridge) serveDNS(conn net.Conn, protocol string) {
 		}
 		answer := b.dnsAnswer(data)
 		if len(answer) == 0 {
+			return
+		}
+		if conn.SetWriteDeadline(time.Now().Add(DialTimeout)) != nil {
 			return
 		}
 		if protocol == "tcp" {

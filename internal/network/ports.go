@@ -199,6 +199,18 @@ func (m *PortManager) TLSConfig() *tls.Config {
 		for _, p := range m.ids {
 			u, _ := url.Parse(p.Origin)
 			if p.active && u.Hostname() == hello.ServerName {
+				// Refresh a live publication before its leaf expires, without
+				// changing the origin, CA trust, grants or active connections.
+				leaf := p.certificate.Leaf
+				now := time.Now()
+				if leaf == nil || !now.Before(leaf.NotAfter) ||
+					(!now.Before(leaf.NotAfter.Add(-time.Hour)) && leaf.NotAfter.Before(m.authority.certificate.NotAfter)) {
+					certificate, err := m.authority.certificateFor(u.Hostname())
+					if err != nil {
+						return nil, err
+					}
+					p.certificate = certificate
+				}
 				return p.certificate, nil
 			}
 		}
@@ -379,7 +391,6 @@ func (m *PortManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, ErrUnavailable
 		}
-		_ = raw.SetDeadline(time.Now().Add(FlowLease))
 		c := &portConn{Conn: raw, manager: m, port: p, grant: grant}
 		m.mu.Lock()
 		valid := p.active && p.endpoint.Subject() == p.Subject

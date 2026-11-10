@@ -124,6 +124,11 @@ func (a *Authority) certificateFor(host string) (*tls.Certificate, error) {
 	if host == "" || len(host) > 253 {
 		return nil, ErrDenied
 	}
+	now := time.Now()
+	// Leaf renewal cannot silently extend or replace the client's CA trust.
+	if now.Before(a.certificate.NotBefore) || !now.Before(a.certificate.NotAfter) {
+		return nil, ErrUnavailable
+	}
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
@@ -132,7 +137,6 @@ func (a *Authority) certificateFor(host string) (*tls.Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now()
 	until := now.Add(24 * time.Hour)
 	if a.certificate.NotAfter.Before(until) {
 		until = a.certificate.NotAfter
@@ -142,5 +146,9 @@ func (a *Authority) certificateFor(host string) (*tls.Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &tls.Certificate{Certificate: [][]byte{der, a.certificate.Raw}, PrivateKey: key}, nil
+	leaf, err := x509.ParseCertificate(der)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Certificate{Certificate: [][]byte{der, a.certificate.Raw}, PrivateKey: key, Leaf: leaf}, nil
 }

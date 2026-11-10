@@ -168,13 +168,6 @@ func (p *MappedPorts) tcp(listener net.Listener, mapping PortMap) {
 				return
 			}
 			defer upstream.Close()
-			deadline := time.Now().Add(FlowLease)
-			if until, ok := p.ctx.Deadline(); ok && until.Before(deadline) {
-				deadline = until
-			}
-			if client.SetDeadline(deadline) != nil || upstream.SetDeadline(deadline) != nil {
-				return
-			}
 			relay(p.ctx, client, upstream, "tcp")
 		}()
 	}
@@ -190,7 +183,6 @@ type udpMapper struct {
 type udpAssociation struct {
 	conn   net.Conn
 	remote net.Addr
-	until  time.Time
 	once   sync.Once
 }
 
@@ -231,15 +223,11 @@ func (u *udpMapper) association(key string, remote net.Addr) (*udpAssociation, e
 	if err != nil {
 		return fail(ErrUnavailable)
 	}
-	until := time.Now().Add(FlowLease)
-	if limit, ok := u.ports.ctx.Deadline(); ok && limit.Before(until) {
-		until = limit
-	}
-	if conn.SetDeadline(until) != nil {
+	if conn.SetReadDeadline(time.Now().Add(UDPIdleTimeout)) != nil {
 		conn.Close()
 		return fail(ErrUnavailable)
 	}
-	a := &udpAssociation{conn: conn, remote: remote, until: until}
+	a := &udpAssociation{conn: conn, remote: remote}
 	u.associations[key] = a
 	u.ports.running.Add(1)
 	go func() {
@@ -251,7 +239,7 @@ func (u *udpMapper) association(key string, remote net.Addr) (*udpAssociation, e
 			if err != nil {
 				return
 			}
-			if !time.Now().Before(a.until) {
+			if a.conn.SetReadDeadline(time.Now().Add(UDPIdleTimeout)) != nil {
 				return
 			}
 			_ = u.packet.SetWriteDeadline(time.Now().Add(DialTimeout))
@@ -283,11 +271,9 @@ func (u *udpMapper) run() {
 		if err != nil {
 			continue
 		}
-		until := time.Now().Add(DialTimeout)
-		if a.until.Before(until) {
-			until = a.until
-		}
-		if a.conn.SetWriteDeadline(until) != nil {
+		// Traffic in either direction refreshes idle expiry. Mapping/context
+		// revocation still closes the owned socket independently of deadlines.
+		if a.conn.SetReadDeadline(time.Now().Add(UDPIdleTimeout)) != nil || a.conn.SetWriteDeadline(time.Now().Add(DialTimeout)) != nil {
 			u.remove(key, a)
 			continue
 		}

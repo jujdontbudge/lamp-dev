@@ -6,6 +6,29 @@ and Linux network namespaces, not a public-API/VMM or Mac qualification. The
 [implementation boundary and remaining integration](T12-network.md) are explicit.
 Historical regression evidence below predates the 21:30Z owner instruction.
 
+## Single PR review correction
+
+Pulled the owner's updated branch `d7fbbc0` (main `09899fd`) before editing.
+All four findings were accepted and corrected:
+
+1. SSH-exit DNS now uses a bounded request to the owned endpoint through the
+   selected tunnel. Resolution runs at that exit; local resolver injection and
+   fallback were removed. Returned numeric candidates are still policy checked.
+2. The 30-second limit now applies only to unused admission permits. Established
+   streams retain policy/provider/context/link fencing without a lifetime timer;
+   bridge, CONNECT, mapped TCP and dev ingress no longer impose that deadline.
+   UDP/DNS resource expiry is idle-based and refreshed by activity.
+3. The private control decoder renews its 1 MiB budget per JSON value, accounting
+   for read-ahead without dropping buffered input or requiring new framing.
+4. Published ports renew their cached leaves before the 24-hour expiry on TLS
+   handshakes. Expired leaves are replaced, active sessions are undisturbed and
+   existing CA trust is preserved; expired CA authority is never extended.
+
+No tests were added or extended, no trial/demonstration was rerun and no extra
+review was delegated. The one requested `make verify` run for these corrections
+**passed (exit 0)**; full output is recorded in
+[`review-verify.log`](evidence/t12/review-verify.log).
+
 ## 21:30Z owner scope: one real demonstration per feature
 
 No new tests or extensions to tests were written after the instruction.

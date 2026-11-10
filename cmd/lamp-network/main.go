@@ -134,7 +134,7 @@ func run() error {
 	case "direct":
 		provider = network.NewDirectProvider(nil)
 	case "ssh_connect":
-		provider, err = network.NewConnectProvider(c.Provider.Endpoint, nil)
+		provider, err = network.NewConnectProvider(c.Provider.Endpoint)
 	case "private_member":
 		if c.Member == nil {
 			return fmt.Errorf("subject-bound private member state required")

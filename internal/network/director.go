@@ -21,7 +21,10 @@ type Provider interface {
 
 const MaxFlows = 4096
 const DialTimeout = 2 * time.Second
-const FlowLease = 30 * time.Second
+
+// PermitTTL limits unused admission tokens, never an established session.
+const PermitTTL = 30 * time.Second
+const UDPIdleTimeout = 30 * time.Second
 
 // Permit cannot be constructed by guest/plugin callers. It is bound to one
 // host-assigned subject, director, revision, numeric destination and deadline.
@@ -99,7 +102,7 @@ func (d *Director) authorize(subject Subject, target Destination) (Permit, error
 	if subject != d.subject || !d.policy.allows(target) {
 		return Permit{}, ErrDenied
 	}
-	until := time.Now().Add(FlowLease)
+	until := time.Now().Add(PermitTTL)
 	link := d.links[target]
 	if link != nil {
 		if link.ctx.Err() != nil || !link.life.alive() {
@@ -196,18 +199,12 @@ func (d *Director) Dial(ctx context.Context, p Permit) (net.Conn, error) {
 		raw.Close()
 		return nil, ErrDenied
 	}
-	if err := raw.SetDeadline(p.until); err != nil {
+	if err := raw.SetDeadline(time.Time{}); err != nil {
 		raw.Close()
 		return nil, ErrUnavailable
 	}
 	f := &flow{Conn: raw, owner: d, destination: p.destination}
 	d.active[f] = struct{}{}
-	f.timer = time.AfterFunc(time.Until(p.until), func() {
-		_ = f.Conn.Close()
-		d.mu.Lock()
-		delete(d.active, f)
-		d.mu.Unlock()
-	})
 	return f, nil
 }
 
@@ -230,7 +227,6 @@ func (d *Director) Update(expected, revision uint64, layers []Layer) error {
 	}
 	for f := range d.active {
 		_ = f.Conn.Close()
-		f.timer.Stop()
 		delete(d.active, f)
 	}
 	if err := d.record(Event{Kind: "policy_fence", Revision: revision, Decision: "allow", Reason: "retire_all", PolicySHA256: compiled.digest()}); err != nil {
@@ -270,7 +266,6 @@ func (d *Director) record(event Event) error {
 		}
 		for f := range d.active {
 			_ = f.Conn.Close()
-			f.timer.Stop()
 			delete(d.active, f)
 		}
 		_ = d.provider.Close()
@@ -358,7 +353,6 @@ func (d *Director) Close() error {
 	var failures []error
 	for f := range d.active {
 		failures = append(failures, f.Conn.Close())
-		f.timer.Stop()
 		delete(d.active, f)
 	}
 	failures = append(failures, providerErr)
@@ -369,7 +363,6 @@ type flow struct {
 	net.Conn
 	destination Destination
 	owner       *Director
-	timer       *time.Timer
 	once        sync.Once
 	err         error
 }
@@ -383,7 +376,6 @@ func (f *flow) CloseWrite() error {
 func (f *flow) Close() error {
 	f.once.Do(func() {
 		f.err = f.Conn.Close()
-		f.timer.Stop()
 		f.owner.mu.Lock()
 		delete(f.owner.active, f)
 		f.owner.mu.Unlock()

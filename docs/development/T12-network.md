@@ -31,7 +31,9 @@ tailnet.
 Host control is an inherited, connected Unix-stream capability, not a guest
 socket, public API, plugin or added worker RPC. It carries `publish_port`,
 `share_port`, `revoke_share`, `unpublish_port`, `sandbox_link`, `revoke_link` and
-CAS `policy_update` actions. Share responses are transient on that private
+CAS `policy_update` actions. Control input is bounded to 1 MiB per JSON value,
+including decoder read-ahead, with no cumulative session-byte limit. Share
+responses are transient on that private
 stream only, never stdout or audit. `tools/network-demo-peer` is an independent
 Tailscale SDK caller without Lamp runtime/control imports; it reports identity,
 bytes and HTTPS outcomes without printing bearer URLs, bodies or cookies.
@@ -50,6 +52,9 @@ has UID/capability confinement but not the Rust guard's seccomp profile.
   to an explicitly selected loopback endpoint, intended behind an authenticated
   SSH tunnel. The owned CONNECT service supports TCP and a bounded framed UDP
   extension; it is not a generic CONNECT-UDP implementation or SSH launcher.
+  Hostname lookup uses the owned endpoint's bounded `dns` extension over the
+  same tunnel; the exit client has no local/injected resolver or DNS fallback.
+  Both endpoints must support the extension (older endpoints fail closed).
 - A final dial takes a checked numeric destination, not a name that a provider
   may resolve differently. DNS comes from the selected exit, or the member for
   explicitly configured private DNS zones. Mixed disallowed answers fail closed.
@@ -80,7 +85,10 @@ selectors and `strict_sites` are rejected, not approximated by IP rules.
 Numeric permits bind director, subject, policy revision, destination, selected
 link (if any) and deadline. CAS revisions retire all old active admissions before
 ACK. Flow counts, datagrams, frame queues and audit segments are bounded; flow
-leases expire. Audit failure/stall stops dependent data paths. The private frame
+admission tokens expire, but established TCP streams have no fixed 30-second
+lifetime or renewal requirement. Policy, provider, link and context revocation
+still close them. UDP associations expire on inactivity, refreshed by traffic
+in either direction, not at a fixed age. Audit failure/stall stops dependent data paths. The private frame
 classifier rejects spoofed sources, fragments, unsupported IPv6 extensions and
 mapped IPv6 wire addresses. There is no kernel default-route escape from the
 assigned Ethernet path. The audit spool is a durable private bounded spool, not
@@ -92,7 +100,10 @@ T23's encrypted/signed external ledger.
 generation. A durable origin tombstone ledger prevents deliberate reuse; each
 publication also has a fresh random identifier. The host holds a private CA and
 leaf keys; clients trust its public CA explicitly, without disabling TLS
-verification. DNS publication is performed by the trusted host/controller (the
+verification. The TLS callback refreshes each cached 24-hour leaf during its
+last hour or after expiry, retaining the origin and existing CA trust; an expired
+CA fails closed and requires operator trust maintenance, not silent replacement.
+DNS publication is performed by the trusted host/controller (the
 demo updates its disposable Headscale extra-records file).
 
 Default viewing authenticates the real private-network transport and checks an

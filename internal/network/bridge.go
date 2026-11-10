@@ -8,7 +8,6 @@ import (
 	"net/netip"
 	"slices"
 	"sync"
-	"time"
 
 	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -245,7 +244,6 @@ func (b *FrameBridge) tcp(request *tcp.ForwarderRequest) {
 		return
 	}
 	defer client.Close()
-	_ = client.SetDeadline(time.Now().Add(FlowLease))
 	relay(b.ctx, client, upstream, "tcp")
 }
 func (b *FrameBridge) udp(id stack.TransportEndpointID, packet *stack.PacketBuffer) bool {
@@ -289,7 +287,6 @@ func (b *FrameBridge) udp(id stack.TransportEndpointID, packet *stack.PacketBuff
 			return
 		}
 		defer upstream.Close()
-		_ = client.SetDeadline(time.Now().Add(FlowLease))
 		relay(b.ctx, client, upstream, "udp")
 	}()
 	return true
