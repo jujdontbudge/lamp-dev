@@ -1,0 +1,22 @@
+{
+  "passed": [
+    "guard drops root, retains only net-admin and enforces no-new-privileges/seccomp/assigned FDs",
+    "public TCP/UDP allowed; private, metadata, fleet, host and public-numbered LAN denied",
+    "guest root firewall changes and source spoof cannot bypass guard",
+    "host spool contains attributed, ordered allow/deny and bidirectional byte records",
+    "tcp_rst_then_reconnect: same local port gets two fresh, durably admitted connection identities",
+    "fork-without-exec, rapid parent/child death, exec identity, credentials and thread exclusion audited",
+    "task root cannot access tracer/audit FD; CLONE_UNTRACED denied and clone3 forced to traced fallback",
+    "host audit receiver is unprivileged, capability-free and descriptor/seccomp confined",
+    "host ACK loss kills CPU-only task tree through EXITKILL in 0.216s (<5s)",
+    "SIGKILL of the tracer cannot leave an unobserved task tree running",
+    "guard death closes existing and new flows with nft rules left installed",
+    "restart cannot merge into or replace an existing generation's nft table",
+    "idle audit spool exhaustion closes established and new traffic without another admission"
+  ],
+  "kernel": "7.0.0-38-generic",
+  "architecture": "aarch64",
+  "host": "lima-lamp-la",
+  "binary_sha256": "b6826b9a764fc9067dce20504c2a133862752bf71376361f8862a0c2da84ae45",
+  "test_sha256": "12609924f7fd991d0c0a15b7b0fc33323b90276d244f34fbd5de04ec7a689d8b"
+}

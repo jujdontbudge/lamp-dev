@@ -251,6 +251,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-guard"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lamp-init"
 version = "0.1.0"
 dependencies = [
