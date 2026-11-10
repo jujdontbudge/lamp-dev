@@ -1,0 +1,3 @@
+ok  	github.com/JohanSardar/lamp/internal/control	15.911s
+ok  	github.com/JohanSardar/lamp/internal/surface	0.024s
+ok  	github.com/JohanSardar/lamp/cmd/lamp	0.028s

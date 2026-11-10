@@ -36,7 +36,7 @@ F=(sudo -n python3 -I "$SRC/infra/linux/e04/fixture.py")
   --template-store "$STORE" --template e04 || exit 1
 CFG=$WORK/$LANE/config.json
 META=$(mktemp)
-LAMP_TEMPLATE_STORE=$STORE python3 "$SRC/infra/linux/run-metadata.py" "$SRC" $WORK "$TEMPLATE" > "$META.base" &&
+python3 "$SRC/infra/linux/run-metadata.py" --store "$STORE" "$SRC" $WORK "$TEMPLATE" > "$META.base" &&
   python3 -I "$SRC/infra/linux/e04/metadata.py" "$META.base" "$CFG" > "$META"
 cd "$SRC"
 python3 -m benchmarks.run --suite E04 --metadata "$META" --output "$OUT" \

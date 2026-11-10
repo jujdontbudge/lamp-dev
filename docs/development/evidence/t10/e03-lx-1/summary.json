@@ -1,0 +1,38 @@
+{
+  "caller_after": {
+    "cpu_count": 8,
+    "disk": "Filesystem                        1K-blocks      Used Available Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv 980211368 459218020 471127620  50% /",
+    "load": [
+      3.0400390625,
+      5.44482421875,
+      3.56103515625
+    ],
+    "machine": "x86_64",
+    "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+    "power": "powersave",
+    "pressure": {
+      "cpu": "some avg10=1.88 avg60=1.07 avg300=1.48 total=7122048465\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+      "io": "some avg10=5.65 avg60=9.66 avg300=17.10 total=8076008486\nfull avg10=4.76 avg60=8.73 avg300=15.68 total=7081564241\n",
+      "memory": "some avg10=0.00 avg60=0.65 avg300=2.02 total=495318734\nfull avg10=0.00 avg60=0.61 avg300=1.91 total=342282029\n"
+    }
+  },
+  "completed_at": "2026-11-10T17:57:49.186952+00:00",
+  "diagnostic": true,
+  "last_observation_hash": "743ac494a3460f78b5ea935c0da45c9aacabf2cc1c1952b6480df359f6c99749",
+  "results": {
+    "E03": {
+      "boundary_ms": 35,
+      "callers": 32,
+      "control_status": "fail",
+      "endpoint": "caller send through durable admission and worker command_started receipt; output/replay/isolation checked outside timer",
+      "failures": 0,
+      "integrated_e01_status": "incomplete",
+      "p50_ms": 39.123553,
+      "p95_ms": 67.610308,
+      "p99_ms": 70.575689,
+      "status": "fail",
+      "trials": 64
+    }
+  },
+  "status": "fail"
+}

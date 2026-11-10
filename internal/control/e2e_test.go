@@ -21,11 +21,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var lampBinary, daemonBinary string
+var lampBinary, daemonBinary, mcpBinary string
 
 func TestMain(m *testing.M) {
-	// The journal kill tests rerun this binary as a child and kill it, so a
-	// child must neither build the CLI binaries nor leave them behind.
+	if testCleanupChild() {
+		return
+	}
+	// Journal kill-test children exercise only the store: rebuilding CLI
+	// binaries delays their crash boundary and leaks files when killed.
+
 	if os.Getenv("LAMP_JOURNAL_WRITER_DIR") != "" || os.Getenv("LAMP_MARKER_CHILD_DIR") != "" {
 		os.Exit(m.Run())
 	}
@@ -33,9 +37,15 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
+	cleanup, err := guardTestDirectory(dir)
+	if err != nil {
+		os.RemoveAll(dir)
+		panic(err)
+	}
 	lampBinary = filepath.Join(dir, "lamp")
 	daemonBinary = filepath.Join(dir, "lampd")
-	for _, b := range []struct{ path, pkg string }{{lampBinary, "../../cmd/lamp"}, {daemonBinary, "../../cmd/lampd"}} {
+	mcpBinary = filepath.Join(dir, "lamp-mcp")
+	for _, b := range []struct{ path, pkg string }{{lampBinary, "../../cmd/lamp"}, {daemonBinary, "../../cmd/lampd"}, {mcpBinary, "../../cmd/lamp-mcp"}} {
 		args := []string{"build", "-o", b.path, b.pkg}
 		if os.Getenv("LAMP_CONTROL_RACE") == "1" {
 			args = append([]string{"build", "-race"}, args[1:]...)
@@ -43,12 +53,12 @@ func TestMain(m *testing.M) {
 		c := exec.Command("go", args...)
 		if out, err := c.CombinedOutput(); err != nil {
 			fmt.Fprintln(os.Stderr, string(out), err)
-			os.RemoveAll(dir)
+			cleanup()
 			os.Exit(1)
 		}
 	}
 	code := m.Run()
-	os.RemoveAll(dir)
+	cleanup()
 	os.Exit(code)
 }
 

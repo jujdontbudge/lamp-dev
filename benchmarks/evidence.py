@@ -115,7 +115,8 @@ class Evidence:
             "metadata_errors": metadata_errors(metadata), "caller": local_observation(),
             "thresholds": {"create_p50_ms_exclusive": 500, "fork_max_ms_exclusive": 1000,
                            "native_ratio_inclusive": .97, "warmups": 20, "creates": 200,
-                           "forks_per_row": 100, "native_pairs_per_measure": 10, "storage_forks": 1000},
+                           "forks_per_row": 100, "native_pairs_per_measure": 10, "storage_forks": 1000,
+                           "control_callers": 32, "control_samples_per_caller": 200, "control_p99_ms_inclusive": 35},
         }
         self.write("manifest.json", self.manifest)
 

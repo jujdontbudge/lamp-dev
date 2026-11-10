@@ -131,6 +131,7 @@ func TestExecLostAfterStart(t *testing.T) {
 	d := startDemo(t)
 	close(d.worker.ready)
 	sb := readySandboxFromCLI(t, d)
+	before := len(d.worker.seen())
 	d.worker.mu.Lock()
 	d.worker.commandState = "unknown"
 	d.worker.mu.Unlock()
@@ -151,7 +152,7 @@ func TestExecLostAfterStart(t *testing.T) {
 	if ex.Data.ExitCode != nil {
 		t.Fatal("lost command fabricated exit")
 	}
-	for _, r := range d.worker.seen() {
+	for _, r := range d.worker.seen()[before:] {
 		if inspect := r.GetInspect(); inspect != nil && inspect.CommandOperationId != "" && inspect.CommandOperationId != created.OperationId+".start" {
 			t.Fatal("Inspect did not address original Start")
 		}

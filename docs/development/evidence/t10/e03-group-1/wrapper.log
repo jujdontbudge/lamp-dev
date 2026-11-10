@@ -1,0 +1,36 @@
+timing-run: buddyinfo Node 0, zone   Normal 348502 192314  99404  39354  20069   9245   1701    309   1922     19    451 
+prepared caller 1/32
+prepared caller 2/32
+prepared caller 3/32
+prepared caller 4/32
+prepared caller 5/32
+prepared caller 6/32
+prepared caller 7/32
+prepared caller 8/32
+prepared caller 9/32
+prepared caller 10/32
+prepared caller 11/32
+prepared caller 12/32
+prepared caller 13/32
+prepared caller 14/32
+prepared caller 15/32
+prepared caller 16/32
+prepared caller 17/32
+prepared caller 18/32
+prepared caller 19/32
+prepared caller 20/32
+prepared caller 21/32
+prepared caller 22/32
+prepared caller 23/32
+prepared caller 24/32
+prepared caller 25/32
+prepared caller 26/32
+prepared caller 27/32
+prepared caller 28/32
+prepared caller 29/32
+prepared caller 30/32
+prepared caller 31/32
+prepared caller 32/32
+{"E03": {"status": "fail", "control_status": "fail", "integrated_e01_status": "fail", "callers": 32, "trials": 6400, "failures": 70, "p50_ms": 115.820464, "p95_ms": 258.003226, "p99_ms": 1636.435953, "boundary_ms": 35, "quota": {"status": "pass", "limit": 2, "preexisting": 1, "contenders": 32, "accepted": ["sb_ef379ec7ee17530b86a7539639bcdcdd"], "errors": [], "allocation_samples": 9}, "endpoint": "caller send through durable admission and worker command_started receipt; output/replay/isolation checked outside timer"}}
+timing-run: command exit 1
+timing-run: exit 1

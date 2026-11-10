@@ -1,0 +1,14 @@
+=== RUN   TestExecAuthorityLostBeforeDispatchReleasesCharge
+=== RUN   TestExecAuthorityLostBeforeDispatchReleasesCharge/expired
+    exec_accounting_test.go:59: undispatched exec still charges replacement key: {Id:ex_prevented Kind: FleetId: OwnerId:pr_local Revision:1 CreatedAt: UpdatedAt: State:accepted Labels:map[] Visibility: SandboxId:0x441d99d1bd40 SessionId:<nil> TaskId:<nil> Argv:<nil> Cwd:<nil> Env:<nil> StdinBlobId:<nil> Pty:<nil> StartedAt:<nil> ExitCode:<nil> Signal:<nil> OutputCursor:<nil>}
+=== RUN   TestExecAuthorityLostBeforeDispatchReleasesCharge/revoked
+    exec_accounting_test.go:59: undispatched exec still charges replacement key: {Id:ex_prevented Kind: FleetId: OwnerId:pr_local Revision:1 CreatedAt: UpdatedAt: State:accepted Labels:map[] Visibility: SandboxId:0x441d99d1a000 SessionId:<nil> TaskId:<nil> Argv:<nil> Cwd:<nil> Env:<nil> StdinBlobId:<nil> Pty:<nil> StartedAt:<nil> ExitCode:<nil> Signal:<nil> OutputCursor:<nil>}
+--- FAIL: TestExecAuthorityLostBeforeDispatchReleasesCharge (1.18s)
+    --- FAIL: TestExecAuthorityLostBeforeDispatchReleasesCharge/expired (1.00s)
+    --- FAIL: TestExecAuthorityLostBeforeDispatchReleasesCharge/revoked (0.18s)
+=== RUN   TestUnknownExecChargeEndsOnlyAfterConfirmedSandboxRelease
+    core_e2e_test.go:662: exec_create: status 403 want 200: {"error":{"code":"SCOPE_DENIED","message":"admission exceeds caller authority","retryable":false},"request_id":"req_eee50316331fc79cee42551465a74ff9"}
+--- FAIL: TestUnknownExecChargeEndsOnlyAfterConfirmedSandboxRelease (0.41s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	3.427s
+FAIL

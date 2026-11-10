@@ -1,0 +1,12 @@
+=== RUN   TestConcurrentClientInitialization
+--- PASS: TestConcurrentClientInitialization (0.00s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/surface	1.444s
+=== RUN   TestOneUseApprovalExactPlanAndRealEffect
+    core_e2e_test.go:393: 20 simultaneous distinct-key consumers => one durable approval consumption and one independently read file effect; changed destination rejected
+--- PASS: TestOneUseApprovalExactPlanAndRealEffect (1.96s)
+=== RUN   TestRotationKeepsIssuingKeyAuthority
+    core_e2e_test.go:503: rotation preserves issuer action ceiling, expiry and live ancestry; self-rotation replaces the revoked key
+--- PASS: TestRotationKeepsIssuingKeyAuthority (1.82s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	6.697s

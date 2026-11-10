@@ -1,0 +1,49 @@
+panic: test timed out after 10m0s
+	running tests:
+		TestJournalRestartsAfterWriterProcessIsKilled (33s)
+
+goroutine 129 [running]:
+testing.(*M).startAlarm.func1()
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2802 +0x494
+created by time.goFunc
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/time/sleep.go:215 +0x44
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0xc00037afc8, {0x102dcf82c, 0x2d}, 0x10345ac40)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2109 +0x7dc
+testing.runTests.func1(0xc00037afc8)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2585 +0x7c
+testing.tRunner(0xc00037afc8, 0xc00003f868)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0x168
+testing.runTests({0x102dbf8ea, 0x1b}, {0x102dcee06, 0x2c}, 0xc0000b0fd8, {0x1037e1620, 0x3b, 0x3b}, {0xc00003f8f8?, 0x1026d0618?, ...})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2583 +0x7a4
+testing.(*M).Run(0xc0000ac320)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0xb3c
+github.com/JohanSardar/lamp/internal/control_test.TestMain(0xc0000ac320)
+	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:52 +0x5d4
+main.main()
+	_testmain.go:166 +0x108
+
+goroutine 63 [IO wait]:
+internal/poll.runtime_pollWait(0x1130d7200, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0xc0000a88c0, 0x72, 0x1)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0xb8
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc0000a88a0, {0xc0002f2000, 0x1000, 0x1000})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:165 +0x34c
+os.(*File).read(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file_posix.go:29
+os.(*File).Read(0xc00009a478, {0xc0002f2000, 0x1000, 0x1000})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file.go:144 +0xb0
+bufio.(*Scanner).Scan(0xc0002b5e38)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x87c
+github.com/JohanSardar/lamp/internal/control.TestJournalRestartsAfterWriterProcessIsKilled(0xc0000fe248)
+	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/store_test.go:467 +0x5e4
+testing.tRunner(0xc0000fe248, 0x10345ac40)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0x168
+created by testing.(*T).Run in goroutine 1
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2101 +0x7c0
+FAIL	github.com/JohanSardar/lamp/internal/control	603.250s
+FAIL
