@@ -831,10 +831,14 @@ func (x *Restore) GetInputHandles() []*HandleGrant {
 	return nil
 }
 
+// With command_operation_id set (the operation_id of an earlier Start on
+// this sandbox), Receipt.command reports that command: finished_at_unix_ns is
+// 0 while it still runs.
 type Inspect struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	CommandOperationId string                 `protobuf:"bytes,1,opt,name=command_operation_id,json=commandOperationId,proto3" json:"command_operation_id,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Inspect) Reset() {
@@ -865,6 +869,13 @@ func (x *Inspect) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Inspect.ProtoReflect.Descriptor instead.
 func (*Inspect) Descriptor() ([]byte, []int) {
 	return file_worker_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Inspect) GetCommandOperationId() string {
+	if x != nil {
+		return x.CommandOperationId
+	}
+	return ""
 }
 
 type Cancel struct {
@@ -1193,18 +1204,123 @@ func (x *WorkerError) GetRetryable() bool {
 	return false
 }
 
+// Bounded result of a Start that ran to completion. Streams stay bounded
+// control-sized tails; full output belongs on a separate bulk stream.
+type CommandResult struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	ExitCode         int32                  `protobuf:"varint,1,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	Signal           int32                  `protobuf:"varint,2,opt,name=signal,proto3" json:"signal,omitempty"`
+	StdoutTail       []byte                 `protobuf:"bytes,3,opt,name=stdout_tail,json=stdoutTail,proto3" json:"stdout_tail,omitempty"` // <= 64 KiB
+	StderrTail       []byte                 `protobuf:"bytes,4,opt,name=stderr_tail,json=stderrTail,proto3" json:"stderr_tail,omitempty"` // <= 64 KiB
+	Truncated        bool                   `protobuf:"varint,5,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	TimedOut         bool                   `protobuf:"varint,6,opt,name=timed_out,json=timedOut,proto3" json:"timed_out,omitempty"`
+	StartedAtUnixNs  uint64                 `protobuf:"varint,7,opt,name=started_at_unix_ns,json=startedAtUnixNs,proto3" json:"started_at_unix_ns,omitempty"`
+	FinishedAtUnixNs uint64                 `protobuf:"varint,8,opt,name=finished_at_unix_ns,json=finishedAtUnixNs,proto3" json:"finished_at_unix_ns,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CommandResult) Reset() {
+	*x = CommandResult{}
+	mi := &file_worker_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CommandResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CommandResult) ProtoMessage() {}
+
+func (x *CommandResult) ProtoReflect() protoreflect.Message {
+	mi := &file_worker_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CommandResult.ProtoReflect.Descriptor instead.
+func (*CommandResult) Descriptor() ([]byte, []int) {
+	return file_worker_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *CommandResult) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *CommandResult) GetSignal() int32 {
+	if x != nil {
+		return x.Signal
+	}
+	return 0
+}
+
+func (x *CommandResult) GetStdoutTail() []byte {
+	if x != nil {
+		return x.StdoutTail
+	}
+	return nil
+}
+
+func (x *CommandResult) GetStderrTail() []byte {
+	if x != nil {
+		return x.StderrTail
+	}
+	return nil
+}
+
+func (x *CommandResult) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
+func (x *CommandResult) GetTimedOut() bool {
+	if x != nil {
+		return x.TimedOut
+	}
+	return false
+}
+
+func (x *CommandResult) GetStartedAtUnixNs() uint64 {
+	if x != nil {
+		return x.StartedAtUnixNs
+	}
+	return 0
+}
+
+func (x *CommandResult) GetFinishedAtUnixNs() uint64 {
+	if x != nil {
+		return x.FinishedAtUnixNs
+	}
+	return 0
+}
+
 type Receipt struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	State              string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	CommittedHandleIds []string               `protobuf:"bytes,2,rep,name=committed_handle_ids,json=committedHandleIds,proto3" json:"committed_handle_ids,omitempty"`
 	OutcomeUnknown     bool                   `protobuf:"varint,3,opt,name=outcome_unknown,json=outcomeUnknown,proto3" json:"outcome_unknown,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	Command            *CommandResult         `protobuf:"bytes,4,opt,name=command,proto3" json:"command,omitempty"`
+	// Engine observations, e.g. phase timings in microseconds. Not authority.
+	Detail        map[string]string `protobuf:"bytes,5,rep,name=detail,proto3" json:"detail,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Receipt) Reset() {
 	*x = Receipt{}
-	mi := &file_worker_proto_msgTypes[15]
+	mi := &file_worker_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1216,7 +1332,7 @@ func (x *Receipt) String() string {
 func (*Receipt) ProtoMessage() {}
 
 func (x *Receipt) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[15]
+	mi := &file_worker_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1229,7 +1345,7 @@ func (x *Receipt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Receipt.ProtoReflect.Descriptor instead.
 func (*Receipt) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{15}
+	return file_worker_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Receipt) GetState() string {
@@ -1253,6 +1369,20 @@ func (x *Receipt) GetOutcomeUnknown() bool {
 	return false
 }
 
+func (x *Receipt) GetCommand() *CommandResult {
+	if x != nil {
+		return x.Command
+	}
+	return nil
+}
+
+func (x *Receipt) GetDetail() map[string]string {
+	if x != nil {
+		return x.Detail
+	}
+	return nil
+}
+
 type Response struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Context *Context               `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
@@ -1267,7 +1397,7 @@ type Response struct {
 
 func (x *Response) Reset() {
 	*x = Response{}
-	mi := &file_worker_proto_msgTypes[16]
+	mi := &file_worker_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1279,7 +1409,7 @@ func (x *Response) String() string {
 func (*Response) ProtoMessage() {}
 
 func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[16]
+	mi := &file_worker_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1292,7 +1422,7 @@ func (x *Response) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Response.ProtoReflect.Descriptor instead.
 func (*Response) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{16}
+	return file_worker_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Response) GetContext() *Context {
@@ -1357,7 +1487,7 @@ type Frame struct {
 
 func (x *Frame) Reset() {
 	*x = Frame{}
-	mi := &file_worker_proto_msgTypes[17]
+	mi := &file_worker_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1369,7 +1499,7 @@ func (x *Frame) String() string {
 func (*Frame) ProtoMessage() {}
 
 func (x *Frame) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[17]
+	mi := &file_worker_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1382,7 +1512,7 @@ func (x *Frame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Frame.ProtoReflect.Descriptor instead.
 func (*Frame) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{17}
+	return file_worker_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Frame) GetPayload() isFrame_Payload {
@@ -1518,8 +1648,9 @@ const file_worker_proto_rawDesc = "" +
 	"\n" +
 	"capture_id\x18\x01 \x01(\tR\tcaptureId\x12C\n" +
 	"\rcompatibility\x18\x02 \x01(\v2\x1d.lamp.worker.v1.CompatibilityR\rcompatibility\x12@\n" +
-	"\rinput_handles\x18\x03 \x03(\v2\x1b.lamp.worker.v1.HandleGrantR\finputHandles\"\t\n" +
-	"\aInspect\"8\n" +
+	"\rinput_handles\x18\x03 \x03(\v2\x1b.lamp.worker.v1.HandleGrantR\finputHandles\";\n" +
+	"\aInspect\x120\n" +
+	"\x14command_operation_id\x18\x01 \x01(\tR\x12commandOperationId\"8\n" +
 	"\x06Cancel\x12.\n" +
 	"\x13target_operation_id\x18\x01 \x01(\tR\x11targetOperationId\"\t\n" +
 	"\aRelease\"\xe0\x03\n" +
@@ -1538,11 +1669,27 @@ const file_worker_proto_rawDesc = "" +
 	"\vWorkerError\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1c\n" +
-	"\tretryable\x18\x03 \x01(\bR\tretryable\"z\n" +
+	"\tretryable\x18\x03 \x01(\bR\tretryable\"\x9d\x02\n" +
+	"\rCommandResult\x12\x1b\n" +
+	"\texit_code\x18\x01 \x01(\x05R\bexitCode\x12\x16\n" +
+	"\x06signal\x18\x02 \x01(\x05R\x06signal\x12\x1f\n" +
+	"\vstdout_tail\x18\x03 \x01(\fR\n" +
+	"stdoutTail\x12\x1f\n" +
+	"\vstderr_tail\x18\x04 \x01(\fR\n" +
+	"stderrTail\x12\x1c\n" +
+	"\ttruncated\x18\x05 \x01(\bR\ttruncated\x12\x1b\n" +
+	"\ttimed_out\x18\x06 \x01(\bR\btimedOut\x12+\n" +
+	"\x12started_at_unix_ns\x18\a \x01(\x04R\x0fstartedAtUnixNs\x12-\n" +
+	"\x13finished_at_unix_ns\x18\b \x01(\x04R\x10finishedAtUnixNs\"\xab\x02\n" +
 	"\aReceipt\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x120\n" +
 	"\x14committed_handle_ids\x18\x02 \x03(\tR\x12committedHandleIds\x12'\n" +
-	"\x0foutcome_unknown\x18\x03 \x01(\bR\x0eoutcomeUnknown\"\xb1\x01\n" +
+	"\x0foutcome_unknown\x18\x03 \x01(\bR\x0eoutcomeUnknown\x127\n" +
+	"\acommand\x18\x04 \x01(\v2\x1d.lamp.worker.v1.CommandResultR\acommand\x12;\n" +
+	"\x06detail\x18\x05 \x03(\v2#.lamp.worker.v1.Receipt.DetailEntryR\x06detail\x1a9\n" +
+	"\vDetailEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb1\x01\n" +
 	"\bResponse\x121\n" +
 	"\acontext\x18\x01 \x01(\v2\x17.lamp.worker.v1.ContextR\acontext\x123\n" +
 	"\areceipt\x18\n" +
@@ -1578,7 +1725,7 @@ func file_worker_proto_rawDescGZIP() []byte {
 }
 
 var file_worker_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_worker_proto_goTypes = []any{
 	(HandleKind)(0),       // 0: lamp.worker.v1.HandleKind
 	(*Hello)(nil),         // 1: lamp.worker.v1.Hello
@@ -1596,16 +1743,18 @@ var file_worker_proto_goTypes = []any{
 	(*Release)(nil),       // 13: lamp.worker.v1.Release
 	(*Request)(nil),       // 14: lamp.worker.v1.Request
 	(*WorkerError)(nil),   // 15: lamp.worker.v1.WorkerError
-	(*Receipt)(nil),       // 16: lamp.worker.v1.Receipt
-	(*Response)(nil),      // 17: lamp.worker.v1.Response
-	(*Frame)(nil),         // 18: lamp.worker.v1.Frame
-	nil,                   // 19: lamp.worker.v1.Start.EnvEntry
+	(*CommandResult)(nil), // 16: lamp.worker.v1.CommandResult
+	(*Receipt)(nil),       // 17: lamp.worker.v1.Receipt
+	(*Response)(nil),      // 18: lamp.worker.v1.Response
+	(*Frame)(nil),         // 19: lamp.worker.v1.Frame
+	nil,                   // 20: lamp.worker.v1.Start.EnvEntry
+	nil,                   // 21: lamp.worker.v1.Receipt.DetailEntry
 }
 var file_worker_proto_depIdxs = []int32{
 	0,  // 0: lamp.worker.v1.HandleGrant.kind:type_name -> lamp.worker.v1.HandleKind
 	4,  // 1: lamp.worker.v1.Allocate.resources:type_name -> lamp.worker.v1.Resources
 	3,  // 2: lamp.worker.v1.Allocate.handles:type_name -> lamp.worker.v1.HandleGrant
-	19, // 3: lamp.worker.v1.Start.env:type_name -> lamp.worker.v1.Start.EnvEntry
+	20, // 3: lamp.worker.v1.Start.env:type_name -> lamp.worker.v1.Start.EnvEntry
 	3,  // 4: lamp.worker.v1.Capture.output_handles:type_name -> lamp.worker.v1.HandleGrant
 	5,  // 5: lamp.worker.v1.Restore.compatibility:type_name -> lamp.worker.v1.Compatibility
 	3,  // 6: lamp.worker.v1.Restore.input_handles:type_name -> lamp.worker.v1.HandleGrant
@@ -1618,17 +1767,19 @@ var file_worker_proto_depIdxs = []int32{
 	11, // 13: lamp.worker.v1.Request.inspect:type_name -> lamp.worker.v1.Inspect
 	12, // 14: lamp.worker.v1.Request.cancel:type_name -> lamp.worker.v1.Cancel
 	13, // 15: lamp.worker.v1.Request.release:type_name -> lamp.worker.v1.Release
-	2,  // 16: lamp.worker.v1.Response.context:type_name -> lamp.worker.v1.Context
-	16, // 17: lamp.worker.v1.Response.receipt:type_name -> lamp.worker.v1.Receipt
-	15, // 18: lamp.worker.v1.Response.error:type_name -> lamp.worker.v1.WorkerError
-	1,  // 19: lamp.worker.v1.Frame.hello:type_name -> lamp.worker.v1.Hello
-	14, // 20: lamp.worker.v1.Frame.request:type_name -> lamp.worker.v1.Request
-	17, // 21: lamp.worker.v1.Frame.response:type_name -> lamp.worker.v1.Response
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	16, // 16: lamp.worker.v1.Receipt.command:type_name -> lamp.worker.v1.CommandResult
+	21, // 17: lamp.worker.v1.Receipt.detail:type_name -> lamp.worker.v1.Receipt.DetailEntry
+	2,  // 18: lamp.worker.v1.Response.context:type_name -> lamp.worker.v1.Context
+	17, // 19: lamp.worker.v1.Response.receipt:type_name -> lamp.worker.v1.Receipt
+	15, // 20: lamp.worker.v1.Response.error:type_name -> lamp.worker.v1.WorkerError
+	1,  // 21: lamp.worker.v1.Frame.hello:type_name -> lamp.worker.v1.Hello
+	14, // 22: lamp.worker.v1.Frame.request:type_name -> lamp.worker.v1.Request
+	18, // 23: lamp.worker.v1.Frame.response:type_name -> lamp.worker.v1.Response
+	24, // [24:24] is the sub-list for method output_type
+	24, // [24:24] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_worker_proto_init() }
@@ -1646,11 +1797,11 @@ func file_worker_proto_init() {
 		(*Request_Cancel)(nil),
 		(*Request_Release)(nil),
 	}
-	file_worker_proto_msgTypes[16].OneofWrappers = []any{
+	file_worker_proto_msgTypes[17].OneofWrappers = []any{
 		(*Response_Receipt)(nil),
 		(*Response_Error)(nil),
 	}
-	file_worker_proto_msgTypes[17].OneofWrappers = []any{
+	file_worker_proto_msgTypes[18].OneofWrappers = []any{
 		(*Frame_Hello)(nil),
 		(*Frame_Request)(nil),
 		(*Frame_Response)(nil),
@@ -1661,7 +1812,7 @@ func file_worker_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_worker_proto_rawDesc), len(file_worker_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   19,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

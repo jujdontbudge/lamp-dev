@@ -1,0 +1,23 @@
+2026-11-09T20:37:17-05:00
+Linux ubuntu-server 7.0.0-42-generic #42-Ubuntu SMP PREEMPT_DYNAMIC Thu Oct 15 08:06:44 UTC 2026 x86_64 GNU/Linux
+8
+Model name:                              Intel(R) Core(TM) Ultra 9 288V
+CPU(s) scaling MHz:                      88%
+CPU max MHz:                             5100.0000
+CPU min MHz:                             400.0000
+               total        used        free      shared  buff/cache   available
+Mem:           31140        3265        7287         255       21302       27875
+Swap:           8191        4205        3986
+ 20:37:17 up 4 days,  6:45,  4 users,  load average: 2.53, 1.16, 2.13
+powersave
+TARGET        SOURCE   FSTYPE OPTIONS
+/run/lamp/mem lamp-mem tmpfs  rw,nosuid,nodev,noexec,relatime,size=23916100k,mode=711,inode64,huge=always
+TARGET        SOURCE      FSTYPE OPTIONS
+/var/lib/lamp /dev/loop14 xfs    rw,relatime,inode64,logbufs=8,logbsize=32k,noquota
+chrome: inactive
+t3: 5 t3 processes
+
+# Owner Chrome service (excerlock-dm-chrome.service), sampled before each row
+# (bench.log): inactive from the stop at 20:37:17 through create-200 and all
+# three volatile fork rows. Started again from outside this run at 20:46:15,
+# during the local row (which began 20:41:32); started by the script at 20:54:09.

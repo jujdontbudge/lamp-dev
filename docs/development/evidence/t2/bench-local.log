@@ -1,0 +1,7 @@
+chrome stop 2026-11-09T20:06:55-05:00
+chrome 2026-11-09T20:06:55-05:00: inactive since Mon 2026-11-09 19:55:48 EST
+== fork-1g-local 2026-11-09T20:06:55-05:00
+{"case":"fork dirty=1024MiB durability=local","extra":{"failures":0,"source_pause_max_ms":610.051,"source_pause_p50_ms":526.743,"trials_under_1000ms":0},"max_ms":16542.933624,"min_ms":1968.025959,"p50_ms":6218.535932,"p95_ms":15416.593881,"p99_ms":16492.319235,"trials":100}
+chrome 2026-11-09T20:19:35-05:00: active since Mon 2026-11-09 20:10:58 EST
+DONE 2026-11-09T20:19:35-05:00
+chrome restarted 2026-11-09T20:19:35-05:00: active

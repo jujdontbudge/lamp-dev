@@ -4,5 +4,15 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+description = "Lamp Linux engine: Firecracker microVM create, memory fork and lamp.template/v1 builds."
+
 [dependencies]
-lamp-worker-protocol = { path = "../lamp-worker-protocol" }
+lamp-init = { path = "../lamp-init" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+ed25519-dalek.workspace = true
+toml.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true

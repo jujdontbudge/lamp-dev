@@ -1,0 +1,14 @@
+# Engine demo template (lamp.template/v1). lamp-seed/debian-13@sha256:f7127c78261fdda37fe22d4567d8f0c7314cf23be10a3ad7dc0f7bea0d4194e6 is replaced with the
+# imported seed's reference, printed by `lamp-supervisor seed-import`.
+format = "lamp.template/v1"
+name = "demo"
+guest_os = "linux"
+arch = "x86_64"
+seed_ref = "lamp-seed/debian-13@sha256:f7127c78261fdda37fe22d4567d8f0c7314cf23be10a3ad7dc0f7bea0d4194e6"
+network = "none"
+
+[[steps]]
+argv = ["sh", "-c", "mkdir -p /opt/lamp-demo && git --version > /opt/lamp-demo/tools.txt && python3 --version >> /opt/lamp-demo/tools.txt"]
+
+[[steps]]
+argv = ["python3", "-c", "print('tools-installed')"]

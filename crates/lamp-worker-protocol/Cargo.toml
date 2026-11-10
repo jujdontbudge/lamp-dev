@@ -6,3 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 [dependencies]
 prost.workspace = true
+ed25519-dalek.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true

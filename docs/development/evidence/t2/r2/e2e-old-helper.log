@@ -1,0 +1,28 @@
+   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t2/src/crates/lamp-supervisor)
+    Finished `release` profile [optimized] target(s) in 0.39s
+     Running tests/e2e.rs (target/release/deps/e2e-391b1e455f5e9624)
+
+running 1 test
+create to command: 62.1 ms
+probe tasks: started in "cg 0::/tasks", now in "0::/tasks"
+probe root: started in "cg 0::/tasks", now in "0::/"
+probe docker: started in "cg 0::/docker/c1", now in "0::/docker/c1"
+probe unshare: started in "cg 0::/", now in "0::/ns1"
+memory fork: 823.2 ms (full write 769484 us, source pause 792428 us)
+identity probe tasks: 419 fork lines checked
+
+thread 'create_command_and_memory_fork' (3484205) panicked at crates/lamp-supervisor/tests/e2e.rs:189:9:
+assertion `left == right` failed: root: fork task saw the parent's machine-id: 335 88130e0911dc8d40b049e533128a8cce 59206302865d3bcfa107c1646bca2f73
+  left: "88130e0911dc8d40b049e533128a8cce"
+ right: "6b988dc2e0976357efd85ba3c9641d27"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test create_command_and_memory_fork ... FAILED
+
+failures:
+
+failures:
+    create_command_and_memory_fork
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.53s
+
+error: test failed, to rerun pass `-p lamp-supervisor --test e2e`

@@ -1,0 +1,14 @@
+# Engine demo template (lamp.template/v1). @SEED_REF@ is replaced with the
+# imported seed's reference, printed by `lamp-supervisor seed-import`.
+format = "lamp.template/v1"
+name = "demo"
+guest_os = "linux"
+arch = "x86_64"
+seed_ref = "@SEED_REF@"
+network = "none"
+
+[[steps]]
+argv = ["sh", "-c", "mkdir -p /opt/lamp-demo && git --version > /opt/lamp-demo/tools.txt && python3 --version >> /opt/lamp-demo/tools.txt"]
+
+[[steps]]
+argv = ["python3", "-c", "print('tools-installed')"]

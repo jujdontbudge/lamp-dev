@@ -1,0 +1,3 @@
+lamp-supervisor: HOST_UNAVAILABLE: capture: bad API status line: ""
+[Mon Nov  9 18:58:12 2026] oom-kill:constraint=CONSTRAINT_MEMCG,nodemask=(null),cpuset=lamp,mems_allowed=0,oom_memcg=/lamp/sb-bf-5c9c30fd3766,task_memcg=/lamp/sb-bf-5c9c30fd3766,task=firecracker,pid=3218619,uid=900000
+[Mon Nov  9 18:58:12 2026] Memory cgroup out of memory: Killed process 3218619 (firecracker) total-vm:4205120kB, anon-rss:1118176kB, file-rss:10128kB, shmem-rss:4kB, UID:900000 pgtables:2424kB oom_score_adj:0

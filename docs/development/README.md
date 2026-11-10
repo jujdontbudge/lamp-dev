@@ -91,8 +91,11 @@ ABI and package format stay unfrozen until T14, after T7/T8/T9.
 and operation get over `lampd`'s owner-only local HTTP Unix socket. See
 [demo-control-path.md](demo-control-path.md) for startup, canonical API/CLI usage,
 worker integration semantics and explicit fixture/engine evidence boundaries.
-`version --json` still reports build/protocol metadata. T2 owns the actual Rust
-engine; T6 joins the parallel tickets and runs the real guest/performance gate.
+`version --json` still reports build/protocol metadata. The Linux engine
+(`lamp-supervisor`, T2) boots templates as Firecracker microVMs and forks them
+with memory; see [crates/lamp-engine/README.md](../../crates/lamp-engine/README.md)
+and [T2-evidence.md](T2-evidence.md). T6 joins the parallel tickets and runs
+the gate.
 
 ## CI on owner machines
 

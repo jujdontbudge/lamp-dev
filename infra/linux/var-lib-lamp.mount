@@ -1,0 +1,14 @@
+# Lamp store: XFS with reflinks, so private disks and memory captures are
+# constant-time copy-on-write clones. Backed by a sparse image when the host
+# has no spare block device.
+[Unit]
+Description=Lamp store (XFS, reflink)
+
+[Mount]
+What=/var/lib/lamp-store.img
+Where=/var/lib/lamp
+Type=xfs
+Options=loop,noatime
+
+[Install]
+WantedBy=multi-user.target

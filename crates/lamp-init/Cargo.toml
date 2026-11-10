@@ -4,5 +4,19 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+description = "Guest PID 1 and guest helper for Lamp Linux microVMs, plus the host/guest channel types."
+
 [dependencies]
-lamp-worker-protocol = { path = "../lamp-worker-protocol" }
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true
+
+[[bin]]
+name = "lamp-init"
+path = "src/bin/lamp-init.rs"
+
+[[bin]]
+name = "lamp-guest-helper"
+path = "src/bin/lamp-guest-helper.rs"

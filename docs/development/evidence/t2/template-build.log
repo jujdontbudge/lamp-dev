@@ -1,0 +1,17 @@
+lamp-supervisor: store open, 3 verified template(s) in 236 ms
+definition: demo (2 steps), seed lamp-seed/debian-13@sha256:50eacc7cad547e96beddd699ff73689cc6c3dacb8ee54d89412617dc44ff48dc
+build sandbox booted in 155 ms
+step 0 ["sh", "-c", "mkdir -p /opt/lamp-demo && git --version > /opt/lamp-demo/tools.txt && python3 --version >> /opt/lamp-demo/tools.txt"]: exit 0 in 13 ms
+
+step 1 ["python3", "-c", "print('tools-installed')"]: exit 0 in 12 ms
+tools-installed
+
+template VM booted in 233 ms
+full capture written in 18907 ms
+memory image: 3976 MiB of zero pages left as holes
+published tp_d1afab53f18d795751b1bb4112 as demo in 27695 ms
+{"manifest_digest":"d1afab53f18d795751b1bb41122aeb22ade92fd840f67e6e0a878d3198827c2a","template_id":"tp_d1afab53f18d795751b1bb4112"}
+
+real	0m27.942s
+user	0m3.497s
+sys	0m3.409s

@@ -23,6 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 state: "accepted".into(),
                 committed_handle_ids: vec![],
                 outcome_unknown: false,
+                ..Default::default()
             })),
         })),
     };

@@ -1,0 +1,12 @@
+   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t2/src/crates/lamp-supervisor)
+    Finished `release` profile [optimized] target(s) in 0.45s
+     Running tests/e2e.rs (target/release/deps/e2e-391b1e455f5e9624)
+
+running 1 test
+create to command: 76.8 ms
+memory fork: 988.2 ms (full write 924811 us, source pause 947881 us)
+identity probe: 280 shared lines, 657 fork lines checked
+test create_command_and_memory_fork ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.86s
+

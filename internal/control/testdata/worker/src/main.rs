@@ -138,6 +138,7 @@ fn serve(
                         state: state.into(),
                         committed_handle_ids: vec![],
                         outcome_unknown: false,
+                        ..Default::default()
                     })),
                 })),
             },

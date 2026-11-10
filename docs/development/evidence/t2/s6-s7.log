@@ -1,0 +1,96 @@
+## S6: offline commands while the daemon serves a live sandbox
+{"create_to_command_ms":145.977701,"detail":{"barrier_us":"18673","load_us":"10808","machine_id":"fd0beb5d57e483f9c6fe28ea6b2ac638","prepare_us":"4012","rng_sample":"69c1cc6031d1d3158741865a11101680","spawn_us":"16760","total_us":"50268"},"probe_exit":0,"sandbox_id":"sb_s6live","state":"restored"}
+alive-before
+$ sudo lamp-supervisor template-build demo.lamp
+lamp-supervisor: RESOURCE_IN_USE: the store at /var/lib/lamp is owned by another process (stop lamp-supervisor first): /var/lib/lamp/lock is locked: Resource temporarily unavailable (os error 11)
+exit 1
+$ sudo lamp-supervisor seed-import seed-r1
+lamp-supervisor: RESOURCE_IN_USE: the store at /var/lib/lamp is owned by another process (stop lamp-supervisor first): /var/lib/lamp/lock is locked: Resource temporarily unavailable (os error 11)
+exit 1
+$ sudo lamp-supervisor templates
+lamp-supervisor: store open, 4 verified template(s) in 5251 ms
+tp_62c097c7727c64b4c05d938667 demo 62c097c7727c64b4c05d938667e23a7a5068468222e0ebf04c41ee58fcf236b8
+tp_27078f2ad53e784103a1bbb72f demo 27078f2ad53e784103a1bbb72f8dc5fdc0cce0bef776881d2a14c2a37effc992
+tp_8c3b218c57ccd4dbea283a6abd demo 8c3b218c57ccd4dbea283a6abdaf0e7617bc3576acaf9f3c9c93a274f64ffc2a
+tp_d1afab53f18d795751b1bb4112 demo d1afab53f18d795751b1bb41122aeb22ade92fd840f67e6e0a878d3198827c2a
+exit 0
+alive-after
+1
+## S7: stop with live sandboxes
+firecracker before: 3
+firecracker after SIGTERM stop: 1
+Nov 09 19:49:14 ubuntu-server lamp-supervisor[3374311]: lamp-supervisor: signal 15: stopping every sandbox
+Nov 09 19:49:14 ubuntu-server systemd[1]: Stopped lamp-supervisor.service - Lamp supervisor (lamp.worker/1, Firecracker engine).
+firecracker before SIGINT: 1
+firecracker after SIGINT: 0
+Nov 09 19:49:16 ubuntu-server lamp-supervisor[3377580]: lamp-supervisor: signal 2: stopping every sandbox
+Nov 09 19:49:16 ubuntu-server systemd[1]: lamp-supervisor.service: Sent signal SIGINT to main process 3377580 (lamp-supervisor) on client request.
+active
+## S7 rerun: process state (Z = exited, awaiting reap) shown
+before SIGTERM:
+    3380147 Sl   firecracker
+    3380167 Sl   firecracker
+    3380185 Sl   firecracker
+immediately after systemctl stop:
+    3380167 Zl   firecracker
+    3380185 Sl   firecracker
+1 s later:
+Nov 09 19:50:24 ubuntu-server lamp-supervisor[3379913]: lamp-supervisor: signal 15: stopping every sandbox
+Nov 09 19:50:24 ubuntu-server systemd[1]: Stopped lamp-supervisor.service - Lamp supervisor (lamp.worker/1, Firecracker engine).
+before SIGINT:
+    3380393 Sl   firecracker
+    3380411 Sl   firecracker
+after SIGINT exit:
+Nov 09 19:50:27 ubuntu-server lamp-supervisor[3380216]: lamp-supervisor: signal 2: stopping every sandbox
+Nov 09 19:50:27 ubuntu-server systemd[1]: lamp-supervisor.service: Sent signal SIGINT to main process 3380216 (lamp-supervisor) on client request.
+service: active
+## S7 after the kill fix (wait until the VMM cgroup can be removed)
+run 1 before SIGTERM:
+    3381144 Sl   firecracker
+    3381164 Sl   firecracker
+    3381182 Sl   firecracker
+run 1 immediately after systemctl stop (Z = exited, reaped by init):
+Nov 09 19:51:20 ubuntu-server lamp-supervisor[3380964]: lamp-supervisor: signal 15: stopping every sandbox
+Nov 09 19:51:20 ubuntu-server systemd[1]: Stopped lamp-supervisor.service - Lamp supervisor (lamp.worker/1, Firecracker engine).
+run 2 before SIGTERM:
+    3381394 Sl   firecracker
+    3381412 Sl   firecracker
+    3381429 Sl   firecracker
+run 2 immediately after systemctl stop (Z = exited, reaped by init):
+    3381394 Sl   firecracker
+    3381412 Zl   firecracker
+    3381429 Sl   firecracker
+Nov 09 19:51:22 ubuntu-server lamp-supervisor[3381210]: lamp-supervisor: signal 15: stopping every sandbox
+Nov 09 19:51:22 ubuntu-server systemd[1]: Stopped lamp-supervisor.service - Lamp supervisor (lamp.worker/1, Firecracker engine).
+run 3 before SIGTERM:
+    3381635 Sl   firecracker
+    3381652 Sl   firecracker
+    3381671 Sl   firecracker
+run 3 immediately after systemctl stop (Z = exited, reaped by init):
+Nov 09 19:51:24 ubuntu-server lamp-supervisor[3381458]: lamp-supervisor: signal 15: stopping every sandbox
+Nov 09 19:51:24 ubuntu-server systemd[1]: Stopped lamp-supervisor.service - Lamp supervisor (lamp.worker/1, Firecracker engine).
+before SIGINT:
+    3381875 Sl   firecracker
+    3381893 Sl   firecracker
+immediately after SIGINT exit:
+Nov 09 19:51:27 ubuntu-server lamp-supervisor[3381698]: lamp-supervisor: signal 2: stopping every sandbox
+Nov 09 19:51:26 ubuntu-server systemd[1]: lamp-supervisor.service: Sent signal SIGINT to main process 3381698 (lamp-supervisor) on client request.
+service: active
+
+## S7 final (kill waits until the VMM process itself is gone): 10 x SIGTERM (systemctl stop), 5 x SIGINT, 3 live sandboxes each
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 49 ms 
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 83 ms 
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 69 ms 
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 71 ms 
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 77 ms 
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 66 ms 
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 73 ms 
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 71 ms 
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 72 ms 
+SIGTERM: VMMs before 3, VMM processes after exit: none; signal 15 stopped 3 sandbox(es) in 83 ms 
+SIGINT: VMMs before 3, VMM processes after exit: none; signal 2 stopped 3 sandbox(es) in 78 ms 
+SIGINT: VMMs before 3, VMM processes after exit: none; signal 2 stopped 3 sandbox(es) in 73 ms 
+SIGINT: VMMs before 3, VMM processes after exit: none; signal 2 stopped 3 sandbox(es) in 70 ms 
+SIGINT: VMMs before 3, VMM processes after exit: none; signal 2 stopped 3 sandbox(es) in 89 ms 
+SIGINT: VMMs before 3, VMM processes after exit: none; signal 2 stopped 3 sandbox(es) in 74 ms 
+service: active

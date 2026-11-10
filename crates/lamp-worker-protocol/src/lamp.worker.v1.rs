@@ -131,8 +131,14 @@ pub struct Restore {
     #[prost(message, repeated, tag = "3")]
     pub input_handles: ::prost::alloc::vec::Vec<HandleGrant>,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct Inspect {}
+/// With command_operation_id set (the operation_id of an earlier Start on
+/// this sandbox), Receipt.command reports that command: finished_at_unix_ns is
+/// 0 while it still runs.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Inspect {
+    #[prost(string, tag = "1")]
+    pub command_operation_id: ::prost::alloc::string::String,
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Cancel {
     #[prost(string, tag = "1")]
@@ -178,7 +184,30 @@ pub struct WorkerError {
     #[prost(bool, tag = "3")]
     pub retryable: bool,
 }
+/// Bounded result of a Start that ran to completion. Streams stay bounded
+/// control-sized tails; full output belongs on a separate bulk stream.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CommandResult {
+    #[prost(int32, tag = "1")]
+    pub exit_code: i32,
+    #[prost(int32, tag = "2")]
+    pub signal: i32,
+    /// <= 64 KiB
+    #[prost(bytes = "vec", tag = "3")]
+    pub stdout_tail: ::prost::alloc::vec::Vec<u8>,
+    /// <= 64 KiB
+    #[prost(bytes = "vec", tag = "4")]
+    pub stderr_tail: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bool, tag = "5")]
+    pub truncated: bool,
+    #[prost(bool, tag = "6")]
+    pub timed_out: bool,
+    #[prost(uint64, tag = "7")]
+    pub started_at_unix_ns: u64,
+    #[prost(uint64, tag = "8")]
+    pub finished_at_unix_ns: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Receipt {
     #[prost(string, tag = "1")]
     pub state: ::prost::alloc::string::String,
@@ -186,8 +215,14 @@ pub struct Receipt {
     pub committed_handle_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(bool, tag = "3")]
     pub outcome_unknown: bool,
+    #[prost(message, optional, tag = "4")]
+    pub command: ::core::option::Option<CommandResult>,
+    /// Engine observations, e.g. phase timings in microseconds. Not authority.
+    #[prost(map = "string, string", tag = "5")]
+    pub detail:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Response {
     #[prost(message, optional, tag = "1")]
     pub context: ::core::option::Option<Context>,
@@ -196,7 +231,7 @@ pub struct Response {
 }
 /// Nested message and enum types in `Response`.
 pub mod response {
-    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Result {
         #[prost(message, tag = "10")]
         Receipt(super::Receipt),
