@@ -1499,11 +1499,37 @@ impl Engine {
         sandbox_id: &str,
         generation: u64,
     ) -> Result<lamp_init::BarrierAck> {
+        self.barrier_with(
+            vsock,
+            sandbox_id,
+            generation,
+            lamp_init::hex_encode(&random_bytes::<16>()),
+        )
+    }
+
+    /// Re-applies a running sandbox's own identity with the current host
+    /// time and fresh entropy (after a pause for a capture).
+    fn rebarrier(&self, vsock: &Path, sb: &Sandbox) -> Result<lamp_init::BarrierAck> {
+        let machine_id = sb
+            .barrier
+            .as_ref()
+            .map(|b| b.machine_id.clone())
+            .ok_or_else(|| EngineError::host("sandbox has no applied identity"))?;
+        self.barrier_with(vsock, &sb.id, sb.generation, machine_id)
+    }
+
+    fn barrier_with(
+        &self,
+        vsock: &Path,
+        sandbox_id: &str,
+        generation: u64,
+        machine_id: String,
+    ) -> Result<lamp_init::BarrierAck> {
         let barrier = Barrier {
             sandbox_id: sandbox_id.into(),
             generation,
             hostname: sandbox_id.replace('_', "-"),
-            machine_id: lamp_init::hex_encode(&random_bytes::<16>()),
+            machine_id,
             entropy_hex: lamp_init::hex_encode(&random_bytes::<64>()),
             unix_time_ns: now_ns(),
         };
@@ -1772,17 +1798,21 @@ impl Engine {
             });
         let resumed = w.call(&Api::Resume {}, Duration::from_secs(60));
         let pause = tp.elapsed();
-        let thawed = if preserves_memory {
-            let t = Instant::now();
-            let r = thaw_guest(&vsock);
-            detail.insert("thaw_us".into(), us(t.elapsed()));
-            if let Err(e) = &r {
-                sb.state = State::Failed(format!("tasks may be frozen: {}", e.message));
+        // The guest's clock stood still while the machine was paused. The
+        // source keeps its identity but gets the host time (and fresh
+        // entropy) again before its tasks run: the same barrier, same
+        // sandbox, generation and machine id. For Linux it also thaws.
+        let t = Instant::now();
+        let thawed = match self.rebarrier(&vsock, &sb) {
+            Ok(_) => Ok(()),
+            Err(e) if preserves_memory => {
+                let r = thaw_guest(&vsock).and(Err(e.context("source clock barrier")));
+                sb.state = State::Failed("source clock/thaw after capture failed".into());
+                r
             }
-            r
-        } else {
-            Ok(())
+            Err(e) => Err(e.context("source clock barrier")),
         };
+        detail.insert("source_barrier_us".into(), us(t.elapsed()));
         if let Err(e) = sealed.and(resumed.map(|_| ())).and(thawed) {
             if let Some(p) = &state_tmp {
                 let _ = std::fs::remove_file(p);
