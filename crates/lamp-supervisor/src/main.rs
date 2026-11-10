@@ -1420,17 +1420,29 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
 
     // Resume A (generation 2) for the rest.
     let mut generation = 1;
+    // A resume needs the console unlocked (VZ state is sealed to the console
+    // session); waits and lock refusals are counted and the resume retried.
+    let lock_waits = std::cell::Cell::new((0u64, 0.0f64, 0u64));
     let resume = |c: &mut Ctl, id: &str, generation: &mut u64| -> Result<(Receipt, f64), String> {
         *generation += 1;
         c.grant(*generation);
         c.gens.insert(id.to_string(), *generation);
-        let t = Instant::now();
-        match c.try_restore(id, &format!("suspend_{id}")) {
-            Ok(r) => Ok((r, t.elapsed().as_secs_f64() * 1000.0)),
-            Err(e) => {
-                *generation -= 1;
-                c.gens.insert(id.to_string(), *generation);
-                Err(e)
+        loop {
+            let waited = wait_unlocked();
+            let (n, s, refusals) = lock_waits.get();
+            lock_waits.set((n + (waited > 0.0) as u64, s + waited, refusals));
+            let t = Instant::now();
+            match c.try_restore(id, &format!("suspend_{id}")) {
+                Ok(r) => return Ok((r, t.elapsed().as_secs_f64() * 1000.0)),
+                Err(e) if lock_related(&e) && refusals < 50 => {
+                    let (n, s, refusals) = lock_waits.get();
+                    lock_waits.set((n, s, refusals + 1));
+                }
+                Err(e) => {
+                    *generation -= 1;
+                    c.gens.insert(id.to_string(), *generation);
+                    return Err(e);
+                }
             }
         }
     };
@@ -1576,7 +1588,8 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
         summary(
             "e06 suspend",
             sus_ms,
-            json!({"step_failures": failures, "trial_failures": trial_failures, "failures": fails, "template": template, "resources": format!("{res:?}")})
+            json!({"step_failures": failures, "trial_failures": trial_failures, "failures": fails, "template": template, "resources": format!("{res:?}"),
+                   "console_lock_waits": lock_waits.get().0, "console_lock_wait_s": lock_waits.get().1, "console_lock_refusals": lock_waits.get().2})
         )
     );
     eprintln!("{}", summary("e06 resume_to_command", res_ms, json!({})));
