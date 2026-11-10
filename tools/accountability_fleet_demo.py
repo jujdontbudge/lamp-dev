@@ -66,18 +66,18 @@ def put(host, path, data):
         subprocess.run(['ssh', '-o', 'BatchMode=yes', HOSTS[host][0],
                         shlex.join(['python3', '-c', 'import os,sys; p=sys.argv[1]; f=os.open(p,os.O_CREAT|os.O_TRUNC|os.O_WRONLY,0o600); os.write(f,sys.stdin.buffer.read()); os.close(f)', str(path)])], input=data, check=True)
 
-def cli(host, noun, verb, data=None, token=TOKEN, okay=True, retry=True):
+def cli(host, noun, verb, data=None, token=TOKEN, okay=True, retry=True, direct=False):
     source = '''import json,os,subprocess,sys
-root,noun,verb,token,data=sys.argv[1:]
-env=dict(os.environ,LAMP_SOCKET=root+'/api.sock',LAMP_TOKEN=token,LAMP_API_URL='lamp+fleet://'+root+'/discovery.json')
+root,noun,verb,token,data,direct=sys.argv[1:]
+env=dict(os.environ,LAMP_SOCKET=root+'/api.sock',LAMP_TOKEN=token,LAMP_API_URL='' if direct=='1' else 'lamp+fleet://'+root+'/discovery.json')
 args=[root+'/lamp',noun,verb,'--json']
 if data!='null':
  p=root+'/input-'+str(os.getpid())+'.json';open(p,'w').write(data);args+=['--input',p]
 r=subprocess.run(args,env=env,capture_output=True,text=True,timeout=100)
 print(json.dumps({'exit':r.returncode,'reply':json.loads(r.stdout or r.stderr)}))
 '''
-    result=json.loads(python(host, source, str(CURRENT), noun, verb, token, json.dumps(data)))
-    if retry and result['reply'].get('error',{}).get('code')=='REVISION_CONFLICT':return cli(host,noun,verb,data,token,okay,retry=False)
+    result=json.loads(python(host, source, str(CURRENT), noun, verb, token, json.dumps(data), "1" if direct else "0"))
+    if retry and result['reply'].get('error',{}).get('code')=='REVISION_CONFLICT':return cli(host,noun,verb,data,token,okay,retry=False,direct=direct)
     if okay and result['exit']: raise RuntimeError(result)
     return result
 
@@ -265,6 +265,8 @@ try:
         principal=cli('hs_m5','principal','create',dict(issuer='t23-disposable',subject='bob',display_name='Disposable Bob',idempotency_key='t23-bob'))['reply']['result']['principal_id']
         membership=cli('hs_m5','membership','create',dict(principal_id=principal,role='member',idempotency_key='t23-member'))['reply']['result']['membership_id']
         until(lambda:not cli('hs_m5','fleet','get',dict(fleet_id='fl_local'),token=MEMBER,okay=False)['exit'],'member authority propagation')
+        for host in HOSTS:
+            until(lambda:not cli(host,'fleet','get',dict(fleet_id='fl_local'),token=MEMBER,okay=False,direct=True)['exit'],'member authority at '+host)
         budget=cli('hs_m5','budget','create',dict(wall_time_ms=180000,token_mode='best_effort',idempotency_key='lk1.1.hs_lx.member-budget'),token=MEMBER)['reply']['result']['budget_id']
         task=cli('hs_m5','task','create',dict(budget_id=budget,idempotency_key='t23-member-task'),token=MEMBER)['reply']['result']['task_id']
         guard()
