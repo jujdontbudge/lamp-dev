@@ -31,6 +31,7 @@ fixtures; they are not production workers.
 | `pkg/workerpb`, `crates/lamp-worker-protocol` | Generated worker messages plus bounded framing helpers | T1; shared T2/T3 boundary |
 | `crates/lamp-engine`, `crates/lamp-supervisor`, `crates/lamp-init` | Rust engine, privileged service, guest-init seams | T2 |
 | `cmd/lamp`, `cmd/lampd`, `internal/control` | Go CLI, service, operation/admission state | T3, then T10 |
+| `cmd/lamp-broker`, `internal/broker` | Standalone owner credential proxy, scoped adapters and selected-path settings return | T17 |
 | `internal/guard`, `crates/lamp-guard` | Guard integration boundary; Linux packet/process collectors and host spool. [T4 integration contract](T4-guard.md) | T4 |
 | `tests/` (outside `tests/contracts`), `benchmarks/` | Independent oracles and benchmark harness; create subdirectories as needed | T5 |
 | `tools/`, `tests/contracts`, workspace manifests, CI | Shared build/codegen/conformance infrastructure | T1; coordinate modifications |
@@ -104,6 +105,11 @@ storage proof (ext4 at 1,000 forks, XFS-reflink at 100) are in
 memory fork and native macOS guests on Virtualization.framework, M5 and AIR)
 is in [T8-evidence.md](T8-evidence.md); the installer and the guest build are
 in `infra/mac/`.
+
+The standalone [owner broker](T17-broker.md) keeps provider credentials and signing
+keys host-side. [T17 evidence](T17-evidence.md) records the real LX sandbox,
+canary-free full capture, host CLI work and explicit remaining integration/account
+gaps; it does not claim the entire ticket is complete.
 
 ## CI on owner machines
 

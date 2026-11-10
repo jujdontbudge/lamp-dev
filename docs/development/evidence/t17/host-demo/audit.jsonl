@@ -1,0 +1,17 @@
+{"connection":"grant","outcome":"issued","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:11.959765Z"}
+{"connection":"model","outcome":"completed","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.031007Z"}
+{"connection":"mcp","outcome":"completed","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.110975Z"}
+{"connection":"settings","outcome":"proposed","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.129737Z"}
+{"connection":"settings","outcome":"applied","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.148334Z"}
+{"connection":"settings","outcome":"proposed","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.156959Z"}
+{"connection":"notes","outcome":"access_changed","sandbox":"owner","time":"2026-11-10T21:46:12.166176Z"}
+{"connection":"notes","outcome":"completed","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.212232Z"}
+{"connection":"notes","outcome":"access_changed","sandbox":"owner","time":"2026-11-10T21:46:12.231893Z"}
+{"connection":"approve","outcome":"approved","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.240075Z"}
+{"connection":"notes","outcome":"completed","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.301322Z"}
+{"connection":"notes","outcome":"access_changed","sandbox":"owner","time":"2026-11-10T21:46:12.308671Z"}
+{"connection":"notes","outcome":"completed","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.359475Z"}
+{"connection":"notes","outcome":"OUTPUT_BLOCKED","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.404401Z"}
+{"connection":"approve","outcome":"approved","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.410182Z"}
+{"connection":"git","outcome":"completed","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.420632Z"}
+{"connection":"github","outcome":"completed","sandbox":"sb_t17_demo","time":"2026-11-10T21:46:12.992193Z"}

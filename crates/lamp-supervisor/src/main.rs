@@ -17,6 +17,7 @@
 //! lamp-supervisor ctl fork SANDBOX_ID [CHILD_ID] [--durability volatile|local]
 //! lamp-supervisor ctl capture SANDBOX_ID CAPTURE_ID [--durability volatile|local]
 //! lamp-supervisor ctl suspend SANDBOX_ID CAPTURE_ID   (durable capture, then release)
+//! Isolated hosts: --mem-dir P --netns-dir P --uid-base N --host-id ID
 //! lamp-supervisor ctl inspect [SANDBOX_ID] | release SANDBOX_ID
 //! lamp-supervisor ctl suspend SANDBOX_ID | resume SANDBOX_ID GENERATION
 //! lamp-supervisor ctl bench-create TEMPLATE COUNT [WARMUP]
@@ -200,6 +201,8 @@ fn host(cmd: &str, mut args: Vec<String>) {
             .unwrap_or_else(|| format!("{}.admin", socket.display())),
     );
     let mut cfg = Config::defaults(store.clone());
+    // Independent owner demonstrations must not share runtime directories or
+    // jail identities with a supervisor serving another ticket/store.
     if let Some(d) = take_flag(&mut args, "--mem-dir") {
         cfg.mem_dir = d.into();
     }
@@ -208,6 +211,12 @@ fn host(cmd: &str, mut args: Vec<String>) {
     }
     if let Some(n) = take_flag(&mut args, "--uid-base") {
         cfg.uid_base = n.parse().unwrap_or_else(|_| die("bad --uid-base"));
+        if cfg.uid_base < 65_536 || cfg.uid_base.checked_add(cfg.uid_count).is_none() {
+            die("--uid-base must reserve a non-system, non-overflowing range");
+        }
+    }
+    if let Some(id) = take_flag(&mut args, "--host-id") {
+        cfg.host_id = id;
     }
     if let Some(b) = take_flag(&mut args, "--disk-backend") {
         cfg.disk_backend = b;
