@@ -65,7 +65,13 @@ A root-only Linux regression runs a real duplex exchange after entering the
 unchanged confinement profile in a disposable subprocess. It is included and
 cross-checked, but has not been executed on Linux for this revision.
 
-Full workspace verification is retained separately. Real confined Linux
+After merging main at `d0e4cc64656ecff3bf30ba5f981a27fd5c8be43d`,
+`make bootstrap verify`, exact worker regeneration with protoc 35.0, and
+Linux-target workspace clippy all pass. The complete output and exit code 0
+are retained in `verify-macos-proxy-20261110-02.log`; the pre-merge workspace
+run is also retained in `verify-macos-proxy-20261110-01.log`.
+
+Real confined Linux
 execution, official authentication, continued inference after fork and
 suspend/resume, permitted refresh, clean handoff and full zero-canary scans
 remain pending the laptop lane. None of these local tests authorizes T14's

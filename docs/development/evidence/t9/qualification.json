@@ -49,18 +49,25 @@
       "logs": ["verify-linux.log", "verify-linux-final.log", "verify-linux-custody-final.log"]
     },
     "macos": {
-      "command": "make bootstrap verify",
-      "status": "fail",
-      "observation": "existing internal/control Go suite timed out at its default ten-minute limit; isolated TestDurabilityRejectionHasNoEffect passed but the full control-suite retry also timed out",
-      "logs": ["verify-macos-failed.log", "go-control-macos-retry-failed.log"],
+      "command": "make bootstrap verify; python3 tools/protobuf.py --check",
+      "status": "pass",
+      "observation": "full local verification passes after merging current main d0e4cc64656ecff3bf30ba5f981a27fd5c8be43d; previous timeout failures remain retained",
+      "logs": ["verify-macos-proxy-20261110-01.log", "verify-macos-proxy-20261110-02.log"],
+      "historical_failed_logs": ["verify-macos-failed.log", "go-control-macos-retry-failed.log"],
       "other_checks_passed": [
         "Rust workspace tests",
         "Rust formatting and clippy",
         "Go vet",
         "contracts and interoperability",
-        "public and worker binding regeneration with /opt/homebrew/bin/protoc 35.0",
-        "benchmark and infrastructure tests"
+        "public and worker binding regeneration with protoc 35.0",
+        "benchmark, infrastructure and subscription bridge tests"
       ]
+    },
+    "linux_target_on_macos": {
+      "command": "cargo check --workspace --all-targets --target x86_64-unknown-linux-gnu --locked; cargo clippy --workspace --all-targets --target x86_64-unknown-linux-gnu --locked -- -D warnings",
+      "status": "pass",
+      "runtime_executed": false,
+      "logs": ["verify-macos-proxy-20261110-02.log"]
     }
   },
   "integration_blockers": [
@@ -96,6 +103,6 @@
     "credentials_copied_from_owner_apps": false,
     "paid_service_or_subscription_purchased": false,
     "thresholds_changed": false,
-    "large_disposable_artifacts_retained_on_LX": "/var/lib/lamp/t9-control-20261110-01 through /var/lib/lamp/t9-control-20261110-04"
+    "large_disposable_artifacts_retained_on_LX": "/var/lib/lamp/t9-control-20261110-01 through /var/lib/lamp/t9-control-20261110-04; /var/lib/lamp/t9e01 through /var/lib/lamp/t9e06"
   }
 }
