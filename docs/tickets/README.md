@@ -69,7 +69,7 @@ The owner chose five agent setups on 2026-11-09 and asked for the tickets to be 
 ## Checkpoints
 
 - **T1** blocks everything, so it is kept small.
-- **T6** is the owner's engine-first rule (ENG-001). Nothing else is built until it passes.
+- **T6** was the owner's engine-first rule (ENG-001). It merged on 2026-11-10 with the gate recorded as failed on speed (`docs/development/T6-evidence.md`). The owner accepted that result the same day and said to build everything else, so T7–T13 started.
 - **T14** freezes the template and saved-state formats once E04–E07 have passed.
 - **T30** proves the whole release.
 - **T31** is public and can't be undone. It runs only when T30's result is clean. The owner said on 2026-11-09 that the build goes public itself, without waiting for them.
