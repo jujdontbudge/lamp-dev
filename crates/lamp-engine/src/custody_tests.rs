@@ -219,6 +219,76 @@ fn lost_official_run_requires_new_sign_in_not_a_refresh_retry() {
 }
 
 #[test]
+fn persisted_official_run_authority_serializes_copies_and_invalidates_rotated_captures() {
+    let mut graph = Custody::new("pr_owner", "hs_local", ["hs_local"]).unwrap();
+    graph.create("source").unwrap();
+    graph
+        .register_subscription("cr_session", Harness::Codex, ["hs_local"])
+        .unwrap();
+    graph.expose("source", "cr_session").unwrap();
+    let destination = Destination {
+        principal: "pr_owner",
+        host: "hs_local",
+        online: true,
+    };
+    graph
+        .derive("source", "child", destination, CapturePurpose::OwnerPrivate)
+        .unwrap();
+    graph.begin_run("source", "op_source", false).unwrap();
+    assert!(graph.begin_run("child", "op_race", false).is_err());
+    assert!(
+        graph
+            .derive(
+                "source",
+                "unsafe_capture",
+                destination,
+                CapturePurpose::OwnerPrivate
+            )
+            .is_err()
+    );
+    graph.finish_run("source", "op_source", true, true).unwrap();
+    assert!(graph.begin_run("child", "op_stale", false).is_err());
+    graph.begin_run("child", "op_signin", true).unwrap();
+    graph.finish_run("child", "op_signin", true, false).unwrap();
+    graph.begin_run("child", "op_current", false).unwrap();
+    graph.recover_runs();
+    assert!(graph.begin_run("child", "op_after_loss", false).is_err());
+}
+
+#[test]
+fn bounded_bridge_progress_follows_private_memory_captures_and_requires_live_authority() {
+    let mut graph = Custody::new("pr_owner", "hs_local", ["hs_local"]).unwrap();
+    graph.create("source").unwrap();
+    graph
+        .register_subscription("cr_session", Harness::ClaudeCode, ["hs_local"])
+        .unwrap();
+    graph.expose("source", "cr_session").unwrap();
+    assert!(graph.next_bridge_step("source", 3).is_err());
+    graph.begin_run("source", "op_source", false).unwrap();
+    assert_eq!(graph.next_bridge_step("source", 3).unwrap(), 0);
+    graph
+        .finish_run("source", "op_source", true, false)
+        .unwrap();
+    graph
+        .derive(
+            "source",
+            "child",
+            Destination {
+                principal: "pr_owner",
+                host: "hs_local",
+                online: true,
+            },
+            CapturePurpose::OwnerPrivate,
+        )
+        .unwrap();
+    graph.begin_run("child", "op_child", false).unwrap();
+    assert_eq!(graph.next_bridge_step("child", 3).unwrap(), 1);
+    assert!(graph.next_bridge_step("source", 3).is_err());
+    assert_eq!(graph.next_bridge_step("child", 3).unwrap(), 2);
+    assert!(graph.next_bridge_step("child", 3).is_err());
+}
+
+#[test]
 fn added_dependencies_require_new_verified_reconstruction_not_silent_tool_loss() {
     let mut graph = graph();
     graph

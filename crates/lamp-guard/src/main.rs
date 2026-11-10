@@ -4,7 +4,7 @@ fn main() {
     use std::{env, fs, io};
     fn run() -> io::Result<i32> {
         let args: Vec<String> = env::args().collect();
-        let usage = "usage: lamp-guard policy CONFIG | run CONFIG | receive CONFIG FD | proxy CONFIG SPOOL | collect FD|vsock:PORT UID [status:FD] -- ARGV...";
+        let usage = "usage: lamp-guard policy CONFIG | run CONFIG | receive CONFIG FD | proxy CONFIG SPOOL [NETNS] | collect FD|vsock:PORT UID [status:FD] -- ARGV...";
         let config = |p: &str| -> io::Result<Config> {
             let c: Config = serde_json::from_slice(&fs::read(p)?)?;
             c.validate()?;
@@ -33,17 +33,24 @@ fn main() {
                 audit::receive(socket, &mut spool)?;
                 Ok(0)
             }
-            Some("proxy") if args.len() == 4 => {
-                // Runs inside the guard namespace: bind the endpoint and
-                // create the spool as root, then confine to the guard UID.
+            Some("proxy") if args.len() == 4 || args.len() == 5 => {
                 let c = config(&args[2])?;
+                let vendors = lamp_guard::subscription_proxy::ResolvedVendors::prepare(&c)?;
+                use std::os::fd::AsRawFd;
+                // Resolve using the host's resolver, then join the assigned
+                // guard namespace before binding or admitting any guest.
+                if let Some(netns) = args.get(4) {
+                    let namespace = fs::File::open(netns)?;
+                    if unsafe { libc::setns(namespace.as_raw_fd(), libc::CLONE_NEWNET) } != 0 {
+                        return Err(io::Error::last_os_error());
+                    }
+                }
                 let endpoint = c
                     .proxy
                     .ok_or_else(|| io::Error::other("policy has no proxy endpoint"))?;
                 let listener = std::net::TcpListener::bind((endpoint.address, endpoint.port))?;
                 let mut spool =
                     audit::Spool::create(&args[3], c.spool_bytes, c.attribution.clone())?;
-                use std::os::fd::AsRawFd;
                 lamp_guard::confinement::enter_with(
                     c.guard_uid,
                     false,
@@ -51,7 +58,11 @@ fn main() {
                     lamp_guard::confinement::PROXY_SYSCALLS,
                 )?;
                 println!("{}", serde_json::json!({"state":"ready","proxy":endpoint}));
-                lamp_guard::proxy::serve(&c, listener, &mut spool)?;
+                if let Some(vendors) = vendors {
+                    vendors.serve(listener, |event| spool.record("subscription_tunnel", event))?;
+                } else {
+                    lamp_guard::proxy::serve(&c, listener, &mut spool)?;
+                }
                 Ok(0)
             }
             Some("collect") if args.len() >= 6 => {

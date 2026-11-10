@@ -13,6 +13,7 @@ test:
 	cargo test --workspace --locked
 	$(PYTHON) -m unittest discover -s tests/benchmarks -v
 	$(PYTHON) -m unittest discover -s tests/infra -v
+	$(PYTHON) -m unittest discover -s tests/subscription -v
 
 bootstrap:
 	$(PYTHON) -m venv .venv

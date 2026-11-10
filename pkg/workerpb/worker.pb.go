@@ -958,6 +958,74 @@ func (*Release) Descriptor() ([]byte, []int) {
 	return file_worker_proto_rawDescGZIP(), []int{12}
 }
 
+type Rebuild struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SourceId             string                 `protobuf:"bytes,1,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	DestinationPrincipal string                 `protobuf:"bytes,2,opt,name=destination_principal,json=destinationPrincipal,proto3" json:"destination_principal,omitempty"`
+	Purpose              string                 `protobuf:"bytes,3,opt,name=purpose,proto3" json:"purpose,omitempty"`
+	CleanRebuild         bool                   `protobuf:"varint,4,opt,name=clean_rebuild,json=cleanRebuild,proto3" json:"clean_rebuild,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *Rebuild) Reset() {
+	*x = Rebuild{}
+	mi := &file_worker_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Rebuild) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Rebuild) ProtoMessage() {}
+
+func (x *Rebuild) ProtoReflect() protoreflect.Message {
+	mi := &file_worker_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Rebuild.ProtoReflect.Descriptor instead.
+func (*Rebuild) Descriptor() ([]byte, []int) {
+	return file_worker_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *Rebuild) GetSourceId() string {
+	if x != nil {
+		return x.SourceId
+	}
+	return ""
+}
+
+func (x *Rebuild) GetDestinationPrincipal() string {
+	if x != nil {
+		return x.DestinationPrincipal
+	}
+	return ""
+}
+
+func (x *Rebuild) GetPurpose() string {
+	if x != nil {
+		return x.Purpose
+	}
+	return ""
+}
+
+func (x *Rebuild) GetCleanRebuild() bool {
+	if x != nil {
+		return x.CleanRebuild
+	}
+	return false
+}
+
 type Request struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Context *Context               `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
@@ -971,6 +1039,7 @@ type Request struct {
 	//	*Request_Inspect
 	//	*Request_Cancel
 	//	*Request_Release
+	//	*Request_Rebuild
 	Command       isRequest_Command `protobuf_oneof:"command"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -978,7 +1047,7 @@ type Request struct {
 
 func (x *Request) Reset() {
 	*x = Request{}
-	mi := &file_worker_proto_msgTypes[13]
+	mi := &file_worker_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -990,7 +1059,7 @@ func (x *Request) String() string {
 func (*Request) ProtoMessage() {}
 
 func (x *Request) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[13]
+	mi := &file_worker_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1003,7 +1072,7 @@ func (x *Request) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Request.ProtoReflect.Descriptor instead.
 func (*Request) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{13}
+	return file_worker_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Request) GetContext() *Context {
@@ -1092,6 +1161,15 @@ func (x *Request) GetRelease() *Release {
 	return nil
 }
 
+func (x *Request) GetRebuild() *Rebuild {
+	if x != nil {
+		if x, ok := x.Command.(*Request_Rebuild); ok {
+			return x.Rebuild
+		}
+	}
+	return nil
+}
+
 type isRequest_Command interface {
 	isRequest_Command()
 }
@@ -1128,6 +1206,10 @@ type Request_Release struct {
 	Release *Release `protobuf:"bytes,17,opt,name=release,proto3,oneof"`
 }
 
+type Request_Rebuild struct {
+	Rebuild *Rebuild `protobuf:"bytes,18,opt,name=rebuild,proto3,oneof"`
+}
+
 func (*Request_Allocate) isRequest_Command() {}
 
 func (*Request_Start) isRequest_Command() {}
@@ -1144,6 +1226,8 @@ func (*Request_Cancel) isRequest_Command() {}
 
 func (*Request_Release) isRequest_Command() {}
 
+func (*Request_Rebuild) isRequest_Command() {}
+
 type WorkerError struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
@@ -1155,7 +1239,7 @@ type WorkerError struct {
 
 func (x *WorkerError) Reset() {
 	*x = WorkerError{}
-	mi := &file_worker_proto_msgTypes[14]
+	mi := &file_worker_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1167,7 +1251,7 @@ func (x *WorkerError) String() string {
 func (*WorkerError) ProtoMessage() {}
 
 func (x *WorkerError) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[14]
+	mi := &file_worker_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1180,7 +1264,7 @@ func (x *WorkerError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkerError.ProtoReflect.Descriptor instead.
 func (*WorkerError) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{14}
+	return file_worker_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *WorkerError) GetCode() string {
@@ -1222,7 +1306,7 @@ type CommandResult struct {
 
 func (x *CommandResult) Reset() {
 	*x = CommandResult{}
-	mi := &file_worker_proto_msgTypes[15]
+	mi := &file_worker_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1234,7 +1318,7 @@ func (x *CommandResult) String() string {
 func (*CommandResult) ProtoMessage() {}
 
 func (x *CommandResult) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[15]
+	mi := &file_worker_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1247,7 +1331,7 @@ func (x *CommandResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandResult.ProtoReflect.Descriptor instead.
 func (*CommandResult) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{15}
+	return file_worker_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CommandResult) GetExitCode() int32 {
@@ -1320,7 +1404,7 @@ type Receipt struct {
 
 func (x *Receipt) Reset() {
 	*x = Receipt{}
-	mi := &file_worker_proto_msgTypes[16]
+	mi := &file_worker_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1332,7 +1416,7 @@ func (x *Receipt) String() string {
 func (*Receipt) ProtoMessage() {}
 
 func (x *Receipt) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[16]
+	mi := &file_worker_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1345,7 +1429,7 @@ func (x *Receipt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Receipt.ProtoReflect.Descriptor instead.
 func (*Receipt) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{16}
+	return file_worker_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Receipt) GetState() string {
@@ -1397,7 +1481,7 @@ type Response struct {
 
 func (x *Response) Reset() {
 	*x = Response{}
-	mi := &file_worker_proto_msgTypes[17]
+	mi := &file_worker_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1409,7 +1493,7 @@ func (x *Response) String() string {
 func (*Response) ProtoMessage() {}
 
 func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[17]
+	mi := &file_worker_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1422,7 +1506,7 @@ func (x *Response) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Response.ProtoReflect.Descriptor instead.
 func (*Response) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{17}
+	return file_worker_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Response) GetContext() *Context {
@@ -1487,7 +1571,7 @@ type Frame struct {
 
 func (x *Frame) Reset() {
 	*x = Frame{}
-	mi := &file_worker_proto_msgTypes[18]
+	mi := &file_worker_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1499,7 +1583,7 @@ func (x *Frame) String() string {
 func (*Frame) ProtoMessage() {}
 
 func (x *Frame) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[18]
+	mi := &file_worker_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1512,7 +1596,7 @@ func (x *Frame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Frame.ProtoReflect.Descriptor instead.
 func (*Frame) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{18}
+	return file_worker_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Frame) GetPayload() isFrame_Payload {
@@ -1653,7 +1737,12 @@ const file_worker_proto_rawDesc = "" +
 	"\x14command_operation_id\x18\x01 \x01(\tR\x12commandOperationId\"8\n" +
 	"\x06Cancel\x12.\n" +
 	"\x13target_operation_id\x18\x01 \x01(\tR\x11targetOperationId\"\t\n" +
-	"\aRelease\"\xe0\x03\n" +
+	"\aRelease\"\x9a\x01\n" +
+	"\aRebuild\x12\x1b\n" +
+	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x123\n" +
+	"\x15destination_principal\x18\x02 \x01(\tR\x14destinationPrincipal\x12\x18\n" +
+	"\apurpose\x18\x03 \x01(\tR\apurpose\x12#\n" +
+	"\rclean_rebuild\x18\x04 \x01(\bR\fcleanRebuild\"\x95\x04\n" +
 	"\aRequest\x121\n" +
 	"\acontext\x18\x01 \x01(\v2\x17.lamp.worker.v1.ContextR\acontext\x126\n" +
 	"\ballocate\x18\n" +
@@ -1664,7 +1753,8 @@ const file_worker_proto_rawDesc = "" +
 	"\arestore\x18\x0e \x01(\v2\x17.lamp.worker.v1.RestoreH\x00R\arestore\x123\n" +
 	"\ainspect\x18\x0f \x01(\v2\x17.lamp.worker.v1.InspectH\x00R\ainspect\x120\n" +
 	"\x06cancel\x18\x10 \x01(\v2\x16.lamp.worker.v1.CancelH\x00R\x06cancel\x123\n" +
-	"\arelease\x18\x11 \x01(\v2\x17.lamp.worker.v1.ReleaseH\x00R\areleaseB\t\n" +
+	"\arelease\x18\x11 \x01(\v2\x17.lamp.worker.v1.ReleaseH\x00R\arelease\x123\n" +
+	"\arebuild\x18\x12 \x01(\v2\x17.lamp.worker.v1.RebuildH\x00R\arebuildB\t\n" +
 	"\acommand\"Y\n" +
 	"\vWorkerError\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
@@ -1725,7 +1815,7 @@ func file_worker_proto_rawDescGZIP() []byte {
 }
 
 var file_worker_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_worker_proto_goTypes = []any{
 	(HandleKind)(0),       // 0: lamp.worker.v1.HandleKind
 	(*Hello)(nil),         // 1: lamp.worker.v1.Hello
@@ -1741,20 +1831,21 @@ var file_worker_proto_goTypes = []any{
 	(*Inspect)(nil),       // 11: lamp.worker.v1.Inspect
 	(*Cancel)(nil),        // 12: lamp.worker.v1.Cancel
 	(*Release)(nil),       // 13: lamp.worker.v1.Release
-	(*Request)(nil),       // 14: lamp.worker.v1.Request
-	(*WorkerError)(nil),   // 15: lamp.worker.v1.WorkerError
-	(*CommandResult)(nil), // 16: lamp.worker.v1.CommandResult
-	(*Receipt)(nil),       // 17: lamp.worker.v1.Receipt
-	(*Response)(nil),      // 18: lamp.worker.v1.Response
-	(*Frame)(nil),         // 19: lamp.worker.v1.Frame
-	nil,                   // 20: lamp.worker.v1.Start.EnvEntry
-	nil,                   // 21: lamp.worker.v1.Receipt.DetailEntry
+	(*Rebuild)(nil),       // 14: lamp.worker.v1.Rebuild
+	(*Request)(nil),       // 15: lamp.worker.v1.Request
+	(*WorkerError)(nil),   // 16: lamp.worker.v1.WorkerError
+	(*CommandResult)(nil), // 17: lamp.worker.v1.CommandResult
+	(*Receipt)(nil),       // 18: lamp.worker.v1.Receipt
+	(*Response)(nil),      // 19: lamp.worker.v1.Response
+	(*Frame)(nil),         // 20: lamp.worker.v1.Frame
+	nil,                   // 21: lamp.worker.v1.Start.EnvEntry
+	nil,                   // 22: lamp.worker.v1.Receipt.DetailEntry
 }
 var file_worker_proto_depIdxs = []int32{
 	0,  // 0: lamp.worker.v1.HandleGrant.kind:type_name -> lamp.worker.v1.HandleKind
 	4,  // 1: lamp.worker.v1.Allocate.resources:type_name -> lamp.worker.v1.Resources
 	3,  // 2: lamp.worker.v1.Allocate.handles:type_name -> lamp.worker.v1.HandleGrant
-	20, // 3: lamp.worker.v1.Start.env:type_name -> lamp.worker.v1.Start.EnvEntry
+	21, // 3: lamp.worker.v1.Start.env:type_name -> lamp.worker.v1.Start.EnvEntry
 	3,  // 4: lamp.worker.v1.Capture.output_handles:type_name -> lamp.worker.v1.HandleGrant
 	5,  // 5: lamp.worker.v1.Restore.compatibility:type_name -> lamp.worker.v1.Compatibility
 	3,  // 6: lamp.worker.v1.Restore.input_handles:type_name -> lamp.worker.v1.HandleGrant
@@ -1767,19 +1858,20 @@ var file_worker_proto_depIdxs = []int32{
 	11, // 13: lamp.worker.v1.Request.inspect:type_name -> lamp.worker.v1.Inspect
 	12, // 14: lamp.worker.v1.Request.cancel:type_name -> lamp.worker.v1.Cancel
 	13, // 15: lamp.worker.v1.Request.release:type_name -> lamp.worker.v1.Release
-	16, // 16: lamp.worker.v1.Receipt.command:type_name -> lamp.worker.v1.CommandResult
-	21, // 17: lamp.worker.v1.Receipt.detail:type_name -> lamp.worker.v1.Receipt.DetailEntry
-	2,  // 18: lamp.worker.v1.Response.context:type_name -> lamp.worker.v1.Context
-	17, // 19: lamp.worker.v1.Response.receipt:type_name -> lamp.worker.v1.Receipt
-	15, // 20: lamp.worker.v1.Response.error:type_name -> lamp.worker.v1.WorkerError
-	1,  // 21: lamp.worker.v1.Frame.hello:type_name -> lamp.worker.v1.Hello
-	14, // 22: lamp.worker.v1.Frame.request:type_name -> lamp.worker.v1.Request
-	18, // 23: lamp.worker.v1.Frame.response:type_name -> lamp.worker.v1.Response
-	24, // [24:24] is the sub-list for method output_type
-	24, // [24:24] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	14, // 16: lamp.worker.v1.Request.rebuild:type_name -> lamp.worker.v1.Rebuild
+	17, // 17: lamp.worker.v1.Receipt.command:type_name -> lamp.worker.v1.CommandResult
+	22, // 18: lamp.worker.v1.Receipt.detail:type_name -> lamp.worker.v1.Receipt.DetailEntry
+	2,  // 19: lamp.worker.v1.Response.context:type_name -> lamp.worker.v1.Context
+	18, // 20: lamp.worker.v1.Response.receipt:type_name -> lamp.worker.v1.Receipt
+	16, // 21: lamp.worker.v1.Response.error:type_name -> lamp.worker.v1.WorkerError
+	1,  // 22: lamp.worker.v1.Frame.hello:type_name -> lamp.worker.v1.Hello
+	15, // 23: lamp.worker.v1.Frame.request:type_name -> lamp.worker.v1.Request
+	19, // 24: lamp.worker.v1.Frame.response:type_name -> lamp.worker.v1.Response
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_worker_proto_init() }
@@ -1787,7 +1879,7 @@ func file_worker_proto_init() {
 	if File_worker_proto != nil {
 		return
 	}
-	file_worker_proto_msgTypes[13].OneofWrappers = []any{
+	file_worker_proto_msgTypes[14].OneofWrappers = []any{
 		(*Request_Allocate)(nil),
 		(*Request_Start)(nil),
 		(*Request_Stop)(nil),
@@ -1796,12 +1888,13 @@ func file_worker_proto_init() {
 		(*Request_Inspect)(nil),
 		(*Request_Cancel)(nil),
 		(*Request_Release)(nil),
+		(*Request_Rebuild)(nil),
 	}
-	file_worker_proto_msgTypes[17].OneofWrappers = []any{
+	file_worker_proto_msgTypes[18].OneofWrappers = []any{
 		(*Response_Receipt)(nil),
 		(*Response_Error)(nil),
 	}
-	file_worker_proto_msgTypes[18].OneofWrappers = []any{
+	file_worker_proto_msgTypes[19].OneofWrappers = []any{
 		(*Frame_Hello)(nil),
 		(*Frame_Request)(nil),
 		(*Frame_Response)(nil),
@@ -1812,7 +1905,7 @@ func file_worker_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_worker_proto_rawDesc), len(file_worker_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   21,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

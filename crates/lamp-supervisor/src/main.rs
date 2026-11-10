@@ -152,6 +152,15 @@ fn host(cmd: &str, mut args: Vec<String>) {
         allowed.push(uid.parse().unwrap_or_else(|_| die("bad --allow-uid")));
     }
     let mut cfg = Config::defaults(store.clone());
+    if let Some(path) = take_flag(&mut args, "--mem-dir") {
+        cfg.mem_dir = path.into();
+    }
+    if let Some(path) = take_flag(&mut args, "--netns-dir") {
+        cfg.netns_dir = path.into();
+    }
+    if let Some(base) = take_flag(&mut args, "--uid-base") {
+        cfg.uid_base = base.parse().unwrap_or_else(|_| die("bad --uid-base"));
+    }
     if let Some(fc) = take_flag(&mut args, "--firecracker") {
         cfg.bins.firecracker = fc.into();
     }
@@ -163,6 +172,20 @@ fn host(cmd: &str, mut args: Vec<String>) {
         cfg.network = Some(
             lamp_engine::net::Policy::load(std::path::Path::new(&p)).unwrap_or_else(|e| die(e)),
         );
+    }
+    if let Some(path) = take_flag(&mut args, "--subscription-policy") {
+        cfg.subscription = Some(
+            serde_json::from_slice(
+                &std::fs::read(path).unwrap_or_else(|_| die("cannot read subscription policy")),
+            )
+            .unwrap_or_else(|_| die("invalid subscription policy")),
+        );
+    }
+    if let Some(path) = take_flag(&mut args, "--exports-dir") {
+        cfg.exports_dir = Some(path.into());
+    }
+    if let Some(host) = take_flag(&mut args, "--host-id") {
+        cfg.host_id = host;
     }
     let reconstruction = if cmd == "template-rebuild" {
         let digest = take_flag(&mut args, "--approved-nonsecret-digest")

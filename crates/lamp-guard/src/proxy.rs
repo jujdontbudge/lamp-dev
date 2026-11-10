@@ -169,6 +169,9 @@ pub fn parse(head: &str) -> Result<Request, Refusal> {
 
 /// Same decision as the guard applies to a direct guest flow.
 pub fn allowed(config: &Config, address: Ipv4Addr, port: u16) -> bool {
+    if config.subscription_domains.is_some() {
+        return false;
+    }
     config
         .exceptions
         .iter()
@@ -332,6 +335,11 @@ fn relay(request: &Request, client: &mut TcpStream, early: Vec<u8>) -> io::Resul
 /// Serves until the listener fails. A spool failure stops the proxy: no
 /// request is ever forwarded without its durable record.
 pub fn serve(config: &Config, listener: TcpListener, spool: &mut Spool) -> io::Result<()> {
+    if config.subscription_domains.is_some() {
+        return Err(io::Error::other(
+            "subscription proxy requires pre-confinement vendor resolution",
+        ));
+    }
     let mut id = 0u64;
     for client in listener.incoming() {
         let Ok(client) = client else { continue };

@@ -15,6 +15,8 @@ pub mod process;
 pub mod proxy;
 #[cfg(target_os = "linux")]
 pub mod runtime;
+#[cfg(unix)]
+pub mod subscription_proxy;
 
 /// `close_range(2)` through the raw syscall, so static musl builds (the guest
 /// collector) and glibc builds share one definition.
@@ -148,6 +150,8 @@ pub struct Config {
     /// from the guest and sends it nothing.
     #[serde(default)]
     pub proxy: Option<Endpoint>,
+    #[serde(default)]
+    pub subscription_domains: Option<Vec<String>>,
 }
 
 /// One TCP endpoint inside the guard namespace.
@@ -206,6 +210,27 @@ impl Config {
             || self
                 .proxy
                 .is_some_and(|p| p.port == 0 || p.address == self.guest_ip)
+            || self.subscription_domains.as_ref().is_some_and(|domains| {
+                self.proxy.is_none()
+                    || !self.exceptions.is_empty()
+                    || domains.len() > 16
+                    || domains.iter().any(|domain| {
+                        domain.len() > 253
+                            || !domain.contains('.')
+                            || domain.parse::<Ipv4Addr>().is_ok()
+                            || domain.split('.').any(|label| {
+                                label.is_empty()
+                                    || label.len() > 63
+                                    || label.starts_with('-')
+                                    || label.ends_with('-')
+                                    || !label.bytes().all(|byte| {
+                                        byte.is_ascii_lowercase()
+                                            || byte.is_ascii_digit()
+                                            || byte == b'-'
+                                    })
+                            })
+                    })
+            })
         {
             return Err(io::Error::other(
                 "invalid interface, missing host denies or insufficient spool",

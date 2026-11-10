@@ -4,8 +4,8 @@
   "format_freeze_authorized": false,
   "requirements": ["CRED-003", "CRED-004", "E07"],
   "subscription_routes": {
-    "claude_code": {"status": "not_exercised", "qualified": false},
-    "codex": {"status": "not_exercised", "qualified": false}
+    "claude_code": {"status": "sign_in_not_completed", "qualified": false},
+    "codex": {"status": "sign_in_attempt_failed", "qualified": false}
   },
   "real_engine_control": {
     "summary": "runs/t9-control-20261110-04/summary.json",
@@ -45,6 +45,7 @@
     "linux": {
       "command": "make bootstrap verify; make verify",
       "status": "pass",
+      "scope": "historical clean-builder runs; not current tunnel-handler Linux runtime verification",
       "logs": ["verify-linux.log", "verify-linux-final.log", "verify-linux-custody-final.log"]
     },
     "macos": {
@@ -63,14 +64,26 @@
     }
   },
   "integration_blockers": [
-    "Custody is an in-memory metadata graph, not yet a persistent control/session authority; existing public capture and sharing paths do not consult it.",
-    "Official subscription sign-in, account eligibility, useful inference, same-person live memory fork, suspend/resume and permitted refresh have not been exercised for either harness.",
-    "RefreshLineage is a host coordination primitive only. It is not a token refresher, cannot update stale copied credentials and does not itself stop an official process or coordinate separate host processes.",
-    "Per-sandbox vendor-only guard enforcement and a certified bounded native harness task bridge with independent encoded-exfiltration sinks remain unintegrated.",
-    "Actual public export/share/session handoff and fresh official harness startup remain unintegrated.",
+    "Persisted custody, public capture/export/share checks, subscription-only guard policy and bounded bridge are implemented, but not yet qualified by a complete signed-in E07 run.",
+    "Official subscription sign-in has not completed. Account eligibility, useful inference, same-person live memory fork, suspend/resume and vendor-permitted refresh remain unproved for both harnesses.",
+    "Official-run authority serializes persisted lineages, but does not refresh a vendor token or make stale copied credentials current.",
+    "The corrected thread-free tunnel handler passes local portable tests and Linux-target compile/lint checks; actual Linux seccomp execution and vendor endpoint access remain pending.",
+    "Actual signed-in public export/share/session handoff, fresh official harness startup and complete memory/disk/cache/journal/export zero-canary evidence remain unproved.",
     "A nonsecret definition digest is an authenticated owner's input approval, not automatic proof of secrecy. Seed and reconstruction inputs must be verified independently of the tainted source.",
-    "The synthetic source builder powers down before template capture. This control does not prove retention of a live subscription-bearing heap, environment, cache or refresh chain."
+    "The synthetic source builder powers down before template capture. This control does not prove retention of a live subscription-bearing heap, environment, cache or refresh chain.",
+    "Ubuntu laptop sandbox work is paused until the coordinator confirms T10 E03 is finished."
   ],
+  "local_tunnel_fix": {
+    "details": "tunnel-handler.md",
+    "guard_tests_macos": "pass (15 tests)",
+    "linux_target_all_targets_clippy": "pass",
+    "seccomp_profile_changed": false,
+    "linux_confined_runtime": "pending",
+    "official_signed_in_E07": "incomplete",
+    "failed_live_fixture_retained_at": "/var/lib/lamp/t9e06",
+    "released_sandbox_id": "sb_6f9cd899723cc1be69d76cc5057afdfa",
+    "release_operation_id": "op_c57dfbb08018fda482f0bbf41c48870e"
+  },
   "vendor_references_reviewed": [
     "https://code.claude.com/docs/en/legal-and-compliance",
     "https://code.claude.com/docs/en/authentication",

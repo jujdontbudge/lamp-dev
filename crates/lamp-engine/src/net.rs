@@ -67,6 +67,8 @@ pub struct Policy {
     /// Owner/principal recorded in attribution.
     #[serde(default = "local_principal")]
     pub principal_id: String,
+    #[serde(default)]
+    pub subscription_domains: Option<Vec<String>>,
 }
 
 fn local_principal() -> String {
@@ -240,6 +242,7 @@ impl Attachment {
                 "interface": TAP, "guest_ip": lamp_init::GUEST_ADDR, "queue": QUEUE,
                 "guard_uid": guard_uid, "host_denies": denies,
                 "spool": spool, "spool_bytes": bytes, "exceptions": policy.exceptions,
+                "subscription_domains": policy.subscription_domains,
                 "proxy": {"address": PROXY_ADDR, "port": PROXY_PORT},
             })
         };
@@ -293,12 +296,23 @@ impl Attachment {
             .ctx("start lamp-guard")?;
         let guard_out = guard.stdout.take().unwrap();
         a.guard = Some(guard);
-        let mut proxy = Command::new("nsenter")
-            .arg(format!("--net={}", jail.netns.display()))
-            .arg(&policy.guard)
+        let mut proxy_command = if policy.subscription_domains.is_some() {
+            Command::new(&policy.guard)
+        } else {
+            let mut command = Command::new("nsenter");
+            command
+                .arg(format!("--net={}", jail.netns.display()))
+                .arg(&policy.guard);
+            command
+        };
+        proxy_command
             .arg("proxy")
             .arg(&net_config)
-            .arg(dir.join("proxy.ndjson"))
+            .arg(dir.join("proxy.ndjson"));
+        if policy.subscription_domains.is_some() {
+            proxy_command.arg(&jail.netns);
+        }
+        let mut proxy = proxy_command
             .env_clear()
             .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
             .stdin(Stdio::null())

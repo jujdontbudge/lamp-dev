@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 pub const FORMAT: &str = "lamp.control-grant/v1";
 pub const COMMANDS: &[&str] = &[
-    "allocate", "restore", "start", "capture", "stop", "release", "inspect", "cancel",
+    "allocate", "restore", "start", "capture", "stop", "release", "inspect", "cancel", "rebuild",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

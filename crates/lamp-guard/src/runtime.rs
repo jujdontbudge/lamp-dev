@@ -175,6 +175,9 @@ impl Connections {
         let proxied_in = p.hook == 1 && config.to_proxy(&t);
         let proxied_out = p.hook == 3 && config.to_proxy(&t.reverse());
         if (forward || proxied_in) && outbound && t.source == config.guest_ip {
+            if config.subscription_domains.is_some() && !proxied_in {
+                return self.deny(spool, Some(t), "subscription_proxy_only", &p.bytes);
+            }
             let excepted = !proxied_in && config.excepted(&t);
             if !proxied_in && !excepted && !public_v4(t.destination, &config.host_denies) {
                 return self.deny(spool, Some(t), "private_lan_metadata_or_host", &p.bytes);

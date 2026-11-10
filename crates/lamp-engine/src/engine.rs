@@ -78,6 +78,8 @@ pub struct Config {
     /// Guard network and protected-process audit. `None` leaves sandboxes
     /// with an unconnected link and unaudited commands (diagnostic only).
     pub network: Option<crate::net::Policy>,
+    pub subscription: Option<crate::subscription::SubscriptionPolicy>,
+    pub exports_dir: Option<PathBuf>,
 }
 
 impl Config {
@@ -96,6 +98,8 @@ impl Config {
             host_id: hostname(),
             trusted_producers: Vec::new(),
             network: None,
+            subscription: None,
+            exports_dir: None,
         }
     }
 }
@@ -255,6 +259,7 @@ pub struct Sandbox {
     /// source's capture during a fork); Restore joins it. Carries its guard
     /// UID so a failed or abandoned attachment frees it.
     pub pending_net: Option<PendingNet>,
+    pub network_policy: Option<crate::net::Policy>,
 }
 
 pub type PendingNet = std::thread::JoinHandle<(u32, Result<crate::net::Attachment>)>;
@@ -317,10 +322,13 @@ pub struct Engine {
     trusted: HashMap<String, VerifyingKey>,
     templates: RwLock<HashMap<String, Arc<Template>>>,
     sandboxes: Mutex<HashMap<String, Arc<Mutex<Sandbox>>>>,
-    captures: Mutex<HashMap<String, Arc<CaptureRec>>>,
+    pub(crate) captures: Mutex<HashMap<String, Arc<CaptureRec>>>,
     uids: Mutex<BTreeSet<u32>>,
     /// Host addresses and on-link prefixes every guard denies.
     pub inventory: Vec<String>,
+    pub custody: Option<Mutex<crate::custody_store::CustodyStore>>,
+    pub(crate) bridges: Mutex<HashMap<String, crate::subscription_bridge::Bridge>>,
+    pub(crate) bridge_task: Mutex<Option<String>>,
     /// Exclusive store ownership while this engine may change the store.
     _lock: Option<std::fs::File>,
 }
@@ -520,6 +528,28 @@ impl Engine {
         }
         let compat = HostCompat::detect(&cfg.bins)?;
         let cfg_network = cfg.network.is_some() && mode == Mode::Daemon;
+        let custody = if mode == Mode::ReadOnly {
+            None
+        } else {
+            let directory = cfg.store.join("custody");
+            std::fs::create_dir_all(&directory)?;
+            fsutil::chmod(&directory, 0o700)?;
+            let owner = cfg
+                .subscription
+                .as_ref()
+                .map_or("pr_local", |policy| policy.owner_id.as_str());
+            let hosts = cfg.subscription.as_ref().map_or_else(
+                || vec![cfg.host_id.clone()],
+                |policy| policy.custody_host_ids.clone(),
+            );
+            let store = crate::custody_store::CustodyStore::open(
+                &directory.join("graph.json"),
+                owner,
+                &cfg.host_id,
+                &hosts,
+            )?;
+            Some(Mutex::new(store))
+        };
         let engine = Engine {
             cfg,
             compat,
@@ -535,6 +565,9 @@ impl Engine {
                 Vec::new()
             },
             _lock: lock,
+            custody,
+            bridges: Mutex::new(HashMap::new()),
+            bridge_task: Mutex::new(None),
         };
         match mode {
             Mode::Daemon => engine.clean_stale(),
@@ -767,7 +800,7 @@ impl Engine {
         .inspect_err(|_| self.free_uid(uid))
     }
 
-    fn sandbox(&self, id: &str) -> Result<Arc<Mutex<Sandbox>>> {
+    pub(crate) fn sandbox(&self, id: &str) -> Result<Arc<Mutex<Sandbox>>> {
         self.sandboxes
             .lock()
             .unwrap()
@@ -826,12 +859,18 @@ impl Engine {
                 auth.sandbox_id
             )));
         }
+        self.custody
+            .as_ref()
+            .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
+            .lock()
+            .unwrap()
+            .transact(|graph| graph.create(auth.sandbox_id))?;
         let jail = self.new_jail(&jail_id(auth.sandbox_id))?;
         let uid = jail.uid;
         // Build the guard network now, in the background: for a fork the
         // caller captures the source next, and the two overlap.
         let pending_net = match &self.cfg.network {
-            Some(policy) => {
+            Some(policy) if self.cfg.subscription.is_none() => {
                 let guard_uid = self.alloc_uid()?;
                 let (policy, inventory, host) = (
                     policy.clone(),
@@ -865,7 +904,7 @@ impl Engine {
                     (guard_uid, attached)
                 }))
             }
-            None => None,
+            _ => None,
         };
         all.insert(
             auth.sandbox_id.to_string(),
@@ -883,6 +922,7 @@ impl Engine {
                 commands: Arc::default(),
                 net: None,
                 pending_net,
+                network_policy: self.cfg.network.clone(),
             })),
         );
         Ok(Outcome {
@@ -898,6 +938,45 @@ impl Engine {
         let sb = self.sandbox(auth.sandbox_id)?;
         let mut sb = sb.lock().unwrap();
         Self::check(&sb, auth)?;
+        if sb.state == State::Stopped {
+            let source = self
+                .captures
+                .lock()
+                .unwrap()
+                .get(capture_id)
+                .cloned()
+                .ok_or_else(|| EngineError::not_found("resume capture"))?;
+            if source.source_sandbox != sb.id || source.source_generation != sb.generation {
+                return Err(EngineError::new(
+                    "SCOPE_DENIED",
+                    "resume capture belongs to another execution",
+                ));
+            }
+            self.custody
+                .as_ref()
+                .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
+                .lock()
+                .unwrap()
+                .graph()?
+                .authorize(
+                    capture_id,
+                    crate::custody::Destination {
+                        principal: self.custody_owner(),
+                        host: &self.cfg.host_id,
+                        online: true,
+                    },
+                    crate::custody::CapturePurpose::OwnerPrivate,
+                )?;
+            if let Some(uid) = sb.teardown() {
+                self.free_uid(uid);
+            }
+            self.free_uid(sb.uid);
+            let jail = self.new_jail(&jail_id(&sb.id))?;
+            sb.uid = jail.uid;
+            sb.jail = Some(jail);
+            sb.network_policy = self.cfg.network.clone();
+            sb.state = State::Allocated;
+        }
         if sb.state != State::Allocated {
             return Err(EngineError::in_use(format!(
                 "sandbox is {}, not allocated",
@@ -905,6 +984,7 @@ impl Engine {
             )));
         }
         let capture = self.captures.lock().unwrap().get(capture_id).cloned();
+        self.prepare_subscription_restore(&mut sb, capture_id, capture.is_some())?;
         let (source, resources) = match &capture {
             Some(c) => (Source::Capture(c.clone()), c.resources.clone()),
             None => {
@@ -1013,7 +1093,7 @@ impl Engine {
         };
         detail.insert("prepare_us".into(), us(t0.elapsed()));
         let t = Instant::now();
-        match &self.cfg.network {
+        match &sb.network_policy {
             Some(policy) => {
                 let (guard_uid, attached) = match sb.pending_net.take() {
                     Some(pending) => pending
@@ -1085,6 +1165,15 @@ impl Engine {
         detail.insert("machine_id".into(), ack.machine_id.clone());
         sb.barrier = Some(ack);
         sb.state = State::Running;
+        detail.insert("capture_trust".into(), self.capture_trust(&sb.id)?.into());
+        detail.insert(
+            "custody_host_ids".into(),
+            serde_json::to_string(&self.cfg.subscription.as_ref().map_or_else(
+                || vec![self.cfg.host_id.clone()],
+                |policy| policy.custody_host_ids.clone(),
+            ))
+            .unwrap(),
+        );
         Ok(Outcome {
             state: "restored".into(),
             detail,
@@ -1146,6 +1235,7 @@ impl Engine {
         if argv.is_empty() {
             return Err(EngineError::invalid("argv is empty"));
         }
+        self.authorize_subscription_command(auth.sandbox_id, &argv, &cwd, &env)?;
         let (vsock, commands, vmm_alive, audited) = {
             let sb = self.sandbox(auth.sandbox_id)?;
             let sb = sb.lock().unwrap();
@@ -1161,6 +1251,16 @@ impl Engine {
                     "NO_CAPACITY",
                     format!("{MAX_RUNNING} commands are already running in this sandbox"),
                 ));
+            }
+            if self.capture_trust(auth.sandbox_id)? == "owner_private"
+                && let Some(sign_in) = crate::subscription::native_run(&argv)
+            {
+                self.custody
+                    .as_ref()
+                    .unwrap()
+                    .lock()
+                    .unwrap()
+                    .transact(|graph| graph.begin_run(auth.sandbox_id, operation_id, sign_in))?;
             }
             let jail = sb.jail.as_ref().unwrap();
             (
@@ -1315,6 +1415,23 @@ impl Engine {
                 sb.state.name()
             )));
         }
+        self.custody
+            .as_ref()
+            .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
+            .lock()
+            .unwrap()
+            .transact(|graph| {
+                graph.derive(
+                    &sb.id,
+                    capture_id,
+                    crate::custody::Destination {
+                        principal: self.custody_owner(),
+                        host: &self.cfg.host_id,
+                        online: true,
+                    },
+                    crate::custody::CapturePurpose::OwnerPrivate,
+                )
+            })?;
         let cdir = self.cfg.store.join("captures").join(capture_id);
         if self.captures.lock().unwrap().contains_key(capture_id) || cdir.exists() {
             return Err(EngineError::in_use(format!("capture {capture_id} exists")));
@@ -1445,7 +1562,9 @@ impl Engine {
             .insert(capture_id.into(), Arc::new(rec));
         detail.insert("total_us".into(), us(t0.elapsed()));
         // A sandbox that forked keeps one image ready for its next fork.
-        if let Some(jail) = sb.jail.as_ref() {
+        if self.cfg.subscription.is_none()
+            && let Some(jail) = sb.jail.as_ref()
+        {
             fc::prepare_spare(jail, sb.resources.memory_mib * 1024 * 1024);
         }
         Ok(Outcome {
@@ -1519,6 +1638,18 @@ impl Engine {
         detail.insert("generation".into(), sb.generation.to_string());
         detail.insert("source".into(), sb.source.clone());
         detail.insert("boundary".into(), "vm".into());
+        detail.insert(
+            "capture_trust".into(),
+            self.capture_trust(sandbox_id)?.into(),
+        );
+        detail.insert(
+            "custody_host_ids".into(),
+            serde_json::to_string(&self.cfg.subscription.as_ref().map_or_else(
+                || vec![self.cfg.host_id.clone()],
+                |policy| policy.custody_host_ids.clone(),
+            ))
+            .unwrap(),
+        );
         detail.insert("engine".into(), ENGINE_NAME.into());
         detail.insert("vcpus".into(), sb.resources.vcpus.to_string());
         detail.insert("memory_mib".into(), sb.resources.memory_mib.to_string());
@@ -1538,7 +1669,7 @@ impl Engine {
                 table.0.get(command_operation_id).cloned().ok_or_else(|| {
                     EngineError::not_found(format!("command {command_operation_id}"))
                 })?;
-            let (state, done) = match (&rec.done, &rec.lost) {
+            let (state, mut done) = match (&rec.done, &rec.lost) {
                 (Some(d), _) => ("exited", d.clone()),
                 (None, Some(why)) => {
                     detail.insert("command_lost".into(), why.clone());
@@ -1546,6 +1677,12 @@ impl Engine {
                 }
                 (None, None) => ("running", pending(&rec.started)),
             };
+            self.finish_subscription_report(
+                sandbox_id,
+                command_operation_id,
+                &mut done,
+                rec.lost.is_some(),
+            )?;
             detail.insert("command_state".into(), state.into());
             Some(done)
         };
@@ -1560,6 +1697,7 @@ impl Engine {
     /// Kills every sandbox (supervisor shutdown).
     /// Stops every sandbox and returns once each VMM has fully exited.
     pub fn shutdown(&self) -> usize {
+        self.bridges.lock().unwrap().clear();
         let all: Vec<_> = self.sandboxes.lock().unwrap().drain().collect();
         let n = all.len();
         for (_, sb) in all {

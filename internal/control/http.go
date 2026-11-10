@@ -151,6 +151,13 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := r.URL.Path
+	if !s.authorizePublicRequest(r.Context(), r.Method, path) {
+		writeError(w, requestID, "SCOPE_DENIED", "peer has no access to this resource", nil)
+		return
+	}
+	if s.serveCustody(w, r, requestID) {
+		return
+	}
 	if r.Method == "GET" {
 		s.mu.Lock()
 		var send func()
@@ -370,6 +377,11 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if name == "sandbox_delete" {
 			sb = parent
 		}
+		if name == "exec_create" && value(parent.CaptureTrust) == "owner_private" && !admittedSubscriptionExec(ex) {
+			s.mu.Unlock()
+			writeError(w, requestID, "SCOPE_DENIED", "subscription guest accepts only installed bounded operations; no command data or environment is persisted", nil)
+			return
+		}
 		if name == "sandbox_fork" {
 			sb.TemplateId = parent.TemplateId
 			sb.EngineId = parent.EngineId
@@ -496,7 +508,25 @@ func (s *Service) execute(id, source string) {
 	restore := func(capture string) error {
 		r := request("restore", sb.Id, generation)
 		r.Command = &pb.Request_Restore{Restore: &pb.Restore{CaptureId: capture}}
-		return s.worker.perform(ctx, r, "restored")
+		receipt, err := s.worker.call(ctx, r)
+		if err != nil {
+			return err
+		}
+		if receipt.State != "restored" {
+			return errors.New("restore receipt missing")
+		}
+		if trust := receipt.Detail["capture_trust"]; trust != "" {
+			if trust != "clean" && trust != "owner_private" {
+				return errors.New("invalid worker capture trust")
+			}
+			sb.CaptureTrust = pointer(api.SandboxCaptureTrust(trust))
+			var hosts []string
+			if json.Unmarshal([]byte(receipt.Detail["custody_host_ids"]), &hosts) != nil {
+				return errors.New("worker custody hosts missing")
+			}
+			sb.CustodyHostIds = &hosts
+		}
+		return nil
 	}
 	start := func(argv []string, cwd string, env map[string]string) error {
 		r := request("start", sb.Id, generation)
@@ -675,7 +705,14 @@ func workerNotFound(err error) bool {
 // while waiting on the supervisor. A lost command cannot fabricate exit zero.
 func (s *Service) observeExec(id string, c *pb.Context, commandID string) {
 	defer s.wg.Done()
-	ctx, cancel := context.WithTimeout(s.context(), s.worker.config.Timeout)
+	timeout := s.worker.config.Timeout
+	s.mu.Lock()
+	exec := s.journal.Execs[id]
+	if parent, ok := s.journal.Sandboxes[value(exec.SandboxId)]; ok && value(parent.CaptureTrust) == "owner_private" && admittedSubscriptionExec(exec) {
+		timeout = custodyOperationTimeout
+	}
+	s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(s.context(), timeout)
 	defer cancel()
 	deadline, _ := ctx.Deadline()
 	c.DeadlineMs = uint64(deadline.UnixMilli())

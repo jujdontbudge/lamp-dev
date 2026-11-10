@@ -1,13 +1,16 @@
 use crate::definition;
 use crate::error::{EngineError, Result};
 use crate::manifest::sha256_hex;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::sync::Mutex;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Harness {
+    #[serde(rename = "claude_code", alias = "ClaudeCode")]
     ClaudeCode,
+    #[serde(rename = "codex", alias = "Codex")]
     Codex,
 }
 
@@ -32,7 +35,8 @@ pub struct Destination<'a> {
     pub online: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Reconstruction {
     definition: String,
     digest: String,
@@ -77,18 +81,41 @@ impl Reconstruction {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Subscription {
     _harness: Harness,
     hosts: BTreeSet<String>,
+    #[serde(default)]
+    epoch: u64,
+    #[serde(default)]
+    uncertain: bool,
+    #[serde(default)]
+    active: Option<ActiveRun>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ActiveRun {
+    record: String,
+    operation: String,
+    sign_in: bool,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Record {
     parents: BTreeSet<String>,
     exposures: BTreeSet<String>,
-    reconstruction: Option<Arc<Reconstruction>>,
+    reconstruction: Option<Reconstruction>,
+    #[serde(default)]
+    epochs: BTreeMap<String, u64>,
+    #[serde(default)]
+    bridge_cursor: usize,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Custody {
     owner: String,
     local_host: String,
@@ -102,7 +129,7 @@ fn identifier(value: &str) -> Result<()> {
         || value.len() > 128
         || !value
             .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-' || b == b'.')
     {
         return Err(EngineError::invalid("invalid custody reference"));
     }
@@ -165,6 +192,9 @@ impl Custody {
             Subscription {
                 _harness: harness,
                 hosts,
+                epoch: 0,
+                uncertain: false,
+                active: None,
             },
         );
         Ok(())
@@ -199,11 +229,10 @@ impl Custody {
                 "local custody was revoked",
             ));
         }
-        self.records
-            .get_mut(id)
-            .unwrap()
-            .exposures
-            .insert(subscription.into());
+        let epoch = source.epoch;
+        let record = self.records.get_mut(id).unwrap();
+        record.exposures.insert(subscription.into());
+        record.epochs.entry(subscription.into()).or_insert(epoch);
         self.propagate();
         Ok(())
     }
@@ -305,6 +334,15 @@ impl Custody {
                 "subscription-bearing transfer requires clean reconstruction",
             ));
         }
+        if record
+            .exposures
+            .iter()
+            .any(|source| self.subscriptions[source].active.is_some())
+        {
+            return Err(EngineError::in_use(
+                "official harness must quiesce before private capture or restore",
+            ));
+        }
         if destination.principal != self.owner {
             return Err(EngineError::new(
                 "SCOPE_DENIED",
@@ -339,10 +377,14 @@ impl Custody {
         self.authorize(source, destination, purpose)?;
         let reconstruction = self.record(source)?.reconstruction.clone();
         let exposures = self.record(source)?.exposures.clone();
+        let epochs = self.record(source)?.epochs.clone();
+        let bridge_cursor = self.record(source)?.bridge_cursor;
         self.create(id)?;
         let record = self.records.get_mut(id).unwrap();
         record.parents.insert(source.into());
         record.exposures = exposures;
+        record.epochs = epochs;
+        record.bridge_cursor = bridge_cursor;
         record.reconstruction = reconstruction;
         Ok(())
     }
@@ -361,17 +403,248 @@ impl Custody {
                 "nonsecret reconstruction must be recorded once before exposure",
             ));
         }
-        self.records.get_mut(id).unwrap().reconstruction = Some(Arc::new(input));
+        self.records.get_mut(id).unwrap().reconstruction = Some(input);
         Ok(())
     }
 
-    pub fn reconstruction(&self, id: &str) -> Result<Arc<Reconstruction>> {
+    pub fn reconstruction(&self, id: &str) -> Result<Reconstruction> {
         self.record(id)?.reconstruction.clone().ok_or_else(|| {
             EngineError::new(
                 "CLEAN_REBUILD_REQUIRED",
                 "verified nonsecret reconstruction inputs are missing",
             )
         })
+    }
+
+    pub fn contains(&self, id: &str) -> bool {
+        self.records.contains_key(id)
+    }
+
+    pub fn has_subscription(&self, id: &str) -> bool {
+        self.subscriptions.contains_key(id)
+    }
+
+    pub fn restrict_hosts(&mut self, trusted: &[String]) {
+        self.trusted_hosts.retain(|host| trusted.contains(host));
+    }
+
+    pub fn inherit(
+        &mut self,
+        source: &str,
+        target: &str,
+        destination: Destination<'_>,
+    ) -> Result<()> {
+        self.authorize(source, destination, CapturePurpose::OwnerPrivate)?;
+        let original = self.record(source)?;
+        let exposures = original.exposures.clone();
+        let epochs = original.epochs.clone();
+        let bridge_cursor = original.bridge_cursor;
+        let reconstruction = original.reconstruction.clone();
+        let target_record = self.record(target)?;
+        if !target_record.parents.is_empty()
+            || !target_record.exposures.is_empty()
+            || target_record.reconstruction.is_some()
+        {
+            return Err(EngineError::in_use("restore target is not fresh"));
+        }
+        let target_record = self.records.get_mut(target).unwrap();
+        target_record.parents.insert(source.into());
+        target_record.exposures = exposures;
+        target_record.epochs = epochs;
+        target_record.bridge_cursor = bridge_cursor;
+        target_record.reconstruction = reconstruction;
+        Ok(())
+    }
+
+    pub fn harness(&self, id: &str) -> Result<Option<Harness>> {
+        let exposures = &self.record(id)?.exposures;
+        let mut harness = None;
+        for source in exposures {
+            let next = self.subscriptions[source]._harness;
+            if harness.is_some_and(|previous| previous != next) {
+                return Err(EngineError::new(
+                    "SCOPE_DENIED",
+                    "mixed-vendor subscription state",
+                ));
+            }
+            harness = Some(next);
+        }
+        Ok(harness)
+    }
+
+    pub fn begin_run(&mut self, id: &str, operation: &str, sign_in: bool) -> Result<()> {
+        identifier(operation)?;
+        self.authorize(
+            id,
+            Destination {
+                principal: &self.owner,
+                host: &self.local_host,
+                online: true,
+            },
+            CapturePurpose::OwnerPrivate,
+        )?;
+        let record = self.record(id)?;
+        if record.exposures.is_empty() {
+            return Err(EngineError::new(
+                "SCOPE_DENIED",
+                "official run requires a subscription source",
+            ));
+        }
+        for source in &record.exposures {
+            let lineage = &self.subscriptions[source];
+            if !sign_in
+                && (lineage.uncertain
+                    || record.epochs.get(source).copied().unwrap_or(0) != lineage.epoch)
+            {
+                return Err(EngineError::new(
+                    "CONTINUATION_UNSUPPORTED",
+                    "stale or uncertain official run requires fresh vendor sign-in",
+                ));
+            }
+        }
+        let sources = record.exposures.clone();
+        for source in sources {
+            self.subscriptions.get_mut(&source).unwrap().active = Some(ActiveRun {
+                record: id.into(),
+                operation: operation.into(),
+                sign_in,
+            });
+        }
+        Ok(())
+    }
+
+    pub fn has_run(&self, id: &str, operation: &str) -> Result<bool> {
+        Ok(self.record(id)?.exposures.iter().any(|source| {
+            self.subscriptions[source]
+                .active
+                .as_ref()
+                .is_some_and(|run| run.record == id && run.operation == operation)
+        }))
+    }
+
+    pub fn finish_run(
+        &mut self,
+        id: &str,
+        operation: &str,
+        success: bool,
+        refreshed: bool,
+    ) -> Result<()> {
+        let sources = self.record(id)?.exposures.clone();
+        for source in sources {
+            let lineage = self.subscriptions.get_mut(&source).unwrap();
+            if !lineage
+                .active
+                .as_ref()
+                .is_some_and(|run| run.record == id && run.operation == operation)
+            {
+                continue;
+            }
+            let run = lineage.active.take().unwrap();
+            if !success {
+                lineage.uncertain = true;
+            } else if refreshed || run.sign_in {
+                lineage.epoch = lineage.epoch.checked_add(1).ok_or_else(|| {
+                    EngineError::new("CONTINUATION_UNSUPPORTED", "official lineage exhausted")
+                })?;
+                lineage.uncertain = false;
+                self.records
+                    .get_mut(id)
+                    .unwrap()
+                    .epochs
+                    .insert(source, lineage.epoch);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn recover_runs(&mut self) {
+        for source in self.subscriptions.values_mut() {
+            if source.active.take().is_some() {
+                source.uncertain = true;
+            }
+        }
+    }
+
+    pub fn next_bridge_step(&mut self, id: &str, limit: usize) -> Result<usize> {
+        let record = self.record(id)?;
+        if record.exposures.is_empty()
+            || record.bridge_cursor >= limit
+            || record.exposures.iter().any(|source| {
+                !self.subscriptions[source]
+                    .active
+                    .as_ref()
+                    .is_some_and(|run| run.record == id && !run.sign_in)
+            })
+        {
+            return Err(EngineError::new(
+                "SCOPE_DENIED",
+                "bridge requires an active official run and an unused approved step",
+            ));
+        }
+        let record = self.records.get_mut(id).unwrap();
+        let index = record.bridge_cursor;
+        record.bridge_cursor += 1;
+        Ok(index)
+    }
+
+    pub fn validate(&self, owner: &str, host: &str) -> Result<()> {
+        if self.owner != owner || self.local_host != host {
+            return Err(EngineError::new(
+                "HOST_NOT_TRUSTED",
+                "custody store identity mismatch",
+            ));
+        }
+        identifier(owner)?;
+        identifier(host)?;
+        for value in &self.trusted_hosts {
+            identifier(value)?;
+        }
+        for (id, source) in &self.subscriptions {
+            identifier(id)?;
+            if source.hosts.is_empty() {
+                return Err(EngineError::invalid("empty subscription custody"));
+            }
+            for host in &source.hosts {
+                identifier(host)?;
+            }
+        }
+        for (id, record) in &self.records {
+            identifier(id)?;
+            for source in &record.exposures {
+                if !self.subscriptions.contains_key(source) {
+                    return Err(EngineError::invalid(
+                        "unknown subscription in custody store",
+                    ));
+                }
+            }
+            for parent in &record.parents {
+                if !self.record(parent)?.exposures.is_subset(&record.exposures) {
+                    return Err(EngineError::invalid(
+                        "custody store loses ancestor exposure",
+                    ));
+                }
+            }
+            if let Some(input) = &record.reconstruction {
+                Reconstruction::verify(&input.definition, &input.digest)?;
+            }
+        }
+        let mut visited = BTreeSet::new();
+        loop {
+            let next: Vec<_> = self
+                .records
+                .iter()
+                .filter(|(id, record)| !visited.contains(*id) && record.parents.is_subset(&visited))
+                .map(|(id, _)| id.clone())
+                .collect();
+            if next.is_empty() {
+                break;
+            }
+            visited.extend(next);
+        }
+        if visited.len() != self.records.len() {
+            return Err(EngineError::invalid("cyclic custody store"));
+        }
+        Ok(())
     }
 }
 
