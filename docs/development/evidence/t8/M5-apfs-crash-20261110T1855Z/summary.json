@@ -1,0 +1,47 @@
+{
+ "cases": 16,
+ "failures": 0,
+ "by_point": {
+  "none": {
+   "cases": 2,
+   "recovered": 2,
+   "failures": 0
+  },
+  "suspend.paused": {
+   "cases": 2,
+   "recovered": 0,
+   "failures": 0
+  },
+  "suspend.saved": {
+   "cases": 2,
+   "recovered": 0,
+   "failures": 0
+  },
+  "suspend.synced": {
+   "cases": 2,
+   "recovered": 0,
+   "failures": 0
+  },
+  "suspend.meta_written": {
+   "cases": 2,
+   "recovered": 0,
+   "failures": 0
+  },
+  "suspend.meta_renamed": {
+   "cases": 2,
+   "recovered": 2,
+   "failures": 0
+  },
+  "suspend.committed": {
+   "cases": 2,
+   "recovered": 2,
+   "failures": 0
+  },
+  "suspend.torn_down": {
+   "cases": 2,
+   "recovered": 2,
+   "failures": 0
+  }
+ },
+ "qualification": "process-crash on APFS with F_FULLFSYNC; not power-loss"
+}

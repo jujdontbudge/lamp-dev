@@ -1,9 +1,9 @@
 //! `lamp-supervisor`: the privileged local service that owns sandbox VMMs on
-//! a Linux host and serves `lamp.worker/1` to `lampd`.
+//! a Linux host or an Apple Silicon Mac and serves `lamp.worker/1` to `lampd`.
 #[cfg(target_os = "linux")]
 pub mod admin;
 pub mod client;
 #[cfg(unix)]
 pub mod grants;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod server;

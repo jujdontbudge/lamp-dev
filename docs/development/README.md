@@ -100,7 +100,10 @@ and [T2-evidence.md](T2-evidence.md). T6 joins the parallel tickets and runs
 the gate on lane LX; the measured result (failed) is in
 [T6-evidence.md](T6-evidence.md). T7's durable local captures and their E04
 storage proof (ext4 at 1,000 forks, XFS-reflink at 100) are in
-[T7-evidence.md](T7-evidence.md).
+[T7-evidence.md](T7-evidence.md). The Mac engine (T8: Linux guests with
+memory fork and native macOS guests on Virtualization.framework, M5 and AIR)
+is in [T8-evidence.md](T8-evidence.md); the installer and the guest build are
+in `infra/mac/`.
 
 ## CI on owner machines
 

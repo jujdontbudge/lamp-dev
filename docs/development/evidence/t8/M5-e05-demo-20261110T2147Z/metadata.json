@@ -1,0 +1,154 @@
+{
+ "lane": "M5",
+ "captured_at_unix_ms": 1794347279792,
+ "git_commit": "efbbad820ea425200a826333ea5e003d44cec0e8",
+ "git_dirty": false,
+ "source_hashes": {
+  "crates": "491a58073c0a43fd60a40ec196be6686abe1fdf26a3c980476e89423b455c285",
+  "infra_mac": "899918165baafcdbfc4dec2ce223c63bad335937331ab711df659767637680ee"
+ },
+ "dependency_hashes": {
+  "Cargo.lock": "1d1396c9b96768370a7e1fc5cfc0eeed93dab8588ace923ddc2c1186acbd7174"
+ },
+ "artifacts": {
+  "lamp-vz": "57edd54663e1d103aecc92f08e4158b750e8dda9fbcc51412a3ea64eb2b245b0",
+  "lamp-supervisor": "ead4b1c84ed8975243930d347de8e319e2f3977cd44535da03a888bd5d322e06",
+  "template.manifest.json": "12cf5d609585b24c3beee70840ecfb6aa8f09adb5ef280d12dd8fe04b101ab24"
+ },
+ "worker_signature": "Executable=/usr/local/lib/lamp/lamp-vz\nIdentifier=lamp-vz-55554944bc4e1aacacff3a27b6a9426af821c9d7\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=3281 flags=0x10002(adhoc,runtime) hashes=91+7 location=embedded\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nRuntime Version=26.4.0\nSealed Resources=none\nInternal requirements count=0 size=12",
+ "worker_entitlements": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.security.virtualization</key><true/></dict></plist>",
+ "hardware": {
+  "model": "Mac17,2",
+  "cpu": "Apple M5",
+  "perf_cores": "4",
+  "eff_cores": "6",
+  "memory_bytes": 25769803776,
+  "page_size": 16384
+ },
+ "os": {
+  "kernel": "Darwin",
+  "release": "25.5.0",
+  "product_version": "26.5.2",
+  "build": "25F84"
+ },
+ "filesystem": {
+  "store": "/private/var/lamp/store",
+  "device": "/dev/disk3s5",
+  "mount": "/dev/disk3s5 on /System/Volumes/Data (apfs, local, journaled, nobrowse, protect, root data)",
+  "ram_volume": "/dev/disk6 on /private/var/lamp/ram (hfs, local, noatime, nobrowse)"
+ },
+ "storage": {
+  "diskutil": [
+   "Device Identifier:         disk3s5",
+   "   Device Node:               /dev/disk3s5",
+   "   Whole:                     No",
+   "   Part of Whole:             disk3",
+   "",
+   "   Volume Name:               Data",
+   "   Mounted:                   Yes",
+   "   Mount Point:               /System/Volumes/Data",
+   "",
+   "   Partition Type:            41504653-0000-11AA-AA11-00306543ECAC",
+   "   File System Personality:   APFS",
+   "   Type (Bundle):             apfs",
+   "   Name (User Visible):       APFS",
+   "   Owners:                    Enabled",
+   "",
+   "   OS Can Be Installed:       Yes",
+   "   Booter Disk:               disk3s2",
+   "   Recovery Disk:             disk3s3",
+   "   Media Type:                Generic",
+   "   Protocol:                  Apple Fabric",
+   "   SMART Status:              Verified",
+   "   Volume UUID:               4DC050C4-9B70-4B0C-958E-2E35D2028D99",
+   "   Disk / Partition UUID:     4DC050C4-9B70-4B0C-958E-2E35D2028D99",
+   "",
+   "   Disk Size:                 994.6 GB (994610155520 Bytes) (exactly 1942597960 512-Byte-Units)",
+   "   Device Block Size:         4096 Bytes",
+   "",
+   "   Volume Used Space:         924.6 GB (924636659712 Bytes) (exactly 1805930976 512-Byte-Units)",
+   "   Container Total Space:     994.6 GB (994610155520 Bytes) (exactly 1942597960 512-Byte-Units)",
+   "   Container Free Space:      28.0 GB (27992965120 Bytes) (exactly 54673760 512-Byte-Units)",
+   "   Allocation Block Size:     4096 Bytes",
+   "",
+   "   Media OS Use Only:         No",
+   "   Media Read-Only:           No",
+   "   Volume Read-Only:          No",
+   "",
+   "   Device Location:           Internal",
+   "   Removable Media:           Fixed",
+   "",
+   "   Solid State:               Yes"
+  ]
+ },
+ "power": {
+  "pmset_batt": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=23068771)\t18%; discharging; 0:21 remaining present: true",
+  "pmset_custom": [
+   "System-wide power settings:",
+   " SleepDisabled\t\t0",
+   "Currently in use:",
+   " standby              1",
+   " Sleep On Power Button 1",
+   " hibernatefile        /var/vm/sleepimage",
+   " powernap             1",
+   " networkoversleep     0",
+   " disksleep            10",
+   " sleep                1 (sleep prevented by powerd, Claude, Amphetamine)",
+   " hibernatemode        0",
+   " ttyskeepawake        1",
+   " displaysleep         0 (display sleep prevented by Amphetamine)",
+   " tcpkeepalive         1",
+   " lowpowermode         0",
+   " womp                 0"
+  ]
+ },
+ "thermal": {
+  "pmset_therm": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+  "load_avg": "{ 8.56 8.31 6.94 }"
+ },
+ "memory": {
+  "vm_stat": [
+   "Mach Virtual Memory Statistics: (page size of 16384 bytes)",
+   "Pages free:                                     3979.",
+   "Pages active:                                 353891.",
+   "Pages inactive:                               333897.",
+   "Pages speculative:                             19009.",
+   "Pages throttled:                                   0.",
+   "Pages wired down:                             240723.",
+   "Pages purgeable:                                   2.",
+   "\"Translation faults\":                     4134382748.",
+   "Pages copy-on-write:                       222473268.",
+   "Pages zero filled:                        1762670717.",
+   "Pages reactivated:                         518942444.",
+   "Pages purged:                               40679432.",
+   "File-backed pages:                            211023.",
+   "Anonymous pages:                              495774.",
+   "Pages stored in compressor:                  2515379.",
+   "Pages occupied by compressor:                 565032.",
+   "Decompressions:                            577883896.",
+   "Compressions:                              659527388.",
+   "Pageins:                                   145809793.",
+   "Pageouts:                                    2360066.",
+   "Swapins:                                     7964662.",
+   "Swapouts:                                    9860886.",
+   "Pages tagged:                                 138847.",
+   "Pages tagged resident:                        107704.",
+   "Pages tagged compressed:                       31143.",
+   "Pages tag-storage:                             49152.",
+   "Pages tag-storage holding tags:                 4904.",
+   "Pages tag-storage free:                          164.",
+   "Pages tag-storage non-tag pageable:            44045.",
+   "Pages tag-storage non-tag wired:                  39.",
+   "Bytes of compressed tags:                    5121856.",
+   "Tagged compressions:                        12004927.",
+   "Tagged decompressions:                      11482243."
+  ],
+  "swap": "total = 14336.00M  used = 12749.38M  free = 1586.62M  (encrypted)"
+ },
+ "confinement": null,
+ "controls": {
+  "confine": true,
+  "identity_per_sandbox": true,
+  "cow": "apfs-clonefile"
+ }
+}

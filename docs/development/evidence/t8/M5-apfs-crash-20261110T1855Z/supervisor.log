@@ -1,0 +1,300 @@
+lamp-supervisor: store open, 1 verified template(s) in 348 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68921140e7e0_1 sandbox sb_cr_0_2f6be1 handle_us=2 
+lamp-supervisor: op op_68921140e7e0_2 sandbox sb_cr_0_2f6be1 handle_us=460683 barrier_us=991 helper_ready_us=1095 prepare_us=3883 resume_us=361 spawn_us=450281 total_us=460671 vz_restore_us=426611
+lamp-supervisor: op op_68921140e7e0_3 sandbox sb_cr_0_2f6be1 handle_us=13620 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68922f559e3d_1 sandbox sb_cr_0_2f6be1 handle_us=919 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_6892372f198b_1 sandbox sb_cr_0_2f6be1 handle_us=19349 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68923a9602cd_1 sandbox sb_cr_0_2f6be1 handle_us=1169099 commit_us=32717 freeze_us=1150 memory_bytes=35655680 save_us=1109739 teardown_us=25422 total_us=1169086
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: kept suspended sandbox sb_cr_0_2f6be1
+lamp-supervisor: store open, 1 verified template(s) in 384 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689426a529ad_1 sandbox sb_cr_0_2f6be1 handle_us=239039 barrier_us=913 helper_ready_us=1074 prepare_us=4 resume_us=276 spawn_us=218741 total_us=239027 vz_restore_us=201355
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689435d838d9_1 sandbox sb_cr_0_2f6be1 handle_us=32403 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68943a1a50bc_1 sandbox sb_cr_0_2f6be1 handle_us=59289 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 289 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68951a14c0d3_1 sandbox sb_cr_1_691ede handle_us=2 
+lamp-supervisor: op op_68951a14c0d3_2 sandbox sb_cr_1_691ede handle_us=218713 barrier_us=3034 helper_ready_us=851 prepare_us=1796 resume_us=1958 spawn_us=210752 total_us=218706 vz_restore_us=183985
+lamp-supervisor: op op_68951a14c0d3_3 sandbox sb_cr_1_691ede handle_us=23966 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68952a8dec28_1 sandbox sb_cr_1_691ede handle_us=1979 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689532a96242_1 sandbox sb_cr_1_691ede handle_us=32242 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: store open, 1 verified template(s) in 419 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 355 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_689639311a42_1 sandbox sb_cr_2_662d62 handle_us=2 
+lamp-supervisor: op op_689639311a42_2 sandbox sb_cr_2_662d62 handle_us=279284 barrier_us=995 helper_ready_us=1021 prepare_us=7700 resume_us=431 spawn_us=268507 total_us=279278 vz_restore_us=245817
+lamp-supervisor: op op_689639311a42_3 sandbox sb_cr_2_662d62 handle_us=28888 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689712891125_1 sandbox sb_cr_2_662d62 handle_us=1878 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68971b3e758a_1 sandbox sb_cr_2_662d62 handle_us=27555 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: store open, 1 verified template(s) in 306 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 291 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68982e8e3747_1 sandbox sb_cr_3_9e2d52 handle_us=2 
+lamp-supervisor: op op_68982e8e3747_2 sandbox sb_cr_3_9e2d52 handle_us=211626 barrier_us=2093 helper_ready_us=2701 prepare_us=457 resume_us=255 spawn_us=201490 total_us=211617 vz_restore_us=183256
+lamp-supervisor: op op_68982e8e3747_3 sandbox sb_cr_3_9e2d52 handle_us=9847 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689921dcaf3_1 sandbox sb_cr_3_9e2d52 handle_us=2208 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_6899a8c7a4d_1 sandbox sb_cr_3_9e2d52 handle_us=19808 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: store open, 1 verified template(s) in 453 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 259 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_689a233e359f_1 sandbox sb_cr_4_5890c2 handle_us=2 
+lamp-supervisor: op op_689a233e359f_2 sandbox sb_cr_4_5890c2 handle_us=252196 barrier_us=542 helper_ready_us=622 prepare_us=18194 resume_us=251 spawn_us=218577 total_us=252190 vz_restore_us=181501
+lamp-supervisor: op op_689a233e359f_3 sandbox sb_cr_4_5890c2 handle_us=28480 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689a36a609f4_1 sandbox sb_cr_4_5890c2 handle_us=553 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689b260979e_1 sandbox sb_cr_4_5890c2 handle_us=27175 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: store open, 1 verified template(s) in 427 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 276 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_689c1cbefe52_1 sandbox sb_cr_5_df2b08 handle_us=4 
+lamp-supervisor: op op_689c1cbefe52_2 sandbox sb_cr_5_df2b08 handle_us=221073 barrier_us=671 helper_ready_us=817 prepare_us=269 resume_us=368 spawn_us=218588 total_us=221067 vz_restore_us=191305
+lamp-supervisor: op op_689c1cbefe52_3 sandbox sb_cr_5_df2b08 handle_us=13966 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689c320f3dda_1 sandbox sb_cr_5_df2b08 handle_us=541 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689c398705fc_1 sandbox sb_cr_5_df2b08 handle_us=31265 
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: kept suspended sandbox sb_cr_5_df2b08
+lamp-supervisor: store open, 1 verified template(s) in 305 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689d2e6490bf_1 sandbox sb_cr_5_df2b08 handle_us=243587 barrier_us=1025 helper_ready_us=962 prepare_us=4 resume_us=323 spawn_us=221853 total_us=243577 vz_restore_us=206530
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689e23f9a1b_1 sandbox sb_cr_5_df2b08 handle_us=43130 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689e683aa25_1 sandbox sb_cr_5_df2b08 handle_us=42460 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 360 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_689e2732df66_1 sandbox sb_cr_6_e21c9d handle_us=2 
+lamp-supervisor: op op_689e2732df66_2 sandbox sb_cr_6_e21c9d handle_us=256870 barrier_us=1432 helper_ready_us=1290 prepare_us=466 resume_us=409 spawn_us=250157 total_us=256858 vz_restore_us=218524
+lamp-supervisor: op op_689e2732df66_3 sandbox sb_cr_6_e21c9d handle_us=24483 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689e3a8b8f1e_1 sandbox sb_cr_6_e21c9d handle_us=28436 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_689f899310e_1 sandbox sb_cr_6_e21c9d handle_us=18176 
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: kept suspended sandbox sb_cr_6_e21c9d
+lamp-supervisor: store open, 1 verified template(s) in 344 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a07d30f16_1 sandbox sb_cr_6_e21c9d handle_us=275748 barrier_us=727 helper_ready_us=825 prepare_us=15 resume_us=286 spawn_us=228731 total_us=275729 vz_restore_us=205204
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a01944667f_1 sandbox sb_cr_6_e21c9d handle_us=49435 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a01e89a99b_1 sandbox sb_cr_6_e21c9d handle_us=80653 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 331 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68a13681fe7_1 sandbox sb_cr_7_171781 handle_us=2 
+lamp-supervisor: op op_68a13681fe7_2 sandbox sb_cr_7_171781 handle_us=257302 barrier_us=714 helper_ready_us=850 prepare_us=19225 resume_us=303 spawn_us=235906 total_us=257297 vz_restore_us=214524
+lamp-supervisor: op op_68a13681fe7_3 sandbox sb_cr_7_171781 handle_us=19503 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a115b90023_1 sandbox sb_cr_7_171781 handle_us=762 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a11efff5e7_1 sandbox sb_cr_7_171781 handle_us=11177 
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: kept suspended sandbox sb_cr_7_171781
+lamp-supervisor: store open, 1 verified template(s) in 323 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a22df8855d_1 sandbox sb_cr_7_171781 handle_us=371387 barrier_us=874 helper_ready_us=845 prepare_us=6 resume_us=325 spawn_us=333225 total_us=371373 vz_restore_us=300622
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a3a6f23f7_1 sandbox sb_cr_7_171781 handle_us=33999 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a3fccc30e_1 sandbox sb_cr_7_171781 handle_us=52203 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 307 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68a32e8830e3_1 sandbox sb_cr_8_425637 handle_us=4 
+lamp-supervisor: op op_68a32e8830e3_2 sandbox sb_cr_8_425637 handle_us=312692 barrier_us=1783 helper_ready_us=3741 prepare_us=4321 resume_us=385 spawn_us=296715 total_us=312685 vz_restore_us=264641
+lamp-supervisor: op op_68a32e8830e3_3 sandbox sb_cr_8_425637 handle_us=10894 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a48f9ae12_1 sandbox sb_cr_8_425637 handle_us=36820 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a412e80e62_1 sandbox sb_cr_8_425637 handle_us=19045 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a4163a114d_1 sandbox sb_cr_8_425637 handle_us=500763 commit_us=34096 freeze_us=1010 memory_bytes=35655680 save_us=441843 teardown_us=23782 total_us=500752
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: kept suspended sandbox sb_cr_8_425637
+lamp-supervisor: store open, 1 verified template(s) in 338 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a514c6af55_1 sandbox sb_cr_8_425637 handle_us=260098 barrier_us=917 helper_ready_us=737 prepare_us=8 resume_us=184 spawn_us=250921 total_us=260092 vz_restore_us=224967
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a525b963dd_1 sandbox sb_cr_8_425637 handle_us=43268 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a52ab4e540_1 sandbox sb_cr_8_425637 handle_us=38701 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 370 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68a6100224e9_1 sandbox sb_cr_9_ce20bc handle_us=4 
+lamp-supervisor: op op_68a6100224e9_2 sandbox sb_cr_9_ce20bc handle_us=302724 barrier_us=734 helper_ready_us=914 prepare_us=5050 resume_us=394 spawn_us=295265 total_us=302714 vz_restore_us=246043
+lamp-supervisor: op op_68a6100224e9_3 sandbox sb_cr_9_ce20bc handle_us=22320 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a6259eecb1_1 sandbox sb_cr_9_ce20bc handle_us=1302 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a62d6f1194_1 sandbox sb_cr_9_ce20bc handle_us=16164 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: store open, 1 verified template(s) in 354 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 309 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68a72d0279d4_1 sandbox sb_cr_10_bd42b5 handle_us=3 
+lamp-supervisor: op op_68a72d0279d4_2 sandbox sb_cr_10_bd42b5 handle_us=256344 barrier_us=665 helper_ready_us=738 prepare_us=4231 resume_us=382 spawn_us=246799 total_us=256336 vz_restore_us=212488
+lamp-supervisor: op op_68a72d0279d4_3 sandbox sb_cr_10_bd42b5 handle_us=32872 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a846c65e9_1 sandbox sb_cr_10_bd42b5 handle_us=969 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68a8ccdc041_1 sandbox sb_cr_10_bd42b5 handle_us=26233 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: store open, 1 verified template(s) in 455 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 350 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68a937b63412_1 sandbox sb_cr_11_82c3f3 handle_us=3 
+lamp-supervisor: op op_68a937b63412_2 sandbox sb_cr_11_82c3f3 handle_us=271106 barrier_us=1604 helper_ready_us=2135 prepare_us=11887 resume_us=822 spawn_us=246672 total_us=271093 vz_restore_us=217746
+lamp-supervisor: op op_68a937b63412_3 sandbox sb_cr_11_82c3f3 handle_us=35112 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68aa10065cb7_1 sandbox sb_cr_11_82c3f3 handle_us=952 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68aa17c59a93_1 sandbox sb_cr_11_82c3f3 handle_us=12486 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: store open, 1 verified template(s) in 380 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 339 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68ab3111c63a_1 sandbox sb_cr_12_c5cbef handle_us=4 
+lamp-supervisor: op op_68ab3111c63a_2 sandbox sb_cr_12_c5cbef handle_us=284296 barrier_us=14242 helper_ready_us=15007 prepare_us=15658 resume_us=797 spawn_us=230250 total_us=284289 vz_restore_us=199830
+lamp-supervisor: op op_68ab3111c63a_3 sandbox sb_cr_12_c5cbef handle_us=59929 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68acd93c5b9_1 sandbox sb_cr_12_c5cbef handle_us=3583 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68ac1623253d_1 sandbox sb_cr_12_c5cbef handle_us=27623 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: store open, 1 verified template(s) in 499 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 303 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68ad38d800ae_1 sandbox sb_cr_13_c97df6 handle_us=2 
+lamp-supervisor: op op_68ad38d800ae_2 sandbox sb_cr_13_c97df6 handle_us=287675 barrier_us=1402 helper_ready_us=2644 prepare_us=11561 resume_us=2718 spawn_us=268561 total_us=287668 vz_restore_us=227248
+lamp-supervisor: op op_68ad38d800ae_3 sandbox sb_cr_13_c97df6 handle_us=26056 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68ae128dadfc_1 sandbox sb_cr_13_c97df6 handle_us=15809 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68ae1b05ba1f_1 sandbox sb_cr_13_c97df6 handle_us=33323 
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: kept suspended sandbox sb_cr_13_c97df6
+lamp-supervisor: store open, 1 verified template(s) in 340 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68af1a074466_1 sandbox sb_cr_13_c97df6 handle_us=247213 barrier_us=665 helper_ready_us=1005 prepare_us=8 resume_us=347 spawn_us=223393 total_us=247200 vz_restore_us=199111
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68af2a23a0e3_1 sandbox sb_cr_13_c97df6 handle_us=40559 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68af2f38cba8_1 sandbox sb_cr_13_c97df6 handle_us=77144 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 390 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68b018306269_1 sandbox sb_cr_14_d49669 handle_us=8 
+lamp-supervisor: op op_68b018306269_2 sandbox sb_cr_14_d49669 handle_us=328908 barrier_us=709 helper_ready_us=726 prepare_us=5704 resume_us=324 spawn_us=318527 total_us=328899 vz_restore_us=286364
+lamp-supervisor: op op_68b018306269_3 sandbox sb_cr_14_d49669 handle_us=25795 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b02f603a52_1 sandbox sb_cr_14_d49669 handle_us=883 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b037615606_1 sandbox sb_cr_14_d49669 handle_us=22555 
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: kept suspended sandbox sb_cr_14_d49669
+lamp-supervisor: store open, 1 verified template(s) in 324 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b13979e874_1 sandbox sb_cr_14_d49669 handle_us=338640 barrier_us=671 helper_ready_us=825 prepare_us=5 resume_us=550 spawn_us=308302 total_us=338618 vz_restore_us=266177
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b213915e5f_1 sandbox sb_cr_14_d49669 handle_us=29879 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b219a5c58a_1 sandbox sb_cr_14_d49669 handle_us=52940 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
+lamp-supervisor: store open, 1 verified template(s) in 353 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: op op_68b39661e5_1 sandbox sb_cr_15_fc4fef handle_us=11 
+lamp-supervisor: op op_68b39661e5_2 sandbox sb_cr_15_fc4fef handle_us=237626 barrier_us=620 helper_ready_us=864 prepare_us=349 resume_us=303 spawn_us=235029 total_us=237619 vz_restore_us=204424
+lamp-supervisor: op op_68b39661e5_3 sandbox sb_cr_15_fc4fef handle_us=16018 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b312020d06_1 sandbox sb_cr_15_fc4fef handle_us=748 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b31a041849_1 sandbox sb_cr_15_fc4fef handle_us=18241 
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: kept suspended sandbox sb_cr_15_fc4fef
+lamp-supervisor: store open, 1 verified template(s) in 365 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/run/lamp/crash.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b4328ed427_1 sandbox sb_cr_15_fc4fef handle_us=370654 barrier_us=882 helper_ready_us=1262 prepare_us=6 resume_us=1753 spawn_us=310817 total_us=370644 vz_restore_us=286305
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b5f32cd3d_1 sandbox sb_cr_15_fc4fef handle_us=41747 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_68b5162c70fc_1 sandbox sb_cr_15_fc4fef handle_us=49862 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
