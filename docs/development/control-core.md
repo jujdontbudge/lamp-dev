@@ -209,9 +209,9 @@ That fixture cannot qualify E03 or E01, even on LX. It is useful for finding
 control serialization and authority faults without stopping owner services.
 
 For hard timing on LX, build and install workload/templates before entering
-`infra/linux/timing-run.sh -- python3 infra/linux/run-e03.py ...`. Check for
-other `timing-run.sh`/`benchmarks.run` processes and acquire the shared timing
-lock first. The wrapper restores exactly the owner services it found running.
+`flock /tmp/lamp-lx-timing.lock infra/linux/timing-run.sh -- python3 infra/linux/run-e03.py ...`.
+Check for other `timing-run.sh`/`benchmarks.run` processes before starting.
+The shared LX lock serializes T7, T10 and T13 timing runs. The wrapper restores exactly the owner services it found running.
 `--suite all` requires E03 preparation inputs or reports that suite incomplete.
 The Linux process runtime avoids Python thread/GIL scheduling in the independent
 caller side; it does not subtract time, reduce counts or alter the threshold.

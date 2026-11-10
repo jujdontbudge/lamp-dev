@@ -113,20 +113,22 @@ The smoke diagnostics below remain historical failures. The later runs use the
 real installed Firecracker supervisor, credentialed public HTTP over its Unix
 socket, actual measured metadata and the full 32 × 200 command plan. Every hard
 run goes through `infra/linux/timing-run.sh`, after scanning for another timing
-run and acquiring `/tmp/lamp-hard-timing.lock`. The wrapper logs the owner
+run and acquiring the timing lock (historically `/tmp/lamp-hard-timing.lock`;
+from the coordinator's 20:21Z instruction, every new run is wrapped in
+`flock /tmp/lamp-lx-timing.lock`, shared with T7/T13). The wrapper logs the owner
 services originally running and restores exactly those. Docker and T3 Code
 are untouched.
 
-| Preserved run | Trials | Correctness failures | p99 ms | Result |
-| --- | ---: | ---: | ---: | --- |
-| [Mac smoke](evidence/t10/e03-mac-1/summary.json) | 64 | 0 | 3192.924375 | fail, fixture diagnostic |
-| [LX smoke](evidence/t10/e03-lx-1/summary.json) | 64 | 0 | 70.575689 | fail, fixture diagnostic |
-| [Actual engine 1](evidence/t10/e03-actual-1/summary.json) | 6400 rows; 2336 commands | 4065 | 3770.546617 | fail; barrier-abort bug made remaining rows errors |
-| [Lock profile](evidence/t10/e03-profile-1/summary.json) | 6400 | 1 | 1476.519540 | fail, diagnostic |
-| [Group commits](evidence/t10/e03-group-1/summary.json) | 6400 | 70 | 1636.435953 | fail |
-| [Snapshot profile](evidence/t10/e03-snapshot-profile-1/summary.json) | 6400 | 29 | 248.463165 | fail, diagnostic |
-| [Two sandboxes](evidence/t10/e03-two-sandboxes-1/summary.json) | 6400 | 24 | 172.010064 | fail |
-| [Linux processes](evidence/t10/e03-processes-1/summary.json) | 6400 | 1 | 510.440825 | fail |
+| Preserved run | Trials | Correctness failures | p50 ms | p95 ms | p99 ms | Result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| [Mac smoke](evidence/t10/e03-mac-1/summary.json) | 64 | 0 | 2466.915208 | 3117.064917 | 3192.924375 | fail, fixture diagnostic |
+| [LX smoke](evidence/t10/e03-lx-1/summary.json) | 64 | 0 | 39.123553 | 67.610308 | 70.575689 | fail, fixture diagnostic |
+| [Actual engine 1](evidence/t10/e03-actual-1/summary.json) | 6400 rows; 2336 commands | 4065 | 498.635816 | 1306.017676 | 3770.546617 | fail; barrier-abort bug made remaining rows errors |
+| [Lock profile](evidence/t10/e03-profile-1/summary.json) | 6400 | 1 | 367.074036 | 964.900528 | 1476.519540 | fail, diagnostic |
+| [Group commits](evidence/t10/e03-group-1/summary.json) | 6400 | 70 | 115.820464 | 258.003226 | 1636.435953 | fail |
+| [Snapshot profile](evidence/t10/e03-snapshot-profile-1/summary.json) | 6400 | 29 | 92.700649 | 186.329848 | 248.463165 | fail, diagnostic |
+| [Two sandboxes](evidence/t10/e03-two-sandboxes-1/summary.json) | 6400 | 24 | 60.020024 | 129.561761 | 172.010064 | fail |
+| [Linux processes](evidence/t10/e03-processes-1/summary.json) | 6400 | 1 | 60.126641 | 107.178550 | 510.440825 | fail |
 
 The fixed allocation is **p99 ≤35 ms**, with zero lost effects, cross-owner effects
 or quota overspend. Every run remains failed; profiles and earlier source
@@ -175,6 +177,16 @@ yet; [the blocked preflight](evidence/t10/e03-preallocation-preflight.txt) is
 retained. No installed shared-engine or guard binary was replaced. The process-runtime regression verifies all 6,400 rows
 and 32 distinct child PIDs on two logical owner sandboxes, including an injected
 individual failure without skipping later commands.
+
+The next preparation attempt, [`e03-preallocated-1`](evidence/t10/e03-preallocated-1/wrapper.log),
+ran inside the shared LX lock and timing wrapper but did **not** reach command
+trials. A pre-existing T9 allocation occupied one of the two permitted slots.
+After creating its first VM, the driver refused the second allocation and exited
+1. Its own VM was confirmed released (`cleanup.json` is empty), and the wrapper
+restored all four originally active owner services. There are no latency
+quantiles for this incomplete preparation. The queued private-template attempt
+now waits inside the shared lock for zero Firecracker processes, zero observed
+allocations and at least 12 GiB available before preparation and timing.
 
 Each published run retains its manifest, summary, compressed hash-chained raw
 observations, cleanup outcome and wrapper log. Current two-VM runs also retain
@@ -245,6 +257,12 @@ passed, and the rootfs/guest-binary digests were regenerated before importing it
 into a private T10 store. Preparation and its script are retained in
 [`private-seed-prepare.log`](evidence/t10/private-seed-prepare.log) and
 [`private-seed-prepare.py`](evidence/t10/private-seed-prepare.py).
+Moving the test module to satisfy Linux Clippy changed release binary bytes
+(the compiler retains source locations). A second disposable seed was therefore
+rebuilt and verified from the final source, without mutating the first imported
+seed. Its import pins `b4567a56bcde61d2c074a0773ca157079af2f24fd88acfb30faceab5133c3c9e`;
+see [`private-seed-prepare-2.log`](evidence/t10/private-seed-prepare-2.log) and
+[`private-seed-import-2.log`](evidence/t10/private-seed-import-2.log).
 The E03 driver and metadata collector accept explicit worker/store/policy inputs
 and pin the selected artifacts, allowing that private engine to be measured
 without replacing another ticket's shared service. Template preparation and
@@ -262,6 +280,14 @@ The preceding Mac `make bootstrap verify` passed in
 
 Main's PR #13 was merged as `01cd7f5`, retaining its bounded first-RPC readiness
 retry in the resident harness test.
+
+Control e2e binary directories now have a separate-session cleanup watcher. Its
+pipe closes when the test parent exits, including a kill or timeout, so cleanup
+does not depend on `m.Run()` returning. A regression kills a parent with SIGKILL
+and independently observes its directory disappear. Journal kill-test children
+still bypass binary building and the watcher. The forced-kill regression passes
+in [`cleanup-parent-kill.log`](evidence/t10/cleanup-parent-kill.log); full Mac
+`make verify` passes in [`cleanup-verify-mac.log`](evidence/t10/cleanup-verify-mac.log).
 
 ## Integration boundaries
 

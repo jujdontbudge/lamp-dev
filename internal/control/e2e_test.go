@@ -24,6 +24,9 @@ import (
 var lampBinary, daemonBinary, mcpBinary string
 
 func TestMain(m *testing.M) {
+	if testCleanupChild() {
+		return
+	}
 	// Journal kill-test children exercise only the store: rebuilding CLI
 	// binaries delays their crash boundary and leaks files when killed.
 
@@ -32,6 +35,11 @@ func TestMain(m *testing.M) {
 	}
 	dir, err := os.MkdirTemp("", "lamp-control-test-")
 	if err != nil {
+		panic(err)
+	}
+	cleanup, err := guardTestDirectory(dir)
+	if err != nil {
+		os.RemoveAll(dir)
 		panic(err)
 	}
 	lampBinary = filepath.Join(dir, "lamp")
@@ -45,12 +53,12 @@ func TestMain(m *testing.M) {
 		c := exec.Command("go", args...)
 		if out, err := c.CombinedOutput(); err != nil {
 			fmt.Fprintln(os.Stderr, string(out), err)
-			os.RemoveAll(dir)
+			cleanup()
 			os.Exit(1)
 		}
 	}
 	code := m.Run()
-	os.RemoveAll(dir)
+	cleanup()
 	os.Exit(code)
 }
 
