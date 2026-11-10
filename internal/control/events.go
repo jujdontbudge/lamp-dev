@@ -62,7 +62,7 @@ func (s *Service) addEvents(delta *journal) {
 			continue
 		}
 		sequence := s.journal.EventSequence + uint64(len(delta.Events)) + 1
-		eventID := fmt.Sprintf("hs_local-1-%d", sequence)
+		eventID := fmt.Sprintf("%s-1-%d", s.hostID(), sequence)
 		raw, _ := json.Marshal(map[string]string{"state": r.state})
 		typ := r.kind + ".state_changed"
 		if r.kind == "operation" && terminal(api.OperationState(r.state)) {
@@ -71,7 +71,7 @@ func (s *Service) addEvents(delta *journal) {
 		if r.kind == "approval" && r.state == "consumed" {
 			typ = "approval.consumed"
 		}
-		e := api.Event{Kind: "event", EventId: eventID, HostId: "hs_local", HostEpoch: 1, Sequence: sequence, ResourceKind: r.kind, ResourceId: r.id, ResourceRevision: r.revision, Type: api.EventType(typ), Data: raw, OccurredAt: timestamp(), Cursor: strconv.FormatUint(sequence, 10)}
+		e := api.Event{Kind: "event", EventId: eventID, HostId: s.hostID(), HostEpoch: 1, Sequence: sequence, ResourceKind: r.kind, ResourceId: r.id, ResourceRevision: r.revision, Type: api.EventType(typ), Data: raw, OccurredAt: timestamp(), Cursor: strconv.FormatUint(sequence, 10)}
 		delta.Events = append(delta.Events, storedEvent{r.owner, e})
 		s.eventRevisions[k] = r.revision
 	}
@@ -120,6 +120,13 @@ func (s *Service) readCursor(a caller, kind, cursor string) (string, error) {
 	return parts[3], nil
 }
 func parseQuery(r *http.Request) (url.Values, error) { return url.ParseQuery(r.URL.RawQuery) }
+
+func (s *Service) eventCursorKind() string {
+	if s.fleet != nil {
+		return "events:" + s.hostID()
+	}
+	return "events"
+}
 func (s *Service) eventAllowed(a caller, e storedEvent) bool {
 	if e.Owner != a.Principal {
 		return false
@@ -180,7 +187,7 @@ func (s *Service) eventsHTTP(w http.ResponseWriter, r *http.Request, id string, 
 		}
 		s.pruneEvents()
 		if first && textField(in, "cursor") != "" {
-			pos, err := s.readCursor(a, "events", textField(in, "cursor"))
+			pos, err := s.readCursor(a, s.eventCursorKind(), textField(in, "cursor"))
 			if err != nil {
 				s.mu.Unlock()
 				writeError(w, id, "CURSOR_EXPIRED", "cursor invalid; resync resource lists", nil)
@@ -208,7 +215,7 @@ func (s *Service) eventsHTTP(w http.ResponseWriter, r *http.Request, id string, 
 				continue
 			}
 			if s.eventAllowed(a, stored) {
-				e.Cursor = s.cursor(a, "events", strconv.FormatUint(e.Sequence, 10))
+				e.Cursor = s.cursor(a, s.eventCursorKind(), strconv.FormatUint(e.Sequence, 10))
 				raw, _ := json.Marshal(e)
 				if len(items) >= int(limit) || encodedBytes+len(raw) > 90000 {
 					break
@@ -218,7 +225,7 @@ func (s *Service) eventsHTTP(w http.ResponseWriter, r *http.Request, id string, 
 			}
 			position = e.Sequence
 		}
-		next := s.cursor(a, "events", strconv.FormatUint(position, 10))
+		next := s.cursor(a, s.eventCursorKind(), strconv.FormatUint(position, 10))
 		changed := s.changed
 		if !streaming && (len(items) > 0 || !time.Now().Before(until) || limit == 0) {
 			send := prepareJSON(w, 200, map[string]any{"items": items, "next_cursor": next, "request_id": id})
