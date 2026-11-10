@@ -79,7 +79,7 @@ performance objectives. Owner resource limits and the fleet's existing host
 capacity admission both apply. Budget `resource_limits` further bounds aggregate
 CPU, RAM, disk, concurrency, retained capture bytes and control records.
 
-Active, failed, uncertain and retained objects remain charged. A fork reserves
+Active, failed, uncertain and retained objects remain charged. A fork, snapshot, share rebuild or suspension reserves
 its retained memory/disk capture before dispatch; uncertain captures are never
 refunded speculatively. Confirmed sandbox deletion frees active RAM/disk, while
 capture and audit retention charges remain. A sandbox reserves 24 MiB for its

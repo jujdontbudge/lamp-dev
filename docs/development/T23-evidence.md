@@ -90,6 +90,16 @@ Ubuntu command; the owner changes its membership to viewer. The supervisor
 releases the sandbox, while the viewer can inspect the final state and cannot
 start replacement work.
 
+## Retained-resource integration
+
+After T9 merged, the capture/share/suspend routes were connected to the same
+budget, audit and retained-byte ledger. A separate
+[real retained-quota journey](evidence/t23/retained-quota.jsonl) created one
+Ubuntu sandbox under the 20 GiB disk policy, rejected a private memory/disk
+snapshot before allocating retained storage, then successfully started admitted
+work in the existing sandbox. Cleanup released that sandbox. The run is retained
+at `/home/johan/lamp-t23/retained-quota-1`.
+
 ## Verification and boundaries
 
 `make bootstrap` prepared the existing Python verification dependencies.
@@ -98,6 +108,9 @@ The one added retention-boundary unit test passed. After rebasing onto the
 newly merged network/access changes, `go build ./...` and
 `cargo build --locked -p lamp-supervisor` passed:
 [build log](evidence/t23/rebase-build.log).
+The later T9 integration also built successfully:
+[final integration build](evidence/t23/final-integration-build.log), with
+[final code/artifact hashes](evidence/t23/final-integration-artifacts.json).
 [Source and artifact hashes](evidence/t23/artifacts.json) identify the demonstrated
 builds. No full-suite, benchmark or trial-count loop was run.
 
