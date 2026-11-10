@@ -1,0 +1,13 @@
+lamp-supervisor: store open, 1 verified template(s) in 1423 ms
+lamp-supervisor: serving lamp.worker/1 on /run/lamp/t10-private/worker.sock
+lamp-supervisor: op op_a0af56b416656d7152e3c848cfcabe74.allocate sandbox sb_ec461a89e5de10c3625154b39b8582fc handle_us=889 
+lamp-supervisor: op op_a0af56b416656d7152e3c848cfcabe74.restore sandbox sb_ec461a89e5de10c3625154b39b8582fc handle_us=73024 attach_us=46897 barrier_us=6079 load_us=4801 net_build_us=50020 net_guard_us=13714 net_proxy_us=13718 net_tap_us=29767 net_total_us=50014 net_uplink_us=20144 prepare_us=2924 spawn_us=12285 total_us=73015
+lamp-supervisor: op op_a0af56b416656d7152e3c848cfcabe74.start sandbox sb_ec461a89e5de10c3625154b39b8582fc handle_us=16714 
+lamp-supervisor: op op_176c5d4d1cda678de041ab8a642eb008.start sandbox sb_ec461a89e5de10c3625154b39b8582fc handle_us=6713 
+lamp-supervisor: op op_c18d55030be22460f445f13170826a4a.start sandbox sb_ec461a89e5de10c3625154b39b8582fc handle_us=20863 
+lamp-supervisor: op op_4bc2ec0431190e3d908e2607f89f1c8a.start sandbox sb_ec461a89e5de10c3625154b39b8582fc handle_us=8665 
+lamp-supervisor: op op_6c49d31dd6d6c356fe604feddaf23fa0.stop sandbox sb_ec461a89e5de10c3625154b39b8582fc handle_us=23207 
+lamp-supervisor: op op_6c49d31dd6d6c356fe604feddaf23fa0.release sandbox sb_ec461a89e5de10c3625154b39b8582fc handle_us=21972 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

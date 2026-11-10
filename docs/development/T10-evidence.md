@@ -1,10 +1,42 @@
 # T10 control-core evidence — 2026-11-10
 
-The local control core is implemented and exercised through credentialed HTTP,
-the actual `lamp` CLI and the actual stdio `lamp-mcp` binary. **T10 is not fully
-qualified: E03 has not passed.** Full 6,400-command runs against the installed real LX engine exceed the
-unchanged 35 ms allocation and report command-effect failures. T6's integrated engine gate remains failed. No deterministic test or
-protocol fixture result below replaces that gate.
+The local control core is exercised through credentialed HTTP, the actual
+`lamp` CLI and the actual stdio `lamp-mcp` binary. The exit-70 cause and both
+review-r2 accounting regressions are fixed. **Owner decision, 2026-11-10 21:30Z:**
+skip E03 and further test/performance work; completion evidence is one real
+API/CLI/MCP sandbox demonstration plus `make verify`. The queued E03 retry was
+cancelled before starting. Historical failed/incomplete runs below retain their
+original outcomes, and T6's independent engine gate remains failed. No new speed
+or engine qualification is claimed. `docs/spec` and `docs/tickets` were left
+unchanged by this follow-up.
+
+## Real end-to-end demonstration
+
+The [public transcript](evidence/t10/real-sandbox-demo/transcript.jsonl) records
+one real Firecracker sandbox on LX, `sb_ec461a89e5de10c3625154b39b8582fc`, using
+the patched private guest/template and the same credential on every transport:
+
+1. HTTP created the sandbox and observed its ready state after a real probe.
+2. The `lamp exec create --input … --json` binary ran guest Python, writing an
+   independently selected nonce to `/tmp/lamp-control-demo-…`.
+3. The `lamp-mcp` stdio binary received JSON-RPC `tools/call` for `exec_create`.
+   Its guest command read the CLI's exact nonce and appended `/MCP`.
+4. HTTP executed another guest command and read the combined value
+   `9940a9df9ede39394d050bfa94e259e6/MCP`. All three commands reached `exited`
+   with exit code 0, and their actual output is retained in the transcript.
+5. HTTP deleted the sandbox and independently observed `state=deleted` after
+   Stop and Release. [Cleanup](evidence/t10/real-sandbox-demo/cleanup.json) is
+   empty; zero Firecracker processes remained. No owner service was stopped.
+
+The transcript pins all three Go binaries, the real supervisor and patched
+host guard by SHA-256, plus the prepared template/seed and real VMM allocation.
+The [supervisor log](evidence/t10/real-sandbox-demo/worker.log) records the actual
+allocate/restore/start/stop/release RPCs. The
+[demonstration recipe](evidence/t10/real-sandbox-demo/demonstration.py) is retained
+for inspection; generated credentials, enrollment and private state are excluded.
+This is a single real sandbox journey, without a benchmark or new automated test.
+Final `make verify` passed in
+[`owner-final-verify.log`](evidence/t10/owner-final-verify.log).
 
 ## Behavior exercised
 
@@ -107,7 +139,7 @@ kill-child TestMain exit and `storeConfigAt(dir)`, together with the ticket's
 race-instrumented transport binaries. Branch pushes now use main's dispatched
 CI policy.
 
-## E03 remains failed and unqualified
+## Historical E03 attempts (not current completion criteria)
 
 The smoke diagnostics below remain historical failures. The later runs use the
 real installed Firecracker supervisor, credentialed public HTTP over its Unix
@@ -130,10 +162,11 @@ are untouched.
 | [Two sandboxes](evidence/t10/e03-two-sandboxes-1/summary.json) | 6400 | 24 | 60.020024 | 129.561761 | 172.010064 | fail |
 | [Linux processes](evidence/t10/e03-processes-1/summary.json) | 6400 | 1 | 60.126641 | 107.178550 | 510.440825 | fail |
 
-The fixed allocation is **p99 ≤35 ms**, with zero lost effects, cross-owner effects
-or quota overspend. Every run remains failed; profiles and earlier source
-snapshots are diagnostics, not final certification. T6's integrated E01 remains
-failed and independently prevents an E03 gate pass.
+The earlier harness used **p99 ≤35 ms**, with zero lost effects, cross-owner
+effects or quota overspend. These reports retain their original failed outcomes;
+profiles and earlier source snapshots are diagnostics. Under that policy T6's
+failed integrated E01 also prevented a gate pass. The owner superseded this
+completion criterion at 21:30Z: skip E03 and use the real demonstration above.
 
 The lock profile attributed 4,133.92 aggregate mutex-delay seconds to journal
 syncs under the control mutex. Engine writes now queue immutable bounded write
@@ -275,8 +308,8 @@ see [`private-seed-prepare-2.log`](evidence/t10/private-seed-prepare-2.log) and
 [`private-seed-import-2.log`](evidence/t10/private-seed-import-2.log).
 The E03 driver and metadata collector accept explicit worker/store/policy inputs
 and pin the selected artifacts, allowing that private engine to be measured
-without replacing another ticket's shared service. Template preparation and
-real-engine validation remain pending while T7's E04 occupies LX.
+without replacing another ticket's shared service. The private template was subsequently built and its real guest exercised by
+the API/CLI/MCP demonstration above. The owner then cancelled E03.
 
 Fresh `make verify` passed on LX with both r2 accounting fixes and the guest
 status changes in [`r2-verify-lx.log`](evidence/t10/r2-verify-lx.log).
