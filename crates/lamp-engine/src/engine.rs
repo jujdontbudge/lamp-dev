@@ -934,10 +934,34 @@ impl Engine {
     /// Restores a template variant or a memory capture into an allocated
     /// sandbox and applies the identity barrier before any command.
     pub fn restore(&self, auth: Authority<'_>, capture_id: &str) -> Result<Outcome> {
+        self.restore_with_registration(auth, capture_id, true)
+    }
+
+    /// Only the builder's fresh-template boot probe bypasses login registration.
+    pub(crate) fn restore_build_probe(
+        &self,
+        auth: Authority<'_>,
+        template_id: &str,
+    ) -> Result<Outcome> {
+        self.restore_with_registration(auth, template_id, false)
+    }
+
+    fn restore_with_registration(
+        &self,
+        auth: Authority<'_>,
+        capture_id: &str,
+        register_subscription: bool,
+    ) -> Result<Outcome> {
         let t0 = Instant::now();
         let sb = self.sandbox(auth.sandbox_id)?;
         let mut sb = sb.lock().unwrap();
         Self::check(&sb, auth)?;
+        if !register_subscription && sb.state != State::Allocated {
+            return Err(EngineError::new(
+                "SCOPE_DENIED",
+                "a builder probe requires a newly allocated sandbox",
+            ));
+        }
         if sb.state == State::Stopped {
             let source = self
                 .captures
@@ -984,7 +1008,18 @@ impl Engine {
             )));
         }
         let capture = self.captures.lock().unwrap().get(capture_id).cloned();
-        self.prepare_subscription_restore(&mut sb, capture_id, capture.is_some())?;
+        if !register_subscription && capture.is_some() {
+            return Err(EngineError::new(
+                "SCOPE_DENIED",
+                "a builder probe must restore a fresh template, not a capture",
+            ));
+        }
+        self.prepare_subscription_restore(
+            &mut sb,
+            capture_id,
+            capture.is_some(),
+            register_subscription,
+        )?;
         let (source, resources) = match &capture {
             Some(c) => (Source::Capture(c.clone()), c.resources.clone()),
             None => {
@@ -1236,7 +1271,7 @@ impl Engine {
             return Err(EngineError::invalid("argv is empty"));
         }
         self.authorize_subscription_command(auth.sandbox_id, &argv, &cwd, &env)?;
-        let (vsock, commands, vmm_alive, audited) = {
+        let (vsock, commands, vmm_alive, audited, subscription_run) = {
             let sb = self.sandbox(auth.sandbox_id)?;
             let sb = sb.lock().unwrap();
             Self::check(&sb, auth)?;
@@ -1252,9 +1287,12 @@ impl Engine {
                     format!("{MAX_RUNNING} commands are already running in this sandbox"),
                 ));
             }
-            if self.capture_trust(auth.sandbox_id)? == "owner_private"
-                && let Some(sign_in) = crate::subscription::native_run(&argv)
-            {
+            let subscription_run = if self.capture_trust(auth.sandbox_id)? == "owner_private" {
+                crate::subscription::native_run(&argv)
+            } else {
+                None
+            };
+            if let Some(sign_in) = subscription_run {
                 self.custody
                     .as_ref()
                     .unwrap()
@@ -1268,6 +1306,7 @@ impl Engine {
                 sb.commands.clone(),
                 jail.liveness(),
                 sb.net.is_some(),
+                subscription_run.is_some(),
             )
         };
         let request = GuestRequest::Exec(Exec {
@@ -1284,21 +1323,37 @@ impl Engine {
                 task_uid: crate::net::TASK_UID,
             }),
         });
-        let mut conn = guest::send(&vsock, &request)?;
-        let started = match conn.next(Some(Duration::from_secs(10)))? {
-            GuestResponse::ExecStarted(s) => s,
-            GuestResponse::Error { code, message } if code == "GENERATION_MISMATCH" => {
-                return Err(EngineError::new("REVISION_CONFLICT", message));
-            }
-            // Refused before exec (spawn failure): nothing ran.
-            GuestResponse::Error { code, message } => {
-                return Err(EngineError::invalid(format!("{code}: {message}")));
-            }
-            other => {
-                return Err(EngineError::new(
+        let admission = (|| {
+            let mut conn = guest::send(&vsock, &request)?;
+            match conn.next(Some(Duration::from_secs(10)))? {
+                GuestResponse::ExecStarted(s) => Ok(s),
+                GuestResponse::Error { code, message } if code == "GENERATION_MISMATCH" => {
+                    Err(EngineError::new("REVISION_CONFLICT", message))
+                }
+                // Refused before exec (spawn failure): nothing ran.
+                GuestResponse::Error { code, message } => {
+                    Err(EngineError::invalid(format!("{code}: {message}")))
+                }
+                other => Err(EngineError::new(
                     "OUTCOME_UNKNOWN",
                     format!("exec: unexpected reply {other:?}"),
-                ));
+                )),
+            }
+        })();
+        let started = match admission {
+            Ok(started) => started,
+            Err(error) => {
+                if subscription_run {
+                    self.custody
+                        .as_ref()
+                        .unwrap()
+                        .lock()
+                        .unwrap()
+                        .transact(|graph| {
+                            graph.finish_run(auth.sandbox_id, operation_id, false, false)
+                        })?;
+                }
+                return Err(error);
             }
         };
         remember(

@@ -221,10 +221,14 @@ impl Attachment {
     ) -> Result<Attachment> {
         let t0 = Instant::now();
         let mut timings = Vec::new();
-        let dir = policy
-            .audit_dir
-            .join(format!("{}-g{}", who.sandbox_id, who.generation));
-        std::fs::create_dir_all(&dir).ctx("create audit dir")?;
+        let dir = policy.audit_dir.join(format!(
+            "{}-g{}-{}",
+            who.sandbox_id,
+            who.generation,
+            lamp_init::hex_encode(&crate::fsutil::random_bytes::<16>())
+        ));
+        std::fs::create_dir_all(&policy.audit_dir).ctx("create audit root")?;
+        std::fs::create_dir(&dir).ctx("create attachment audit dir")?;
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))
             .ctx("chmod audit dir")?;
         crate::fsutil::chown(&dir, guard_uid, guard_uid)?;

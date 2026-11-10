@@ -19,6 +19,7 @@ CONFIG = Path("/opt/lamp/subscription.json")
 CONTROL = HOME / "control.sock"
 CHALLENGE = HOME / "challenge.json"
 MARKER = HOME / "canary"
+STOP_ACKS = Path("/run/lamp/process-stops")
 MAX_CONTROL = 4096
 
 
@@ -53,6 +54,7 @@ class Native:
         self.canary = canary
         self.login_pty = None
         self.stopped = []
+        self.stop_records = []
         self.env = {
             "HOME": str(HOME), "PATH": "/usr/local/bin:/usr/bin:/bin",
             "CODEX_HOME": str(HOME / "codex"), "CLAUDE_CONFIG_DIR": str(HOME / "claude"),
@@ -108,7 +110,13 @@ class Native:
                 os.kill(pid, signal.SIGCONT)
             except ProcessLookupError:
                 pass
+        deadline = time.monotonic() + 5
+        while any(self.stop_acknowledged(*record) for record in self.stop_records):
+            if time.monotonic() >= deadline:
+                raise RuntimeError("native process did not acknowledge resume")
+            time.sleep(0.005)
         self.stopped = []
+        self.stop_records = []
 
     def quiesce(self):
         if self.process is None or self.process.poll() is not None:
@@ -133,19 +141,50 @@ class Native:
             descendants.update(added)
             if not added:
                 self.stopped = sorted(descendants)
+                self.stop_records = [
+                    record for pid in self.stopped for record in self.thread_stop_markers(pid)
+                ]
+                if not self.is_quiesced():
+                    raise RuntimeError("native process tree lost quiescence")
                 return
         raise RuntimeError("native process tree did not quiesce")
 
     @staticmethod
-    def wait_stopped(pid):
+    def thread_stop_markers(pid):
+        markers = []
+        for task in (Path(f"/proc/{pid}") / "task").iterdir():
+            namespace = (task / "ns/pid").stat().st_ino
+            status = (task / "status").read_text()
+            tid = int(next(line.split()[-1] for line in status.splitlines()
+                           if line.startswith("NSpid:")))
+            ticks = (task / "stat").read_text().rsplit(")", 1)[1].split()[19]
+            markers.append((STOP_ACKS / f"{namespace}-{tid}", ticks))
+        return markers
+
+    @staticmethod
+    def stop_acknowledged(path, ticks):
+        try:
+            return path.read_text().strip() == ticks
+        except (FileNotFoundError, PermissionError):
+            return False
+
+    def is_quiesced(self):
+        return bool(self.stopped) and bool(self.stop_records) and all(
+            self.stop_acknowledged(*record) for record in self.stop_records
+        )
+
+    @classmethod
+    def wait_stopped(cls, pid):
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             try:
-                status = Path(f"/proc/{pid}/status").read_text()
+                markers = cls.thread_stop_markers(pid)
             except FileNotFoundError:
-                return
-            state = next(line.split()[1] for line in status.splitlines() if line.startswith("State:"))
-            if state in ("T", "t", "Z"):
+                if not Path(f"/proc/{pid}").exists():
+                    raise RuntimeError("native process exited during quiescence") from None
+                markers = []
+            # Only the root tracer acknowledges LISTEN, never a transient ptrace stop.
+            if markers and all(cls.stop_acknowledged(*marker) for marker in markers):
                 return
             time.sleep(0.005)
         raise RuntimeError("native process did not acknowledge quiescence")
@@ -319,7 +358,7 @@ class Daemon:
         heap = False
         if pid and self.canary:
             heap = self.native.memory_contains_canary()
-        quiesced = not pid or bool(self.native.stopped)
+        quiesced = not pid or self.native.is_quiesced()
         return report(ok, refreshed=refreshed, signed_in=self.authenticated, pid=pid,
                       quiesced=quiesced,
                       turns=self.turns, heap_canary_present=heap,

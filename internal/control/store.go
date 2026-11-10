@@ -323,10 +323,10 @@ func Open(config Config) (*Service, error) {
 				r.Operation.UpdatedAt = timestamp()
 			}
 		}
-		// Read-only reconciliation below must re-observe the original command
-		// before promoting a saved sandbox back to ready.
+		// Reconcile running guests before declaring them ready again. A durable
+		// suspension stays suspended; resume validates its capture with the worker.
 		for id, sb := range s.journal.Sandboxes {
-			if sb.State != "failed" && sb.State != "deleted" {
+			if sb.State != "failed" && sb.State != "deleted" && sb.State != "suspended" {
 				sb.State = "unavailable"
 				sb.Revision++
 				sb.UpdatedAt = timestamp()

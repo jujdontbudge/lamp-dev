@@ -208,8 +208,9 @@ impl Engine {
         sandbox: &mut Sandbox,
         source: &str,
         capture: bool,
+        register_subscription: bool,
     ) -> Result<()> {
-        let registration = if capture {
+        let registration = if capture || !register_subscription {
             None
         } else if let Some(policy) = &self.cfg.subscription {
             let template = self.template(source)?;

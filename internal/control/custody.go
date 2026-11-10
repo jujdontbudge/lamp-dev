@@ -300,6 +300,12 @@ func (s *Service) executeCustody(id string) {
 	s.readLock()
 	rec := s.journal.Operations[id]
 	plan, ref := *rec.Custody, rec.Resource
+	if s.broken || rec.Operation.State != "accepted" {
+		delete(s.busy, plan.Source)
+		close(s.done[id])
+		s.mu.Unlock()
+		return
+	}
 	sb := s.journal.Sandboxes[plan.Source]
 	snapshot := s.journal.Snapshots[plan.SnapshotID]
 	rec.Operation.State = "running"
