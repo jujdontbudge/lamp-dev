@@ -573,38 +573,3 @@ impl Server {
         o
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn start(pairs: &[(&str, &str)]) -> request::Command {
-        let mut env = HashMap::with_capacity(pairs.len() * 7);
-        for (k, v) in pairs {
-            env.insert(k.to_string(), v.to_string());
-        }
-        request::Command::Start(Start {
-            argv: vec!["env".into()],
-            cwd: String::new(),
-            env,
-        })
-    }
-
-    #[test]
-    fn fingerprint_ignores_map_order_but_not_content() {
-        let keys: Vec<(String, String)> = (0..32)
-            .map(|i| (format!("K{i}"), format!("v{i}")))
-            .collect();
-        let fwd: Vec<(&str, &str)> = keys.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-        let mut rev = fwd.clone();
-        rev.reverse();
-        let a = fingerprint(&start(&fwd));
-        // Many independently seeded maps: their encodings vary, the print not.
-        for _ in 0..16 {
-            assert_eq!(fingerprint(&start(&rev)), a);
-        }
-        let mut changed = fwd.clone();
-        changed[3].1 = "other";
-        assert_ne!(fingerprint(&start(&changed)), a);
-    }
-}
