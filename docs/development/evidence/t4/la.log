@@ -1,0 +1,53 @@
+   Compiling lamp-guard v0.1.0 (/tmp/lamp-t4-implementation/crates/lamp-guard)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s
+     Running unittests src/lib.rs (target/debug/deps/lamp_guard-a9dae6c525061955)
+
+running 7 tests
+test audit::tests::ack_must_match ... ok
+test audit::tests::full_spool_never_overwrites_acknowledged_history ... ok
+test netlink::tests::final_attribute_can_be_unpadded ... ok
+test netlink::tests::no_truncated_messages ... ok
+test tests::default_ceiling ... ok
+test tests::malformed_and_encapsulated_packets ... ok
+test audit::tests::gap_is_not_acknowledged_or_spooled ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/lamp_guard-fab2e07388a69764)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_guard
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Checking lamp-guard v0.1.0 (/tmp/lamp-t4-implementation/crates/lamp-guard)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
+   Compiling lamp-guard v0.1.0 (/tmp/lamp-t4-implementation/crates/lamp-guard)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.30s
+PASS guard drops root, retains only net-admin and enforces no-new-privileges/seccomp/assigned FDs
+PASS public TCP/UDP allowed; private, metadata, fleet, host and public-numbered LAN denied
+PASS guest root firewall changes and source spoof cannot bypass guard
+PASS host spool contains attributed, ordered allow/deny and bidirectional byte records
+PASS fork-without-exec, rapid parent/child death, exec identity, credentials and thread exclusion audited
+PASS task root cannot access tracer/audit FD; CLONE_UNTRACED denied and clone3 forced to traced fallback
+PASS host audit receiver is unprivileged, capability-free and descriptor/seccomp confined
+PASS host ACK loss kills CPU-only task tree through EXITKILL in 0.216s (<5s)
+PASS SIGKILL of the tracer cannot leave an unobserved task tree running
+PASS guard death closes existing and new flows with nft rules left installed
+PASS restart cannot merge into or replace an existing generation's nft table
+PASS spool exhaustion stops network admission, including established traffic
+Child stderr: /dev/stdin:1:19-28: Error: Could not process rule: File exists
+create table inet lamp_guard {
+                  ^^^^^^^^^^
+lamp-guard: nft policy install failed
+
+Child stderr: lamp-guard: failed to fill whole buffer
+
+EVIDENCE /tmp/lamp-t4-zshcck6h
+Artifacts: /tmp/lamp-t4-zshcck6h
+Linux aarch64

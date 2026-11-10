@@ -1,0 +1,13 @@
+{
+  "bytes": 16777216,
+  "seconds": 0.12892728694714606,
+  "MiB_per_second": 124.10095937688679,
+  "socket_buffer_requested_bytes": 16384,
+  "label": "after-review-r1",
+  "guard_sha256": "bd1b05e7ab0875356f5e66cc23d29085f0ec6c38adef6a4aa75c1a9806610fb1",
+  "guard": true,
+  "protected_process_collector": true,
+  "durable_host_audit": true,
+  "E02": false,
+  "spool_filesystem": "ext4"
+}
