@@ -1,0 +1,7 @@
+{
+  "operation": "real host aws sts get-caller-identity through broker",
+  "http_status": 502,
+  "authorized": false,
+  "credentials_or_account_details_published": false,
+  "broker_error": "UPSTREAM_UNAVAILABLE"
+}

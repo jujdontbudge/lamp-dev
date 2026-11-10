@@ -1,0 +1,11 @@
+measured 767 ok 767 state_bad 0 clock_bad 0 iso_bad 0
+fork_ms: n=767 p50=801 p95=2314 p99=3057 max=4598
+pause_ms: n=767 p50=313 p95=456 p99=617 max=2625
+full_write_ms: n=767 p50=305 p95=448 p99=613 max=2564
+skew_src_ms: n=767 p50=5 p95=27 p99=41 max=150
+skew_fork_ms: n=767 p50=4 p95=22 p99=52 max=108
+rss_fork: n=767 p50=1162 p95=1164 p99=1165 max=1167
+rss_src: n=767 p50=1958 p95=1982 p99=1984 max=1984
+under1000 449
+lost_acked 0
+modes {'memory'}
