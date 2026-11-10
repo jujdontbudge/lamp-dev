@@ -8,6 +8,7 @@ description = "Lamp Linux engine: Firecracker microVM create, memory fork and la
 
 [dependencies]
 lamp-init = { path = "../lamp-init" }
+lamp-guard = { path = "../lamp-guard" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

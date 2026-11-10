@@ -11,7 +11,7 @@
 //! `Transfer-Encoding` are refused. The query string and header values never
 //! enter audit. One connection carries one request; connections are served
 //! one at a time with bounded timeouts.
-use crate::{Config, audit::Spool, public_v4};
+use crate::{Config, Tuple, audit::Spool, policy};
 use serde_json::json;
 use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
@@ -169,11 +169,17 @@ pub fn parse(head: &str) -> Result<Request, Refusal> {
 
 /// Same decision as the guard applies to a direct guest flow.
 pub fn allowed(config: &Config, address: Ipv4Addr, port: u16) -> bool {
-    config
-        .exceptions
-        .iter()
-        .any(|e| e.transport == "tcp" && e.address == address && e.port == port)
-        || public_v4(address, &config.host_denies)
+    policy::decision(
+        config,
+        &Tuple {
+            source: config.guest_ip,
+            destination: address,
+            source_port: 0,
+            destination_port: port,
+            protocol: 6,
+        },
+    )
+    .is_ok()
 }
 
 fn refuse(client: &mut TcpStream, status: u16) {
@@ -244,7 +250,7 @@ fn serve_one(config: &Config, spool: &mut Spool, mut client: TcpStream, id: u64)
     if !allowed(config, request.address, request.port) {
         let mut record = base.clone();
         record["decision"] = json!("denied");
-        record["reason"] = json!("private_lan_metadata_or_host");
+        record["reason"] = json!("transport_policy_denied");
         spool.record("mediated_proxy", record)?;
         refuse(&mut client, 403);
         return Ok(());
@@ -416,5 +422,17 @@ mod tests {
         });
         assert!(allowed(&c, ip("10.250.0.2"), 7003));
         assert!(!allowed(&c, ip("10.250.0.2"), 7004));
+        c.policy_layers = serde_json::from_value(json!([{
+            "filter_mode":"transport","default_egress":"public",
+            "deny":[{"cidr":"10.250.0.2/32","protocol":"tcp","ports":[7003]}]
+        }]))
+        .unwrap();
+        assert!(
+            !allowed(&c, ip("10.250.0.2"), 7003),
+            "proxy cannot bypass rule denies through an exception"
+        );
+        c.policy_layers.clear();
+        c.safety_denies.push(crate::Prefix(ip("10.250.0.2"), 32));
+        assert!(!allowed(&c, ip("10.250.0.2"), 7003));
     }
 }

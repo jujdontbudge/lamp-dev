@@ -242,6 +242,7 @@ name = "lamp-engine"
 version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
+ "lamp-guard",
  "lamp-init",
  "libc",
  "serde",
@@ -257,6 +258,7 @@ dependencies = [
  "libc",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
