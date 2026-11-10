@@ -156,6 +156,9 @@ func (s *Service) role(a caller) string {
 	return ""
 }
 func (s *Service) current(a caller) bool {
+	if s.fleet != nil && !s.fleet.leaseValid() {
+		return false
+	}
 	if s.role(a) == "" {
 		return false
 	}
@@ -166,7 +169,7 @@ func (s *Service) current(a caller) bool {
 		}
 		seen[id] = true
 		k, ok := s.journal.Control.Keys[id]
-		if !ok || k.Key.State != "active" || expired(k.Key.ExpiresAt) || k.Key.Scope != nil && expired(k.Key.Scope.ExpiresAt) {
+		if !ok || k.Key.State != "active" || s.expired(k.Key.ExpiresAt) || k.Key.Scope != nil && s.expired(k.Key.Scope.ExpiresAt) {
 			return false
 		}
 		id = value(k.Key.ParentKeyId)
@@ -251,7 +254,7 @@ func (s *Service) sandboxSelectors(a caller, sb api.Sandbox) bool {
 		return false
 	}
 	for _, sc := range s.scopes(a) {
-		if !has(sc.SandboxIds, sb.Id) || !has(sc.RecipeIds, value(sb.RecipeId)) || !has(sc.HostIds, "hs_local") {
+		if !has(sc.SandboxIds, sb.Id) || !has(sc.RecipeIds, value(sb.RecipeId)) || !has(sc.HostIds, sandboxHost(sb)) {
 			return false
 		}
 	}
@@ -280,7 +283,7 @@ func (s *Service) admissionAllowed(a caller, name string, sb api.Sandbox) bool {
 		return false
 	}
 	for _, sc := range s.scopes(a) {
-		if !has(sc.HostIds, "hs_local") {
+		if !has(sc.HostIds, sandboxHost(sb)) {
 			return false
 		}
 		if (name == "sandbox_create" && (sc.SandboxIds != nil || sc.ResourceIds != nil || sc.RecipeIds != nil)) || (name == "sandbox_fork" && (sc.SandboxIds != nil || sc.ResourceIds != nil)) {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/JohanSardar/lamp/pkg/api"
@@ -56,7 +57,7 @@ func ServeMCP(ctx context.Context, input io.Reader, output io.Writer, client *Cl
 			case "tools/list":
 				list := []any{}
 				for _, op := range api.Operations {
-					if !CoreNames[op.Name] {
+					if !CoreNames[op.Name] && !(strings.HasPrefix(client.URL, "lamp+fleet:") && (op.Name == "host_get" || op.Name == "host_list")) {
 						continue
 					}
 					list = append(list, map[string]any{"name": op.Name, "description": op.CLI + "; required scope " + op.Scope, "inputSchema": InputSchema(op.InputSchema)})

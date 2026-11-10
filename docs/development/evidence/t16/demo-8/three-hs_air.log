@@ -1,0 +1,48 @@
+2026-11-10T16:23:54.756-0600 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-10T16:23:54.757-0600 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:30042 [Follower]" leader-address= leader-id=
+lampd: control API listening on /tmp/l16-577c5903/three/api.sock
+2026-11-10T16:24:00.130-0600 [WARN]  raft: heartbeat timeout reached, starting election: last-leader-addr= last-leader-id=
+2026-11-10T16:24:00.131-0600 [INFO]  raft: entering candidate state: node="Node at 127.0.0.1:30042 [Candidate]" term=2
+2026-11-10T16:24:00.131-0600 [DEBUG] raft: pre-voting for self: term=2 id=hs_air
+2026-11-10T16:24:00.131-0600 [DEBUG] raft: asking for pre-vote: term=2 from=hs_lx address=127.0.0.1:30022
+2026-11-10T16:24:00.131-0600 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=127.0.0.1:30032
+2026-11-10T16:24:00.131-0600 [DEBUG] raft: calculated votes needed: needed=2 term=2
+2026-11-10T16:24:00.131-0600 [DEBUG] raft: pre-vote received: from=hs_air term=2 tally=0
+2026-11-10T16:24:00.131-0600 [DEBUG] raft: pre-vote granted: from=hs_air term=2 tally=1
+2026-11-10T16:24:00.229-0600 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=1
+2026-11-10T16:24:00.229-0600 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=2
+2026-11-10T16:24:00.229-0600 [INFO]  raft: pre-vote successful, starting election: term=2 tally=2 refused=0 votesNeeded=2
+2026-11-10T16:24:00.237-0600 [DEBUG] raft: voting for self: term=2 id=hs_air
+2026-11-10T16:24:00.261-0600 [DEBUG] raft: asking for vote: term=2 from=hs_lx address=127.0.0.1:30022
+2026-11-10T16:24:00.261-0600 [DEBUG] raft: asking for vote: term=2 from=hs_m5 address=127.0.0.1:30032
+2026-11-10T16:24:00.261-0600 [DEBUG] raft: vote granted: from=hs_air term=2 tally=1
+2026-11-10T16:24:00.279-0600 [DEBUG] raft: vote granted: from=hs_lx term=2 tally=2
+2026-11-10T16:24:00.279-0600 [INFO]  raft: election won: term=2 tally=2
+2026-11-10T16:24:00.279-0600 [INFO]  raft: entering leader state: leader="Node at 127.0.0.1:30042 [Leader]"
+2026-11-10T16:24:00.279-0600 [INFO]  raft: added peer, starting replication: peer=hs_lx
+2026-11-10T16:24:00.280-0600 [INFO]  raft: added peer, starting replication: peer=hs_m5
+2026-11-10T16:24:00.286-0600 [WARN]  raft: appendEntries rejected, sending older logs: peer="{Voter hs_lx 127.0.0.1:30022}" next=1
+2026-11-10T16:24:00.294-0600 [INFO]  raft: pipelining replication: peer="{Voter hs_lx 127.0.0.1:30022}"
+2026-11-10T16:24:00.329-0600 [WARN]  raft: appendEntries rejected, sending older logs: peer="{Voter hs_m5 127.0.0.1:30032}" next=1
+2026-11-10T16:24:00.356-0600 [INFO]  raft: pipelining replication: peer="{Voter hs_m5 127.0.0.1:30032}"
+2026-11-10T16:24:08.665-0600 [INFO]  raft: aborting pipeline replication: peer="{Voter hs_lx 127.0.0.1:30022}"
+2026-11-10T16:24:08.691-0600 [INFO]  raft: aborting pipeline replication: peer="{Voter hs_m5 127.0.0.1:30032}"
+2026-11-10T16:24:08.734-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_lx 127.0.0.1:30022}" error=EOF
+2026-11-10T16:24:08.767-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_m5 127.0.0.1:30032}" error=EOF
+2026-11-10T16:24:08.820-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_lx 127.0.0.1:30022}" error="read tcp 127.0.0.1:56201->127.0.0.1:30022: read: connection reset by peer"
+2026-11-10T16:24:08.856-0600 [ERROR] raft: failed to heartbeat to: peer=127.0.0.1:30032 backoff time=10ms error="read tcp 127.0.0.1:56202->127.0.0.1:30032: read: connection reset by peer"
+2026-11-10T16:24:08.856-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_m5 127.0.0.1:30032}" error="read tcp 127.0.0.1:56203->127.0.0.1:30032: read: connection reset by peer"
+2026-11-10T16:24:08.902-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_lx 127.0.0.1:30022}" error="read tcp 127.0.0.1:56204->127.0.0.1:30022: read: connection reset by peer"
+2026-11-10T16:24:08.953-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_m5 127.0.0.1:30032}" error="read tcp 127.0.0.1:56205->127.0.0.1:30032: read: connection reset by peer"
+2026-11-10T16:24:09.019-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_lx 127.0.0.1:30022}" error="read tcp 127.0.0.1:56206->127.0.0.1:30022: read: connection reset by peer"
+2026-11-10T16:24:09.068-0600 [ERROR] raft: failed to heartbeat to: peer=127.0.0.1:30022 backoff time=10ms error="read tcp 127.0.0.1:56207->127.0.0.1:30022: read: connection reset by peer"
+2026-11-10T16:24:09.154-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_lx 127.0.0.1:30022}" error="read tcp 127.0.0.1:56209->127.0.0.1:30022: read: connection reset by peer"
+2026-11-10T16:24:09.164-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_m5 127.0.0.1:30032}" error="read tcp 127.0.0.1:56208->127.0.0.1:30032: read: connection reset by peer"
+2026-11-10T16:24:09.414-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_lx 127.0.0.1:30022}" error="read tcp 127.0.0.1:56212->127.0.0.1:30022: read: connection reset by peer"
+2026-11-10T16:24:09.531-0600 [ERROR] raft: failed to heartbeat to: peer=127.0.0.1:30032 backoff time=10ms error="read tcp 127.0.0.1:56210->127.0.0.1:30032: read: connection reset by peer"
+2026-11-10T16:24:09.531-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_m5 127.0.0.1:30032}" error="read tcp 127.0.0.1:56211->127.0.0.1:30032: read: connection reset by peer"
+2026-11-10T16:24:09.585-0600 [ERROR] raft: failed to heartbeat to: peer=127.0.0.1:30022 backoff time=10ms error="read tcp 127.0.0.1:56213->127.0.0.1:30022: read: connection reset by peer"
+2026-11-10T16:24:09.686-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_m5 127.0.0.1:30032}" error="read tcp 127.0.0.1:56215->127.0.0.1:30032: read: connection reset by peer"
+2026-11-10T16:24:09.690-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_lx 127.0.0.1:30022}" error="read tcp 127.0.0.1:56214->127.0.0.1:30022: read: connection reset by peer"
+2026-11-10T16:24:09.797-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_m5 127.0.0.1:30032}" error="read tcp 127.0.0.1:56218->127.0.0.1:30032: read: connection reset by peer"
+2026-11-10T16:24:09.798-0600 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_lx 127.0.0.1:30022}" error="read tcp 127.0.0.1:56219->127.0.0.1:30022: read: connection reset by peer"

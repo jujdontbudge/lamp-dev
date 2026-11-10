@@ -1,4 +1,4 @@
-// lampd serves the bounded, single-local-caller engine demo control path.
+// lampd serves the local control API and optional mutually authenticated fleet.
 package main
 
 import (
@@ -29,6 +29,7 @@ func main() {
 }
 func run() error {
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
+	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
 	profileDir := flags.String("profile-dir", "", "private CPU/mutex/block profiles for a diagnostic run")
 	home, err := os.UserHomeDir()
@@ -112,11 +113,31 @@ func run() error {
 			return e
 		}
 	}
-	service, err := control.Open(control.Config{Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
+	var fleetConfig *control.FleetConfig
+	if *fleetFile != "" {
+		data, err := os.ReadFile(*fleetFile)
+		if err != nil {
+			return err
+		}
+		fleetConfig = &control.FleetConfig{}
+		if err := json.Unmarshal(data, fleetConfig); err != nil {
+			return err
+		}
+	}
+	service, err := control.Open(control.Config{Fleet: fleetConfig, Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
 	if err != nil {
 		return err
 	}
 	defer service.Close()
+	var handler http.Handler = service
+	if fleetConfig != nil {
+		fleet, err := control.OpenFleet(service, *fleetConfig)
+		if err != nil {
+			return err
+		}
+		defer fleet.Close()
+		handler = fleet
+	}
 	// Never unlink an existing socket: a second daemon must not steal a live path.
 	listener, err := net.Listen("unix", *socket)
 	if err != nil {
@@ -130,7 +151,7 @@ func run() error {
 	if err := os.Chmod(*socket, mode); err != nil {
 		return err
 	}
-	server := &http.Server{Handler: service, ConnContext: service.PeerContext, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
+	server := &http.Server{Handler: handler, ConnContext: service.PeerContext, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
 	// Socket permissions are not the sole check: authenticate each HTTP peer UID
 	// before handing its stream to net/http. Only this one local caller is admitted.
 	var authenticated net.Listener = &localListener{Listener: listener}

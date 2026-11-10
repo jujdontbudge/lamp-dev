@@ -50,6 +50,7 @@ type journal struct {
 	Templates     map[string]cleanExport   `json:"templates,omitempty"`
 }
 type Config struct {
+	Fleet            *FleetConfig
 	StateDir         string
 	Worker           WorkerConfig
 	Identity         *IdentityConfig
@@ -58,6 +59,7 @@ type Config struct {
 	SharedReaders    map[uint32]string
 }
 type Service struct {
+	fleet          *Fleet
 	mu             sync.Mutex
 	committing     bool
 	pending        []*pendingCommit
@@ -156,7 +158,17 @@ func PrivateDir(path string) error {
 	return nil
 }
 func Open(config Config) (*Service, error) {
+	if config.Fleet == nil {
+		if _, err := os.Stat(filepath.Join(config.StateDir, "fleet")); err == nil {
+			return nil, errors.New("fleet state cannot be reopened without enrolled fleet configuration")
+		} else if !os.IsNotExist(err) {
+			return nil, err
+		}
+	}
 	w := config.Worker
+	if config.Fleet != nil && w.Socket == "" {
+		w = WorkerConfig{Socket: "/unused-control-only", WorkerID: "control-only", BootID: "control-only", GrantID: "none", UID: os.Geteuid(), PID: os.Getpid()}
+	}
 	if w.Socket == "" || w.WorkerID == "" || w.BootID == "" || w.GrantID == "" || w.UID < 0 || w.PID <= 0 {
 		return nil, errors.New("assigned worker socket, identity, boot, UID, PID and grant are required")
 	}
@@ -372,6 +384,11 @@ func (s *Service) save(ids ...string) error {
 	if s.broken {
 		return errors.New("journal unavailable")
 	}
+	if s.fleet != nil {
+		if err := s.fleet.commitControl(ids); err != nil {
+			return err
+		}
+	}
 	payload, delta, err := s.prepareDelta(ids...)
 	if err != nil {
 		return err
@@ -408,6 +425,11 @@ func (s *Service) save(ids ...string) error {
 	// not acknowledged, and a restart discards it.
 	if err := s.writeCommitMark(commitMark{Generation: s.journal.LogGeneration, End: s.logEnd + int64(len(data)), Sequence: delta.Sequence}); err != nil {
 		return err
+	}
+	if s.fleet != nil {
+		if err := s.fleet.watermark(delta.Sequence); err != nil {
+			return err
+		}
 	}
 	s.publishOperations(delta.Operations)
 	s.logEnd += int64(len(data))
@@ -879,6 +901,9 @@ func (s *Service) flushGroups() {
 			err = s.writeCommitMark(end)
 		}
 		s.mu.Lock()
+		if err == nil && s.fleet != nil {
+			err = s.fleet.watermark(end.Sequence)
+		}
 		if err != nil {
 			s.broken = true
 			batch = append(batch, s.pending...)

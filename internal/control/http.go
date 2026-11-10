@@ -219,7 +219,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		input = in
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		_, err := decodeInput(w, r, &in, "template_id engine_id resources durability wait_ms")
+		_, err := decodeInput(w, r, &in, "template_id host_id engine_id resources durability wait_ms")
 		in.IdempotencyKey = key
 		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "create requires template_id and Idempotency-Key; only demo body fields are admitted", nil)
@@ -248,6 +248,13 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		in.WaitMs = nil
 		input = in
 		sb = newSandbox()
+		sb.Id = s.resourceID("sb")
+		sb.HostId = pointer(s.hostID())
+		sb.CustodyHostIds = pointer([]string{s.hostID()})
+		if in.HostId != nil && *in.HostId != s.hostID() {
+			writeError(w, requestID, "HOST_UNAVAILABLE", "strict host pin does not name this worker", nil)
+			return
+		}
 		sb.TemplateId = in.TemplateId
 		sb.EngineId = in.EngineId
 		sb.Resources = in.Resources
@@ -284,6 +291,9 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		in.WaitMs = nil
 		input = in
 		sb = newSandbox()
+		sb.Id = s.resourceID("sb")
+		sb.HostId = pointer(s.hostID())
+		sb.CustodyHostIds = pointer([]string{s.hostID()})
 		sb.ParentSandboxId = pointer(source)
 		sb.Durability = pointer(api.SandboxDurability(*in.Durability))
 	case path == "/v1/execs":
@@ -317,7 +327,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		in.WaitMs = nil
 		input = in
 		now := timestamp()
-		ex = api.Exec{Id: newID("ex"), Kind: "exec", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", SandboxId: pointer(source), Argv: &in.Argv, Cwd: in.Cwd, Env: in.Env}
+		ex = api.Exec{Id: s.resourceID("ex"), Kind: "exec", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", SandboxId: pointer(source), Argv: &in.Argv, Cwd: in.Cwd, Env: in.Env}
 	default:
 		writeError(w, requestID, "NOT_FOUND", "unsupported demo route", nil)
 		return
@@ -396,6 +406,11 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, requestID, "SCOPE_DENIED", "subscription guest accepts only installed bounded operations; no command data or environment is persisted", nil)
 			return
 		}
+		if name == "exec_create" {
+			// Admission needs the actual host and resource limits of the
+			// authorized source, rather than an empty hs_local sandbox.
+			sb = parent
+		}
 		if name == "sandbox_fork" {
 			sb.TemplateId = parent.TemplateId
 			sb.EngineId = parent.EngineId
@@ -403,6 +418,14 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			parent.Revision++
 			parent.UpdatedAt = timestamp()
 			updatedParent = &parent
+		}
+	}
+	if s.fleet != nil {
+		if err := s.fleet.admit(a, name, sb); err != nil {
+			s.mu.Unlock()
+			e := err.(*coreError)
+			writeError(w, requestID, e.code, e.message, nil)
+			return
 		}
 	}
 	if !s.admissionAllowed(a, name, sb) {
@@ -423,7 +446,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		s.journal.Sandboxes[sb.Id] = sb
 	}
 	now := timestamp()
-	id := newID("op")
+	id := s.resourceID("op")
 	refs := []api.ResourceRef{ref}
 	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
 	s.journal.Operations[id] = &record{Operation: op, Hash: hash, Key: journalKey, Resource: ref, Caller: a}
