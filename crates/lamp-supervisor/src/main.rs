@@ -654,13 +654,26 @@ fn ctl(mut args: Vec<String>) {
     };
     match sub.as_str() {
         "create" => {
-            let template = args.first().unwrap_or_else(|| die("create TEMPLATE [ID]"));
+            let template = args
+                .first()
+                .unwrap_or_else(|| die("create TEMPLATE [ID [VCPUS MEMORY_MIB DISK_GIB]]"));
             let id = args
                 .get(1)
                 .cloned()
                 .unwrap_or_else(|| format!("sb_{}", rand_tag()));
+            let resources = (args.len() >= 5).then(|| Resources {
+                vcpus: args[2].parse().unwrap_or_else(|_| die("VCPUS")),
+                memory_mib: args[3].parse().unwrap_or_else(|_| die("MEMORY_MIB")),
+                disk_gib: args[4].parse().unwrap_or_else(|_| die("DISK_GIB")),
+                ..Default::default()
+            });
+            if resources.is_some() {
+                c.deadline_ms = c.deadline_ms.max(900_000);
+            }
             let t = Instant::now();
-            let r = c.create(template, &id);
+            let r = c
+                .try_create(template, &id, resources)
+                .unwrap_or_else(|e| die(e));
             let cmd = c.exec(&id, &["true"]);
             println!(
                 "{}",
@@ -1517,7 +1530,8 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
     let pid = sh(
         c,
         &a,
-        "nohup /bin/sh -c 'i=0; while :; do i=$((i+1)); echo $i > /var/db/lamp/ctr.tmp; mv /var/db/lamp/ctr.tmp /var/db/lamp/ctr; sleep 0.05; done' >/dev/null 2>&1 & echo $!",
+        // No nohup: macOS nohup exits 127 without a console ("can't detach").
+        "/bin/sh -c 'i=0; while :; do i=$((i+1)); echo $i > /var/db/lamp/ctr.tmp; mv /var/db/lamp/ctr.tmp /var/db/lamp/ctr; sleep 0.05; done' </dev/null >/dev/null 2>&1 & echo $!",
     );
     let boot0 = boot(c, &a);
     let (mut sus_ms, mut res_ms) = (Vec::new(), Vec::new());
