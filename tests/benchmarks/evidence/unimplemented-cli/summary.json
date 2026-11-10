@@ -1,0 +1,303 @@
+{
+  "caller_after": {
+    "cpu_count": 10,
+    "disk": "Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on\n/dev/disk3s5   971298980 711379648 226263176    76% 9431517 2262631760    0%   /System/Volumes/Data",
+    "load": [
+      3.26318359375,
+      3.69921875,
+      3.8623046875
+    ],
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=23068771)\t49%; charging; 1:09 remaining present: true",
+    "pressure": {
+      "cpu": "unavailable",
+      "io": "unavailable",
+      "memory": "unavailable"
+    }
+  },
+  "completed_at": "2026-11-09T23:09:09.455247+00:00",
+  "diagnostic": true,
+  "last_observation_hash": "2d1c017d9b43158963e41d6e86c9064e105353f626a980a34d2ab16b8863c660",
+  "results": {
+    "E01": {
+      "cleanup_errors": [],
+      "missing_observations": [
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        },
+        {
+          "operation": "create",
+          "sandbox_id": null
+        }
+      ],
+      "rows": {
+        "b1-local-0-create": {
+          "failures": 2,
+          "max_ms": 2.831292,
+          "p50_ms": 2.746292,
+          "p95_ms": 2.831292,
+          "p99_ms": 2.831292,
+          "required": 200,
+          "status": "fail",
+          "successes": 0,
+          "trials": 2
+        },
+        "b1-local-0-fork": {
+          "failures": 0,
+          "max_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "required": 100,
+          "status": "fail",
+          "successes": 0,
+          "trials": 0
+        },
+        "b1-local-1024-create": {
+          "failures": 2,
+          "max_ms": 2.456041,
+          "p50_ms": 2.372208,
+          "p95_ms": 2.456041,
+          "p99_ms": 2.456041,
+          "required": 200,
+          "status": "fail",
+          "successes": 0,
+          "trials": 2
+        },
+        "b1-local-1024-fork": {
+          "failures": 0,
+          "max_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "required": 100,
+          "status": "fail",
+          "successes": 0,
+          "trials": 0
+        },
+        "b1-local-128-create": {
+          "failures": 2,
+          "max_ms": 2.772084,
+          "p50_ms": 2.491,
+          "p95_ms": 2.772084,
+          "p99_ms": 2.772084,
+          "required": 200,
+          "status": "fail",
+          "successes": 0,
+          "trials": 2
+        },
+        "b1-local-128-fork": {
+          "failures": 0,
+          "max_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "required": 100,
+          "status": "fail",
+          "successes": 0,
+          "trials": 0
+        },
+        "b1-replicated-0-create": {
+          "failures": 2,
+          "max_ms": 2.312958,
+          "p50_ms": 2.250875,
+          "p95_ms": 2.312958,
+          "p99_ms": 2.312958,
+          "required": 200,
+          "status": "fail",
+          "successes": 0,
+          "trials": 2
+        },
+        "b1-replicated-0-fork": {
+          "failures": 0,
+          "max_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "required": 100,
+          "status": "fail",
+          "successes": 0,
+          "trials": 0
+        },
+        "b1-replicated-1024-create": {
+          "failures": 2,
+          "max_ms": 2.158291,
+          "p50_ms": 2.136459,
+          "p95_ms": 2.158291,
+          "p99_ms": 2.158291,
+          "required": 200,
+          "status": "fail",
+          "successes": 0,
+          "trials": 2
+        },
+        "b1-replicated-1024-fork": {
+          "failures": 0,
+          "max_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "required": 100,
+          "status": "fail",
+          "successes": 0,
+          "trials": 0
+        },
+        "b1-replicated-128-create": {
+          "failures": 2,
+          "max_ms": 2.288542,
+          "p50_ms": 2.261958,
+          "p95_ms": 2.288542,
+          "p99_ms": 2.288542,
+          "required": 200,
+          "status": "fail",
+          "successes": 0,
+          "trials": 2
+        },
+        "b1-replicated-128-fork": {
+          "failures": 0,
+          "max_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "required": 100,
+          "status": "fail",
+          "successes": 0,
+          "trials": 0
+        },
+        "b1-volatile-0-create": {
+          "failures": 2,
+          "max_ms": 238.776792,
+          "p50_ms": 7.233917,
+          "p95_ms": 238.776792,
+          "p99_ms": 238.776792,
+          "required": 200,
+          "status": "fail",
+          "successes": 0,
+          "trials": 2
+        },
+        "b1-volatile-0-fork": {
+          "failures": 0,
+          "max_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "required": 100,
+          "status": "fail",
+          "successes": 0,
+          "trials": 0
+        },
+        "b1-volatile-1024-create": {
+          "failures": 2,
+          "max_ms": 3.255916,
+          "p50_ms": 3.177875,
+          "p95_ms": 3.255916,
+          "p99_ms": 3.255916,
+          "required": 200,
+          "status": "fail",
+          "successes": 0,
+          "trials": 2
+        },
+        "b1-volatile-1024-fork": {
+          "failures": 0,
+          "max_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "required": 100,
+          "status": "fail",
+          "successes": 0,
+          "trials": 0
+        },
+        "b1-volatile-128-create": {
+          "failures": 2,
+          "max_ms": 4.006292,
+          "p50_ms": 3.528834,
+          "p95_ms": 4.006292,
+          "p99_ms": 4.006292,
+          "required": 200,
+          "status": "fail",
+          "successes": 0,
+          "trials": 2
+        },
+        "b1-volatile-128-fork": {
+          "failures": 0,
+          "max_ms": null,
+          "p50_ms": null,
+          "p95_ms": null,
+          "p99_ms": null,
+          "required": 100,
+          "status": "fail",
+          "successes": 0,
+          "trials": 0
+        }
+      },
+      "status": "fail"
+    }
+  },
+  "status": "fail"
+}
