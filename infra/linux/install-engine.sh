@@ -2,7 +2,11 @@
 # Installs the Lamp Linux engine on a host with KVM (no Docker needed).
 #   infra/linux/install-engine.sh [STORE_GIB] [ALLOWED_UID...]
 # Downloads Firecracker/jailer v1.17.0 (checksum-verified), creates the XFS
-# reflink store, installs lamp-supervisor and starts it.
+# reflink store, installs lamp-supervisor and lamp-guard, writes the default
+# sandbox network policy (/etc/lamp/network.json) and starts the supervisor.
+# Every sandbox gets a guard network: lamp-guard (NFQUEUE), the mediated
+# proxy, and pasta (passt) as its userspace uplink, so the host needs nft,
+# nsenter/setpriv (util-linux) and pasta; nothing on the host forwards.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 STORE_GIB=${1:-300}; shift || true
@@ -14,6 +18,9 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 test -w /dev/kvm || { echo "need read/write /dev/kvm"; exit 1; }
+for tool in nft nsenter setpriv fallocate pasta; do
+  command -v "$tool" >/dev/null || { echo "need $tool on the host (pasta: package passt)"; exit 1; }
+done
 cd "$WORK"
 curl -fsSLO "https://github.com/firecracker-microvm/firecracker/releases/download/$FC_VERSION/firecracker-$FC_VERSION-x86_64.tgz"
 echo "$FC_SHA256  firecracker-$FC_VERSION-x86_64.tgz" | sha256sum -c -
@@ -23,8 +30,17 @@ sudo -n install -d /usr/local/lib/lamp
 sudo -n install -m 0755 "$R/firecracker-$FC_VERSION-x86_64" /usr/local/lib/lamp/firecracker
 sudo -n install -m 0755 "$R/jailer-$FC_VERSION-x86_64" /usr/local/lib/lamp/jailer
 
-(cd "$ROOT" && cargo build --release --locked -p lamp-supervisor)
+(cd "$ROOT" && cargo build --release --locked -p lamp-supervisor -p lamp-guard)
 sudo -n install -m 0755 "${CARGO_TARGET_DIR:-$ROOT/target}/release/lamp-supervisor" /usr/local/lib/lamp/lamp-supervisor
+sudo -n install -m 0755 "${CARGO_TARGET_DIR:-$ROOT/target}/release/lamp-guard" /usr/local/lib/lamp/lamp-guard
+# Default policy: public destinations only, no exceptions. Exceptions are
+# exact address/transport/port triples and part of the policy revision.
+if [ ! -f /etc/lamp/network.json ]; then
+  sudo -n install -d -m 0755 /etc/lamp
+  printf '{"guard":"/usr/local/lib/lamp/lamp-guard","pasta":"%s","audit_dir":"/var/lib/lamp-audit","revision":1,"exceptions":[]}\n' \
+    "$(command -v pasta)" | sudo -n tee /etc/lamp/network.json >/dev/null
+fi
+sudo -n install -d -m 0700 /var/lib/lamp-audit
 sudo -n rm -f /usr/local/lib/lamp/lamp-pager
 
 if ! mountpoint -q /var/lib/lamp; then

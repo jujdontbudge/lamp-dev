@@ -467,14 +467,21 @@ func (s *Service) execute(id, source string) {
 	} else {
 		sb = s.journal.Sandboxes[source]
 	}
-	if err := s.save(id, ref.Id, source); err != nil {
-		s.broken = true
-		delete(s.busy, source)
-		close(s.done[id])
+	// The running transition is committed while the first worker request is
+	// already in flight. Readers still never see it before it is durable:
+	// this goroutine-handed lock is released only after the commit. Recovery
+	// is unchanged, because the durable accepted record already restarts as
+	// outcome_unknown. A failed commit breaks the journal (no further
+	// publication) and leaves the dispatched effect unknown.
+	running := make(chan error, 1)
+	go func() {
+		err := s.save(id, ref.Id, source)
+		if err != nil {
+			s.broken = true
+		}
 		s.mu.Unlock()
-		return
-	}
-	s.mu.Unlock()
+		running <- err
+	}()
 	generation := *sb.Generation
 	request := func(step, sandbox string, generation uint64) *pb.Request {
 		deadline, _ := ctx.Deadline()
@@ -497,6 +504,9 @@ func (s *Service) execute(id, source string) {
 		return s.worker.perform(ctx, r, "command_started")
 	}
 	var err error
+	// sourceIntact: a fork failed only after the source's capture
+	// completed, so the source itself was left running and unchanged.
+	sourceIntact := false
 	switch name {
 	case "sandbox_create":
 		err = allocate()
@@ -514,9 +524,13 @@ func (s *Service) execute(id, source string) {
 			consistency = "local"
 		}
 		r.Command = &pb.Request_Capture{Capture: &pb.Capture{CaptureId: capture, PreservesMemory: true, Consistency: consistency}}
-		err = s.worker.perform(ctx, r, "captured")
+		// The child is allocated first: the engine builds its guard network
+		// while the source is being captured.
+		err = allocate()
 		if err == nil {
-			err = allocate()
+			err = s.worker.perform(ctx, r, "captured")
+			// Only a completed capture proves the source resumed unchanged.
+			sourceIntact = err == nil
 		}
 		if err == nil {
 			err = restore(capture)
@@ -546,6 +560,13 @@ func (s *Service) execute(id, source string) {
 		}
 		err = start(*ex.Argv, value(ex.Cwd), env)
 	}
+	if <-running != nil {
+		s.mu.Lock()
+		delete(s.busy, source)
+		close(s.done[id])
+		s.mu.Unlock()
+		return
+	}
 	now := timestamp()
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -568,7 +589,7 @@ func (s *Service) execute(id, source string) {
 		}
 		op.Error = &api.ErrorDetail{Code: api.ErrorCode(code), Message: failure.message, Retryable: failure.retryable, OperationId: pointer(id)}
 		op.CleanupState = pointer(api.OperationCleanupStatePending)
-		if source != "" && (name == "sandbox_fork" || failure.unknown) {
+		if source != "" && (name == "sandbox_fork" || failure.unknown) && !sourceIntact {
 			parent := s.journal.Sandboxes[source]
 			parent.State = "unavailable"
 			parent.Revision++
@@ -659,6 +680,7 @@ func (s *Service) observeExec(id string, c *pb.Context, commandID string) {
 	deadline, _ := ctx.Deadline()
 	c.DeadlineMs = uint64(deadline.UnixMilli())
 	var command *pb.CommandResult
+	polls := 0
 	for {
 		c.RequestId, c.OperationId = newID("req"), newID("op")
 		receipt, err := s.worker.call(ctx, &pb.Request{Context: c, Command: &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: commandID}}})
@@ -672,7 +694,14 @@ func (s *Service) observeExec(id string, c *pb.Context, commandID string) {
 		if receipt.Detail["command_state"] != "running" {
 			break
 		}
-		timer := time.NewTimer(time.Millisecond)
+		// 1 ms while the command is young, then 4 ms: short commands are
+		// seen promptly without a 1 kHz RPC stream for long-running ones.
+		polls++
+		delay := time.Millisecond
+		if polls > 50 {
+			delay = 4 * time.Millisecond
+		}
+		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
@@ -774,12 +803,16 @@ func (s *Service) watchOutput(w http.ResponseWriter, r *http.Request, requestID 
 		}
 		more := ex.State == "accepted" || ex.State == "running"
 		if more && offset == uint64(len(frames)) && time.Now().Before(until) {
+			// Sleep until the next durable journal change or the deadline.
+			changed := s.changed
 			s.mu.Unlock()
-			timer := time.NewTimer(time.Millisecond)
+			timer := time.NewTimer(time.Until(until))
 			select {
 			case <-r.Context().Done():
 				timer.Stop()
 				return
+			case <-changed:
+				timer.Stop()
 			case <-timer.C:
 			}
 			continue

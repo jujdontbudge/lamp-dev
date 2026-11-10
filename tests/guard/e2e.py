@@ -290,11 +290,44 @@ def pair(name, payload, namespace):
     return sink, collect
 
 
+def background(namespace):
+    # The command exits at once, leaving a background job: its status arrives
+    # on the status descriptor right away, the job keeps running (traced and
+    # audited), and the collector itself exits only after the job does.
+    job = r'''
+import os,time
+if os.fork()==0:
+ os.setsid();time.sleep(1.0);open('/proc/self/status').read();os._exit(0)
+print('command-done',flush=True)
+'''
+    a, b = socket.socketpair()
+    r, w = os.pipe()
+    sink = launch(BINARY, "receive", config("background"), a.fileno(), pass_fds=(a.fileno(),))
+    collect = launch("ip", "netns", "exec", namespace, BINARY, "collect", b.fileno(), 1000000, f"status:{w}", "--",
+                     "/usr/bin/python3", "-u", "-c", job, pass_fds=(b.fileno(), w))
+    a.close(); b.close(); os.close(w)
+    start = time.monotonic()
+    with os.fdopen(r) as status:
+        line = status.readline()
+    early = time.monotonic() - start
+    assert line.strip() == "0", line
+    assert collect.poll() is None, "collector exited with its background job still running"
+    out, error = collect.communicate(timeout=10)
+    late = time.monotonic() - start
+    assert collect.returncode == 0 and "command-done" in out, (out, error)
+    assert sink.wait(timeout=3) == 0
+    assert early < 0.9 < late, (early, late)
+    exits = [r["details"]["details"] for r in records("background") if r["details"]["details"].get("type") == "process_exit"]
+    assert len(exits) >= 4, exits  # root, reaper, command, background job
+    ok(f"background job outlives its command ({early:.3f}s status, {late:.3f}s collector exit) and stays audited")
+
+
 def processes(namespace):
     workload = r'''
 import ctypes,errno,json,os,platform,socket,threading
-assert os.getuid()==0 and os.getppid()==0
-assert sorted(int(p) for p in os.listdir('/proc') if p.isdigit())==[1]
+# PID 1 is the collector's in-namespace reaper; the tracer stays outside.
+assert os.getuid()==0 and os.getppid()==1 and os.getpid()==2
+assert sorted(int(p) for p in os.listdir('/proc') if p.isdigit())==[1,2]
 assert not any('socket:' in os.readlink('/proc/self/fd/'+f) for f in os.listdir('/proc/self/fd') if os.path.exists('/proc/self/fd/'+f))
 libc=ctypes.CDLL(None,use_errno=True)
 clone=56 if platform.machine()=='x86_64' else 220
@@ -329,7 +362,7 @@ print(json.dumps({'task_pid':os.getpid(),'fork_pids':children,'root':os.getuid()
     details = [r["details"]["details"] for r in data]
     starts = [v for v in details if v["type"] == "process_start" and not v["infrastructure"]]
     guest_pids = [int(v["identity"]["namespace_pids"].split()[-1]) for v in starts]
-    assert len(starts) == 5, starts  # one namespace-init/task plus four forks; no thread double count
+    assert len(starts) == 6, starts  # namespace reaper, task, four forks; no thread double count
     assert all(p in guest_pids for p in report["fork_pids"]), (guest_pids, report)
     assert any(v["type"] == "thread_start" for v in details)
     assert any(v["type"] == "credential_change" for v in details)
@@ -351,9 +384,11 @@ os.waitpid(p,0)
     assert fast_sink.wait(timeout=3) == 0
     starts = [r for r in records("rapid-fork") if r["details"]["details"].get("type") == "process_start"
               and not r["details"]["details"]["infrastructure"]]
-    assert len(starts) == 3  # namespace init, its child, and the immediately killed grandchild
+    assert len(starts) == 4  # namespace reaper, task, its child, and the immediately killed grandchild
     ok("fork-without-exec, rapid parent/child death, exec identity, credentials and thread exclusion audited")
     ok("task root cannot access tracer/audit FD; CLONE_UNTRACED denied and clone3 forced to traced fallback")
+
+    background(namespace)
 
     sink, collect = pair("collector-loss", "import time;print('running',flush=True)\nwhile True: pass", namespace)
     assert collect.stdout.readline().strip() == "running"

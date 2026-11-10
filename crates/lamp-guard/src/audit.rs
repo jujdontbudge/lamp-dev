@@ -2,6 +2,7 @@
 use crate::Attribution;
 use serde_json::{Value, json};
 use std::{
+    collections::VecDeque,
     fs::{File, OpenOptions},
     io::{self, Read, Write},
     os::{
@@ -171,11 +172,16 @@ pub fn vsock_connect(port: u32) -> io::Result<UnixStream> {
 
 pub struct Emitter {
     socket: UnixStream,
+    /// Last sequence written in the current segment.
     sequence: u64,
     reconnect: Option<Connector>,
     /// Frames acknowledged across every segment of this collector.
     acknowledged: u64,
     segment: u64,
+    /// Written but not yet acknowledged, oldest first.
+    pending: VecDeque<(u64, Value)>,
+    /// While set, `send` only writes; `release` collects the ACKs.
+    deferred: bool,
 }
 impl Emitter {
     pub fn new(socket: UnixStream) -> Self {
@@ -185,27 +191,23 @@ impl Emitter {
             reconnect: None,
             acknowledged: 0,
             segment: 1,
+            pending: VecDeque::new(),
+            deferred: false,
         }
     }
     /// An emitter whose stream may be reset underneath it, as Firecracker does
     /// to every guest vsock connection when it snapshots a VM. On a transport
     /// error it opens a new stream (a new host segment, sequence restarting at
     /// 1), records a `segment_resume` linking it to the previous segment, and
-    /// resends the unacknowledged frame. The frame may therefore appear in both
-    /// segments (at least once); it is never silently dropped. If no stream is
-    /// accepted within `RECONNECT_DEADLINE` the error is returned.
+    /// resends every unacknowledged frame. A frame may therefore appear in
+    /// both segments (at least once); it is never silently dropped. If no
+    /// stream is accepted within `RECONNECT_DEADLINE` the error is returned.
     pub fn reconnecting(mut connect: Connector) -> io::Result<Self> {
-        let socket = connect()?;
-        Ok(Self {
-            socket,
-            sequence: 0,
-            reconnect: Some(connect),
-            acknowledged: 0,
-            segment: 1,
-        })
+        let mut e = Self::new(connect()?);
+        e.reconnect = Some(connect);
+        Ok(e)
     }
-    fn exchange(&mut self, details: &Value) -> io::Result<()> {
-        let sequence = self.sequence + 1;
+    fn write_frame(&mut self, sequence: u64, details: &Value) -> io::Result<()> {
         let bytes = serde_json::to_vec(&json!({"sequence":sequence,"details":details}))?;
         if bytes.len() > MAX_FRAME / 2 {
             return Err(io::Error::new(
@@ -213,43 +215,135 @@ impl Emitter {
                 "collector frame oversized",
             ));
         }
-        self.socket.write_all(&(bytes.len() as u32).to_be_bytes())?;
-        self.socket.write_all(&bytes)?;
+        let mut frame = (bytes.len() as u32).to_be_bytes().to_vec();
+        frame.extend_from_slice(&bytes);
+        self.socket.write_all(&frame)
+    }
+    /// Waits for one ACK. A read timeout on a connected stream is only a slow
+    /// host (for example a storage barrier queued behind other writeback), not
+    /// a lost stream: keep reading the same connection, never dropping a
+    /// partially read ACK, until `RECONNECT_DEADLINE`. Past it the host is
+    /// treated as gone and the error is `TimedOut`, which is never retried.
+    fn read_ack(&mut self, sequence: u64) -> io::Result<()> {
         let mut ack = [0; 8];
-        self.socket.read_exact(&mut ack)?;
+        let mut got = 0;
+        let started = std::time::Instant::now();
+        while got < ack.len() {
+            match self.socket.read(&mut ack[got..]) {
+                Ok(0) => return Err(io::ErrorKind::UnexpectedEof.into()),
+                Ok(n) => got += n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+                    ) =>
+                {
+                    if started.elapsed() >= RECONNECT_DEADLINE {
+                        return Err(io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            "audit ACK not received within the reconnect deadline",
+                        ));
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
         if u64::from_be_bytes(ack) != sequence {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "audit ACK sequence mismatch",
             ));
         }
-        self.sequence = sequence;
-        self.acknowledged += 1;
         Ok(())
     }
+    /// Writes a frame without waiting for its ACK.
+    fn post(&mut self, details: Value) -> io::Result<()> {
+        let sequence = self.sequence + 1;
+        self.sequence = sequence;
+        let written = self.write_frame(sequence, &details);
+        self.pending.push_back((sequence, details));
+        written.or_else(|e| self.recover(e))
+    }
+    /// Waits until every written frame is durable on the host.
+    fn flush(&mut self) -> io::Result<()> {
+        while let Some(&(sequence, _)) = self.pending.front() {
+            if let Err(e) = self.read_ack(sequence) {
+                return self.recover(e);
+            }
+            self.pending.pop_front();
+            self.acknowledged += 1;
+        }
+        Ok(())
+    }
+    /// Records `details`; returns once it is durable on the host, or at once
+    /// while deferred (see [`Emitter::defer`]).
     pub fn send(&mut self, details: Value) -> io::Result<()> {
-        let first = match self.exchange(&details) {
-            Ok(()) => return Ok(()),
-            Err(e) => e,
-        };
-        if first.kind() == io::ErrorKind::InvalidData || self.reconnect.is_none() {
+        self.post(details)?;
+        if self.deferred { Ok(()) } else { self.flush() }
+    }
+    /// Records an effect that has already happened (a process exit) without
+    /// waiting: the frame becomes durable with the next `send`/`release`, and
+    /// always before `collector_complete`. Never for a record that must
+    /// precede its effect.
+    pub fn note(&mut self, details: Value) -> io::Result<()> {
+        self.post(details)
+    }
+    /// From now on `send` does not wait for ACKs. Only for records of the
+    /// collector's own trusted setup, before any task code runs: the caller
+    /// must `release` before task code is resumed, so every record is still
+    /// durable before its effect.
+    pub fn defer(&mut self) {
+        self.deferred = true;
+    }
+    /// Ends deferral and waits until every frame written so far is durable.
+    pub fn release(&mut self) -> io::Result<()> {
+        self.deferred = false;
+        self.flush()
+    }
+    /// Opens a new segment and resends every unacknowledged frame, waiting
+    /// for all of their ACKs. Protocol violations are never retried.
+    fn recover(&mut self, first: io::Error) -> io::Result<()> {
+        if matches!(
+            first.kind(),
+            io::ErrorKind::InvalidData | io::ErrorKind::TimedOut
+        ) || self.reconnect.is_none()
+        {
             return Err(first);
         }
         let deadline = std::time::Instant::now() + RECONNECT_DEADLINE;
         let mut last = first;
+        let frames: Vec<Value> = self.pending.drain(..).map(|(_, d)| d).collect();
         while std::time::Instant::now() < deadline {
             let connect = self.reconnect.as_mut().unwrap();
             match connect() {
                 Ok(socket) => {
                     self.socket = socket;
-                    self.sequence = 0;
                     self.segment += 1;
                     let resume = json!({"type":"segment_resume","segment":self.segment,
-                        "previous_acknowledged":self.acknowledged,"resending_unacknowledged":true,
+                        "previous_acknowledged":self.acknowledged,"resending_unacknowledged":frames.len(),
                         "reason":last.to_string()});
-                    match self.exchange(&resume).and_then(|_| self.exchange(&details)) {
-                        Ok(()) => return Ok(()),
-                        Err(e) if e.kind() == io::ErrorKind::InvalidData => return Err(e),
+                    let attempt = std::iter::once(&resume)
+                        .chain(frames.iter())
+                        .enumerate()
+                        .try_for_each(|(i, d)| self.write_frame(i as u64 + 1, d))
+                        .and_then(|_| {
+                            (1..=frames.len() as u64 + 1).try_for_each(|n| self.read_ack(n))
+                        });
+                    match attempt {
+                        Ok(()) => {
+                            self.sequence = frames.len() as u64 + 1;
+                            self.acknowledged += frames.len() as u64 + 1;
+                            return Ok(());
+                        }
+                        Err(e)
+                            if matches!(
+                                e.kind(),
+                                io::ErrorKind::InvalidData | io::ErrorKind::TimedOut
+                            ) =>
+                        {
+                            return Err(e);
+                        }
                         Err(e) => last = e,
                     }
                 }
@@ -261,31 +355,89 @@ impl Emitter {
     }
 }
 
+/// Most frames one storage barrier covers on the host.
+const RECEIVE_BATCH: usize = 64;
+
+/// Reads one complete frame, if `wait` or if it has fully arrived already.
+fn read_frame(socket: &mut UnixStream, wait: bool) -> io::Result<Option<Value>> {
+    use std::os::fd::AsRawFd;
+    let length = if wait {
+        let mut length = [0; 4];
+        socket.read_exact(&mut length)?;
+        u32::from_be_bytes(length) as usize
+    } else {
+        let mut head = [0u8; 4];
+        // SAFETY: peeks into a local buffer; MSG_DONTWAIT never blocks.
+        let n = unsafe {
+            libc::recv(
+                socket.as_raw_fd(),
+                head.as_mut_ptr().cast(),
+                4,
+                libc::MSG_PEEK | libc::MSG_DONTWAIT,
+            )
+        };
+        if n < 4 {
+            return Ok(None);
+        }
+        u32::from_be_bytes(head) as usize
+    };
+    if length == 0 || length > MAX_FRAME / 2 {
+        return Err(io::Error::other("invalid collector frame length"));
+    }
+    let mut bytes = vec![0; length + if wait { 0 } else { 4 }];
+    if !wait {
+        // SAFETY: as above; only a frame that fully arrived is consumed.
+        let n = unsafe {
+            libc::recv(
+                socket.as_raw_fd(),
+                bytes.as_mut_ptr().cast(),
+                bytes.len(),
+                libc::MSG_PEEK | libc::MSG_DONTWAIT,
+            )
+        };
+        if n < bytes.len() as isize {
+            return Ok(None);
+        }
+    }
+    socket.read_exact(&mut bytes)?;
+    Ok(Some(serde_json::from_slice(
+        &bytes[if wait { 0 } else { 4 }..],
+    )?))
+}
+
+/// Host side of one collector stream. Frames that have already arrived are
+/// written together under one storage barrier; each is ACKed, in order, only
+/// after that barrier.
 pub fn receive(mut socket: UnixStream, spool: &mut Spool) -> io::Result<()> {
     let mut expected = 1_u64;
     loop {
-        let mut length = [0; 4];
-        socket.read_exact(&mut length)?;
-        let length = u32::from_be_bytes(length) as usize;
-        if length == 0 || length > MAX_FRAME / 2 {
-            return Err(io::Error::other("invalid collector frame length"));
+        let mut batch = Vec::new();
+        let mut complete = false;
+        while batch.len() < RECEIVE_BATCH && !complete {
+            let Some(v) = read_frame(&mut socket, batch.is_empty())? else {
+                break;
+            };
+            let sequence = expected + batch.len() as u64;
+            if v["sequence"].as_u64() != Some(sequence) || !v["details"].is_object() {
+                return Err(io::Error::other(
+                    "collector sequence gap or malformed event",
+                ));
+            }
+            complete = v["details"]["type"] == "collector_complete";
+            batch.push(v);
         }
-        let mut bytes = vec![0; length];
-        socket.read_exact(&mut bytes)?;
-        let v: Value = serde_json::from_slice(&bytes)?;
-        if v["sequence"].as_u64() != Some(expected) || !v["details"].is_object() {
-            return Err(io::Error::other(
-                "collector sequence gap or malformed event",
-            ));
+        let n = batch.len() as u64;
+        spool.record_batch("protected_process_collector", batch)?;
+        let mut acks = Vec::with_capacity(8 * n as usize);
+        for sequence in expected..expected + n {
+            acks.extend_from_slice(&sequence.to_be_bytes());
         }
-        let complete = v["details"]["type"] == "collector_complete";
-        spool.record("protected_process_collector", v)?;
-        socket.write_all(&expected.to_be_bytes())?;
+        socket.write_all(&acks)?;
         if complete {
             return Ok(());
         }
         expected = expected
-            .checked_add(1)
+            .checked_add(n)
             .ok_or_else(|| io::Error::other("sequence exhausted"))?;
     }
 }
@@ -293,6 +445,8 @@ pub fn receive(mut socket: UnixStream, spool: &mut Spool) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     fn spool(suffix: &str) -> (std::path::PathBuf, Spool) {
         let path =
             std::env::temp_dir().join(format!("lamp-audit-test-{}-{suffix}", std::process::id()));
@@ -336,6 +490,29 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
     #[test]
+    fn pipelined_frames_share_a_barrier_and_are_acked_in_order() {
+        let (path, mut s) = spool("pipeline");
+        let (a, b) = UnixStream::pair().unwrap();
+        let t = std::thread::spawn(move || {
+            receive(b, &mut s).unwrap();
+            s.durable_writes
+        });
+        let mut e = Emitter::new(a);
+        e.defer();
+        for _ in 0..5 {
+            e.send(json!({"type":"process_start"})).unwrap();
+        }
+        assert_eq!(e.pending.len(), 5);
+        e.release().unwrap();
+        assert!(e.pending.is_empty());
+        e.send(json!({"type":"collector_complete"})).unwrap();
+        let barriers = t.join().unwrap();
+        assert!((1..=6).contains(&barriers), "{barriers}");
+        let spooled = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(spooled.lines().count(), 6);
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
     fn ack_must_match() {
         let (a, mut b) = UnixStream::pair().unwrap();
         let t = std::thread::spawn(move || {
@@ -346,6 +523,34 @@ mod tests {
             b.write_all(&42_u64.to_be_bytes()).unwrap();
         });
         assert!(Emitter::new(a).send(json!({"type":"heartbeat"})).is_err());
+        t.join().unwrap();
+    }
+    #[test]
+    fn a_slow_ack_is_waited_for_on_the_same_stream() {
+        let (a, mut b) = UnixStream::pair().unwrap();
+        a.set_read_timeout(Some(Duration::from_millis(100)))
+            .unwrap();
+        let t = std::thread::spawn(move || {
+            let mut len = [0; 4];
+            b.read_exact(&mut len).unwrap();
+            let mut v = vec![0; u32::from_be_bytes(len) as usize];
+            b.read_exact(&mut v).unwrap();
+            // Longer than the socket timeout, split across two writes.
+            std::thread::sleep(Duration::from_millis(350));
+            b.write_all(&1_u64.to_be_bytes()[..3]).unwrap();
+            std::thread::sleep(Duration::from_millis(250));
+            b.write_all(&1_u64.to_be_bytes()[3..]).unwrap();
+        });
+        let reconnects = Arc::new(AtomicUsize::new(0));
+        let counted = reconnects.clone();
+        let mut e = Emitter::new(a);
+        e.reconnect = Some(Box::new(move || {
+            counted.fetch_add(1, Ordering::SeqCst);
+            Err(io::Error::other("no reconnect expected"))
+        }));
+        e.send(json!({"type":"heartbeat"})).unwrap();
+        assert_eq!(reconnects.load(Ordering::SeqCst), 0);
+        assert_eq!(e.acknowledged, 1);
         t.join().unwrap();
     }
 }

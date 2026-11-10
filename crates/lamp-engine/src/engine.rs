@@ -171,6 +171,11 @@ fn copy_nonzero(src: &Path, dst: &Path) -> Result<()> {
     out.set_len(len)?;
     let mut buf = vec![0_u8; 4 << 20];
     let mut off = 0_u64;
+    // Bounded writeback: sync every SYNC_EVERY bytes so no other fsync on
+    // this disk (the audit spools in particular) queues behind gigabytes of
+    // image data. The final fsync in `capture` still covers the whole file.
+    const SYNC_EVERY: u64 = 64 << 20;
+    let mut unsynced = 0_u64;
     while off < len {
         let n = buf.len().min((len - off) as usize);
         input.read_exact_at(&mut buf[..n], off)?;
@@ -184,6 +189,11 @@ fn copy_nonzero(src: &Path, dst: &Path) -> Result<()> {
                     q = (q + PAGE).min(n);
                 }
                 out.write_all_at(&buf[p..q], off + p as u64)?;
+                unsynced += (q - p) as u64;
+                if unsynced >= SYNC_EVERY {
+                    out.sync_data().ctx("sync durable image")?;
+                    unsynced = 0;
+                }
                 p = q;
             } else {
                 p = end;
@@ -241,7 +251,13 @@ pub struct Sandbox {
     pub commands: Arc<Mutex<CommandTable>>,
     /// Guard network and audit listener of this generation.
     pub net: Option<crate::net::Attachment>,
+    /// The same, still being built (started at Allocate so it overlaps the
+    /// source's capture during a fork); Restore joins it. Carries its guard
+    /// UID so a failed or abandoned attachment frees it.
+    pub pending_net: Option<PendingNet>,
 }
+
+pub type PendingNet = std::thread::JoinHandle<(u32, Result<crate::net::Attachment>)>;
 
 impl Sandbox {
     /// Kills the VMM and removes its jail (and with it the memory it mapped),
@@ -249,6 +265,12 @@ impl Sandbox {
     fn teardown(&mut self) -> Option<u32> {
         if let Some(j) = self.jail.take() {
             j.destroy();
+        }
+        if let Some(pending) = self.pending_net.take() {
+            // Dropping a built attachment detaches it.
+            if let Ok((uid, _)) = pending.join() {
+                return Some(uid);
+            }
         }
         self.net.take().map(|mut n| {
             n.detach();
@@ -806,6 +828,45 @@ impl Engine {
         }
         let jail = self.new_jail(&jail_id(auth.sandbox_id))?;
         let uid = jail.uid;
+        // Build the guard network now, in the background: for a fork the
+        // caller captures the source next, and the two overlap.
+        let pending_net = match &self.cfg.network {
+            Some(policy) => {
+                let guard_uid = self.alloc_uid()?;
+                let (policy, inventory, host) = (
+                    policy.clone(),
+                    self.inventory.clone(),
+                    self.cfg.host_id.clone(),
+                );
+                let (target, sandbox, generation) = (
+                    crate::net::Target::of(&jail),
+                    auth.sandbox_id.to_string(),
+                    auth.generation,
+                );
+                Some(std::thread::spawn(move || {
+                    let t = Instant::now();
+                    let attached = crate::net::Attachment::attach(
+                        &policy,
+                        &inventory,
+                        &target,
+                        guard_uid,
+                        crate::net::Identity {
+                            host_id: &host,
+                            sandbox_id: &sandbox,
+                            generation,
+                            operation_id: "op_restore",
+                        },
+                    )
+                    .map(|mut a| {
+                        a.timings
+                            .push(("net_build_us".into(), t.elapsed().as_micros() as u64));
+                        a
+                    });
+                    (guard_uid, attached)
+                }))
+            }
+            None => None,
+        };
         all.insert(
             auth.sandbox_id.to_string(),
             Arc::new(Mutex::new(Sandbox {
@@ -821,6 +882,7 @@ impl Engine {
                 barrier: None,
                 commands: Arc::default(),
                 net: None,
+                pending_net,
             })),
         );
         Ok(Outcome {
@@ -953,19 +1015,27 @@ impl Engine {
         let t = Instant::now();
         match &self.cfg.network {
             Some(policy) => {
-                let guard_uid = self.alloc_uid()?;
-                let attached = crate::net::Attachment::attach(
-                    policy,
-                    &self.inventory,
-                    jail,
-                    guard_uid,
-                    crate::net::Identity {
-                        host_id: &self.cfg.host_id,
-                        sandbox_id: &sb.id,
-                        generation: sb.generation,
-                        operation_id: "op_restore",
-                    },
-                );
+                let (guard_uid, attached) = match sb.pending_net.take() {
+                    Some(pending) => pending
+                        .join()
+                        .map_err(|_| EngineError::host("network attachment thread panicked"))?,
+                    None => {
+                        let guard_uid = self.alloc_uid()?;
+                        let attached = crate::net::Attachment::attach(
+                            policy,
+                            &self.inventory,
+                            &crate::net::Target::of(jail),
+                            guard_uid,
+                            crate::net::Identity {
+                                host_id: &self.cfg.host_id,
+                                sandbox_id: &sb.id,
+                                generation: sb.generation,
+                                operation_id: "op_restore",
+                            },
+                        );
+                        (guard_uid, attached)
+                    }
+                };
                 match attached {
                     Ok(a) => {
                         for (k, v) in &a.timings {
@@ -1258,6 +1328,10 @@ impl Engine {
         let tmp_state = jail.memdir.join("cap.vmstate");
         let _ = std::fs::remove_file(&tmp_mem);
         let _ = std::fs::remove_file(&tmp_state);
+        // A preallocated image (see fc::prepare_spare) takes the place of
+        // the file Firecracker would otherwise allocate during the pause.
+        let spare = std::fs::rename(jail.memdir.join(fc::SPARE_READY), &tmp_mem).is_ok();
+        detail.insert("spare".into(), u8::from(spare).to_string());
         let discard = |e: EngineError| {
             let _ = std::fs::remove_dir_all(&cdir);
             let _ = std::fs::remove_file(&tmp_mem);
@@ -1370,6 +1444,10 @@ impl Engine {
             .unwrap()
             .insert(capture_id.into(), Arc::new(rec));
         detail.insert("total_us".into(), us(t0.elapsed()));
+        // A sandbox that forked keeps one image ready for its next fork.
+        if let Some(jail) = sb.jail.as_ref() {
+            fc::prepare_spare(jail, sb.resources.memory_mib * 1024 * 1024);
+        }
         Ok(Outcome {
             state: "captured".into(),
             handles: vec![capture_id.into()],

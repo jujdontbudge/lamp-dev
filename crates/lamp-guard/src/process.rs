@@ -6,7 +6,8 @@ use serde_json::{Value, json};
 use std::{
     collections::{HashMap, HashSet},
     ffi::CString,
-    fs, io,
+    fs,
+    io::{self, Write},
     os::unix::fs::MetadataExt,
     ptr,
     sync::{
@@ -89,6 +90,19 @@ fn emit(emitter: &Arc<Mutex<Emitter>>, v: Value) -> io::Result<()> {
         .map_err(|_| io::Error::other("audit mutex poisoned"))?
         .send(v)
 }
+fn note(emitter: &Arc<Mutex<Emitter>>, v: Value) -> io::Result<()> {
+    emitter
+        .lock()
+        .map_err(|_| io::Error::other("audit mutex poisoned"))?
+        .note(v)
+}
+/// Ends the trusted-setup deferral: returns once every record is durable.
+fn release(emitter: &Arc<Mutex<Emitter>>) -> io::Result<()> {
+    emitter
+        .lock()
+        .map_err(|_| io::Error::other("audit mutex poisoned"))?
+        .release()
+}
 fn register(
     known: &mut HashMap<i32, bool>,
     emitter: &Arc<Mutex<Emitter>>,
@@ -113,6 +127,23 @@ fn register(
 fn c(s: &str) -> CString {
     CString::new(s).unwrap()
 }
+/// Points stdin/stdout/stderr at /dev/null (or closes them if that fails).
+/// # Safety
+/// Call only where nothing else in the process uses descriptors 0-2.
+unsafe fn release_stdio() {
+    unsafe {
+        let null = libc::open(c"/dev/null".as_ptr(), libc::O_RDWR | libc::O_CLOEXEC);
+        for fd in 0..3 {
+            if null < 0 || libc::dup2(null, fd) < 0 {
+                libc::close(fd);
+            }
+        }
+        if null > 2 {
+            libc::close(null);
+        }
+    }
+}
+
 fn child_fail() -> ! {
     unsafe { libc::_exit(126) }
 }
@@ -193,7 +224,16 @@ fn task_seccomp() {
 
 /// No shell expansion. Caller assigns a unique subordinate UID/GID per sandbox.
 /// This collector is a demo correctness path, not E02 performance qualification.
-pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
+/// Runs `argv` as the task, traced and audited. `exit_report`, if given, receives
+/// the command's raw wait status (decimal, one line) the moment the command
+/// itself exits; the collector keeps tracing any background processes it
+/// left behind until the task namespace is empty, and only then returns.
+pub fn run(
+    emitter: Emitter,
+    uid: u32,
+    argv: Vec<String>,
+    mut exit_report: Option<fs::File>,
+) -> io::Result<i32> {
     if unsafe { libc::geteuid() } != 0 || uid < 65536 || uid == u32::MAX || argv.is_empty() {
         return Err(io::Error::other(
             "collector requires guest root, unique uid >=65536 and an argv",
@@ -271,9 +311,39 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
                     1,
                 ));
                 check(libc::setenv(c("HOME").as_ptr(), c("/tmp").as_ptr(), 1));
-                libc::execvp(args[0].as_ptr(), pointers.as_ptr());
-                child_fail();
+                // This process is PID 1 of the task namespace: if it were the
+                // command, the kernel would kill every background job the
+                // moment the command exits. It forks the command and reaps
+                // until the namespace is empty, exiting with the command's
+                // own status, so background jobs keep running (and traced).
+                let command = libc::fork();
+                if command < 0 {
+                    child_fail();
+                }
+                if command == 0 {
+                    libc::execvp(args[0].as_ptr(), pointers.as_ptr());
+                    child_fail();
+                }
+                // Only the command and its jobs hold the caller's output
+                // pipes, so they reach EOF when the command's output ends.
+                release_stdio();
+                let mut status = 0;
+                loop {
+                    let mut code = 0;
+                    let n = libc::waitpid(-1, &mut code, 0);
+                    if n == command {
+                        status = code;
+                    } else if n < 0 && *libc::__errno_location() != libc::EINTR {
+                        break; // ECHILD: the namespace is empty
+                    }
+                }
+                libc::_exit(if libc::WIFEXITED(status) {
+                    libc::WEXITSTATUS(status)
+                } else {
+                    128 + libc::WTERMSIG(status)
+                });
             }
+            release_stdio();
             let mut code = 0;
             loop {
                 let n = libc::waitpid(task, &mut code, 0);
@@ -291,6 +361,9 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
             });
         }
     }
+    // The tracer outlives the command while background jobs run; it must not
+    // keep the caller's output pipes open (its failures show in its status).
+    unsafe { release_stdio() };
     // Initial stop must be consumed and EXITKILL installed before fallible audit I/O.
     let mut initial = 0;
     if unsafe { libc::waitpid(root, &mut initial, 0) } != root || !libc::WIFSTOPPED(initial) {
@@ -308,6 +381,11 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
         unsafe { libc::kill(root, libc::SIGKILL) };
         return Err(e);
     }
+    // Records of the collector's own setup (its processes, namespace and
+    // credential changes, the command's fork) are written without waiting;
+    // they are all durable before the command's exec'd code first runs.
+    let mut emitter = emitter;
+    emitter.defer();
     let emitter = Arc::new(Mutex::new(emitter));
     let alive = emitter.clone();
     let complete = Arc::new(AtomicBool::new(false));
@@ -341,6 +419,7 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
     // before the task's exec is still traced syscall by syscall.
     let mut filtered: HashSet<i32> = HashSet::new();
     let mut task_pid = None;
+    let mut command_pid = None;
     let mut mapped = false;
     let mut result = 0;
     trace(libc::PTRACE_SYSCALL, root, 0, 0)?;
@@ -355,12 +434,20 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
             return Err(e);
         }
         if libc::WIFEXITED(code) || libc::WIFSIGNALED(code) {
-            emit(
+            // The exit already happened; its record need not block the tree.
+            note(
                 &emitter,
                 json!({"type":"process_exit","pid":pid,"exit_code":if libc::WIFEXITED(code){libc::WEXITSTATUS(code)}else{128+libc::WTERMSIG(code)}}),
             )?;
             known.remove(&pid);
             filtered.remove(&pid);
+            if Some(pid) == command_pid {
+                release(&emitter)?;
+                if let Some(mut s) = exit_report.take() {
+                    // Best effort: without it the caller waits for the whole tree.
+                    let _ = writeln!(s, "{code}");
+                }
+            }
             if pid == root {
                 result = if libc::WIFEXITED(code) {
                     libc::WEXITSTATUS(code)
@@ -399,6 +486,8 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
             )?;
             if pid == root && task_pid.is_none() {
                 task_pid = Some(child as i32);
+            } else if Some(pid) == task_pid && command_pid.is_none() {
+                command_pid = Some(child as i32);
             }
             // Record the child's creation BEFORE resuming the parent. Waiting for
             // the child's own initial stop can miss a child killed by its parent
@@ -434,6 +523,10 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
                 &emitter,
                 json!({"type":"process_exec","visibility":"process","identity":identity(pid)?}),
             )?;
+            if Some(pid) == command_pid {
+                // The command's own code runs only after its setup is durable.
+                release(&emitter)?;
+            }
         } else if signal == libc::SIGTRAP | 0x80 {
             let mut info = [0_u8; 88];
             let size = trace(
@@ -498,6 +591,7 @@ pub fn run(emitter: Emitter, uid: u32, argv: Vec<String>) -> io::Result<i32> {
         return Err(io::Error::other("task namespace admission failed"));
     }
     complete.store(true, Ordering::SeqCst);
+    release(&emitter)?;
     emit(
         &emitter,
         json!({"type":"collector_complete","exit_code":result}),

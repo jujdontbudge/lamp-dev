@@ -80,6 +80,37 @@ T23 joins them by attribution, not by inventing a cross-source ordering.
 `lamp-guard policy CONFIG` prints the nft transaction without changing the host.
 There is no non-Linux or unguarded fallback.
 
+## As integrated at T6 (lane LX)
+
+T6 joins this guard and collector to the T2 Firecracker engine. Where it
+differs from the steps above, the difference is stated here rather than hidden:
+
+- **Namespace and TAP.** Each sandbox generation gets its own jail network
+  namespace with the TAP, the guard (NFQUEUE) and a userspace uplink (pasta,
+  started as root and joined through a capability-less holder). The jailed VMM
+  itself runs inside that namespace; it is not handed only a TAP FD. The task
+  still cannot reach the namespace.
+- **Mediated proxy.** `lamp-guard proxy CONFIG SPOOL` runs in the same
+  namespace at `198.18.240.1:3128`, under the guard UID with its own seccomp
+  allowlist. It accepts only absolute-form `http://IPv4[:port]` requests,
+  refuses CONNECT, names, userinfo, TLS, chunked bodies and malformed framing,
+  and applies the same allow/deny policy as the guard. Each request record is
+  durable before the upstream dial. It is single-threaded.
+- **Endpoint exceptions.** `/etc/lamp/network.json` (policy revision 2) carries
+  exact host/port exceptions for the benchmark fixtures only: the same-host
+  fixture namespace (diagnostic) and the owner's M5 on the LAN (binding E02
+  fixture). There is still no dynamic policy update.
+- **Collector.** Namespace PID 1 is now a reaper that forks the command, so
+  background jobs survive the command's exit; the command's wait status goes to
+  a dedicated `status:FD`. Records of the collector's own setup are pipelined
+  and become durable before the command's exec'd code runs. Process-exit
+  records (the exit has already happened) are written without waiting and are
+  durable before the next blocking record and before `collector_complete`.
+  Fork, exec and credential records still block the traced task until durable.
+- **Cost.** Each short-lived guest process costs about 7–8 ms in audit and
+  tracing (50 × `/bin/true`: 384 ms in the guest, 55 ms on the host). This is
+  the audit-before-effect price and is visible in E02.
+
 ## Network enforcement and connection records
 
 Every assigned-interface IPv4 packet in both directions goes through NFQUEUE;

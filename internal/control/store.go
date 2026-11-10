@@ -54,6 +54,31 @@ type Service struct {
 	broken      bool
 	keys        map[string]string
 	logRecords  int
+	// changed is closed (and replaced) whenever a journal change becomes
+	// durable, waking long-polling readers instead of having them spin.
+	changed chan struct{}
+	// log is journal.log, preallocated with real zero bytes past logEnd so
+	// that a commit overwrites initialized blocks and needs only fdatasync,
+	// not a filesystem metadata commit (see save).
+	log    *os.File
+	logEnd int64
+	logCap int64
+}
+
+// logPrealloc is how far journal.log is extended with zeros at a time.
+const logPrealloc = 64 << 20
+
+// extendLog writes zeros up to at least need bytes and makes the new size
+// durable. Called under mu.
+func (s *Service) extendLog(need int64) error {
+	zeros := make([]byte, 1<<20)
+	for s.logCap < need || s.logCap < s.logEnd+logPrealloc/2 {
+		if _, err := s.log.WriteAt(zeros, s.logCap); err != nil {
+			return err
+		}
+		s.logCap += int64(len(zeros))
+	}
+	return s.log.Sync()
 }
 
 func pointer[T any](v T) *T { return &v }
@@ -107,7 +132,7 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, fmt.Errorf("state directory is already in use: %w", err)
 	}
-	s := &Service{dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, keys: map[string]string{}}
+	s := &Service{dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, keys: map[string]string{}, changed: make(chan struct{})}
 	s.journal = journal{Version: 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
 	path := filepath.Join(s.dir, "journal.json")
 	data, err := os.ReadFile(path)
@@ -141,10 +166,10 @@ func Open(config Config) (*Service, error) {
 	var offset int64
 	for {
 		line, readErr := reader.ReadBytes('\n')
-		if readErr == io.EOF {
-			if len(line) != 0 {
-				err = log.Truncate(offset)
-			}
+		// The log ends at its first torn record or at the preallocated zero
+		// tail; no committed record contains a NUL byte. The compaction
+		// below rewrites both away before any new commit.
+		if readErr == io.EOF || bytes.IndexByte(line, 0) >= 0 {
 			break
 		}
 		if readErr != nil {
@@ -262,23 +287,39 @@ func (s *Service) save(ids ...string) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(filepath.Join(s.dir, "journal.log"), os.O_WRONLY|os.O_APPEND|unix.O_NOFOLLOW, 0600)
+	data = append(data, '\n')
+	// The held descriptor must still be the state directory's journal.log: a
+	// moved or replaced state directory would otherwise take commits that a
+	// restart can never find.
+	named, err := os.Stat(filepath.Join(s.dir, "journal.log"))
 	if err != nil {
 		return err
 	}
-	_, err = f.Write(append(data, '\n'))
-	if err == nil {
-		err = f.Sync()
-	}
-	closeErr := f.Close()
-	if err == nil {
-		err = closeErr
-	}
+	held, err := s.log.Stat()
 	if err != nil {
 		return err
 	}
+	if !os.SameFile(named, held) {
+		return errors.New("journal.log was moved or replaced")
+	}
+	if end := s.logEnd + int64(len(data)); end > s.logCap {
+		if err := s.extendLog(end); err != nil {
+			return err
+		}
+	}
+	// An in-place overwrite of initialized blocks: fdatasync makes it
+	// durable without waiting for unrelated metadata on the same disk.
+	if _, err := s.log.WriteAt(data, s.logEnd); err != nil {
+		return err
+	}
+	if err := datasync(s.log); err != nil {
+		return err
+	}
+	s.logEnd += int64(len(data))
 	s.journal.Sequence = delta.Sequence
 	s.logRecords++
+	close(s.changed)
+	s.changed = make(chan struct{})
 	if s.logRecords >= compactEvery {
 		return s.compact()
 	}
@@ -323,19 +364,20 @@ func (s *Service) compact() error {
 	if err = syncDirectory(s.dir); err != nil {
 		return err
 	}
-	log, err := os.OpenFile(filepath.Join(s.dir, "journal.log"), os.O_WRONLY|os.O_TRUNC|unix.O_NOFOLLOW, 0600)
-	if err != nil {
+	if s.log == nil {
+		if s.log, err = os.OpenFile(filepath.Join(s.dir, "journal.log"), os.O_RDWR|os.O_CREATE|unix.O_NOFOLLOW, 0600); err != nil {
+			return err
+		}
+	}
+	if err = s.log.Truncate(0); err != nil {
 		return err
 	}
-	err = log.Sync()
-	closeErr = log.Close()
-	if err == nil {
-		err = closeErr
+	s.logEnd, s.logCap = 0, 0
+	if err = s.extendLog(logPrealloc); err != nil {
+		return err
 	}
-	if err == nil {
-		s.logRecords = 0
-	}
-	return err
+	s.logRecords = 0
+	return nil
 }
 func (s *Service) Close() error {
 	s.mu.Lock()
@@ -346,5 +388,8 @@ func (s *Service) Close() error {
 	s.mu.Unlock()
 	s.worker.close()
 	s.wg.Wait()
+	if s.log != nil {
+		s.log.Close()
+	}
 	return s.lock.Close()
 }

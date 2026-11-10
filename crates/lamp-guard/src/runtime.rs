@@ -169,9 +169,14 @@ impl Connections {
         let inbound = p.output == interface && p.input != interface;
         let key;
         let mut admitted = false;
-        if p.hook == 2 && outbound && t.source == config.guest_ip {
-            let excepted = config.excepted(&t);
-            if !excepted && !public_v4(t.destination, &config.host_denies) {
+        // Hooks: 1 LOCAL_IN, 2 FORWARD, 3 LOCAL_OUT. Local traffic exists
+        // only for the mediated proxy endpoint, in both directions.
+        let forward = p.hook == 2;
+        let proxied_in = p.hook == 1 && config.to_proxy(&t);
+        let proxied_out = p.hook == 3 && config.to_proxy(&t.reverse());
+        if (forward || proxied_in) && outbound && t.source == config.guest_ip {
+            let excepted = !proxied_in && config.excepted(&t);
+            if !proxied_in && !excepted && !public_v4(t.destination, &config.host_denies) {
                 return self.deny(spool, Some(t), "private_lan_metadata_or_host", &p.bytes);
             }
             let syn = if t.protocol == 6 && p.bytes[33] & 0x17 == 0x02 {
@@ -210,7 +215,9 @@ impl Connections {
                     draining: false,
                     dirty: false,
                 };
-                let reason = if excepted {
+                let reason = if proxied_in {
+                    "mediated_proxy"
+                } else if excepted {
                     "policy_exception"
                 } else {
                     "public_transport"
@@ -220,7 +227,7 @@ impl Connections {
                 admitted = true;
             }
             key = t;
-        } else if p.hook == 2 && inbound && t.destination == config.guest_ip {
+        } else if (forward || proxied_out) && inbound && t.destination == config.guest_ip {
             key = t.reverse();
             if !self.flows.contains_key(&key) {
                 return self.deny(spool, Some(t), "unsolicited_or_spoofed", &p.bytes);
@@ -299,7 +306,7 @@ pub fn run(config: Config) -> io::Result<()> {
     )?;
     spool.record("host_guard",json!({"type":"lifecycle","state":"ready","filter_mode":"transport",
         "ipv6":"deny","max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis(),
-        "audit_batch_ms":AUDIT_BATCH.as_millis(),"exceptions":config.exceptions,"audit_deadline_ms":AUDIT_DEADLINE.as_millis(),"max_pending_denials":MAX_DENIALS}))?;
+        "audit_batch_ms":AUDIT_BATCH.as_millis(),"exceptions":config.exceptions,"proxy":config.proxy,"audit_deadline_ms":AUDIT_DEADLINE.as_millis(),"max_pending_denials":MAX_DENIALS}))?;
     println!(
         "{}",
         json!({"state":"ready","policy_revision":config.attribution.policy_revision})

@@ -35,6 +35,10 @@ use std::time::{Duration, Instant};
 pub const TAP: &str = "lamp0";
 pub const UPLINK: &str = "pasta0";
 pub const GATEWAY_CIDR: &str = "198.18.240.1/30";
+/// The sandbox's mediated HTTP proxy (`lamp-guard proxy`): the guest uses
+/// `http://198.18.240.1:3128` as its forward proxy.
+pub const PROXY_ADDR: &str = lamp_init::GUEST_GATEWAY;
+pub const PROXY_PORT: u16 = 3128;
 /// Guard queue number (namespace-local).
 pub const QUEUE: u16 = 314;
 /// Subordinate guest UID/GID task namespace root maps to.
@@ -157,7 +161,9 @@ pub fn tap_only(jail: &Jail) -> Result<()> {
 
 pub struct Attachment {
     guard: Option<Child>,
+    proxy: Option<Child>,
     pasta: Option<Child>,
+    holder: Option<Child>,
     stop: Arc<AtomicBool>,
     listener: Option<std::thread::JoinHandle<()>>,
     pub guard_uid: u32,
@@ -174,6 +180,26 @@ impl std::fmt::Debug for Attachment {
     }
 }
 
+/// What a network attachment needs of a jail, owned so the attachment can
+/// be built on another thread while the jail is otherwise in use.
+#[derive(Debug, Clone)]
+pub struct Target {
+    pub netns: PathBuf,
+    pub uid: u32,
+    /// The jail's vsock UDS for guest port AUDIT_PORT.
+    pub audit_socket: PathBuf,
+}
+
+impl Target {
+    pub fn of(jail: &Jail) -> Target {
+        Target {
+            netns: jail.netns.clone(),
+            uid: jail.uid,
+            audit_socket: jail.path(&format!("{}_{}", crate::fc::VSOCK, lamp_init::AUDIT_PORT)),
+        }
+    }
+}
+
 pub struct Identity<'a> {
     pub host_id: &'a str,
     pub sandbox_id: &'a str,
@@ -187,7 +213,7 @@ impl Attachment {
     pub fn attach(
         policy: &Policy,
         inventory: &[String],
-        jail: &Jail,
+        jail: &Target,
         guard_uid: u32,
         who: Identity<'_>,
     ) -> Result<Attachment> {
@@ -214,6 +240,7 @@ impl Attachment {
                 "interface": TAP, "guest_ip": lamp_init::GUEST_ADDR, "queue": QUEUE,
                 "guard_uid": guard_uid, "host_denies": denies,
                 "spool": spool, "spool_bytes": bytes, "exceptions": policy.exceptions,
+                "proxy": {"address": PROXY_ADDR, "port": PROXY_PORT},
             })
         };
         let net_config = dir.join("network.json");
@@ -224,7 +251,9 @@ impl Attachment {
         .ctx("write guard config")?;
         let mut a = Attachment {
             guard: None,
+            proxy: None,
             pasta: None,
+            holder: None,
             stop: Arc::new(AtomicBool::new(false)),
             listener: None,
             guard_uid,
@@ -264,6 +293,65 @@ impl Attachment {
             .ctx("start lamp-guard")?;
         let guard_out = guard.stdout.take().unwrap();
         a.guard = Some(guard);
+        let mut proxy = Command::new("nsenter")
+            .arg(format!("--net={}", jail.netns.display()))
+            .arg(&policy.guard)
+            .arg("proxy")
+            .arg(&net_config)
+            .arg(dir.join("proxy.ndjson"))
+            .env_clear()
+            .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::from(
+                std::fs::File::create(dir.join("proxy.log")).ctx("proxy log")?,
+            ))
+            .spawn()
+            .ctx("start lamp-guard proxy")?;
+        let proxy_out = proxy.stdout.take().unwrap();
+        a.proxy = Some(proxy);
+        // A capability-less process pinned in the namespace, whose /proc
+        // entry pasta joins (the guard is non-dumpable under its own UID).
+        let holder = Command::new("nsenter")
+            .arg(format!("--net={}", jail.netns.display()))
+            // No capabilities: pasta (which keeps only a few) may only open
+            // the /proc entry of a process whose capabilities it covers.
+            .args([
+                "setpriv",
+                "--inh-caps=-all",
+                "--bounding-set=-all",
+                "sleep",
+                "infinity",
+            ])
+            .env_clear()
+            .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .ctx("start namespace holder")?;
+        let holder_pid = holder.id();
+        a.holder = Some(holder);
+        // nsenter execs sleep only after setns; wait until it is inside.
+        let want = std::fs::metadata(&jail.netns).map(|m| {
+            use std::os::unix::fs::MetadataExt;
+            m.ino()
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let now = std::fs::metadata(format!("/proc/{holder_pid}/ns/net")).map(|m| {
+                use std::os::unix::fs::MetadataExt;
+                m.ino()
+            });
+            if now.is_ok() && now.as_ref().ok() == want.as_ref().ok() {
+                break;
+            }
+            if Instant::now() > deadline {
+                a.detach();
+                return Err(EngineError::host("namespace holder did not enter netns"));
+            }
+            std::thread::sleep(Duration::from_micros(200));
+        }
         let pasta = Command::new(&policy.pasta)
             .args(["--foreground", "--quiet", "-4", "--config-net"])
             .args([
@@ -285,8 +373,12 @@ impl Attachment {
                 "-U",
                 "none",
             ])
-            .arg("--netns")
-            .arg(&jail.netns)
+            // Ubuntu's AppArmor profile for pasta allows only /proc/PID/ns/*
+            // and setns needs CAP_SYS_ADMIN, so it starts as root and joins
+            // through the guard's namespace; after setup pasta isolates
+            // itself (detached user namespace, no capabilities, seccomp).
+            .args(["--runas", "0", "--netns-only", "--no-netns-quit", "--netns"])
+            .arg(format!("/proc/{holder_pid}/ns/net"))
             .env_clear()
             .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
             .stdin(Stdio::null())
@@ -310,17 +402,29 @@ impl Attachment {
             )));
         }
         timings.push(("net_guard_us".into(), t.elapsed().as_micros() as u64));
-        // The uplink is ready once its interface carries a default route.
+        let mut line = String::new();
+        BufReader::new(proxy_out)
+            .read_line(&mut line)
+            .ctx("proxy ready line")?;
+        if !line.contains("\"state\":\"ready\"") {
+            let log = std::fs::read_to_string(dir.join("proxy.log")).unwrap_or_default();
+            a.detach();
+            return Err(EngineError::host(format!(
+                "lamp-guard proxy did not become ready: {}",
+                log.trim()
+            )));
+        }
+        timings.push(("net_proxy_us".into(), t.elapsed().as_micros() as u64));
+        // The uplink is ready once its interface carries a default route,
+        // read from the namespace's own routing table through the holder.
         let deadline = Instant::now() + Duration::from_secs(5);
+        let routes = format!("/proc/{holder_pid}/net/route");
         loop {
-            let route = Command::new("nsenter")
-                .arg(format!("--net={}", jail.netns.display()))
-                .args(["ip", "-4", "route", "show", "default"])
-                .env_clear()
-                .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
-                .output()
-                .ctx("uplink route")?;
-            if String::from_utf8_lossy(&route.stdout).contains(UPLINK) {
+            let table = std::fs::read_to_string(&routes).unwrap_or_default();
+            if table.lines().skip(1).any(|l| {
+                let mut f = l.split_whitespace();
+                f.next() == Some(UPLINK) && f.next() == Some("00000000")
+            }) {
                 break;
             }
             if Instant::now() > deadline
@@ -339,11 +443,11 @@ impl Attachment {
                     log.trim()
                 )));
             }
-            std::thread::sleep(Duration::from_millis(1));
+            std::thread::sleep(Duration::from_micros(200));
         }
         timings.push(("net_uplink_us".into(), t.elapsed().as_micros() as u64));
         // 3. Audit listener on the jail's vsock UDS for guest port 5000.
-        let path = jail.path(&format!("{}_{}", crate::fc::VSOCK, lamp_init::AUDIT_PORT));
+        let path = jail.audit_socket.clone();
         let _ = std::fs::remove_file(&path);
         let listener = UnixListener::bind(&path).ctx("bind audit listener")?;
         crate::fsutil::chown(&path, jail.uid, jail.uid)?;
@@ -399,7 +503,15 @@ impl Attachment {
         if let Some(l) = self.listener.take() {
             let _ = l.join();
         }
-        for c in [self.pasta.take(), self.guard.take()].into_iter().flatten() {
+        for c in [
+            self.pasta.take(),
+            self.proxy.take(),
+            self.guard.take(),
+            self.holder.take(),
+        ]
+        .into_iter()
+        .flatten()
+        {
             let mut c = c;
             let _ = c.kill();
             let _ = c.wait();

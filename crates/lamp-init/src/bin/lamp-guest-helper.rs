@@ -17,7 +17,7 @@ mod linux {
     use lamp_init::*;
     use std::fs::File;
     use std::io::{self, Read};
-    use std::os::fd::{FromRawFd, OwnedFd};
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     use std::os::unix::process::{CommandExt, ExitStatusExt};
     use std::process::{Command, Stdio};
     use std::sync::mpsc;
@@ -530,13 +530,26 @@ mod linux {
         let procs = std::ffi::CString::new(cgroup_file("cgroup.procs")).unwrap();
         // Audited commands run only under the protected collector; if it is
         // missing or fails, nothing runs (fail closed).
+        // The collector reports the command's own exit on fd 3 (`status:3`)
+        // and keeps tracing background jobs after it; the exec completes on
+        // that report, so background jobs outlive it as without a collector.
+        let mut status_pipe: Option<(OwnedFd, OwnedFd)> = None;
         let argv: Vec<String> = match &x.audit {
             Some(a) => {
+                let mut fds = [0; 2];
+                // SAFETY: pipe2 fills two new descriptors we then own.
+                if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
+                    return Err(io::Error::last_os_error());
+                }
+                // SAFETY: both descriptors were just created and are owned here.
+                status_pipe =
+                    Some(unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) });
                 let mut v = vec![
                     GUARD_BIN.to_string(),
                     "collect".into(),
                     format!("vsock:{}", a.port),
                     a.task_uid.to_string(),
+                    "status:3".into(),
                     "--".into(),
                 ];
                 v.extend(x.argv.iter().cloned());
@@ -560,8 +573,10 @@ mod linux {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .process_group(0);
-        // SAFETY: open/write/close only, between fork and exec. A command
-        // that cannot join the tasks cgroup is never exec'd (fail closed).
+        let status_w = status_pipe.as_ref().map(|(_, w)| w.as_raw_fd());
+        // SAFETY: open/write/close/dup2/fcntl only, between fork and exec. A
+        // command that cannot join the tasks cgroup is never exec'd (fail
+        // closed).
         unsafe {
             command.pre_exec(move || {
                 let fd = libc::open(procs.as_ptr(), libc::O_WRONLY | libc::O_CLOEXEC);
@@ -571,7 +586,21 @@ mod linux {
                 let ok = libc::write(fd, c"0".as_ptr().cast(), 1) == 1;
                 let e = io::Error::last_os_error();
                 libc::close(fd);
-                if ok { Ok(()) } else { Err(e) }
+                if !ok {
+                    return Err(e);
+                }
+                if let Some(w) = status_w {
+                    // fd 3 without close-on-exec, for the collector only.
+                    let r = if w == 3 {
+                        libc::fcntl(3, libc::F_SETFD, 0)
+                    } else {
+                        libc::dup2(w, 3)
+                    };
+                    if r < 0 {
+                        return Err(io::Error::last_os_error());
+                    }
+                }
+                Ok(())
             });
         }
         let started_unix_ns = now_ns();
@@ -580,6 +609,19 @@ mod linux {
         let out = capped_reader(child.stdout.take().unwrap(), limit);
         let err = capped_reader(child.stderr.take().unwrap(), limit);
         let (tx, status) = mpsc::channel();
+        if let Some((r, w)) = status_pipe {
+            drop(w);
+            let tx = tx.clone();
+            std::thread::spawn(move || {
+                let mut line = String::new();
+                let _ = std::fs::File::from(r).read_to_string(&mut line);
+                if let Ok(raw) = line.trim().parse::<i32>() {
+                    let _ = tx.send(Ok(std::process::ExitStatus::from_raw(raw)));
+                }
+            });
+        }
+        // Reaps the collector (or plain command) whenever it exits; for an
+        // audited command that is after its background jobs end.
         std::thread::spawn(move || {
             let _ = tx.send(child.wait());
         });

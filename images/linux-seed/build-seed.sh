@@ -65,8 +65,15 @@ BIN="${CARGO_TARGET_DIR:-$ROOT/target}/x86_64-unknown-linux-musl/release"
 
 # 3. Debian root; mmdebstrap verifies the archive signatures with the
 #    distribution keyring.
-if [ ! -f "root-$DIST.tar" ]; then
-  sudo -n mmdebstrap --variant=minbase --keyring="$KEYRING" --include="$PACKAGES" --format=tar "$SUITE" "root-$DIST.tar" "${SOURCES[@]}"
+#    The tar is cached only once complete (a killed run must not leave an
+#    empty cache entry). LAMP_SEED_IPV4=1 keeps apt off an unreachable IPv6.
+if [ ! -s "root-$DIST.tar" ]; then
+  APTOPTS=(--aptopt='Acquire::Retries "5"')
+  [ "${LAMP_SEED_IPV4:-0}" = 1 ] && APTOPTS+=(--aptopt='Acquire::ForceIPv4 "true"')
+  sudo -n rm -f "root-$DIST.tar.partial"
+  sudo -n mmdebstrap --variant=minbase --keyring="$KEYRING" --include="$PACKAGES" "${APTOPTS[@]}" \
+    --format=tar "$SUITE" "root-$DIST.tar.partial" "${SOURCES[@]}"
+  sudo -n mv "root-$DIST.tar.partial" "root-$DIST.tar"
 fi
 sudo -n rm -rf rootdir && mkdir rootdir
 sudo -n tar -C rootdir -xf "root-$DIST.tar"

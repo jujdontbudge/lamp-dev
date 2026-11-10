@@ -301,6 +301,7 @@ impl Server {
             generation: ctx.generation,
             policy_revision: ctx.policy_revision,
         };
+        let began = std::time::Instant::now();
         let result = match command {
             request::Command::Allocate(a) => {
                 if !a.engine_id.is_empty()
@@ -372,7 +373,29 @@ impl Server {
             )),
         };
         let result = match result {
-            Ok(o) => receipt(o),
+            Ok(o) => {
+                // One journal line per mutation with its phase timings, so
+                // per-operation breakdowns are on record beside the
+                // harness's own caller-side measurements.
+                if !read_only {
+                    let timings: Vec<String> = o
+                        .detail
+                        .iter()
+                        .filter(|(k, _)| {
+                            k.ends_with("_us") || matches!(k.as_str(), "memory_bytes" | "spare")
+                        })
+                        .map(|(k, v)| format!("{k}={v}"))
+                        .collect();
+                    eprintln!(
+                        "lamp-supervisor: op {} sandbox {} handle_us={} {}",
+                        ctx.operation_id,
+                        ctx.sandbox_id,
+                        began.elapsed().as_micros(),
+                        timings.join(" ")
+                    );
+                }
+                receipt(o)
+            }
             Err(e) => from_engine(e),
         };
         if !read_only {

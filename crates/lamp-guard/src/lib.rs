@@ -12,6 +12,8 @@ pub mod netlink;
 #[cfg(target_os = "linux")]
 pub mod process;
 #[cfg(target_os = "linux")]
+pub mod proxy;
+#[cfg(target_os = "linux")]
 pub mod runtime;
 
 /// `close_range(2)` through the raw syscall, so static musl builds (the guest
@@ -138,6 +140,22 @@ pub struct Config {
     /// `policy_exception`. Empty by default; there are no prefix exceptions.
     #[serde(default)]
     pub exceptions: Vec<Exception>,
+    /// The sandbox's mediated HTTP proxy (`lamp-guard proxy`), listening on
+    /// the namespace side of `interface`. Only TCP to exactly this endpoint
+    /// may enter the namespace from the guest, and only replies to such an
+    /// admitted flow may leave it towards the guest. Every flow is recorded
+    /// with reason `mediated_proxy`. Absent: the namespace accepts nothing
+    /// from the guest and sends it nothing.
+    #[serde(default)]
+    pub proxy: Option<Endpoint>,
+}
+
+/// One TCP endpoint inside the guard namespace.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Endpoint {
+    pub address: Ipv4Addr,
+    pub port: u16,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -159,6 +177,15 @@ impl Config {
     pub fn excepted(&self, t: &Tuple) -> bool {
         self.exceptions.iter().any(|e| e.matches(t))
     }
+    /// Guest-to-proxy direction of a mediated proxy flow.
+    pub fn to_proxy(&self, t: &Tuple) -> bool {
+        self.proxy.is_some_and(|p| {
+            t.protocol == 6
+                && t.source == self.guest_ip
+                && t.destination == p.address
+                && t.destination_port == p.port
+        })
+    }
     pub fn validate(&self) -> io::Result<()> {
         self.attribution.validate()?;
         if self.interface.is_empty()
@@ -176,6 +203,9 @@ impl Config {
                 .exceptions
                 .iter()
                 .any(|e| (e.transport != "tcp" && e.transport != "udp") || e.port == 0)
+            || self
+                .proxy
+                .is_some_and(|p| p.port == 0 || p.address == self.guest_ip)
         {
             return Err(io::Error::other(
                 "invalid interface, missing host denies or insufficient spool",
@@ -187,8 +217,20 @@ impl Config {
     /// Queue on every packet: losing audit/guard drops even established connections.
     pub fn nft(&self) -> io::Result<String> {
         self.validate()?;
+        // Only the proxy's own replies leave the namespace towards the guest,
+        // and those are queued like every other packet; the rest is dropped.
+        let proxy_out = match self.proxy {
+            Some(p) => format!(
+                "oifname \"{i}\" ip saddr {a} tcp sport {port} queue num {q}; ",
+                i = self.interface,
+                a = p.address,
+                port = p.port,
+                q = self.queue
+            ),
+            None => String::new(),
+        };
         Ok(format!(
-            "create table inet lamp_guard {{\n chain ingress {{ type filter hook input priority -310; policy accept; iifname \"{i}\" queue num {q}; }}\n chain transit {{ type filter hook forward priority -310; policy accept; iifname \"{i}\" queue num {q}; oifname \"{i}\" queue num {q}; }}\n chain local_out {{ type filter hook output priority -310; policy accept; oifname \"{i}\" drop; }}\n}}\n",
+            "create table inet lamp_guard {{\n chain ingress {{ type filter hook input priority -310; policy accept; iifname \"{i}\" queue num {q}; }}\n chain transit {{ type filter hook forward priority -310; policy accept; iifname \"{i}\" queue num {q}; oifname \"{i}\" queue num {q}; }}\n chain local_out {{ type filter hook output priority -310; policy accept; {proxy_out}oifname \"{i}\" drop; }}\n}}\n",
             i = self.interface,
             q = self.queue
         ))
