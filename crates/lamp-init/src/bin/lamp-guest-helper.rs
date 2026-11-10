@@ -32,6 +32,24 @@ mod linux {
 
     type Shared = Arc<Mutex<Identity>>;
 
+    /// Completions by (sandbox, generation, exec ID); `None` while running.
+    /// A capture copies this table into the child, but the child's identity
+    /// differs, so it can never fetch the parent's results.
+    #[derive(Default)]
+    struct Table {
+        by_key: std::collections::HashMap<String, Option<ExecDone>>,
+        order: std::collections::VecDeque<String>,
+    }
+
+    type Results = Arc<(Mutex<Table>, std::sync::Condvar)>;
+
+    /// Finished results kept for late or repeated waits.
+    const KEPT_RESULTS: usize = 1024;
+
+    fn key(sandbox_id: &str, generation: u64, exec_id: &str) -> String {
+        format!("{sandbox_id}/{generation}/{exec_id}")
+    }
+
     fn now_ns() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -75,6 +93,7 @@ mod linux {
             }
         };
         let state: Shared = Arc::default();
+        let results: Results = Arc::default();
         loop {
             // SAFETY: accept on our listening socket; no address requested.
             let fd = unsafe {
@@ -92,11 +111,12 @@ mod linux {
             // SAFETY: accept4 returned a new descriptor we now own.
             let stream = unsafe { File::from_raw_fd(fd) };
             let state = state.clone();
-            std::thread::spawn(move || serve(stream, state));
+            let results = results.clone();
+            std::thread::spawn(move || serve(stream, state, results));
         }
     }
 
-    fn serve(mut stream: File, state: Shared) {
+    fn serve(mut stream: File, state: Shared, results: Results) {
         loop {
             let request: GuestRequest = match read_frame(&mut stream) {
                 Ok(r) => r,
@@ -108,7 +128,11 @@ mod linux {
                     return;
                 }
             };
-            let response = handle(request, &state);
+            let response = match request {
+                GuestRequest::Exec(x) => exec(&x, &state, &results),
+                GuestRequest::Wait(w) => wait(&w, &state, &results),
+                other => handle(other, &state),
+            };
             let stop = matches!(response, GuestResponse::ShuttingDown);
             if write_frame(&mut stream, &response).is_err() {
                 return;
@@ -140,26 +164,137 @@ mod linux {
                 Ok(ack) => GuestResponse::BarrierAck(ack),
                 Err(e) => error("BARRIER_FAILED", &e),
             },
-            GuestRequest::Exec(x) => {
-                {
-                    let id = state.lock().unwrap();
-                    if id.generation == 0
-                        || id.sandbox_id != x.sandbox_id
-                        || id.generation != x.generation
-                    {
-                        return error(
-                            "GENERATION_MISMATCH",
-                            "command refused: identity barrier for this sandbox/generation not applied",
-                        );
-                    }
-                }
-                match exec(&x) {
-                    Ok(done) => GuestResponse::ExecDone(done),
-                    Err(e) => error("EXEC_FAILED", &e.to_string()),
-                }
+            // Served by `serve`, which owns the result table.
+            GuestRequest::Exec(_) | GuestRequest::Wait(_) => {
+                error("INVALID_ARGUMENT", "served with results")
             }
+            GuestRequest::Freeze(Empty {}) => match freeze() {
+                Ok(()) => GuestResponse::Frozen,
+                Err(e) => error("FREEZE_FAILED", &e.to_string()),
+            },
+            GuestRequest::Thaw(Empty {}) => match thaw() {
+                Ok(()) => GuestResponse::Thawed,
+                Err(e) => error("THAW_FAILED", &e.to_string()),
+            },
             GuestRequest::Shutdown(Empty {}) => GuestResponse::ShuttingDown,
         }
+    }
+
+    /// Starts a command and records it; its completion lands in `results`
+    /// whether or not any host connection is still open.
+    fn exec(x: &Exec, state: &Shared, results: &Results) -> GuestResponse {
+        if let Err(refusal) = admit(&x.sandbox_id, x.generation, state) {
+            return *refusal;
+        }
+        if x.exec_id.is_empty() {
+            return error("INVALID_ARGUMENT", "exec_id is empty");
+        }
+        let k = key(&x.sandbox_id, x.generation, &x.exec_id);
+        {
+            // Reserve the ID first, so the same ID can never start twice.
+            let mut t = results.0.lock().unwrap();
+            if t.by_key.contains_key(&k) {
+                return error("INVALID_ARGUMENT", "exec_id already used");
+            }
+            t.by_key.insert(k.clone(), None);
+            t.order.push_back(k.clone());
+            // Forget the oldest finished results; running ones always stay.
+            while t.order.len() > KEPT_RESULTS {
+                let finished = |o: &String| matches!(t.by_key.get(o), Some(Some(_)));
+                let Some(pos) = t.order.iter().position(finished) else {
+                    break;
+                };
+                let old = t.order.remove(pos).unwrap();
+                t.by_key.remove(&old);
+            }
+        }
+        let running = match start(x) {
+            Ok(r) => r,
+            Err(e) => {
+                let mut t = results.0.lock().unwrap();
+                t.by_key.remove(&k);
+                t.order.retain(|o| o != &k);
+                return error("EXEC_FAILED", &e.to_string());
+            }
+        };
+        let started = running.started.clone();
+        let results = results.clone();
+        std::thread::spawn(move || {
+            let done = finish(running).unwrap_or_else(|e| ExecDone {
+                exit_code: -1,
+                signal: 0,
+                stdout_b64: String::new(),
+                stderr_b64: b64_encode(format!("lamp-guest-helper: {e}").as_bytes()),
+                truncated: false,
+                timed_out: false,
+                started_unix_ns: 0,
+                finished_unix_ns: now_ns(),
+            });
+            results.0.lock().unwrap().by_key.insert(k, Some(done));
+            results.1.notify_all();
+        });
+        GuestResponse::ExecStarted(started)
+    }
+
+    fn wait(w: &Wait, state: &Shared, results: &Results) -> GuestResponse {
+        if let Err(refusal) = admit(&w.sandbox_id, w.generation, state) {
+            return *refusal;
+        }
+        let k = key(&w.sandbox_id, w.generation, &w.exec_id);
+        let deadline = std::time::Instant::now() + Duration::from_millis(w.wait_ms.min(60_000));
+        let mut t = results.0.lock().unwrap();
+        loop {
+            match t.by_key.get(&k) {
+                None => return error("NOT_FOUND", "no command with this exec_id"),
+                Some(Some(done)) => return GuestResponse::ExecDone(done.clone()),
+                Some(None) => {}
+            }
+            let now = std::time::Instant::now();
+            if now >= deadline {
+                return GuestResponse::ExecRunning;
+            }
+            t = results.1.wait_timeout(t, deadline - now).unwrap().0;
+        }
+    }
+
+    fn admit(sandbox_id: &str, generation: u64, state: &Shared) -> Result<(), Box<GuestResponse>> {
+        let id = state.lock().unwrap();
+        if id.generation == 0 || id.sandbox_id != sandbox_id || id.generation != generation {
+            return Err(Box::new(error(
+                "GENERATION_MISMATCH",
+                "command refused: identity barrier for this sandbox/generation not applied",
+            )));
+        }
+        Ok(())
+    }
+
+    fn cgroup_file(name: &str) -> String {
+        format!("{TASKS_CGROUP}/{name}")
+    }
+
+    /// Freezes every task process and waits until the kernel reports the
+    /// whole cgroup frozen.
+    fn freeze() -> io::Result<()> {
+        std::fs::write(cgroup_file("cgroup.freeze"), "1")?;
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let events = std::fs::read_to_string(cgroup_file("cgroup.events"))?;
+            if events.lines().any(|l| l.trim() == "frozen 1") {
+                return Ok(());
+            }
+            if std::time::Instant::now() > deadline {
+                let _ = thaw();
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "task processes did not freeze",
+                ));
+            }
+            std::thread::sleep(Duration::from_micros(100));
+        }
+    }
+
+    fn thaw() -> io::Result<()> {
+        std::fs::write(cgroup_file("cgroup.freeze"), "0")
     }
 
     fn barrier(b: &Barrier, state: &Shared) -> Result<BarrierAck, String> {
@@ -200,6 +335,9 @@ mod linux {
         }
         id.sandbox_id = b.sandbox_id.clone();
         id.generation = b.generation;
+        // Only now may task processes inherited from a capture run again:
+        // they see the new identity, clock and reseeded CRNG first.
+        thaw().map_err(|e| format!("thaw tasks: {e}"))?;
         Ok(BarrierAck {
             sandbox_id: b.sandbox_id.clone(),
             generation: b.generation,
@@ -260,11 +398,24 @@ mod linux {
         rx
     }
 
-    fn exec(x: &Exec) -> io::Result<ExecDone> {
+    struct Running {
+        started: ExecStarted,
+        pid: libc::pid_t,
+        timeout_ms: u64,
+        out: mpsc::Receiver<(Vec<u8>, bool)>,
+        err: mpsc::Receiver<(Vec<u8>, bool)>,
+        status: mpsc::Receiver<io::Result<std::process::ExitStatus>>,
+    }
+
+    /// Spawns the command inside the tasks cgroup. `spawn` returns only after
+    /// the program was exec'd (std's close-on-exec status pipe), which is the
+    /// witnessed start reported to the host.
+    fn start(x: &Exec) -> io::Result<Running> {
         if x.argv.is_empty() {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "argv is empty"));
         }
         let limit = x.output_limit.min(MAX_GUEST_FRAME / 4);
+        let procs = std::ffi::CString::new(cgroup_file("cgroup.procs")).unwrap();
         let mut command = Command::new(&x.argv[0]);
         command
             .args(&x.argv[1..])
@@ -281,29 +432,60 @@ mod linux {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .process_group(0);
-        let started = now_ns();
+        // SAFETY: open/write/close only, between fork and exec. A command
+        // that cannot join the tasks cgroup is never exec'd (fail closed).
+        unsafe {
+            command.pre_exec(move || {
+                let fd = libc::open(procs.as_ptr(), libc::O_WRONLY | libc::O_CLOEXEC);
+                if fd < 0 {
+                    return Err(io::Error::last_os_error());
+                }
+                let ok = libc::write(fd, c"0".as_ptr().cast(), 1) == 1;
+                let e = io::Error::last_os_error();
+                libc::close(fd);
+                if ok { Ok(()) } else { Err(e) }
+            });
+        }
+        let started_unix_ns = now_ns();
         let mut child = command.spawn()?;
         let pid = child.id() as libc::pid_t;
         let out = capped_reader(child.stdout.take().unwrap(), limit);
         let err = capped_reader(child.stderr.take().unwrap(), limit);
-        let (tx, rx) = mpsc::channel();
+        let (tx, status) = mpsc::channel();
         std::thread::spawn(move || {
             let _ = tx.send(child.wait());
         });
-        let timeout = Duration::from_millis(x.timeout_ms.max(1));
-        let (status, timed_out) = match rx.recv_timeout(timeout) {
-            Ok(status) => (status?, false),
-            Err(_) => {
-                // SAFETY: signals only the command's own process group.
-                unsafe { libc::killpg(pid, libc::SIGKILL) };
-                (rx.recv().map_err(io::Error::other)??, true)
+        Ok(Running {
+            started: ExecStarted {
+                pid,
+                started_unix_ns,
+            },
+            pid,
+            timeout_ms: x.timeout_ms,
+            out,
+            err,
+            status,
+        })
+    }
+
+    fn finish(r: Running) -> io::Result<ExecDone> {
+        let (status, timed_out) = if r.timeout_ms == 0 {
+            (r.status.recv().map_err(io::Error::other)??, false)
+        } else {
+            match r.status.recv_timeout(Duration::from_millis(r.timeout_ms)) {
+                Ok(status) => (status?, false),
+                Err(_) => {
+                    // SAFETY: signals only the command's own process group.
+                    unsafe { libc::killpg(r.pid, libc::SIGKILL) };
+                    (r.status.recv().map_err(io::Error::other)??, true)
+                }
             }
         };
         // Background jobs keep running. If one still holds a pipe, reply with
         // what was read so far instead of waiting for it.
         let grace = Duration::from_millis(50);
-        let (stdout, t1) = out.recv_timeout(grace).unwrap_or((Vec::new(), true));
-        let (stderr, t2) = err.recv_timeout(grace).unwrap_or((Vec::new(), true));
+        let (stdout, t1) = r.out.recv_timeout(grace).unwrap_or((Vec::new(), true));
+        let (stderr, t2) = r.err.recv_timeout(grace).unwrap_or((Vec::new(), true));
         Ok(ExecDone {
             exit_code: status.code().unwrap_or(-1),
             signal: status.signal().unwrap_or(0),
@@ -311,7 +493,7 @@ mod linux {
             stderr_b64: b64_encode(&stderr),
             truncated: t1 || t2,
             timed_out,
-            started_unix_ns: started,
+            started_unix_ns: r.started.started_unix_ns,
             finished_unix_ns: now_ns(),
         })
     }

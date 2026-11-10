@@ -20,6 +20,7 @@ const OPERATION_MEMORY: usize = 4096;
 pub struct ServerConfig {
     pub allowed_uids: Vec<u32>,
     pub worker_id: String,
+    pub grants: crate::grants::GrantStore,
 }
 
 enum OpState {
@@ -69,22 +70,41 @@ fn receipt(o: Outcome) -> response::Result {
     })
 }
 
-/// A short fingerprint of the command so a reused operation id with a
-/// different command is detected.
-fn fingerprint(command: &request::Command) -> String {
-    use prost_free::encode;
-    encode(command)
+/// A stable fingerprint of the command so a reused operation id with a
+/// different command is detected. Map fields encode in random order, so the
+/// environment is hashed separately in key order.
+pub fn fingerprint(command: &request::Command) -> String {
+    use prost::Message;
+    let mut command = command.clone();
+    let mut env: Vec<(String, String)> = Vec::new();
+    if let request::Command::Start(s) = &mut command {
+        env = std::mem::take(&mut s.env).into_iter().collect();
+        env.sort();
+    }
+    let mut bytes = Request {
+        context: None,
+        command: Some(command),
+    }
+    .encode_to_vec();
+    for (k, v) in env {
+        for part in [k, v] {
+            bytes.extend((part.len() as u64).to_be_bytes());
+            bytes.extend(part.into_bytes());
+        }
+    }
+    lamp_engine::manifest::sha256_hex(&bytes)
 }
 
-mod prost_free {
-    use lamp_worker_protocol::{Request, request};
-    use prost::Message;
-    pub fn encode(command: &request::Command) -> String {
-        let r = Request {
-            context: None,
-            command: Some(command.clone()),
-        };
-        lamp_engine::manifest::sha256_hex(&r.encode_to_vec())
+fn command_name(command: &request::Command) -> &'static str {
+    match command {
+        request::Command::Allocate(_) => "allocate",
+        request::Command::Restore(_) => "restore",
+        request::Command::Start(_) => "start",
+        request::Command::Capture(_) => "capture",
+        request::Command::Stop(_) => "stop",
+        request::Command::Release(_) => "release",
+        request::Command::Inspect(_) => "inspect",
+        request::Command::Cancel(_) => "cancel",
     }
 }
 
@@ -164,9 +184,10 @@ impl Server {
             };
             let me = self.clone();
             let writer = writer.clone();
+            let uid = cred.uid;
             std::thread::spawn(move || {
                 let context = request.context.clone();
-                let result = me.handle(request, fds);
+                let result = me.handle(request, fds, uid);
                 let frame = Frame {
                     payload: Some(frame::Payload::Response(Response {
                         context,
@@ -181,7 +202,7 @@ impl Server {
         }
     }
 
-    fn handle(&self, request: Request, fds: Vec<OwnedFd>) -> response::Result {
+    pub fn handle(&self, request: Request, fds: Vec<OwnedFd>, caller_uid: u32) -> response::Result {
         let Some(ctx) = request.context else {
             return error("INVALID_ARGUMENT", "context is required", false);
         };
@@ -214,7 +235,8 @@ impl Server {
             );
         }
         drop(fds);
-        let global = matches!(command, request::Command::Inspect(_)) && ctx.sandbox_id.is_empty();
+        let global = matches!(&command, request::Command::Inspect(i) if i.command_operation_id.is_empty())
+            && ctx.sandbox_id.is_empty();
         if !global && (ctx.sandbox_id.is_empty() || ctx.generation == 0 || ctx.grant_id.is_empty())
         {
             return error(
@@ -222,6 +244,21 @@ impl Server {
                 "sandbox commands need sandbox_id, generation and grant_id",
                 false,
             );
+        }
+        // The grant reference must name a live, supervisor-installed control
+        // grant covering this caller, sandbox, generation, policy and command.
+        if !global
+            && let Err((code, message)) = self.cfg.grants.check(&crate::grants::Presented {
+                grant_id: &ctx.grant_id,
+                caller_uid,
+                sandbox_id: &ctx.sandbox_id,
+                generation: ctx.generation,
+                policy_revision: ctx.policy_revision,
+                command: command_name(&command),
+                now_ms: now_ms(),
+            })
+        {
+            return error(code, message, false);
         }
         let print = fingerprint(&command);
         let read_only = matches!(command, request::Command::Inspect(_));
@@ -264,7 +301,6 @@ impl Server {
             generation: ctx.generation,
             policy_revision: ctx.policy_revision,
         };
-        let remaining = ctx.deadline_ms.saturating_sub(now_ms());
         let result = match command {
             request::Command::Allocate(a) => {
                 if !a.engine_id.is_empty()
@@ -304,12 +340,17 @@ impl Server {
                     self.engine.restore(auth, &r.capture_id)
                 }
             }
-            request::Command::Start(s) => self.engine.exec(
+            // Acknowledged once the guest witnessed the exec; the command
+            // runs until it exits (or Stop/Release). Completion is read with
+            // Inspect{command_operation_id}. The RPC deadline bounds only the
+            // acknowledgement, never the command.
+            request::Command::Start(s) => self.engine.start(
                 auth,
+                &ctx.operation_id,
                 s.argv,
                 s.cwd,
                 s.env.into_iter().collect(),
-                remaining.saturating_sub(250).max(1),
+                0,
             ),
             request::Command::Capture(c) => {
                 if !c.preserves_memory {
@@ -323,7 +364,9 @@ impl Server {
             request::Command::Stop(_) => self.engine.stop(auth),
             request::Command::Release(_) => self.engine.release(auth),
             request::Command::Inspect(_) if global => Ok(self.global_inspect()),
-            request::Command::Inspect(_) => self.engine.inspect(&ctx.sandbox_id),
+            request::Command::Inspect(i) => self
+                .engine
+                .inspect(&ctx.sandbox_id, &i.command_operation_id),
             request::Command::Cancel(_) => Err(EngineError::invalid(
                 "cancel is not supported; operations are short and atomic",
             )),
@@ -368,5 +411,40 @@ impl Server {
             self.engine.compat.cpu_baseline.clone(),
         );
         o
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn start(pairs: &[(&str, &str)]) -> request::Command {
+        let mut env = HashMap::with_capacity(pairs.len() * 7);
+        for (k, v) in pairs {
+            env.insert(k.to_string(), v.to_string());
+        }
+        request::Command::Start(Start {
+            argv: vec!["env".into()],
+            cwd: String::new(),
+            env,
+        })
+    }
+
+    #[test]
+    fn fingerprint_ignores_map_order_but_not_content() {
+        let keys: Vec<(String, String)> = (0..32)
+            .map(|i| (format!("K{i}"), format!("v{i}")))
+            .collect();
+        let fwd: Vec<(&str, &str)> = keys.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+        let mut rev = fwd.clone();
+        rev.reverse();
+        let a = fingerprint(&start(&fwd));
+        // Many independently seeded maps: their encodings vary, the print not.
+        for _ in 0..16 {
+            assert_eq!(fingerprint(&start(&rev)), a);
+        }
+        let mut changed = fwd.clone();
+        changed[3].1 = "other";
+        assert_ne!(fingerprint(&start(&changed)), a);
     }
 }

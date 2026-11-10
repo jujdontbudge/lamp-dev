@@ -210,7 +210,7 @@ fn boot(
         "PUT",
         "/machine-config",
         &format!(
-            r#"{{"vcpu_count":{vcpus},"mem_size_mib":{memory_mib},"track_dirty_pages":true}}"#
+            r#"{{"vcpu_count":{vcpus},"mem_size_mib":{memory_mib},"track_dirty_pages":false}}"#
         ),
     )?;
     jail.api(
@@ -298,23 +298,32 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         for (i, step) in def.steps.iter().enumerate() {
             let t = Instant::now();
             let timeout_ms = step.timeout_s.unwrap_or(600) * 1000;
-            let reply = guest::call(
+            let exec_id = format!("step_{i}");
+            let mut conn = guest::send(
                 &vsock,
                 &GuestRequest::Exec(Exec {
                     sandbox_id: build_id.clone(),
                     generation: 1,
+                    exec_id: exec_id.clone(),
                     argv: step.argv.clone(),
                     env: step.env.clone(),
                     cwd: step.cwd.clone().unwrap_or_default(),
                     timeout_ms,
                     output_limit: lamp_init::DEFAULT_OUTPUT_LIMIT,
                 }),
-                Duration::from_millis(timeout_ms + 5000),
             )?;
-            let done = match reply {
-                GuestResponse::ExecDone(d) => d,
+            match conn.next(Some(Duration::from_secs(10)))? {
+                GuestResponse::ExecStarted(_) => {}
                 other => return Err(EngineError::host(format!("step {i}: {other:?}"))),
-            };
+            }
+            let done = guest::wait_exec(
+                &vsock,
+                &build_id,
+                1,
+                &exec_id,
+                Some(Instant::now() + Duration::from_millis(timeout_ms + 5000)),
+                || true,
+            )?;
             let out = String::from_utf8_lossy(
                 &lamp_init::b64_decode(&done.stdout_b64).unwrap_or_default(),
             )
@@ -383,8 +392,18 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
             STANDARD.memory_mib,
         )?;
         let _ = writeln!(log, "template VM booted in {} ms", t.elapsed().as_millis());
-        // Let boot-time work settle so the captured guest is idle.
+        // Let boot-time work settle so the captured guest is idle. Like
+        // every capture, the template is taken with task processes frozen;
+        // each sandbox's identity barrier thaws them.
         std::thread::sleep(Duration::from_millis(500));
+        match guest::call(
+            &v.get().path(fc::VSOCK),
+            &GuestRequest::Freeze(Empty {}),
+            Duration::from_secs(10),
+        )? {
+            GuestResponse::Frozen => {}
+            other => return Err(EngineError::host(format!("freeze: {other:?}"))),
+        }
         for f in [fc::MEM, fc::VMSTATE] {
             std::fs::File::create(v.get().path(f)).ctx("create capture file")?;
             fsutil::chown(&v.get().path(f), uid, uid)?;
@@ -537,22 +556,19 @@ fn probe(engine: &Engine, template_id: &str, tag: &str) -> Result<()> {
     };
     engine.allocate(auth, None)?;
     let result = engine.restore(auth, template_id).and_then(|_| {
-        engine.exec(
+        engine.run(
             auth,
             vec![
                 "sh".into(),
                 "-c".into(),
                 "uname -sr && test -x /sbin/lamp-init".into(),
             ],
-            String::new(),
-            Default::default(),
-            10_000,
+            Duration::from_secs(10),
         )
     });
     let _ = engine.release(auth);
-    let out = result?;
-    match out.command {
-        Some(c) if c.exit_code == 0 => Ok(()),
+    match result? {
+        c if c.exit_code == 0 => Ok(()),
         other => Err(EngineError::host(format!(
             "probe command failed: {other:?}"
         ))),

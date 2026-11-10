@@ -23,13 +23,11 @@ pub const KERNEL: &str = "vmlinux";
 pub const CGROUP_PARENT: &str = "lamp";
 /// RAM-backed directory visible inside each jail for memory capture output.
 pub const MEMDIR: &str = "mem.d";
-pub const UFFD: &str = "uffd.sock";
 
 #[derive(Debug, Clone)]
 pub struct Binaries {
     pub firecracker: PathBuf,
     pub jailer: PathBuf,
-    pub pager: PathBuf,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -56,9 +54,9 @@ pub fn cgroup_dir(id: &str) -> PathBuf {
     Path::new("/sys/fs/cgroup").join(CGROUP_PARENT).join(id)
 }
 
-/// Shared cgroup that is charged for sealed memory layers. A layer outlives
-/// the sandbox that wrote it (forks and captures keep it), so its RAM must
-/// not count against that sandbox's own `memory.max`.
+/// Shared cgroup charged for capture images. An image outlives the source
+/// that wrote it (the fork owns it), so its RAM must not count against the
+/// source's own `memory.max`.
 pub const LAYER_CGROUP: &str = "layers";
 
 /// Makes sure the parent cgroup exists with the controllers jails need.
@@ -178,19 +176,39 @@ pub fn unmount(path: &Path) {
     }
 }
 
-/// Mounts a tmpfs at `dir` unless something is already mounted there.
+/// Mounts a tmpfs at `dir` unless something is already mounted there. It
+/// is root-only and uses transparent huge pages, which roughly halves the
+/// cost of writing a full RAM image into it.
 pub fn ensure_tmpfs(dir: &Path, size: &str) -> Result<()> {
     std::fs::create_dir_all(dir).ctx("create memory dir")?;
     let mounts = std::fs::read_to_string("/proc/self/mounts").unwrap_or_default();
     let want = dir.to_string_lossy();
+    let d = CString::new(dir.as_os_str().as_bytes()).unwrap();
     if mounts
         .lines()
         .any(|l| l.split_whitespace().nth(1) == Some(&want))
     {
+        // Already mounted (e.g. by an earlier run): enforce huge pages.
+        // SAFETY: valid strings; a tmpfs remount changes only `huge`.
+        if unsafe {
+            libc::mount(
+                std::ptr::null(),
+                d.as_ptr(),
+                std::ptr::null(),
+                libc::MS_REMOUNT | libc::MS_NOSUID | libc::MS_NODEV | libc::MS_NOEXEC,
+                c"huge=always".as_ptr().cast(),
+            )
+        } != 0
+        {
+            return Err(EngineError::host(format!(
+                "remount {}: {}",
+                dir.display(),
+                std::io::Error::last_os_error()
+            )));
+        }
         return Ok(());
     }
-    let d = CString::new(dir.as_os_str().as_bytes()).unwrap();
-    let opts = CString::new(format!("size={size},mode=0711")).unwrap();
+    let opts = CString::new(format!("size={size},mode=0700,huge=always")).unwrap();
     // SAFETY: valid strings.
     if unsafe {
         libc::mount(
@@ -256,6 +274,7 @@ impl Jail {
         let bind = (|| -> Result<()> {
             std::fs::create_dir_all(&jail.memdir).ctx("create memdir")?;
             fsutil::chown(&jail.memdir, uid, uid)?;
+            fsutil::chmod(&jail.memdir, 0o700)?;
             let target = jail.root.join(MEMDIR);
             std::fs::create_dir(&target).ctx("create jail memdir")?;
             bind_mount(&jail.memdir, &target)
@@ -340,19 +359,34 @@ impl Jail {
             .is_some_and(|pid| unsafe { libc::kill(pid, 0) } == 0)
     }
 
-    /// Kills every process in the jail's cgroup and waits for it to empty.
+    /// Kills every process in the jail's cgroup and returns only once the
+    /// VMM process is gone. A task leaves its cgroup before it has finished
+    /// exiting (closing the KVM VM, freeing guest RAM), so an empty or
+    /// removed cgroup alone is not enough.
     pub fn kill(&mut self) {
+        let vmm = self.pid.and_then(|pid| start_time(pid).map(|t| (pid, t)));
         let cg = cgroup_dir(&self.id);
+        let start = Instant::now();
         if cg.exists() {
             let _ = std::fs::write(cg.join("cgroup.kill"), "1");
-            let start = Instant::now();
-            while start.elapsed() < Duration::from_secs(5) {
-                match std::fs::read_to_string(cg.join("cgroup.procs")) {
-                    Ok(p) if !p.trim().is_empty() => std::thread::sleep(Duration::from_millis(1)),
-                    _ => break,
+            while let Err(e) = std::fs::remove_dir(&cg) {
+                if start.elapsed() > Duration::from_secs(10) {
+                    eprintln!("lamp-engine: VMM cgroup {} not empty: {e}", cg.display());
+                    break;
                 }
+                std::thread::sleep(Duration::from_millis(1));
             }
-            let _ = std::fs::remove_dir(&cg);
+        }
+        // The VMM is reparented to init, which reaps it; the start time
+        // guards against a reused PID.
+        if let Some((pid, t)) = vmm {
+            while start_time(pid) == Some(t) {
+                if start.elapsed() > Duration::from_secs(10) {
+                    eprintln!("lamp-engine: VMM {pid} still exiting after 10 s");
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
         }
         self.pid = None;
     }
@@ -380,15 +414,41 @@ impl Jail {
     }
 }
 
+/// A process's start time (clock ticks since boot), `None` once it is gone.
+fn start_time(pid: i32) -> Option<u64> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    // Fields after the parenthesised command; starttime is field 22.
+    let rest = &stat[stat.rfind(')')? + 2..];
+    rest.split_whitespace().nth(19)?.parse().ok()
+}
+
 fn tail(s: &str) -> String {
     let lines: Vec<&str> = s.lines().collect();
     lines[lines.len().saturating_sub(5)..].join(" | ")
 }
 
+/// Connects to the API socket. The socket file appears at `bind()`, a moment
+/// before Firecracker calls `listen()`; a connect in between is refused.
+/// Nothing has been sent then, so a refused connect is retried briefly.
+fn connect_api(sock: &Path) -> Result<UnixStream> {
+    let start = Instant::now();
+    loop {
+        match UnixStream::connect(sock) {
+            Ok(s) => return Ok(s),
+            Err(e)
+                if e.kind() == std::io::ErrorKind::ConnectionRefused
+                    && start.elapsed() < Duration::from_secs(2) =>
+            {
+                std::thread::sleep(Duration::from_micros(200));
+            }
+            Err(e) => return Err(EngineError::host(format!("firecracker API: {e}"))),
+        }
+    }
+}
+
 /// Minimal HTTP/1.1 client for Firecracker's API socket.
 pub fn api_call(sock: &Path, method: &str, path: &str, body: &str) -> Result<String> {
-    let mut stream = UnixStream::connect(sock)
-        .map_err(|e| EngineError::host(format!("firecracker API: {e}")))?;
+    let mut stream = connect_api(sock)?;
     stream.set_read_timeout(Some(Duration::from_secs(300)))?;
     let request = format!(
         "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
@@ -431,4 +491,48 @@ pub fn api_call(sock: &Path, method: &str, path: &str, body: &str) -> Result<Str
 /// Quotes a JSON string value.
 pub fn js(s: &str) -> String {
     serde_json::to_string(s).unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+
+    /// A socket that is bound but not yet listening refuses connects, as
+    /// Firecracker's API socket does for a moment at startup.
+    #[test]
+    fn api_connect_waits_for_listen_after_bind() {
+        let path = std::env::temp_dir().join(format!("lamp-api-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let c = CString::new(path.as_os_str().as_bytes()).unwrap();
+        // SAFETY: plain socket/bind with a zeroed, filled sockaddr_un.
+        let fd = unsafe {
+            let fd = libc::socket(libc::AF_UNIX, libc::SOCK_STREAM, 0);
+            assert!(fd >= 0);
+            let mut addr: libc::sockaddr_un = std::mem::zeroed();
+            addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
+            for (d, s) in addr.sun_path.iter_mut().zip(c.as_bytes()) {
+                *d = *s as libc::c_char;
+            }
+            let len = std::mem::size_of::<libc::sockaddr_un>() as libc::socklen_t;
+            assert_eq!(libc::bind(fd, (&raw const addr).cast(), len), 0);
+            OwnedFd::from_raw_fd(fd)
+        };
+        assert_eq!(
+            UnixStream::connect(&path).unwrap_err().kind(),
+            std::io::ErrorKind::ConnectionRefused
+        );
+        let raw = fd.as_raw_fd();
+        let listener = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+            // SAFETY: listen on the bound socket owned by `fd`.
+            assert_eq!(unsafe { libc::listen(raw, 1) }, 0);
+            fd
+        });
+        assert!(connect_api(&path).is_ok());
+        drop(listener.join().unwrap());
+        let _ = std::fs::remove_file(&path);
+        // A socket nobody will ever listen on still fails, after the window.
+        assert!(connect_api(&path).is_err());
+    }
 }

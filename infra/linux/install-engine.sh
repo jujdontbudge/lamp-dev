@@ -23,10 +23,9 @@ sudo -n install -d /usr/local/lib/lamp
 sudo -n install -m 0755 "$R/firecracker-$FC_VERSION-x86_64" /usr/local/lib/lamp/firecracker
 sudo -n install -m 0755 "$R/jailer-$FC_VERSION-x86_64" /usr/local/lib/lamp/jailer
 
-(cd "$ROOT" && cargo build --release --locked -p lamp-supervisor -p lamp-engine)
-for bin in lamp-supervisor lamp-pager; do
-  sudo -n install -m 0755 "${CARGO_TARGET_DIR:-$ROOT/target}/release/$bin" "/usr/local/lib/lamp/$bin"
-done
+(cd "$ROOT" && cargo build --release --locked -p lamp-supervisor)
+sudo -n install -m 0755 "${CARGO_TARGET_DIR:-$ROOT/target}/release/lamp-supervisor" /usr/local/lib/lamp/lamp-supervisor
+sudo -n rm -f /usr/local/lib/lamp/lamp-pager
 
 if ! mountpoint -q /var/lib/lamp; then
   sudo -n install -d /var/lib/lamp

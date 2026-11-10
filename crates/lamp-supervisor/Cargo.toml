@@ -10,6 +10,7 @@ description = "Privileged local Lamp supervisor serving lamp.worker/1 over a pee
 lamp-worker-protocol = { path = "../lamp-worker-protocol" }
 lamp-engine = { path = "../lamp-engine" }
 lamp-init = { path = "../lamp-init" }
+serde.workspace = true
 serde_json.workspace = true
 prost.workspace = true
 

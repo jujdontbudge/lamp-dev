@@ -75,6 +75,12 @@ mod linux {
             libc::MS_NOSUID | libc::MS_NODEV,
             "mode=1777",
         );
+        // Every command runs in one cgroup so the helper can freeze all task
+        // processes around a capture; init and the helper stay outside it.
+        mount("cgroup2", "/sys/fs/cgroup", "cgroup2", nosuid, "");
+        if let Err(e) = std::fs::create_dir_all(lamp_init::TASKS_CGROUP) {
+            eprintln!("lamp-init: create tasks cgroup: {e}");
+        }
         let _ = std::fs::create_dir_all("/run/lamp");
         let _ = std::os::unix::fs::symlink("/proc/self/fd", "/dev/fd");
         // SAFETY: plain syscalls with valid arguments.

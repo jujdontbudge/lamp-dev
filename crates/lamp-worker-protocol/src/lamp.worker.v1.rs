@@ -131,8 +131,14 @@ pub struct Restore {
     #[prost(message, repeated, tag = "3")]
     pub input_handles: ::prost::alloc::vec::Vec<HandleGrant>,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct Inspect {}
+/// With command_operation_id set (the operation_id of an earlier Start on
+/// this sandbox), Receipt.command reports that command: finished_at_unix_ns is
+/// 0 while it still runs.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Inspect {
+    #[prost(string, tag = "1")]
+    pub command_operation_id: ::prost::alloc::string::String,
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Cancel {
     #[prost(string, tag = "1")]

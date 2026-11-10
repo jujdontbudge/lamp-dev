@@ -218,8 +218,9 @@ pub fn recv_frame_with_fds(sock: &impl AsRawFd) -> io::Result<(Frame, Vec<OwnedF
             "missing worker payload",
         ));
     }
-    // Unknown fields are dropped by decode; re-encoding exposes them.
-    if frame.encode_to_vec() != body {
+    // Unknown fields are dropped by decode; re-encoding exposes them. Map
+    // entries may arrive in any order, so compare field multisets.
+    if !crate::wire::equivalent(&frame.encode_to_vec(), &body) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "unknown or non-canonical fields",

@@ -22,10 +22,25 @@ pub enum GuestRequest {
     /// Identity barrier: must succeed for the current sandbox/generation
     /// before any command is admitted.
     Barrier(Barrier),
+    /// Starts a command. The helper replies `ExecStarted` once the program
+    /// has been exec'd; completion is fetched with `Wait`.
     Exec(Exec),
+    /// Waits up to `wait_ms` for a started command's completion. Each wait is
+    /// a short, idempotent request on a fresh connection, so a capture that
+    /// resets the guest's vsock connections never loses a completion.
+    Wait(Wait),
+    /// Freezes every task process (the `tasks` cgroup) before a capture, so
+    /// nothing runs between the copy and the copy's own identity barrier.
+    Freeze(Empty),
+    /// Thaws the task processes of a source after its capture. A restored
+    /// copy is thawed only by its identity barrier.
+    Thaw(Empty),
     /// Flush and power off (used by template builds).
     Shutdown(Empty),
 }
+
+/// Guest cgroup v2 directory every command and its descendants run in.
+pub const TASKS_CGROUP: &str = "/sys/fs/cgroup/tasks";
 
 /// Payload of commands without arguments; still rejects unknown fields.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,13 +65,25 @@ pub struct Barrier {
 pub struct Exec {
     pub sandbox_id: String,
     pub generation: u64,
+    /// Host-chosen ID (the Start operation ID) that `Wait` refers to.
+    pub exec_id: String,
     pub argv: Vec<String>,
     #[serde(default)]
     pub env: BTreeMap<String, String>,
     #[serde(default)]
     pub cwd: String,
+    /// Kill the command's process group after this long; 0 means never.
     pub timeout_ms: u64,
     pub output_limit: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Wait {
+    pub sandbox_id: String,
+    pub generation: u64,
+    pub exec_id: String,
+    pub wait_ms: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,9 +91,18 @@ pub struct Exec {
 pub enum GuestResponse {
     Pong(Status),
     BarrierAck(BarrierAck),
+    /// The program was exec'd (the close-on-exec status pipe closed empty).
+    ExecStarted(ExecStarted),
     ExecDone(ExecDone),
+    /// `Wait` elapsed while the command was still running.
+    ExecRunning,
+    Frozen,
+    Thawed,
     ShuttingDown,
-    Error { code: String, message: String },
+    Error {
+        code: String,
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,6 +123,13 @@ pub struct BarrierAck {
     /// 16 bytes read from the guest kernel CRNG after reseeding.
     pub rng_sample_hex: String,
     pub kernel_boot_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExecStarted {
+    pub pid: i32,
+    pub started_unix_ns: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -252,6 +295,7 @@ mod tests {
         let req = GuestRequest::Exec(Exec {
             sandbox_id: "sb_1".into(),
             generation: 3,
+            exec_id: "op_1".into(),
             argv: vec!["true".into()],
             env: BTreeMap::new(),
             cwd: String::new(),

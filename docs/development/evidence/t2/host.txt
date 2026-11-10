@@ -1,7 +1,26 @@
-2026-11-09T19:02:33-05:00
+2026-11-09T19:55:48-05:00
 Linux ubuntu-server 7.0.0-42-generic #42-Ubuntu SMP PREEMPT_DYNAMIC Thu Oct 15 08:06:44 UTC 2026 x86_64 GNU/Linux
 8
+Model name:                              Intel(R) Core(TM) Ultra 9 288V
+CPU(s) scaling MHz:                      91%
+CPU max MHz:                             5100.0000
+CPU min MHz:                             400.0000
                total        used        free      shared  buff/cache   available
-Mem:           31140       18901        5285         485        7895       12239
-Swap:           8191        8191           0
- 19:02:33 up 4 days,  5:10,  4 users,  load average: 4.37, 12.39, 11.53
+Mem:           31140        3127       19830         241        8880       28012
+Swap:           8191        4392        3799
+ 19:55:48 up 4 days,  6:03,  4 users,  load average: 0.59, 1.17, 1.42
+powersave
+TARGET        SOURCE   FSTYPE OPTIONS
+/run/lamp/mem lamp-mem tmpfs  rw,nosuid,nodev,noexec,relatime,size=23916100k,mode=711,inode64,huge=always
+TARGET        SOURCE      FSTYPE OPTIONS
+/var/lib/lamp /dev/loop14 xfs    rw,relatime,inode64,logbufs=8,logbsize=32k,noquota
+chrome: inactive
+t3: 5 t3 processes
+
+# Owner Chrome service (excerlock-dm-chrome.service) during the timing runs,
+# from its user journal and systemctl (added after the run):
+# run 1: stopped 19:55:43-19:55:48, started again by something outside this run
+#   at 19:55:48 (the unit has Restart=on-failure only), before create-200 began.
+#   So create-200 and all three volatile fork rows ran with Chrome running.
+# run 2 (local row, bench-local.log): stopped 20:06:55; started again from
+#   outside at 20:10:58, about a third into the row; started by the script at 20:19:35.

@@ -831,10 +831,14 @@ func (x *Restore) GetInputHandles() []*HandleGrant {
 	return nil
 }
 
+// With command_operation_id set (the operation_id of an earlier Start on
+// this sandbox), Receipt.command reports that command: finished_at_unix_ns is
+// 0 while it still runs.
 type Inspect struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	CommandOperationId string                 `protobuf:"bytes,1,opt,name=command_operation_id,json=commandOperationId,proto3" json:"command_operation_id,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Inspect) Reset() {
@@ -865,6 +869,13 @@ func (x *Inspect) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Inspect.ProtoReflect.Descriptor instead.
 func (*Inspect) Descriptor() ([]byte, []int) {
 	return file_worker_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Inspect) GetCommandOperationId() string {
+	if x != nil {
+		return x.CommandOperationId
+	}
+	return ""
 }
 
 type Cancel struct {
@@ -1637,8 +1648,9 @@ const file_worker_proto_rawDesc = "" +
 	"\n" +
 	"capture_id\x18\x01 \x01(\tR\tcaptureId\x12C\n" +
 	"\rcompatibility\x18\x02 \x01(\v2\x1d.lamp.worker.v1.CompatibilityR\rcompatibility\x12@\n" +
-	"\rinput_handles\x18\x03 \x03(\v2\x1b.lamp.worker.v1.HandleGrantR\finputHandles\"\t\n" +
-	"\aInspect\"8\n" +
+	"\rinput_handles\x18\x03 \x03(\v2\x1b.lamp.worker.v1.HandleGrantR\finputHandles\";\n" +
+	"\aInspect\x120\n" +
+	"\x14command_operation_id\x18\x01 \x01(\tR\x12commandOperationId\"8\n" +
 	"\x06Cancel\x12.\n" +
 	"\x13target_operation_id\x18\x01 \x01(\tR\x11targetOperationId\"\t\n" +
 	"\aRelease\"\xe0\x03\n" +

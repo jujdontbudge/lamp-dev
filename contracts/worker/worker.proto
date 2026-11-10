@@ -58,7 +58,10 @@ message Stop { bool force = 1; }
 // Artifacts are opaque handle references. Their on-disk format remains unfrozen.
 message Capture { string capture_id = 1; bool preserves_memory = 2; string consistency = 3; repeated HandleGrant output_handles = 4; }
 message Restore { string capture_id = 1; Compatibility compatibility = 2; repeated HandleGrant input_handles = 3; }
-message Inspect {}
+// With command_operation_id set (the operation_id of an earlier Start on
+// this sandbox), Receipt.command reports that command: finished_at_unix_ns is
+// 0 while it still runs.
+message Inspect { string command_operation_id = 1; }
 message Cancel { string target_operation_id = 1; }
 message Release {}
 message Request {

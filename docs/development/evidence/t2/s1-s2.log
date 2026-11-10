@@ -1,0 +1,22 @@
+## S1: the only host process serving a sandbox is the jailed Firecracker VMM, under its seccomp filter
+cgroup lamp/sb-s1 procs:
+  3473712 firecracker uid=900000 NoNewPrivs: 1 Seccomp: 2 Seccomp_filters: 1 
+cgroup lamp/sb-s1child procs:
+  3473733 firecracker uid=900001 NoNewPrivs: 1 Seccomp: 2 Seccomp_filters: 1 
+host processes owned by sandbox UIDs (>= 900000):
+3473712 900000 firecracker
+3473733 900001 firecracker
+pager binary present: firecracker jailer lamp-supervisor 
+## S2: permissions
+drwx------ root:root /run/lamp/mem
+drwx------ root:root /run/lamp/mem/captures
+drwx------ root:root /run/lamp/mem/jails
+drwx------ root:root /var/lib/lamp/jail
+drwx------ root:root /var/lib/lamp/captures
+drwx------ root:root /var/lib/lamp/grants
+drwx------ root:root /var/lib/lamp/keys
+rw,nosuid,nodev,noexec,relatime,size=23916100k,mode=711,inode64,huge=always
+-r--r--r-- root:root /run/lamp/mem/jails/sb-s1/vmstate
+-r-------- UNKNOWN:UNKNOWN /run/lamp/mem/jails/sb-s1child/src.mem
+-r-------- UNKNOWN:UNKNOWN /run/lamp/mem/jails/sb-s1child/vmstate
+ls: cannot open directory '/run/lamp/mem': Permission denied

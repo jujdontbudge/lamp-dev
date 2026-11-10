@@ -2,8 +2,12 @@
 //!
 //! ```text
 //! lamp-supervisor serve [--socket P] [--store P] [--allow-uid UID]...
-//! lamp-supervisor seed-import DIR            (root; prints the seed_ref)
-//! lamp-supervisor template-build FILE.lamp   (root; builds, probes, publishes)
+//! lamp-supervisor seed-import DIR            (root, service stopped; prints the seed_ref)
+//! lamp-supervisor template-build FILE.lamp   (root, service stopped; builds, probes, publishes)
+//! lamp-supervisor templates                  (root; read-only listing, safe next to the service)
+//! lamp-supervisor grant-install --caller-uid UID [--generation N] [--policy-revision N]
+//!                 [--ttl-s S] [--sandbox-prefix P] [--commands a,b,..]   (root; prints the grant)
+//! lamp-supervisor grant-revoke GRANT_ID      (root)
 //! lamp-supervisor ctl [--socket P] create TEMPLATE [SANDBOX_ID]
 //! lamp-supervisor ctl exec SANDBOX_ID -- ARGV...
 //! lamp-supervisor ctl fork SANDBOX_ID [CHILD_ID] [--durability volatile|local]
@@ -11,7 +15,8 @@
 //! lamp-supervisor ctl bench-create TEMPLATE COUNT [WARMUP]
 //! lamp-supervisor ctl bench-fork TEMPLATE DIRTY_MIB COUNT [WARMUP] [--durability D]
 //! ```
-//! `ctl` talks to a running supervisor over lamp.worker/1 exactly like lampd.
+//! `ctl` talks to a running supervisor over lamp.worker/1 exactly like lampd,
+//! presenting the control grant named by `LAMP_GRANT_ID`.
 use lamp_supervisor::client::Client;
 use lamp_worker_protocol::*;
 use serde_json::json;
@@ -44,34 +49,123 @@ fn main() {
         die("usage: lamp-supervisor serve|seed-import|template-build|ctl ...");
     }
     let cmd = args.remove(0);
+    if cmd == "serve" {
+        // Before any thread exists, so every thread inherits the mask and
+        // SIGTERM/SIGINT can only be taken by the waiter's sigwait, which
+        // shuts the engine down. No signal can end the process past it.
+        block_term_signals();
+    }
     match cmd.as_str() {
-        "serve" | "seed-import" | "template-build" | "templates" => host(&cmd, args),
+        "serve" | "seed-import" | "template-build" | "templates" | "grant-install"
+        | "grant-revoke" => host(&cmd, args),
         "ctl" => ctl(args),
         other => die(format!("unknown command {other}")),
     }
 }
 
 #[cfg(target_os = "linux")]
+fn term_set() -> libc::sigset_t {
+    // SAFETY: plain sigset manipulation on a local value.
+    unsafe {
+        let mut set: libc::sigset_t = std::mem::zeroed();
+        libc::sigemptyset(&mut set);
+        libc::sigaddset(&mut set, libc::SIGTERM);
+        libc::sigaddset(&mut set, libc::SIGINT);
+        set
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn block_term_signals() {
+    let set = term_set();
+    // SAFETY: called from the only thread; changes its mask, inherited by all later threads.
+    if unsafe { libc::pthread_sigmask(libc::SIG_BLOCK, &set, std::ptr::null_mut()) } != 0 {
+        die("cannot block SIGTERM/SIGINT");
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn block_term_signals() {}
+
+#[cfg(target_os = "linux")]
+fn grant_command(cmd: &str, store: &std::path::Path, mut args: Vec<String>) {
+    use lamp_supervisor::grants::{COMMANDS, ControlGrant, FORMAT, GrantStore, revoke};
+    let dir = store.join("grants");
+    if cmd == "grant-revoke" {
+        let id = args.first().unwrap_or_else(|| die("grant-revoke GRANT_ID"));
+        revoke(&dir, id).unwrap_or_else(|e| die(e));
+        return;
+    }
+    let num = |args: &mut Vec<String>, flag: &str, default: u64| {
+        take_flag(args, flag)
+            .map(|v| {
+                v.parse::<u64>()
+                    .unwrap_or_else(|_| die(format!("bad {flag}")))
+            })
+            .unwrap_or(default)
+    };
+    let caller_uid = num(&mut args, "--caller-uid", u64::MAX);
+    if caller_uid > u64::from(u32::MAX) {
+        die("grant-install needs --caller-uid UID");
+    }
+    let generation = num(&mut args, "--generation", 1);
+    let policy_revision = num(&mut args, "--policy-revision", 1);
+    let ttl_s = num(&mut args, "--ttl-s", 24 * 3600);
+    let prefix = take_flag(&mut args, "--sandbox-prefix").unwrap_or_else(|| "sb_".into());
+    let commands = take_flag(&mut args, "--commands")
+        .map(|c| c.split(',').map(str::to_string).collect())
+        .unwrap_or_else(|| COMMANDS.iter().map(|c| c.to_string()).collect());
+    let now = lamp_engine::fsutil::now_ms();
+    let grant = ControlGrant {
+        format: FORMAT.into(),
+        grant_id: format!(
+            "gr_{}",
+            lamp_init::hex_encode(&lamp_engine::fsutil::random_bytes::<16>())
+        ),
+        caller_uid: caller_uid as u32,
+        sandbox_prefix: prefix,
+        generation,
+        policy_revision,
+        commands,
+        issued_at_unix_ms: now,
+        expires_at_unix_ms: now + ttl_s * 1000,
+    };
+    GrantStore::new(dir)
+        .install(&grant)
+        .unwrap_or_else(|e| die(format!("install grant: {e}")));
+    println!("{}", serde_json::to_string(&grant).unwrap());
+}
+
+#[cfg(target_os = "linux")]
 fn host(cmd: &str, mut args: Vec<String>) {
-    use lamp_engine::engine::{Config, Engine};
+    use lamp_engine::engine::{Config, Engine, Mode};
     use std::sync::Arc;
     let store =
         PathBuf::from(take_flag(&mut args, "--store").unwrap_or_else(|| DEFAULT_STORE.into()));
+    if cmd.starts_with("grant-") {
+        return grant_command(cmd, &store, args);
+    }
     let socket =
         PathBuf::from(take_flag(&mut args, "--socket").unwrap_or_else(|| DEFAULT_SOCKET.into()));
     let mut allowed = vec![0_u32];
     while let Some(uid) = take_flag(&mut args, "--allow-uid") {
         allowed.push(uid.parse().unwrap_or_else(|_| die("bad --allow-uid")));
     }
-    let mut cfg = Config::defaults(store);
+    let mut cfg = Config::defaults(store.clone());
     if let Some(fc) = take_flag(&mut args, "--firecracker") {
         cfg.bins.firecracker = fc.into();
     }
     if let Some(j) = take_flag(&mut args, "--jailer") {
         cfg.bins.jailer = j.into();
     }
+    let mode = match cmd {
+        "serve" => Mode::Daemon,
+        "templates" => Mode::ReadOnly,
+        _ => Mode::Offline,
+    };
+    let grants = lamp_supervisor::grants::GrantStore::new(store.join("grants"));
     let t = Instant::now();
-    let engine = Arc::new(Engine::open(cfg).unwrap_or_else(|e| die(e)));
+    let engine = Arc::new(Engine::open(cfg, mode).unwrap_or_else(|e| die(e)));
     eprintln!(
         "lamp-supervisor: store open, {} verified template(s) in {} ms",
         engine.templates().len(),
@@ -84,13 +178,19 @@ fn host(cmd: &str, mut args: Vec<String>) {
                 lamp_supervisor::server::ServerConfig {
                     allowed_uids: allowed,
                     worker_id: format!("lamp-supervisor@{}", engine.cfg.host_id),
+                    grants,
                 },
             ));
             let e2 = engine.clone();
             let sock2 = socket.clone();
             std::thread::spawn(move || {
                 wait_for_term();
-                e2.shutdown();
+                let t = Instant::now();
+                let n = e2.shutdown();
+                eprintln!(
+                    "lamp-supervisor: stopped {n} sandbox(es) in {} ms",
+                    t.elapsed().as_millis()
+                );
                 let _ = std::fs::remove_file(&sock2);
                 std::process::exit(0);
             });
@@ -129,16 +229,12 @@ fn host(cmd: &str, mut args: Vec<String>) {
 
 #[cfg(target_os = "linux")]
 fn wait_for_term() {
-    // SAFETY: block SIGTERM/SIGINT in this thread and wait for one.
-    unsafe {
-        let mut set: libc::sigset_t = std::mem::zeroed();
-        libc::sigemptyset(&mut set);
-        libc::sigaddset(&mut set, libc::SIGTERM);
-        libc::sigaddset(&mut set, libc::SIGINT);
-        libc::pthread_sigmask(libc::SIG_BLOCK, &set, std::ptr::null_mut());
-        let mut sig = 0;
-        libc::sigwait(&set, &mut sig);
-    }
+    let set = term_set();
+    let mut sig = 0;
+    // SAFETY: the signals are blocked in every thread (block_term_signals),
+    // so they stay pending until taken here.
+    unsafe { libc::sigwait(&set, &mut sig) };
+    eprintln!("lamp-supervisor: signal {sig}: stopping every sandbox");
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -150,6 +246,8 @@ struct Ctl {
     client: Client,
     op: u64,
     tag: String,
+    /// When the last `exec` was acknowledged as started.
+    last_ack: Option<Instant>,
 }
 
 fn rand_tag() -> String {
@@ -199,17 +297,30 @@ impl Ctl {
         )
     }
 
+    /// Starts a command (acknowledged once the guest exec'd it), then waits
+    /// for it to exit through Inspect.
     fn exec(&mut self, sandbox: &str, argv: &[&str]) -> CommandResult {
-        let r = self.call(
-            sandbox,
-            request::Command::Start(Start {
-                argv: argv.iter().map(|s| s.to_string()).collect(),
-                cwd: String::new(),
-                env: Default::default(),
-            }),
-        );
-        r.command
-            .unwrap_or_else(|| die("Start returned no command result"))
+        self.op += 1;
+        let op = format!("op_{}_{}", self.tag, self.op);
+        let ctx = self.client.context(&op, sandbox, 1, 30_000);
+        let r = self
+            .client
+            .receipt(
+                ctx,
+                request::Command::Start(Start {
+                    argv: argv.iter().map(|s| s.to_string()).collect(),
+                    cwd: String::new(),
+                    env: Default::default(),
+                }),
+            )
+            .unwrap_or_else(|e| die(e));
+        if r.state != "command_started" {
+            die(format!("Start returned {}", r.state));
+        }
+        self.last_ack = Some(Instant::now());
+        self.client
+            .wait_command(sandbox, 1, &op, std::time::Duration::from_secs(900))
+            .unwrap_or_else(|e| die(e))
     }
 
     fn fork(&mut self, source: &str, child: &str, durability: &str) -> (Receipt, Receipt) {
@@ -274,6 +385,7 @@ fn ctl(mut args: Vec<String>) {
         client,
         op: 0,
         tag: rand_tag(),
+        last_ack: None,
     };
     match sub.as_str() {
         "create" => {
@@ -328,7 +440,7 @@ fn ctl(mut args: Vec<String>) {
         }
         "inspect" => {
             let id = args.first().cloned().unwrap_or_default();
-            let r = c.call(&id, request::Command::Inspect(Inspect {}));
+            let r = c.call(&id, request::Command::Inspect(Inspect::default()));
             println!(
                 "{}",
                 json!({"state": r.state, "handles": r.committed_handle_ids, "detail": r.detail})
@@ -358,7 +470,10 @@ fn bench_create(c: &mut Ctl, args: &[String]) {
         let r = c.create(template, &id);
         // A real command whose output is an independent marker of execution.
         let cmd = c.exec(&id, &["sh", "-c", "echo command-ran-in-$(hostname)"]);
+        // Timed to the command's verified output, which is stricter than
+        // the start acknowledgement (also recorded).
         let elapsed = t.elapsed().as_secs_f64() * 1000.0;
+        let started = c.last_ack.map(|a| (a - t).as_secs_f64() * 1000.0);
         let ok = cmd.exit_code == 0
             && text(&cmd.stdout_tail).trim() == format!("command-ran-in-{}", id.replace('_', "-"));
         if !ok {
@@ -369,7 +484,8 @@ fn bench_create(c: &mut Ctl, args: &[String]) {
         }
         println!(
             "{}",
-            json!({"trial": i, "warmup": i < warmup, "sandbox_id": id, "create_to_command_ms": elapsed, "ok": ok, "engine": r.detail})
+            json!({"trial": i, "warmup": i < warmup, "sandbox_id": id, "create_to_command_ms": elapsed,
+                   "create_to_started_ack_ms": started, "ok": ok, "engine": r.detail})
         );
         c.release(&id);
     }

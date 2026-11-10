@@ -1,1 +1,1 @@
-{"case":"fork dirty=128MiB durability=volatile","extra":{"failures":0,"source_pause_max_ms":293.165,"source_pause_p50_ms":77.454,"trials_under_1000ms":100},"max_ms":347.885323,"min_ms":93.321669,"p50_ms":131.95761000000002,"p95_ms":188.408934,"p99_ms":326.013094,"trials":100}
+{"case":"fork dirty=128MiB durability=volatile","extra":{"failures":0,"source_pause_max_ms":592.278,"source_pause_p50_ms":510.347,"trials_under_1000ms":100},"max_ms":638.1468169999999,"min_ms":529.648479,"p50_ms":558.754818,"p95_ms":608.5911659999999,"p99_ms":636.942207,"trials":100}

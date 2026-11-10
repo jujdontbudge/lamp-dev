@@ -8,33 +8,36 @@
 //! seeds/<digest>/             verified seeds (seed.json, vmlinux, rootfs.ext4)
 //! templates/<template_id>/    manifest.json provenance.json vmlinux root.ext4 rootfs.ext4 mem vmstate
 //! templates/names/<name>      symlink to a template id
-//! captures/<capture_id>/      rootfs.ext4 meta.json [mem.layer vmstate when durable]
-//! jail/firecracker/<jail>/    per-sandbox jailer chroot
+//! captures/<capture_id>/      rootfs.ext4 meta.json [mem vmstate when durable]
+//! jail/firecracker/<jail>/    per-sandbox jailer chroot (0700 root above it)
+//! grants/<grant_id>.json      installed control grants (root-only)
+//! lock                        exclusive store ownership (flock)
 //! ```
 //!
-//! and RAM-backed memory state under `mem_dir` (tmpfs):
+//! and RAM-backed memory state under `mem_dir` (tmpfs, huge pages, 0700):
 //!
 //! ```text
-//! layers/<capture_id>.mem     sealed dirty-page layers (sparse)
-//! captures/<capture_id>.vmstate
-//! jails/<jail>/               bound into each jail as /mem.d
+//! captures/<capture_id>.mem       full RAM image (root:root 0400)
+//! captures/<capture_id>.vmstate   CPU/device state (root:root 0400)
+//! jails/<jail>/                   bound into each jail as /mem.d (0700, jail UID)
 //! ```
 //!
-//! A sandbox's memory is a stack of immutable layers (see `layer`). A memory
-//! capture seals one more layer holding only pages dirtied since the last
-//! one; the stack is the complete RAM image. A fork restores through
-//! Firecracker's UFFD backend, served by a per-sandbox `lamp-pager` that
-//! reads the stack. No live KVM handle, process fork or mutable shared page
-//! is ever inherited.
+//! A memory capture is a Firecracker **Full** snapshot: every page of the
+//! configured guest RAM is written, whatever was recently touched (dirty
+//! tracking is off). The fork maps that complete image privately through
+//! Firecracker's File backend inside its own jail, so no page server or
+//! other host process ever handles guest memory. A capture image is readable
+//! only by root until it is handed to the one sandbox restoring it, which
+//! then owns it. No live KVM handle, process fork or mutable shared page is
+//! ever inherited.
 use crate::error::{EngineError, IoContext, Result};
 use crate::fc::{self, Binaries, Jail, Limits};
 use crate::fsutil::{self, now_ms, now_ns, random_bytes};
 use crate::guest;
-use crate::layer::{self, Layer, Stack};
 use crate::manifest::{self, AccelerationVariant, Compatibility, Manifest, Provenance, Resources};
 use ed25519_dalek::{SigningKey, VerifyingKey};
-use lamp_init::{Barrier, Exec, ExecDone, GuestRequest, GuestResponse};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use lamp_init::{Barrier, Empty, Exec, ExecDone, ExecStarted, GuestRequest, GuestResponse};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
@@ -48,6 +51,14 @@ pub const STANDARD: Resources = Resources {
     disk_gib: 20,
 };
 pub const DEFAULT_PIDS_MAX: u64 = 4096;
+/// Commands remembered per sandbox for completion lookups.
+const COMMAND_MEMORY: usize = 256;
+/// Capture states (`CaptureRec::restores`): a capture is restored once.
+const CAPTURE_AVAILABLE: u64 = 0;
+const CAPTURE_RESTORING: u64 = 1;
+const CAPTURE_CONSUMED: u64 = 2;
+/// File a restored fork maps its memory from, inside its `/mem.d`.
+const SRC_MEM: &str = "src.mem";
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -57,7 +68,7 @@ pub struct Config {
     pub uid_base: u32,
     pub uid_count: u32,
     pub host_id: String,
-    /// RAM-backed (tmpfs) directory for volatile memory layers.
+    /// RAM-backed (tmpfs) directory for volatile memory captures.
     pub mem_dir: PathBuf,
     pub mem_dir_size: String,
     /// Extra trusted producer keys beyond this host's own.
@@ -72,7 +83,6 @@ impl Config {
             bins: Binaries {
                 firecracker: PathBuf::from("/usr/local/lib/lamp/firecracker"),
                 jailer: PathBuf::from("/usr/local/lib/lamp/jailer"),
-                pager: PathBuf::from("/usr/local/lib/lamp/lamp-pager"),
             },
             mem_dir: PathBuf::from("/run/lamp/mem"),
             mem_dir_size: "75%".into(),
@@ -133,105 +143,61 @@ pub struct Template {
     pub manifest: Manifest,
     pub manifest_digest: String,
     pub variant: AccelerationVariant,
-    layer: std::sync::OnceLock<Arc<Layer>>,
-}
-
-impl Template {
-    /// The variant's memory image as a complete bottom layer.
-    pub fn memory_layer(&self) -> Result<Arc<Layer>> {
-        if let Some(l) = self.layer.get() {
-            return Ok(l.clone());
-        }
-        let l = Layer::open(&self.dir.join(fc::MEM), true, false)?;
-        Ok(self.layer.get_or_init(|| l).clone())
-    }
 }
 
 enum Source {
     Template {
-        layer: Arc<Layer>,
         mem: PathBuf,
         vmstate: PathBuf,
         disk: PathBuf,
     },
-    Capture {
-        stack: Stack,
-        vmstate: PathBuf,
-        disk: PathBuf,
-    },
+    Capture(Arc<CaptureRec>),
 }
 
-/// Starts the page server for a UFFD-backed restore and waits until its
-/// socket is bound.
-fn spawn_pager(bin: &Path, socket: &Path, uid: u32, stack: &Stack) -> Result<std::process::Child> {
-    use std::io::BufRead;
-    use std::os::unix::process::CommandExt;
-    let fds: Vec<i32> = stack
-        .iter()
-        .map(|l| std::os::fd::AsRawFd::as_raw_fd(&l.file))
-        .collect();
-    let mut cmd = std::process::Command::new(bin);
-    cmd.arg(socket)
-        .arg(uid.to_string())
-        .arg(fds.len().to_string())
-        .env_clear()
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped());
-    // SAFETY: only async-signal-safe dup2 calls between fork and exec.
-    unsafe {
-        cmd.pre_exec(move || {
-            // Move every layer above the target range first, then into place.
-            let base = 1000;
-            for (i, fd) in fds.iter().enumerate() {
-                if libc::dup2(*fd, base + i as i32) < 0 {
-                    return Err(std::io::Error::last_os_error());
-                }
-            }
-            for i in 0..fds.len() as i32 {
-                if libc::dup2(base + i, 3 + i) < 0 {
-                    return Err(std::io::Error::last_os_error());
-                }
-                libc::close(base + i);
-            }
-            Ok(())
-        });
-    }
-    let mut child = cmd.spawn().ctx("start lamp-pager")?;
-    let mut line = String::new();
-    std::io::BufReader::new(child.stdout.take().unwrap())
-        .read_line(&mut line)
-        .ctx("wait for lamp-pager")?;
-    if line.trim() != "ready" {
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(EngineError::host("lamp-pager failed to start"));
-    }
-    Ok(child)
-}
-
-/// Copies a sparse layer's data pages to a store file (durable captures).
-fn copy_sparse(l: &Layer, dst: &Path) -> Result<()> {
+/// Copies a full RAM image to the store for a durable capture, leaving
+/// all-zero pages as holes. Every page is still read and checked.
+fn copy_nonzero(src: &Path, dst: &Path) -> Result<()> {
     use std::os::unix::fs::FileExt;
-    let out = std::fs::File::create(dst).ctx("create durable layer")?;
-    out.set_len(l.len)?;
-    let mut buf = vec![0_u8; 1 << 20];
-    let bits = l.bitmap();
-    let mut p = 0_u64;
-    let pages = l.len / layer::PAGE;
-    while p < pages {
-        if bits[(p / 64) as usize] >> (p % 64) & 1 == 0 {
-            p += 1;
-            continue;
+    const PAGE: usize = 4096;
+    let input = std::fs::File::open(src).ctx("open capture image")?;
+    let len = input.metadata()?.len();
+    let out = std::fs::File::create(dst).ctx("create durable image")?;
+    out.set_len(len)?;
+    let mut buf = vec![0_u8; 4 << 20];
+    let mut off = 0_u64;
+    while off < len {
+        let n = buf.len().min((len - off) as usize);
+        input.read_exact_at(&mut buf[..n], off)?;
+        let mut p = 0;
+        while p < n {
+            let end = (p + PAGE).min(n);
+            if buf[p..end].iter().any(|&b| b != 0) {
+                // Extend the run while pages are nonzero.
+                let mut q = end;
+                while q < n && buf[q..(q + PAGE).min(n)].iter().any(|&b| b != 0) {
+                    q = (q + PAGE).min(n);
+                }
+                out.write_all_at(&buf[p..q], off + p as u64)?;
+                p = q;
+            } else {
+                p = end;
+            }
         }
-        let start = p;
-        while p < pages && p - start < 256 && bits[(p / 64) as usize] >> (p % 64) & 1 == 1 {
-            p += 1;
-        }
-        let n = ((p - start) * layer::PAGE) as usize;
-        l.file.read_exact_at(&mut buf[..n], start * layer::PAGE)?;
-        out.write_all_at(&buf[..n], start * layer::PAGE)?;
+        off += n as u64;
     }
     Ok(())
+}
+
+/// Commands by operation ID, plus their insertion order for bounding.
+pub type CommandTable = (HashMap<String, CommandRec>, VecDeque<String>);
+
+/// One command started through `Start`, observable by its operation ID.
+#[derive(Debug, Clone)]
+pub struct CommandRec {
+    pub started: ExecStarted,
+    pub done: Option<ExecDone>,
+    /// Set when completion can no longer be observed (VMM gone, channel lost).
+    pub lost: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -262,29 +228,19 @@ pub struct Sandbox {
     pub state: State,
     pub jail: Option<Jail>,
     pub uid: u32,
-    /// Memory layers this VM was restored from plus its sealed captures.
-    pub stack: Stack,
-    pub pager: Option<std::process::Child>,
     pub source: String,
     pub captures: Vec<String>,
     pub barrier: Option<lamp_init::BarrierAck>,
+    /// Commands by the operation ID of their `Start`, oldest first.
+    pub commands: Arc<Mutex<CommandTable>>,
 }
 
 impl Sandbox {
-    fn stop_pager(&mut self) {
-        if let Some(mut p) = self.pager.take() {
-            let _ = p.kill();
-            let _ = p.wait();
-        }
-    }
-
-    /// Kills the VMM and page server and drops this sandbox's layer refs.
+    /// Kills the VMM and removes its jail (and with it the memory it mapped).
     fn teardown(&mut self) {
         if let Some(j) = self.jail.take() {
             j.destroy();
         }
-        self.stop_pager();
-        self.stack.clear();
     }
 }
 
@@ -292,8 +248,9 @@ impl Sandbox {
 pub struct CaptureRec {
     pub id: String,
     pub dir: PathBuf,
+    /// Full RAM image and VM state on tmpfs, root:root 0400.
+    pub mem: PathBuf,
     pub vmstate: PathBuf,
-    pub stack: Stack,
     pub source_sandbox: String,
     pub source_generation: u64,
     pub resources: Resources,
@@ -327,6 +284,36 @@ pub struct Engine {
     sandboxes: Mutex<HashMap<String, Arc<Mutex<Sandbox>>>>,
     captures: Mutex<HashMap<String, Arc<CaptureRec>>>,
     uids: Mutex<BTreeSet<u32>>,
+    /// Exclusive store ownership while this engine may change the store.
+    _lock: Option<std::fs::File>,
+}
+
+/// How a process uses the store.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    /// The supervisor daemon: owns the store exclusively and, being the only
+    /// owner, recovers it (kills leftover jails, drops volatile state).
+    Daemon,
+    /// Offline maintenance (seed import, template build): owns the store
+    /// exclusively but never touches leftover jails or captures, and refuses
+    /// to start while a daemon holds the store.
+    Offline,
+    /// Read-only listing: takes no lock and writes nothing.
+    ReadOnly,
+}
+
+/// A command result that has started but not (observably) finished.
+fn pending(started: &ExecStarted) -> ExecDone {
+    ExecDone {
+        exit_code: 0,
+        signal: 0,
+        stdout_b64: String::new(),
+        stderr_b64: String::new(),
+        truncated: false,
+        timed_out: false,
+        started_unix_ns: started.started_unix_ns,
+        finished_unix_ns: 0,
+    }
 }
 
 fn us(d: Duration) -> String {
@@ -345,12 +332,17 @@ fn jail_id(sandbox_id: &str) -> String {
     sandbox_id.replace('_', "-")
 }
 
+fn load_key(path: &Path) -> Result<SigningKey> {
+    let text = std::fs::read_to_string(path).ctx("read producer key")?;
+    let bytes = lamp_init::hex_decode(text.trim())
+        .filter(|b| b.len() == 32)
+        .ok_or_else(|| EngineError::host("malformed producer key"))?;
+    Ok(SigningKey::from_bytes(&bytes.try_into().unwrap()))
+}
+
 pub fn load_or_create_key(path: &Path) -> Result<SigningKey> {
-    if let Ok(text) = std::fs::read_to_string(path) {
-        let bytes = lamp_init::hex_decode(text.trim())
-            .filter(|b| b.len() == 32)
-            .ok_or_else(|| EngineError::host("malformed producer key"))?;
-        return Ok(SigningKey::from_bytes(&bytes.try_into().unwrap()));
+    if path.exists() {
+        return load_key(path);
     }
     let seed: [u8; 32] = random_bytes();
     std::fs::create_dir_all(path.parent().unwrap()).ctx("create key dir")?;
@@ -362,21 +354,52 @@ pub fn load_or_create_key(path: &Path) -> Result<SigningKey> {
 }
 
 impl Engine {
-    /// Opens the store, discards state from a previous supervisor run
-    /// (volatile in this release) and verifies every template.
-    pub fn open(cfg: Config) -> Result<Engine> {
-        for sub in [
-            "seeds",
-            "templates/names",
-            "captures",
-            "jail/firecracker",
-            "staging",
-        ] {
-            std::fs::create_dir_all(cfg.store.join(sub)).ctx(format!("create store/{sub}"))?;
-        }
-        fc::init_cgroups()?;
-        fc::ensure_tmpfs(&cfg.mem_dir, &cfg.mem_dir_size)?;
-        let producer = load_or_create_key(&cfg.store.join("keys/producer.key"))?;
+    /// Opens the store and verifies every template. Only `Mode::Daemon`
+    /// discards state from a previous supervisor run (volatile in this
+    /// release); the others never touch jails or captures.
+    pub fn open(cfg: Config, mode: Mode) -> Result<Engine> {
+        let lock = if mode == Mode::ReadOnly {
+            None
+        } else {
+            std::fs::create_dir_all(&cfg.store).ctx("create store")?;
+            Some(
+                fsutil::lock_exclusive(&cfg.store.join("lock")).map_err(|e| {
+                    EngineError::in_use(format!(
+                        "the store at {} is owned by another process \
+                     (stop lamp-supervisor first): {}",
+                        cfg.store.display(),
+                        e.message
+                    ))
+                })?,
+            )
+        };
+        let producer = if mode == Mode::ReadOnly {
+            load_key(&cfg.store.join("keys/producer.key"))?
+        } else {
+            for sub in [
+                "seeds",
+                "templates/names",
+                "captures",
+                "jail/firecracker",
+                "staging",
+                "grants",
+            ] {
+                std::fs::create_dir_all(cfg.store.join(sub)).ctx(format!("create store/{sub}"))?;
+            }
+            // Jails, captures and grants are never readable by other users.
+            for private in ["jail", "jail/firecracker", "captures", "grants", "keys"] {
+                let _ = std::fs::create_dir_all(cfg.store.join(private));
+                fsutil::chmod(&cfg.store.join(private), 0o700)?;
+            }
+            fc::init_cgroups()?;
+            fc::ensure_tmpfs(&cfg.mem_dir, &cfg.mem_dir_size)?;
+            fsutil::chmod(&cfg.mem_dir, 0o700)?;
+            for sub in ["captures", "jails"] {
+                std::fs::create_dir_all(cfg.mem_dir.join(sub)).ctx("create memory dirs")?;
+                fsutil::chmod(&cfg.mem_dir.join(sub), 0o700)?;
+            }
+            load_or_create_key(&cfg.store.join("keys/producer.key"))?
+        };
         let mut trusted = HashMap::new();
         trusted.insert(
             manifest::key_id(&producer.verifying_key()),
@@ -395,10 +418,27 @@ impl Engine {
             sandboxes: Mutex::new(HashMap::new()),
             captures: Mutex::new(HashMap::new()),
             uids: Mutex::new(BTreeSet::new()),
+            _lock: lock,
         };
-        engine.clean_stale();
-        engine.load_templates();
+        match mode {
+            Mode::Daemon => engine.clean_stale(),
+            // Never reuse the identity of a jail left behind by a daemon.
+            Mode::Offline => engine.reserve_leftover_uids(),
+            Mode::ReadOnly => {}
+        }
+        engine.load_templates(mode != Mode::ReadOnly);
         Ok(engine)
+    }
+
+    fn reserve_leftover_uids(&self) {
+        use std::os::unix::fs::MetadataExt;
+        let jails = self.cfg.store.join("jail/firecracker");
+        let mut used = self.uids.lock().unwrap();
+        for e in std::fs::read_dir(jails).into_iter().flatten().flatten() {
+            if let Ok(m) = std::fs::metadata(e.path().join("root")) {
+                used.insert(m.uid());
+            }
+        }
     }
 
     pub fn producer_key(&self) -> &SigningKey {
@@ -427,14 +467,18 @@ impl Engine {
             let _ = std::fs::remove_dir_all(&path);
             let _ = std::fs::create_dir_all(&path);
         }
+        let _ = fsutil::chmod(&self.cfg.store.join("captures"), 0o700);
         for dir in ["layers", "captures", "jails"] {
             let path = self.cfg.mem_dir.join(dir);
             let _ = std::fs::remove_dir_all(&path);
-            let _ = std::fs::create_dir_all(&path);
+            if dir != "layers" {
+                let _ = std::fs::create_dir_all(&path);
+                let _ = fsutil::chmod(&path, 0o700);
+            }
         }
     }
 
-    fn load_templates(&self) {
+    fn load_templates(&self, may_quarantine: bool) {
         let dir = self.cfg.store.join("templates");
         let Ok(entries) = std::fs::read_dir(&dir) else {
             return;
@@ -450,6 +494,9 @@ impl Engine {
                         .write()
                         .unwrap()
                         .insert(t.id.clone(), Arc::new(t));
+                }
+                Err(err) if !may_quarantine => {
+                    eprintln!("lamp-engine: template {name} does not verify: {err}");
                 }
                 Err(err) => {
                     eprintln!("lamp-engine: template {name} quarantined: {err}");
@@ -530,7 +577,6 @@ impl Engine {
             manifest,
             manifest_digest: digest,
             variant,
-            layer: Default::default(),
         })
     }
 
@@ -676,11 +722,10 @@ impl Engine {
                 state: State::Allocated,
                 jail: Some(jail),
                 uid,
-                stack: Vec::new(),
-                pager: None,
                 source: String::new(),
                 captures: Vec::new(),
                 barrier: None,
+                commands: Arc::default(),
             })),
         );
         Ok(Outcome {
@@ -704,20 +749,11 @@ impl Engine {
         }
         let capture = self.captures.lock().unwrap().get(capture_id).cloned();
         let (source, resources) = match &capture {
-            Some(c) => (
-                Source::Capture {
-                    stack: c.stack.clone(),
-                    vmstate: c.vmstate.clone(),
-                    disk: c.dir.join(fc::ROOTFS),
-                },
-                c.resources.clone(),
-            ),
+            Some(c) => (Source::Capture(c.clone()), c.resources.clone()),
             None => {
                 let t = self.template(capture_id)?;
-                let layer = t.memory_layer()?;
                 (
                     Source::Template {
-                        layer,
                         mem: t.dir.join(fc::MEM),
                         vmstate: t.dir.join(fc::VMSTATE),
                         disk: t.dir.join(fc::ROOTFS),
@@ -740,11 +776,21 @@ impl Engine {
                 ),
             ));
         }
+        if let Some(c) = &capture {
+            // A capture is restored at most once; claim it before any effect.
+            let mut n = c.restores.lock().unwrap();
+            if *n != CAPTURE_AVAILABLE {
+                return Err(EngineError::not_found(format!(
+                    "capture {capture_id} was already restored"
+                )));
+            }
+            *n = CAPTURE_RESTORING;
+        }
         match self.restore_into(&mut sb, source, t0) {
             Ok(mut out) => {
                 sb.source = capture_id.to_string();
-                if let Some(c) = capture {
-                    *c.restores.lock().unwrap() += 1;
+                if let Some(c) = &capture {
+                    *c.restores.lock().unwrap() = CAPTURE_CONSUMED;
                     drop(sb);
                     self.gc_captures();
                 }
@@ -755,9 +801,11 @@ impl Engine {
                 if let Some(j) = sb.jail.as_mut() {
                     j.kill();
                 }
-                if let Some(mut p) = sb.pager.take() {
-                    let _ = p.kill();
-                    let _ = p.wait();
+                if let Some(c) = &capture {
+                    // Hand the image back to root and allow another attempt.
+                    let _ = fsutil::chown(&c.mem, 0, 0);
+                    let _ = fsutil::chown(&c.vmstate, 0, 0);
+                    *c.restores.lock().unwrap() = CAPTURE_AVAILABLE;
                 }
                 sb.state = State::Failed(e.message.clone());
                 Err(e)
@@ -777,50 +825,48 @@ impl Engine {
             .ok_or_else(|| EngineError::in_use("sandbox has no jail"))?;
         let uid = jail.uid;
         let mut detail = BTreeMap::new();
-        let (disk, stack) = match &source {
-            Source::Template { disk, layer, .. } => (disk, vec![layer.clone()]),
-            Source::Capture { disk, stack, .. } => (disk, stack.clone()),
+        let disk = match &source {
+            Source::Template { disk, .. } => disk.clone(),
+            Source::Capture(c) => c.dir.join(fc::ROOTFS),
         };
-        fsutil::reflink(disk, &jail.path(fc::ROOTFS), 0o600)?;
+        fsutil::reflink(&disk, &jail.path(fc::ROOTFS), 0o600)?;
         fsutil::chown(&jail.path(fc::ROOTFS), uid, uid)?;
-        let backend = match &source {
+        let mem_path = match &source {
             Source::Template { mem, vmstate, .. } => {
-                // Prepared-template create: the kernel maps the immutable
-                // image privately; no page server is needed.
+                // Prepared-template create: the kernel maps the immutable,
+                // public template image privately.
                 std::fs::hard_link(mem, jail.path(fc::MEM)).ctx("link memory image")?;
                 std::fs::hard_link(vmstate, jail.memdir.join(fc::VMSTATE))
                     .or_else(|_| std::fs::copy(vmstate, jail.memdir.join(fc::VMSTATE)).map(|_| ()))
                     .ctx("place vm state")?;
-                format!(r#"{{"backend_type":"File","backend_path":"/{}"}}"#, fc::MEM)
+                format!("/{}", fc::MEM)
             }
-            Source::Capture { vmstate, .. } => {
-                std::fs::hard_link(vmstate, jail.memdir.join(fc::VMSTATE)).ctx("link vm state")?;
-                detail.insert("layers".into(), stack.len().to_string());
-                format!(
-                    r#"{{"backend_type":"Uffd","backend_path":"/{}"}}"#,
-                    fc::UFFD
-                )
+            Source::Capture(c) => {
+                // The private image becomes this sandbox's own: it is linked
+                // into its 0700 memdir and owned by its UID alone. The
+                // capture is consumed, so no other identity can read it.
+                for (from, to) in [(&c.mem, SRC_MEM), (&c.vmstate, fc::VMSTATE)] {
+                    let dst = jail.memdir.join(to);
+                    std::fs::hard_link(from, &dst).ctx("link capture into jail")?;
+                    fsutil::chown(&dst, uid, uid)?;
+                    fsutil::chmod(&dst, 0o400)?;
+                }
+                format!("/{}/{SRC_MEM}", fc::MEMDIR)
             }
         };
         detail.insert("prepare_us".into(), us(t0.elapsed()));
-        if matches!(source, Source::Capture { .. }) {
-            let t = Instant::now();
-            sb.pager = Some(spawn_pager(
-                &self.cfg.bins.pager,
-                &jail.path(fc::UFFD),
-                uid,
-                &stack,
-            )?);
-            detail.insert("pager_us".into(), us(t.elapsed()));
-        }
         let t = Instant::now();
         jail.spawn(&self.cfg.bins, limits)?;
         detail.insert("spawn_us".into(), us(t.elapsed()));
         let t = Instant::now();
+        // vCPUs resume here, but every task process was frozen before the
+        // capture (and a template has none): only init and the helper run
+        // until the barrier below thaws the tasks with the new identity.
         let body = format!(
-            r#"{{"snapshot_path":"/{}/{}","mem_backend":{backend},"track_dirty_pages":true,"resume_vm":true,"clock_realtime":true}}"#,
+            r#"{{"snapshot_path":"/{}/{}","mem_backend":{{"backend_type":"File","backend_path":{}}},"track_dirty_pages":false,"resume_vm":true,"clock_realtime":true}}"#,
             fc::MEMDIR,
-            fc::VMSTATE
+            fc::VMSTATE,
+            fc::js(&mem_path)
         );
         jail.api("PUT", "/snapshot/load", &body)?;
         detail.insert("load_us".into(), us(t.elapsed()));
@@ -831,7 +877,6 @@ impl Engine {
         detail.insert("rng_sample".into(), ack.rng_sample_hex.clone());
         detail.insert("machine_id".into(), ack.machine_id.clone());
         sb.barrier = Some(ack);
-        sb.stack = stack;
         sb.state = State::Running;
         Ok(Outcome {
             state: "restored".into(),
@@ -878,11 +923,14 @@ impl Engine {
         }
     }
 
-    /// Runs one command to completion. The sandbox lock is not held while it
-    /// runs, so a fork can capture a sandbox in the middle of a command.
-    pub fn exec(
+    /// Starts one command and returns once the guest has witnessed its exec
+    /// (`command_started`); completion is observed separately (`command`).
+    /// The sandbox lock is not held while the command runs, so a fork can
+    /// capture a sandbox in the middle of a command.
+    pub fn start(
         &self,
         auth: Authority<'_>,
+        operation_id: &str,
         argv: Vec<String>,
         cwd: String,
         env: BTreeMap<String, String>,
@@ -891,7 +939,7 @@ impl Engine {
         if argv.is_empty() {
             return Err(EngineError::invalid("argv is empty"));
         }
-        let vsock = {
+        let (vsock, commands) = {
             let sb = self.sandbox(auth.sandbox_id)?;
             let sb = sb.lock().unwrap();
             Self::check(&sb, auth)?;
@@ -901,40 +949,128 @@ impl Engine {
                     sb.state.name()
                 )));
             }
-            sb.jail.as_ref().unwrap().path(fc::VSOCK)
+            (
+                sb.jail.as_ref().unwrap().path(fc::VSOCK),
+                sb.commands.clone(),
+            )
         };
         let request = GuestRequest::Exec(Exec {
             sandbox_id: auth.sandbox_id.into(),
             generation: auth.generation,
+            exec_id: operation_id.into(),
             argv,
             env,
             cwd,
             timeout_ms,
             output_limit: lamp_init::DEFAULT_OUTPUT_LIMIT,
         });
-        let reply = guest::call(&vsock, &request, Duration::from_millis(timeout_ms + 5_000))?;
-        match reply {
-            GuestResponse::ExecDone(done) => Ok(Outcome {
-                state: "command_started".into(),
-                command: Some(done),
-                ..Default::default()
-            }),
+        let mut conn = guest::send(&vsock, &request)?;
+        let started = match conn.next(Some(Duration::from_secs(10)))? {
+            GuestResponse::ExecStarted(s) => s,
             GuestResponse::Error { code, message } if code == "GENERATION_MISMATCH" => {
-                Err(EngineError::new("REVISION_CONFLICT", message))
+                return Err(EngineError::new("REVISION_CONFLICT", message));
             }
+            // Refused before exec (spawn failure): nothing ran.
             GuestResponse::Error { code, message } => {
-                Err(EngineError::host(format!("{code}: {message}")))
+                return Err(EngineError::invalid(format!("{code}: {message}")));
             }
-            other => Err(EngineError::host(format!(
-                "exec: unexpected reply {other:?}"
-            ))),
+            other => {
+                return Err(EngineError::new(
+                    "OUTCOME_UNKNOWN",
+                    format!("exec: unexpected reply {other:?}"),
+                ));
+            }
+        };
+        {
+            let mut table = commands.lock().unwrap();
+            table.0.insert(
+                operation_id.to_string(),
+                CommandRec {
+                    started: started.clone(),
+                    done: None,
+                    lost: None,
+                },
+            );
+            table.1.push_back(operation_id.to_string());
+            while table.1.len() > COMMAND_MEMORY {
+                if let Some(old) = table.1.pop_front() {
+                    table.0.remove(&old);
+                }
+            }
+        }
+        let op = operation_id.to_string();
+        let (sandbox_id, generation) = (auth.sandbox_id.to_string(), auth.generation);
+        std::thread::spawn(move || {
+            // Completion is fetched with short idempotent waits, so a capture
+            // that resets the guest's connections mid-command loses nothing.
+            // The waiter ends when the jail's vsock socket is gone (released).
+            let result = guest::wait_exec(&vsock, &sandbox_id, generation, &op, None, || {
+                vsock.exists()
+            });
+            let mut table = commands.lock().unwrap();
+            if let Some(rec) = table.0.get_mut(&op) {
+                match result {
+                    Ok(d) => rec.done = Some(d),
+                    Err(e) => rec.lost = Some(e.message),
+                }
+            }
+        });
+        Ok(Outcome {
+            state: "command_started".into(),
+            command: Some(pending(&started)),
+            detail: BTreeMap::from([("guest_pid".into(), started.pid.to_string())]),
+            ..Default::default()
+        })
+    }
+
+    /// The state of a command started on this sandbox.
+    pub fn command(&self, sandbox_id: &str, operation_id: &str) -> Result<CommandRec> {
+        let commands = self.sandbox(sandbox_id)?.lock().unwrap().commands.clone();
+        let table = commands.lock().unwrap();
+        table
+            .0
+            .get(operation_id)
+            .cloned()
+            .ok_or_else(|| EngineError::not_found(format!("command {operation_id}")))
+    }
+
+    /// Starts a command and waits for it to exit (template probes).
+    pub fn run(
+        &self,
+        auth: Authority<'_>,
+        argv: Vec<String>,
+        timeout: Duration,
+    ) -> Result<ExecDone> {
+        let op = format!("op_run_{}", lamp_init::hex_encode(&random_bytes::<8>()));
+        self.start(
+            auth,
+            &op,
+            argv,
+            String::new(),
+            BTreeMap::new(),
+            timeout.as_millis() as u64,
+        )?;
+        let deadline = Instant::now() + timeout + Duration::from_secs(5);
+        loop {
+            let rec = self.command(auth.sandbox_id, &op)?;
+            if let Some(d) = rec.done {
+                return Ok(d);
+            }
+            if let Some(why) = rec.lost {
+                return Err(EngineError::new("OUTCOME_UNKNOWN", why));
+            }
+            if Instant::now() > deadline {
+                return Err(EngineError::host("command did not finish"));
+            }
+            std::thread::sleep(Duration::from_millis(2));
         }
     }
 
     /// Memory capture of a running sandbox at one RAM/CPU/device/disk
-    /// generation. The source is paused only while Firecracker writes the
-    /// pages dirtied since its previous layer (to RAM-backed tmpfs) and the
-    /// disk head is sealed by reflink; then it continues.
+    /// generation: task processes are frozen, the VM paused, **all** of its
+    /// configured RAM written by a Firecracker Full snapshot (to RAM-backed
+    /// tmpfs) and the disk head sealed by reflink; then the source resumes
+    /// and its tasks thaw. Every step is inside the timed fork.
     pub fn capture(
         self: &Arc<Self>,
         auth: Authority<'_>,
@@ -972,69 +1108,94 @@ impl Engine {
             return Err(EngineError::in_use(format!("capture {capture_id} exists")));
         }
         std::fs::create_dir(&cdir).ctx("create capture dir")?;
+        fsutil::chmod(&cdir, 0o700)?;
         let jail = sb.jail.as_ref().unwrap();
+        let vsock = jail.path(fc::VSOCK);
         let mut detail = BTreeMap::new();
         let tmp_mem = jail.memdir.join("cap.mem");
         let tmp_state = jail.memdir.join("cap.vmstate");
         let _ = std::fs::remove_file(&tmp_mem);
         let _ = std::fs::remove_file(&tmp_state);
-
-        // --- source paused from here ---
-        let tp = Instant::now();
-        jail.api("PATCH", "/vm", r#"{"state":"Paused"}"#)?;
-        let sealed = (|| -> Result<()> {
-            // The layer outlives this sandbox's own limits (forks keep it),
-            // so its pages are charged to the shared layer cgroup.
-            let _charge = fc::LayerCharge::begin(&jail.id)?;
-            let t = Instant::now();
-            let body = format!(
-                r#"{{"snapshot_type":"Diff","mem_file_path":"/{m}/cap.mem","snapshot_path":"/{m}/cap.vmstate","sync_snapshot_files":false}}"#,
-                m = fc::MEMDIR
-            );
-            jail.api("PUT", "/snapshot/create", &body)?;
-            detail.insert("dirty_write_us".into(), us(t.elapsed()));
-            let t = Instant::now();
-            fsutil::reflink(&jail.path(fc::ROOTFS), &cdir.join(fc::ROOTFS), 0o400)?;
-            detail.insert("disk_seal_us".into(), us(t.elapsed()));
-            Ok(())
-        })();
-        let resumed = jail.api("PATCH", "/vm", r#"{"state":"Resumed"}"#);
-        let pause = tp.elapsed();
-        // --- source running again ---
-        if let Err(e) = sealed.and(resumed.map(|_| ())) {
+        let discard = |e: EngineError| {
             let _ = std::fs::remove_dir_all(&cdir);
             let _ = std::fs::remove_file(&tmp_mem);
             let _ = std::fs::remove_file(&tmp_state);
-            return Err(e.context("capture"));
+            e.context("capture")
+        };
+
+        // --- task processes frozen from here ---
+        let t = Instant::now();
+        match guest::call(
+            &vsock,
+            &GuestRequest::Freeze(Empty {}),
+            Duration::from_secs(10),
+        ) {
+            Ok(GuestResponse::Frozen) => {}
+            Ok(other) => return Err(discard(EngineError::host(format!("freeze: {other:?}")))),
+            Err(e) => return Err(discard(e)),
+        }
+        detail.insert("freeze_us".into(), us(t.elapsed()));
+        // --- source paused from here ---
+        let tp = Instant::now();
+        let sealed = jail
+            .api("PATCH", "/vm", r#"{"state":"Paused"}"#)
+            .and_then(|_| {
+                // The image outlives this sandbox's own limits (the fork owns
+                // it), so its pages are charged to the shared layer cgroup.
+                let _charge = fc::LayerCharge::begin(&jail.id)?;
+                let t = Instant::now();
+                let body = format!(
+                    r#"{{"snapshot_type":"Full","mem_file_path":"/{m}/cap.mem","snapshot_path":"/{m}/cap.vmstate","sync_snapshot_files":false}}"#,
+                    m = fc::MEMDIR
+                );
+                jail.api("PUT", "/snapshot/create", &body)?;
+                detail.insert("full_write_us".into(), us(t.elapsed()));
+                let t = Instant::now();
+                fsutil::reflink(&jail.path(fc::ROOTFS), &cdir.join(fc::ROOTFS), 0o400)?;
+                detail.insert("disk_seal_us".into(), us(t.elapsed()));
+                Ok(())
+            });
+        let resumed = jail.api("PATCH", "/vm", r#"{"state":"Resumed"}"#);
+        let pause = tp.elapsed();
+        // --- source running again; thaw its tasks (same identity) ---
+        let t = Instant::now();
+        let thawed = match guest::call(
+            &vsock,
+            &GuestRequest::Thaw(Empty {}),
+            Duration::from_secs(10),
+        ) {
+            Ok(GuestResponse::Thawed) => Ok(()),
+            Ok(other) => Err(EngineError::host(format!("thaw: {other:?}"))),
+            Err(e) => Err(e),
+        };
+        detail.insert("thaw_us".into(), us(t.elapsed()));
+        if let Err(e) = sealed.and(resumed.map(|_| ())).and(thawed) {
+            return Err(discard(e));
         }
         detail.insert("source_pause_us".into(), us(pause));
         let t = Instant::now();
-        let layer_path = self
-            .cfg
-            .mem_dir
-            .join("layers")
-            .join(format!("{capture_id}.mem"));
-        let vmstate = self
+        let mem = self
             .cfg
             .mem_dir
             .join("captures")
-            .join(format!("{capture_id}.vmstate"));
-        std::fs::rename(&tmp_mem, &layer_path).ctx("seal memory layer")?;
+            .join(format!("{capture_id}.mem"));
+        let vmstate = mem.with_extension("vmstate");
+        std::fs::rename(&tmp_mem, &mem).ctx("seal memory image")?;
         std::fs::rename(&tmp_state, &vmstate).ctx("seal state")?;
-        for p in [&layer_path, &vmstate] {
+        // Root-only until handed to the one sandbox that restores it.
+        for p in [&mem, &vmstate, &cdir.join(fc::ROOTFS)] {
             fsutil::chown(p, 0, 0)?;
-            fsutil::chmod(p, 0o444)?;
+            fsutil::chmod(p, 0o400)?;
         }
-        let layer = Layer::open(&layer_path, false, true)?;
-        let mut stack = sb.stack.clone();
-        stack.push(layer.clone());
+        let mem_bytes = std::fs::metadata(&mem).map(|m| m.len()).unwrap_or(0);
+        detail.insert("memory_bytes".into(), mem_bytes.to_string());
         if durable {
-            // Local durability: the dirty layer, state and disk reach stable
-            // storage before the capture is reported.
-            copy_sparse(&layer, &cdir.join("mem.layer"))?;
+            // Local durability: image, state and disk reach stable storage
+            // before the capture is reported.
+            copy_nonzero(&mem, &cdir.join(fc::MEM))?;
             std::fs::copy(&vmstate, cdir.join(fc::VMSTATE)).ctx("persist state")?;
             for p in [
-                &cdir.join("mem.layer"),
+                &cdir.join(fc::MEM),
                 &cdir.join(fc::VMSTATE),
                 &cdir.join(fc::ROOTFS),
                 &cdir,
@@ -1047,9 +1208,10 @@ impl Engine {
             "source_sandbox_id": sb.id,
             "source_generation": sb.generation,
             "preserves_memory": true,
+            "memory": "full",
+            "memory_bytes": mem_bytes,
             "durability": if durable { "local" } else { "volatile" },
             "resources": sb.resources,
-            "layers": stack.iter().map(|l| l.name.clone()).collect::<Vec<_>>(),
             "engine": ENGINE_NAME,
             "engine_digest": self.compat.engine_digest,
             "cpu_baseline": self.compat.cpu_baseline,
@@ -1057,26 +1219,22 @@ impl Engine {
         });
         std::fs::write(cdir.join("meta.json"), meta.to_string()).ctx("write capture meta")?;
         detail.insert("publish_us".into(), us(t.elapsed()));
-        detail.insert("layers".into(), stack.len().to_string());
-        sb.stack = stack.clone();
         sb.captures.push(capture_id.into());
         let rec = CaptureRec {
             id: capture_id.into(),
             dir: cdir,
+            mem,
             vmstate,
-            stack,
             source_sandbox: sb.id.clone(),
             source_generation: sb.generation,
             resources: sb.resources.clone(),
             durability: if durable { "local" } else { "volatile" }.into(),
-            restores: Mutex::new(0),
+            restores: Mutex::new(CAPTURE_AVAILABLE),
         };
         self.captures
             .lock()
             .unwrap()
             .insert(capture_id.into(), Arc::new(rec));
-        drop(sb);
-        self.compact_later(sb_arc, capture_id);
         detail.insert("total_us".into(), us(t0.elapsed()));
         Ok(Outcome {
             state: "captured".into(),
@@ -1086,39 +1244,18 @@ impl Engine {
         })
     }
 
-    /// Bounds the source's layer depth off the fork path: drops hidden diff
-    /// layers and merges older ones. Captures and forks keep their own
-    /// references, so nothing they use changes.
-    fn compact_later(self: &Arc<Self>, sb_arc: Arc<Mutex<Sandbox>>, tag: &str) {
-        let dir = self.cfg.mem_dir.join("layers");
-        let name = format!("{tag}.merged.mem");
-        std::thread::spawn(move || {
-            let before = sb_arc.lock().unwrap().stack.clone();
-            match layer::compact(&before, &dir, &name, 2) {
-                Ok(Some(new)) => {
-                    let mut sb = sb_arc.lock().unwrap();
-                    if sb.stack.len() >= before.len()
-                        && sb.stack.iter().zip(&before).all(|(a, b)| Arc::ptr_eq(a, b))
-                    {
-                        let mut stack = new;
-                        stack.extend(sb.stack[before.len()..].iter().cloned());
-                        sb.stack = stack;
-                    }
-                }
-                Ok(None) => {}
-                Err(e) => eprintln!("lamp-engine: layer compaction: {e}"),
-            }
-        });
-    }
-
-    /// Removes captures that were restored (or whose source is gone).
-    /// Memory layers stay alive while any sandbox stack references them.
+    /// Removes captures that were restored (or whose source is gone and
+    /// nobody is restoring them). A restored fork keeps its own image link.
     fn gc_captures(&self) {
         let live: BTreeSet<String> = self.sandboxes.lock().unwrap().keys().cloned().collect();
         self.captures.lock().unwrap().retain(|_, c| {
-            let consumed = *c.restores.lock().unwrap() > 0 || !live.contains(&c.source_sandbox);
+            let state = *c.restores.lock().unwrap();
+            let consumed = state == CAPTURE_CONSUMED
+                || (state == CAPTURE_AVAILABLE && !live.contains(&c.source_sandbox));
             if consumed {
+                // The restored fork keeps its own link to the image.
                 let _ = std::fs::remove_dir_all(&c.dir);
+                let _ = std::fs::remove_file(&c.mem);
                 let _ = std::fs::remove_file(&c.vmstate);
             }
             !consumed
@@ -1132,7 +1269,6 @@ impl Engine {
         if let Some(j) = sb.jail.as_mut() {
             j.kill();
         }
-        sb.stop_pager();
         if sb.state == State::Running || sb.state == State::Allocated {
             sb.state = State::Stopped;
         }
@@ -1159,7 +1295,7 @@ impl Engine {
         })
     }
 
-    pub fn inspect(&self, sandbox_id: &str) -> Result<Outcome> {
+    pub fn inspect(&self, sandbox_id: &str, command_operation_id: &str) -> Result<Outcome> {
         let sb = self.sandbox(sandbox_id)?;
         let mut sb = sb.lock().unwrap();
         if sb.state == State::Running && !sb.jail.as_ref().is_some_and(Jail::alive) {
@@ -1180,20 +1316,42 @@ impl Engine {
             detail.insert("vmm_pid".into(), pid.to_string());
             detail.insert("vmm_uid".into(), sb.uid.to_string());
         }
+        let command = if command_operation_id.is_empty() {
+            None
+        } else {
+            let table = sb.commands.lock().unwrap();
+            let rec =
+                table.0.get(command_operation_id).cloned().ok_or_else(|| {
+                    EngineError::not_found(format!("command {command_operation_id}"))
+                })?;
+            let (state, done) = match (&rec.done, &rec.lost) {
+                (Some(d), _) => ("exited", d.clone()),
+                (None, Some(why)) => {
+                    detail.insert("command_lost".into(), why.clone());
+                    ("unknown", pending(&rec.started))
+                }
+                (None, None) => ("running", pending(&rec.started)),
+            };
+            detail.insert("command_state".into(), state.into());
+            Some(done)
+        };
         Ok(Outcome {
             state: sb.state.name().into(),
             handles: sb.captures.clone(),
+            command,
             detail,
-            ..Default::default()
         })
     }
 
     /// Kills every sandbox (supervisor shutdown).
-    pub fn shutdown(&self) {
+    /// Stops every sandbox and returns once each VMM has fully exited.
+    pub fn shutdown(&self) -> usize {
         let all: Vec<_> = self.sandboxes.lock().unwrap().drain().collect();
+        let n = all.len();
         for (_, sb) in all {
             sb.lock().unwrap().teardown();
         }
+        n
     }
 
     pub fn compatibility(&self, kernel_digest: &str) -> Compatibility {

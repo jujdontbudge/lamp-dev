@@ -10,6 +10,10 @@ pub struct Client {
     stream: UnixStream,
     pub server: Hello,
     seq: AtomicU64,
+    /// Reference to the control grant the supervisor installed for us
+    /// (`LAMP_GRANT_ID`), and the policy revision it covers.
+    pub grant_id: String,
+    pub policy_revision: u64,
 }
 
 pub fn now_ms() -> u64 {
@@ -45,6 +49,8 @@ impl Client {
             stream,
             server,
             seq: AtomicU64::new(1),
+            grant_id: std::env::var("LAMP_GRANT_ID").unwrap_or_default(),
+            policy_revision: 1,
         })
     }
 
@@ -66,8 +72,52 @@ impl Client {
             deadline_ms: now_ms() + deadline_ms,
             sandbox_id: sandbox_id.into(),
             generation,
-            grant_id: format!("gr_{sandbox_id}"),
-            policy_revision: 0,
+            grant_id: self.grant_id.clone(),
+            policy_revision: self.policy_revision,
+        }
+    }
+
+    /// Waits for a command started with operation `start_op` to exit, by
+    /// polling `Inspect{command_operation_id}`.
+    pub fn wait_command(
+        &mut self,
+        sandbox_id: &str,
+        generation: u64,
+        start_op: &str,
+        timeout: std::time::Duration,
+    ) -> io::Result<CommandResult> {
+        let deadline = std::time::Instant::now() + timeout;
+        let mut n = 0;
+        loop {
+            n += 1;
+            let ctx = self.context(
+                &format!("{start_op}.wait{n}"),
+                sandbox_id,
+                generation,
+                10_000,
+            );
+            let r = self.receipt(
+                ctx,
+                request::Command::Inspect(Inspect {
+                    command_operation_id: start_op.into(),
+                }),
+            )?;
+            match r.detail.get("command_state").map(String::as_str) {
+                Some("exited") => {
+                    return r
+                        .command
+                        .ok_or_else(|| bad("exited command without result"));
+                }
+                Some("running") => {}
+                other => return Err(io::Error::other(format!("command state {other:?}"))),
+            }
+            if std::time::Instant::now() > deadline {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "command still running",
+                ));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
         }
     }
 

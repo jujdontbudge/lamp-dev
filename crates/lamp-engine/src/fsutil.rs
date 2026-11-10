@@ -55,6 +55,29 @@ pub fn chmod(path: &Path, mode: u32) -> Result<()> {
         .ctx(format!("chmod {}", path.display()))
 }
 
+/// Takes an exclusive, non-blocking `flock` on `path` (created 0600). The
+/// lock lasts as long as the returned file is open, and the kernel drops it
+/// if the process dies, so a crashed owner never wedges the store.
+pub fn lock_exclusive(path: &Path) -> Result<File> {
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .open(path)
+        .ctx(format!("open {}", path.display()))?;
+    // SAFETY: flock on a descriptor we own.
+    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+        return Err(EngineError::in_use(format!(
+            "{} is locked: {}",
+            path.display(),
+            std::io::Error::last_os_error()
+        )));
+    }
+    Ok(file)
+}
+
 pub fn fsync_path(path: &Path) -> Result<()> {
     File::open(path)
         .and_then(|f| f.sync_all())
@@ -226,6 +249,17 @@ pub fn now_ns() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn store_lock_is_exclusive_until_released() {
+        let path = std::env::temp_dir().join(format!("lamp-lock-{}", std::process::id()));
+        let first = lock_exclusive(&path).unwrap();
+        let second = lock_exclusive(&path).unwrap_err();
+        assert_eq!(second.code, "RESOURCE_IN_USE");
+        drop(first);
+        lock_exclusive(&path).unwrap();
+        let _ = std::fs::remove_file(path);
+    }
     use crate::manifest::digest_bytes;
     use std::io::Write;
 
