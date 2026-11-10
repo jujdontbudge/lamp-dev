@@ -338,4 +338,28 @@ mod tests {
         assert_eq!(digest_file(&path).unwrap().digest, digest_bytes(&dense));
         std::fs::remove_dir_all(dir).unwrap();
     }
+
+    /// APFS clonefile: the copy is independent of later writes to the
+    /// source, takes the requested mode, and survives F_FULLFSYNC.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn apfs_clone_is_independent_and_syncs() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("lamp-clone-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (a, b) = (dir.join("a.img"), dir.join("b.img"));
+        std::fs::write(&a, vec![7_u8; 1 << 20]).unwrap();
+        reflink(&a, &b, 0o400).unwrap();
+        std::fs::write(&a, b"changed").unwrap();
+        let copy = std::fs::read(&b).unwrap();
+        assert_eq!(copy.len(), 1 << 20);
+        assert!(copy.iter().all(|x| *x == 7));
+        assert_eq!(
+            std::fs::metadata(&b).unwrap().permissions().mode() & 0o777,
+            0o400
+        );
+        full_fsync(&b).unwrap();
+        full_fsync(&dir).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

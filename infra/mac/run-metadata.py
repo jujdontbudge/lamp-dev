@@ -55,7 +55,9 @@ template_dir = STORE / "templates" / TEMPLATE
 meta = {
     "lane": LANE,
     "captured_at_unix_ms": int(time.time() * 1000),
-    "git_commit": run("git", "-C", str(ROOT), "rev-parse", "HEAD"),
+    # A checkout copied without .git (git archive) carries .source-commit.
+    "git_commit": run("git", "-C", str(ROOT), "rev-parse", "HEAD")
+    or (ROOT / ".source-commit").read_text().strip(),
     "git_dirty": bool(run("git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=no")),
     "source_hashes": {
         "crates": tree_sha(ROOT / "crates", {".rs", ".toml", ".py", ".entitlements"}),
