@@ -235,19 +235,31 @@ const sector = 512
 
 // recordEndingAt returns a log whose first record's newline is at byte offset
 // newline (the review case uses 512, the first byte of the second sector).
+// Output bytes are 'x', which JSON never escapes, so the record grows by
+// exactly one byte per byte of padding: one probe gives the padding needed.
+// Every store preallocates a 64 MiB log, so the probe is deleted at once.
 func recordEndingAt(t *testing.T, newline int64) (Config, []byte, []int64) {
 	t.Helper()
-	for pad := 0; pad < 2*sector; pad++ {
-		config, data, starts := journalWithCommits(t, 1, pad)
-		if starts[1]-1 == newline {
-			return config, data, starts
-		}
-		if starts[1]-1 > newline {
-			break
-		}
+	probe, _, starts := journalWithCommits(t, 1, 1)
+	removeStore(t, probe)
+	pad := 1 + newline - (starts[1] - 1)
+	if pad < 1 {
+		t.Fatalf("a record cannot end as early as %d", newline)
 	}
-	t.Fatalf("no padding puts the newline at %d", newline)
-	return Config{}, nil, nil
+	config, data, starts := journalWithCommits(t, 1, int(pad))
+	if starts[1]-1 != newline {
+		t.Fatalf("newline at %d, want %d", starts[1]-1, newline)
+	}
+	return config, data, starts
+}
+
+// removeStore deletes a test store's directory (and its preallocated log)
+// as soon as a case is done, instead of at the end of the test.
+func removeStore(t *testing.T, config Config) {
+	t.Helper()
+	if err := os.RemoveAll(filepath.Dir(config.StateDir)); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // The review reproduction: an acknowledged record whose newline is the first
@@ -270,6 +282,7 @@ func TestJournalRefusesNULNewlineAtSectorBoundary(t *testing.T) {
 			t.Fatal("record lost")
 		}
 		s.Close()
+		removeStore(t, config)
 	}
 }
 
