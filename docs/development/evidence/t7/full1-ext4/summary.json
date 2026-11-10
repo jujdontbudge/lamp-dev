@@ -1,0 +1,90 @@
+{
+  "caller_after": {
+    "cpu_count": 8,
+    "disk": "Filesystem                        1K-blocks      Used Available Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv 980211368 506378528 423967112  55% /",
+    "load": [
+      5.71142578125,
+      7.8115234375,
+      8.81689453125
+    ],
+    "machine": "x86_64",
+    "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+    "power": "powersave",
+    "pressure": {
+      "cpu": "some avg10=3.26 avg60=5.25 avg300=10.62 total=7872452069\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+      "io": "some avg10=17.40 avg60=11.68 avg300=12.92 total=9254295586\nfull avg10=13.37 avg60=8.24 avg300=8.74 total=7911967065\n",
+      "memory": "some avg10=5.82 avg60=1.53 avg300=0.54 total=649378353\nfull avg10=5.60 avg60=1.47 avg300=0.49 total=491387991\n"
+    }
+  },
+  "completed_at": "2026-11-10T20:36:20.444598+00:00",
+  "diagnostic": false,
+  "last_observation_hash": "80b9708f8455d2b08d1be3c729b3a5f9f09192bd569a990ec05f5ecca255efb1",
+  "results": {
+    "E04": {
+      "crash_coverage": [
+        "ack:after",
+        "ack:before",
+        "capture:after",
+        "capture:before",
+        "compact_gc:after",
+        "compact_gc:before",
+        "compact_objects:after",
+        "compact_objects:before",
+        "compact_redirect:after",
+        "compact_redirect:before",
+        "delete:after",
+        "delete:before",
+        "directory_flush:after",
+        "directory_flush:before",
+        "gc:after",
+        "gc:before",
+        "heads:after",
+        "heads:before",
+        "journal_flush:after",
+        "journal_flush:before",
+        "object_flush:after",
+        "object_flush:before",
+        "publish:after",
+        "publish:before",
+        "reserve:after",
+        "reserve:before",
+        "seal:after",
+        "seal:before",
+        "switch:after",
+        "switch:before"
+      ],
+      "failures": [],
+      "forks": 1000,
+      "missing_qualification_evidence": [],
+      "negative_controls": [
+        {
+          "caught": true,
+          "errors": [
+            "lost acknowledged object 1"
+          ],
+          "omitted": "object_flush"
+        },
+        {
+          "caught": true,
+          "errors": [
+            "lost acknowledged object 1"
+          ],
+          "omitted": "directory_flush"
+        },
+        {
+          "caught": true,
+          "errors": [
+            "lost acknowledged object 1"
+          ],
+          "omitted": "journal_flush"
+        }
+      ],
+      "qualification": "real-filesystem-block-barrier",
+      "required": 1000,
+      "status": "pass",
+      "unauthorized_capture_caught": false,
+      "unauthorized_capture_rejected": true
+    }
+  },
+  "status": "pass"
+}

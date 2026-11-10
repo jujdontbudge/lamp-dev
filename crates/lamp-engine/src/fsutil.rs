@@ -37,6 +37,7 @@ pub fn reflink(src: &Path, dst: &Path, mode: u32) -> Result<()> {
     chmod(dst, mode)
 }
 
+#[cfg(target_os = "macos")]
 fn cstr(p: &Path) -> Result<CString> {
     CString::new(p.as_os_str().as_bytes()).map_err(|_| EngineError::invalid("NUL in path"))
 }
@@ -171,6 +172,21 @@ pub fn sparsify(path: &Path) -> Result<u64> {
     }
     f.sync_all()?;
     Ok(punched)
+}
+
+/// Commits the filesystem holding `path` (syncfs(2)).
+#[cfg(target_os = "linux")]
+pub fn syncfs(path: &Path) -> Result<()> {
+    let f = File::open(path).ctx(format!("open {}", path.display()))?;
+    // SAFETY: plain syscall on our descriptor.
+    if unsafe { libc::syncfs(f.as_raw_fd()) } != 0 {
+        return Err(EngineError::host(format!(
+            "syncfs {}: {}",
+            path.display(),
+            std::io::Error::last_os_error()
+        )));
+    }
+    Ok(())
 }
 
 /// True when `[start, end)` contains no data extents.

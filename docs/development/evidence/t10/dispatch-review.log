@@ -1,0 +1,7 @@
+=== RUN   TestConsumedApprovalExpiryStillPreventsDispatch
+--- PASS: TestConsumedApprovalExpiryStillPreventsDispatch (0.91s)
+=== RUN   TestSharingModesAndRoleBoundaries
+    core_e2e_test.go:422: single-owner/team/public-service admission, owner/admin/member/viewer role separation and private content defaults passed
+--- PASS: TestSharingModesAndRoleBoundaries (1.90s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	8.472s

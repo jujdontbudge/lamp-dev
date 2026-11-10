@@ -1,0 +1,15 @@
+lamp-supervisor: store open (dm-thin disks, 0 durable capture(s)), 1 verified template(s) in 313 ms
+lamp-supervisor: serving lamp.worker/1 on /run/lamp-e04/ext4/main/worker.sock
+lamp-supervisor: op op_80342e69c677_1 sandbox sb_dd8ac142979b_a handle_us=858 
+lamp-supervisor: op op_80342e69c677_2 sandbox sb_dd8ac142979b_a handle_us=43002 attach_us=8550 barrier_us=5606 disk_attach_us=8922 load_us=6154 prepare_us=9216 spawn_us=13452 total_us=42991
+lamp-supervisor: op op_80342e69c677_3 sandbox sb_dd8ac142979b_a handle_us=16637 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_80343238ba46_1 sandbox sb_dd8ac142979b_a handle_us=2109 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_8035399fe5e_1 sandbox sb_dd8ac142979b_a handle_us=197311 disk_seal_us=6657 durable_commit_us=291 durable_encode_us=37737 durable_mem_sync_us=327 durable_sync_us=17361 durable_vmstate_us=16598 freeze_us=1800 full_write_us=119698 memory_bytes=536870912 publish_us=55492 reserve_us=375 source_pause_us=139279 spare=0 thaw_us=277 total_us=197304
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_8035115febac_1 sandbox sb_dd8ac142979b_a handle_us=44769 
+lamp-supervisor: connection closed: worker channel closed
+lamp-engine: refused capture import (HOST_NOT_TRUSTED: capture cp_dd8ac142979b_1 was produced by pk_46d5d03764d8883a, which is not an enrolled producer); quarantined at /var/lib/lamp-t7/e04/ext4/mnt/state/quarantine/import-75509c321098
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

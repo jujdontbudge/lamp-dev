@@ -1,0 +1,64 @@
+{
+ "maintenance": [
+  {
+   "op": "delete",
+   "reply": {
+    "elapsed_ms": 0.27907000000000004,
+    "ok": true
+   }
+  },
+  {
+   "op": "gc",
+   "reply": {
+    "elapsed_ms": 5.892936,
+    "files": 2,
+    "ok": true,
+    "thin_volumes": 1
+   }
+  },
+  {
+   "op": "compact",
+   "reply": {
+    "code": "HOST_UNAVAILABLE",
+    "message": "EOF while parsing a value at line 1 column 0",
+    "ok": false
+   }
+  }
+ ],
+ "barrier": {
+  "entries": 2940,
+  "crash_index": 2846,
+  "last_flush_index": 2845,
+  "flushes_before_crash": 123,
+  "fua_before_crash": 91,
+  "durable_writes": 2723,
+  "volatile_applied": 0,
+  "volatile_dropped": 0
+ },
+ "recovered_list": {
+  "captures": [
+   {
+    "capture_id": "cp_1a9cff4bd98a_0",
+    "memory_base": null,
+    "parent": null,
+    "producer_key_id": "pk_cc2e8f828e8a89f2",
+    "reason": null,
+    "source_sandbox_id": "sb_1a9cff4bd98a_a",
+    "state": "committed",
+    "template_id": "tp_09a71c56dd8afbd2768048656d"
+   },
+   {
+    "capture_id": "cp_1a9cff4bd98a_1",
+    "memory_base": null,
+    "parent": "cp_1a9cff4bd98a_0",
+    "producer_key_id": "pk_cc2e8f828e8a89f2",
+    "reason": null,
+    "source_sandbox_id": "sb_1a9cff4bd98a_b",
+    "state": "committed",
+    "template_id": "tp_09a71c56dd8afbd2768048656d"
+   }
+  ],
+  "elapsed_ms": 0.013133,
+  "ok": true
+ }
+}

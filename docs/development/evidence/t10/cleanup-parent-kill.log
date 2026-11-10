@@ -1,0 +1,4 @@
+=== RUN   TestControlBinaryDirectoryCleanedAfterParentKill
+--- PASS: TestControlBinaryDirectoryCleanedAfterParentKill (0.02s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	1.058s

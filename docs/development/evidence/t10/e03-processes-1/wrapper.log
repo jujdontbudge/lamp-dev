@@ -1,0 +1,42 @@
+{"preflight_conflicts": [], "free_m": "               total        used        free      shared  buff/cache   available\nMem:           31140        5322       15876        1468       11865       25818\nSwap:           8191        4832        3359\n"}
+timing-run: stopping excerlock-dm-tt.service excerlock-dm-ig.service excerlock-dm-chrome.service excerlock-beeper.service
+timing-run: buddyinfo Node 0, zone   Normal 157967 168058 119124  70517  32942  15320   6820   3533   2264   2281   1196 
+prepared credential 1/32 (two owner sandboxes)
+prepared credential 2/32 (two owner sandboxes)
+prepared credential 3/32 (two owner sandboxes)
+prepared credential 4/32 (two owner sandboxes)
+prepared credential 5/32 (two owner sandboxes)
+prepared credential 6/32 (two owner sandboxes)
+prepared credential 7/32 (two owner sandboxes)
+prepared credential 8/32 (two owner sandboxes)
+prepared credential 9/32 (two owner sandboxes)
+prepared credential 10/32 (two owner sandboxes)
+prepared credential 11/32 (two owner sandboxes)
+prepared credential 12/32 (two owner sandboxes)
+prepared credential 13/32 (two owner sandboxes)
+prepared credential 14/32 (two owner sandboxes)
+prepared credential 15/32 (two owner sandboxes)
+prepared credential 16/32 (two owner sandboxes)
+prepared credential 17/32 (two owner sandboxes)
+prepared credential 18/32 (two owner sandboxes)
+prepared credential 19/32 (two owner sandboxes)
+prepared credential 20/32 (two owner sandboxes)
+prepared credential 21/32 (two owner sandboxes)
+prepared credential 22/32 (two owner sandboxes)
+prepared credential 23/32 (two owner sandboxes)
+prepared credential 24/32 (two owner sandboxes)
+prepared credential 25/32 (two owner sandboxes)
+prepared credential 26/32 (two owner sandboxes)
+prepared credential 27/32 (two owner sandboxes)
+prepared credential 28/32 (two owner sandboxes)
+prepared credential 29/32 (two owner sandboxes)
+prepared credential 30/32 (two owner sandboxes)
+prepared credential 31/32 (two owner sandboxes)
+prepared credential 32/32 (two owner sandboxes)
+{"E03": {"status": "fail", "control_status": "fail", "integrated_e01_status": "fail", "callers": 32, "principals": 2, "prepared_sandboxes": 2, "trials": 6400, "failures": 1, "p50_ms": 60.126641, "p95_ms": 107.17855, "p99_ms": 510.440825, "boundary_ms": 35, "quota": {"status": "pass", "limit": 1, "preexisting_live_commands": 0, "contenders": 32, "accepted": [{"exec_id": "ex_1b11d5eadc675926d621964e037d6bdc", "marker": "e270ccf04e7a4158b9f77ecf043593e0"}], "errors": [], "allocation_samples": 9}, "endpoint": "caller send through durable admission and worker command_started receipt; output/replay/isolation checked outside timer"}}
+timing-run: command exit 1
+timing-run: excerlock-dm-tt.service active
+timing-run: excerlock-dm-ig.service active
+timing-run: excerlock-dm-chrome.service active
+timing-run: excerlock-beeper.service active
+timing-run: exit 1

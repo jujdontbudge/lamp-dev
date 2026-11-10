@@ -1,0 +1,14 @@
+=== RUN   TestExecAuthorityLostBeforeDispatchReleasesCharge
+=== RUN   TestExecAuthorityLostBeforeDispatchReleasesCharge/expired
+=== RUN   TestExecAuthorityLostBeforeDispatchReleasesCharge/revoked
+--- PASS: TestExecAuthorityLostBeforeDispatchReleasesCharge (0.35s)
+    --- PASS: TestExecAuthorityLostBeforeDispatchReleasesCharge/expired (0.19s)
+    --- PASS: TestExecAuthorityLostBeforeDispatchReleasesCharge/revoked (0.16s)
+=== RUN   TestPendingCleanupKeepsCapacityUntilRelease
+--- PASS: TestPendingCleanupKeepsCapacityUntilRelease (0.36s)
+=== RUN   TestLiveExecKeepsConcurrencyChargeAfterCommandStart
+--- PASS: TestLiveExecKeepsConcurrencyChargeAfterCommandStart (0.26s)
+=== RUN   TestUnknownExecChargeEndsOnlyAfterConfirmedSandboxRelease
+--- PASS: TestUnknownExecChargeEndsOnlyAfterConfirmedSandboxRelease (0.52s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	2.899s

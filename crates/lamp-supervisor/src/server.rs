@@ -207,16 +207,29 @@ impl Server {
             let uid = cred.uid;
             std::thread::spawn(move || {
                 let context = request.context.clone();
+                // A durable capture's acknowledgement is an E04 boundary.
+                let durable_capture = matches!(
+                    &request.command,
+                    Some(request::Command::Capture(c)) if c.consistency == "local"
+                );
                 let result = me.handle(request, fds, uid);
+                let acked = durable_capture && matches!(result, response::Result::Receipt(_));
                 let frame = Frame {
                     payload: Some(frame::Payload::Response(Response {
                         context,
                         result: Some(result),
                     })),
                 };
+                #[cfg(target_os = "linux")]
+                if acked {
+                    lamp_engine::fault::hit("ack", "before");
+                }
                 let w = writer.lock().unwrap();
                 if send_frame_with_fds(&*w, &frame, &[]).is_err() {
                     let _ = w.shutdown(std::net::Shutdown::Both);
+                } else if acked {
+                    #[cfg(target_os = "linux")]
+                    lamp_engine::fault::hit("ack", "after");
                 }
             });
         }

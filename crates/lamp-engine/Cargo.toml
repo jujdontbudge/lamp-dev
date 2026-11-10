@@ -20,3 +20,7 @@ libc.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 libc.workspace = true
 lamp-vz = { path = "../lamp-vz" }
+
+[features]
+# E04 crash/omitted-barrier injection. Never in a production build.
+fault-injection = []

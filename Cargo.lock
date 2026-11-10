@@ -301,6 +301,7 @@ dependencies = [
 name = "lamp-supervisor"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "lamp-engine",
  "lamp-init",
  "lamp-worker-protocol",

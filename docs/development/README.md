@@ -87,16 +87,20 @@ ABI and package format stay unfrozen until T14, after T7/T8/T9.
 
 ## Current executable behavior
 
-`lamp` supports the bounded demo's sandbox create/get/fork, exec create/get,
-and operation get over `lampd`'s owner-only local HTTP Unix socket. See
-[demo-control-path.md](demo-control-path.md) for startup, canonical API/CLI usage,
-worker integration semantics and explicit fixture/engine evidence boundaries.
+`lamp`, HTTP and the stdio `lamp-mcp` server share the credentialed control core:
+operations, fleet modes/roles, scoped keys, one-use approvals and live events.
+See [control-core.md](control-core.md) for enrollment, usage and extension seams,
+and [T10-evidence.md](T10-evidence.md) for verification and the unmet E03 gate.
+[demo-control-path.md](demo-control-path.md) records the original worker path and
+its explicit fixture/engine evidence boundaries.
 `version --json` still reports build/protocol metadata. The Linux engine
 (`lamp-supervisor`, T2) boots templates as Firecracker microVMs and forks them
 with memory; see [crates/lamp-engine/README.md](../../crates/lamp-engine/README.md)
 and [T2-evidence.md](T2-evidence.md). T6 joins the parallel tickets and runs
 the gate on lane LX; the measured result (failed) is in
-[T6-evidence.md](T6-evidence.md). The Mac engine (T8: Linux guests with
+[T6-evidence.md](T6-evidence.md). T7's durable local captures and their E04
+storage proof (ext4 at 1,000 forks, XFS-reflink at 100) are in
+[T7-evidence.md](T7-evidence.md). The Mac engine (T8: Linux guests with
 memory fork and native macOS guests on Virtualization.framework, M5 and AIR)
 is in [T8-evidence.md](T8-evidence.md); the installer and the guest build are
 in `infra/mac/`.
