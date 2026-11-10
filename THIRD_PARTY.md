@@ -11,8 +11,10 @@ contract verification dependencies are pinned in tools/requirements.txt.
 | Dependency | Purpose | Upstream license |
 | --- | --- | --- |
 | google.golang.org/protobuf, protoc/protoc-gen-go | Bounded generated process protocol | BSD-3-Clause |
-| golang.org/x/sys | OS peer credentials and journal locking (BSD-licensed syscall bindings) | BSD-3-Clause |
-| tailscale.com | Embedded userspace tailnet and workload identity federation | BSD-3-Clause |
+| golang.org/x/sys | OS peer credentials, journal locking and private Ethernet descriptors | BSD-3-Clause |
+| tailscale.com v1.96.5 and its pinned module graph | Embedded userspace tailnet, host-only sandbox member identities, workload identity federation, TCP/UDP endpoints and selected-context DNS | BSD-3-Clause (Tailscale); transitive dependencies retain their own licenses |
+| gvisor.dev/gvisor (pinned in go.mod) | Private Ethernet TCP/IP endpoint stack; no ambient host bridge | Apache-2.0 |
+| golang.org/x/net | IDNA normalization and DNS-message parsing | BSD-3-Clause |
 | github.com/caddyserver/certmagic | Automatic ACME HTTPS and renewal | Apache-2.0 |
 | github.com/gliderlabs/ssh, golang.org/x/crypto/ssh | Restricted OpenSSH console and fleet certificates | BSD-3-Clause |
 | github.com/coder/websocket | SSH transport over owner HTTPS and tunnel routes | ISC |

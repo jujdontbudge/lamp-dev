@@ -8,6 +8,7 @@ description = "Lamp engines: Linux Firecracker microVMs and Apple Silicon Virtua
 
 [dependencies]
 lamp-init = { path = "../lamp-init" }
+lamp-guard = { path = "../lamp-guard" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

@@ -1,0 +1,190 @@
+[
+  {
+    "event": "start",
+    "root": "/var/tmp/lamp-t12-demonstration-un3xuy87",
+    "available_mib": 25644,
+    "network_sha256": "dec7087e92c3d57071fdfebd2ac04835180e4b8a3c41f7167548b4a7473aa252"
+  },
+  {
+    "event": "ready",
+    "addresses": [
+      "100.127.240.1",
+      "fd7a:115c:a1e0:ffff::1"
+    ],
+    "port": 18880
+  },
+  {
+    "event": "ready",
+    "addresses": [
+      "100.127.240.2",
+      "fd7a:115c:a1e0:ffff::2"
+    ],
+    "port": 18880
+  },
+  {
+    "event": "exit_ready",
+    "listener": "127.0.0.1:49401",
+    "pid": 910655,
+    "state": "ready"
+  },
+  {
+    "event": "network_ready",
+    "sandboxes": [
+      {
+        "generation": 1,
+        "member_addresses": [
+          "100.127.240.3",
+          "fd7a:115c:a1e0:ffff::3"
+        ],
+        "sandbox_id": "sb_demo_a"
+      },
+      {
+        "generation": 1,
+        "member_addresses": [
+          "100.127.240.4",
+          "fd7a:115c:a1e0:ffff::4"
+        ],
+        "sandbox_id": "sb_demo_b"
+      }
+    ]
+  },
+  {
+    "event": "published_port",
+    "id": "po_c2e299186b8912f168219ebac3369e56",
+    "subject": {
+      "sandbox_id": "sb_demo_a",
+      "generation": 1
+    },
+    "port": 8080,
+    "origin": "https://p-c2e299186b8912f168219ebac3369e56.lamp-t12.test:18443"
+  },
+  {
+    "event": "https",
+    "app": "lamp-dev",
+    "authorization_visible_to_app": false,
+    "body_bytes": 79,
+    "complete": true,
+    "cookie_visible_to_app": false,
+    "identity_visible_to_app": false,
+    "status": 200
+  },
+  {
+    "event": "https",
+    "body_bytes": 39,
+    "complete": true,
+    "status": 403
+  },
+  {
+    "event": "share_created",
+    "grant_id": "pg_ImWiIBgNSpUVbkX2yHwUMs",
+    "expires_at": "2026-11-10T18:22:19.241451919-05:00",
+    "secret_available": true
+  },
+  {
+    "event": "https",
+    "body_bytes": 0,
+    "complete": true,
+    "status": 204
+  },
+  {
+    "event": "https",
+    "app": "lamp-dev",
+    "authorization_visible_to_app": false,
+    "body_bytes": 79,
+    "complete": true,
+    "cookie_visible_to_app": false,
+    "identity_visible_to_app": false,
+    "status": 200
+  },
+  {
+    "event": "stream_open",
+    "stream_id": "demo-share-stream"
+  },
+  {
+    "event": "share_revoked",
+    "data": null,
+    "state": "applied"
+  },
+  {
+    "event": "stream_closed",
+    "stream_id": "demo-share-stream"
+  },
+  {
+    "event": "https",
+    "body_bytes": 39,
+    "complete": true,
+    "status": 403
+  },
+  {
+    "event": "https",
+    "body_bytes": 0,
+    "complete": true,
+    "status": 204
+  },
+  {
+    "event": "https",
+    "body_bytes": 39,
+    "complete": true,
+    "status": 403
+  },
+  {
+    "event": "link_before",
+    "state": "blocked",
+    "protocol": "tcp",
+    "sha256": ""
+  },
+  {
+    "event": "link_created",
+    "data": {
+      "alias": "198.19.0.2",
+      "connection_id": "cn_5dc8ea3531ae5ecfc2214e7afe9b68a6",
+      "port": 9090,
+      "protocol": "tcp",
+      "source_sandbox_id": "sb_demo_a",
+      "target_sandbox_id": "sb_demo_b"
+    },
+    "state": "applied"
+  },
+  {
+    "event": "sandbox_to_sandbox",
+    "state": "allowed",
+    "protocol": "tcp",
+    "sha256": "a193bdfaf727bc97ea2720100f1500ebb04ee8826928814484b808ccd286b474"
+  },
+  {
+    "event": "link_wrong_port",
+    "state": "blocked",
+    "protocol": "tcp",
+    "sha256": ""
+  },
+  {
+    "event": "link_reverse",
+    "state": "blocked",
+    "protocol": "tcp",
+    "sha256": ""
+  },
+  {
+    "event": "link_revoked",
+    "data": null,
+    "state": "applied"
+  },
+  {
+    "event": "link_after_revoke",
+    "state": "blocked",
+    "protocol": "tcp",
+    "sha256": ""
+  },
+  {
+    "event": "unpublished",
+    "data": null,
+    "state": "applied"
+  },
+  {
+    "event": "end",
+    "available_mib": 25538
+  },
+  {
+    "event": "cleanup",
+    "failures": []
+  }
+]

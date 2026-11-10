@@ -4,7 +4,7 @@ fn main() {
     use std::{env, fs, io};
     fn run() -> io::Result<i32> {
         let args: Vec<String> = env::args().collect();
-        let usage = "usage: lamp-guard policy CONFIG | run CONFIG | receive CONFIG FD | proxy CONFIG SPOOL | collect FD|vsock:PORT UID [status:FD] -- ARGV...";
+        let usage = "usage: lamp-guard policy CONFIG | run CONFIG [control:FD] | receive CONFIG FD | proxy CONFIG SPOOL | collect FD|vsock:PORT UID [status:FD] -- ARGV...";
         let config = |p: &str| -> io::Result<Config> {
             let c: Config = serde_json::from_slice(&fs::read(p)?)?;
             c.validate()?;
@@ -16,8 +16,19 @@ fn main() {
                 print!("{}", config(&args[2])?.nft()?);
                 Ok(0)
             }
-            Some("run") if args.len() == 3 => {
-                runtime::run(config(&args[2])?)?;
+            Some("run") if args.len() == 3 || args.len() == 4 => {
+                let control = match args.get(3) {
+                    None => None,
+                    Some(arg) => {
+                        let raw = fd(arg
+                            .strip_prefix("control:")
+                            .ok_or_else(|| io::Error::other(usage))?)?;
+                        // SAFETY: the supervisor transfers exclusive ownership
+                        // of this private, connected endpoint to the guard.
+                        Some(unsafe { lamp_guard::control::Control::from_fd(raw)? })
+                    }
+                };
+                runtime::run_with_control(config(&args[2])?, control)?;
                 Ok(0)
             }
             Some("receive") if args.len() == 4 => {

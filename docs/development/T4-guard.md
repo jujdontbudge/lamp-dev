@@ -1,5 +1,10 @@
 # T4 Linux guard and protected process collector
 
+For subsequent numeric policy layers and the limited host-only live revision
+channel, see [T12 transport-policy foundation](T12-network.md). That update
+supersedes the static-policy statements below only for the documented path;
+full T12 networking and E09 remain incomplete.
+
 This is an executable **correctness-first demo path**, not an E02 speed result or
 a claim that the T2 microVM is already integrated. The real-kernel fixture uses
 isolated network namespaces, a root task, both collectors and a durable external

@@ -1,0 +1,228 @@
+[
+  {
+    "spool": "exit.ndjson",
+    "sequence": 1,
+    "observed_at": "2026-11-10T22:19:38.708641444Z",
+    "event": {
+      "kind": "route_ready",
+      "subject": {
+        "sandbox_id": "sb_exit",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "",
+      "policy_sha256": "d022fad05a7f467ab14b74e9e462f4373ec3cad66ff2b26e99b87632ec85bdec"
+    }
+  },
+  {
+    "spool": "exit.ndjson",
+    "sequence": 23,
+    "observed_at": "2026-11-10T22:19:44.031063764Z",
+    "event": {
+      "kind": "dial",
+      "subject": {
+        "sandbox_id": "sb_exit",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "172.66.147.243",
+        "protocol": "tcp",
+        "port": 443
+      },
+      "decision": "allow",
+      "reason": "numeric_grant"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 1,
+    "observed_at": "2026-11-10T22:19:41.246798316Z",
+    "event": {
+      "kind": "route_ready",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "",
+      "policy_sha256": "ddb6e33a0d153409aa517a266da201fd9bfb7449ba24d6a1670a8276c6b0a8c3"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 12,
+    "observed_at": "2026-11-10T22:19:43.848388345Z",
+    "event": {
+      "kind": "dial",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "100.127.240.1",
+        "protocol": "tcp",
+        "port": 18880
+      },
+      "decision": "allow",
+      "reason": "numeric_grant"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 13,
+    "observed_at": "2026-11-10T22:19:43.915730405Z",
+    "event": {
+      "kind": "dial",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "100.127.240.1",
+        "protocol": "udp",
+        "port": 18880
+      },
+      "decision": "allow",
+      "reason": "numeric_grant"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 14,
+    "observed_at": "2026-11-10T22:19:43.938426023Z",
+    "event": {
+      "kind": "destination",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "100.127.240.1",
+        "protocol": "tcp",
+        "port": 18881
+      },
+      "decision": "deny",
+      "reason": "policy_or_subject"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 16,
+    "observed_at": "2026-11-10T22:19:44.024506126Z",
+    "event": {
+      "kind": "dns_answer",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "selected_context_answer",
+      "dns_address": "172.66.147.243"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 17,
+    "observed_at": "2026-11-10T22:19:44.026355478Z",
+    "event": {
+      "kind": "dns_answer",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "selected_context_answer",
+      "dns_address": "104.20.23.154"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 18,
+    "observed_at": "2026-11-10T22:19:44.028658735Z",
+    "event": {
+      "kind": "dial",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "172.66.147.243",
+        "protocol": "tcp",
+        "port": 443
+      },
+      "decision": "allow",
+      "reason": "numeric_grant"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 19,
+    "observed_at": "2026-11-10T22:19:44.08425015Z",
+    "event": {
+      "kind": "member_ingress",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "explicit_port_map",
+      "protocol": "tcp",
+      "member_port": 18080,
+      "guest_port": 9090,
+      "peer": {
+        "address": "100.127.240.1",
+        "node_id": "1",
+        "name": "lamp-demo-viewer.lamp-t12.test"
+      }
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 20,
+    "observed_at": "2026-11-10T22:19:44.09482841Z",
+    "event": {
+      "kind": "member_ingress",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "explicit_port_map",
+      "protocol": "udp",
+      "member_port": 18080,
+      "guest_port": 9090,
+      "peer": {
+        "address": "100.127.240.1",
+        "node_id": "1",
+        "name": "lamp-demo-viewer.lamp-t12.test"
+      }
+    }
+  },
+  {
+    "spool": "guard-b.ndjson",
+    "sequence": 1,
+    "observed_at": "2026-11-10T22:19:43.768024034Z",
+    "event": {
+      "kind": "route_ready",
+      "subject": {
+        "sandbox_id": "sb_demo_b",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "",
+      "policy_sha256": "ddb6e33a0d153409aa517a266da201fd9bfb7449ba24d6a1670a8276c6b0a8c3"
+    }
+  }
+]
