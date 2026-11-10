@@ -1,8 +1,11 @@
 # Owner-machine CI
 
 This repository's persistent runners are **private-only, owner-only**. No hosted
-runner fallback exists. A push to main or t3/** starts three jobs; PR events do
-not start jobs. Push checks attach to the PR's head SHA. Manual runs also work.
+runner fallback exists. A push to main starts three jobs; PR events do not start
+jobs. A ticket branch (t3/**) runs only when dispatched, once it is ready for
+review: `gh workflow run check.yml -R JohanSardar/lamp --ref <branch>`. The
+checks attach to the branch's head SHA, so they show on its PR. The owner chose
+on 2026-11-10 to stop rerunning every work-in-progress push on the three machines.
 
 | Runner / labels | Execution host | Persistence |
 | --- | --- | --- |
