@@ -73,6 +73,8 @@ fn handle(engine: &Engine, req: &Value) -> Value {
             "pool": engine.disk.thin().map(|p| p.status()),
             "captures": engine.state_list().len(),
             "fault_injection": lamp_engine::fault::ENABLED,
+            "producer_key_id": lamp_engine::manifest::key_id(&engine.producer_key().verifying_key()),
+            "producer_public_key": lamp_init::hex_encode(engine.producer_key().verifying_key().as_bytes()),
         })),
         "list" => Ok(json!({"captures": engine.state_list()})),
         "delete" => field(req, "capture").and_then(|c| engine.state_delete(c).map(|_| json!({}))),

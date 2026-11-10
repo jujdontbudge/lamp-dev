@@ -190,6 +190,15 @@ fn host(cmd: &str, mut args: Vec<String>) {
             .unwrap_or_else(|_| die("bad --thin-data-gib"))
             << 30;
     }
+    // An additional enrolled producer (hex Ed25519 public key): its
+    // templates and captures are trusted like this host's own.
+    while let Some(hex) = take_flag(&mut args, "--trust-producer") {
+        let key = lamp_init::hex_decode(&hex)
+            .and_then(|b| <[u8; 32]>::try_from(b.as_slice()).ok())
+            .and_then(|b| ed25519_dalek::VerifyingKey::from_bytes(&b).ok())
+            .unwrap_or_else(|| die("bad --trust-producer (hex Ed25519 public key)"));
+        cfg.trusted_producers.push(key);
+    }
     if let Some(fc) = take_flag(&mut args, "--firecracker") {
         cfg.bins.firecracker = fc.into();
     }

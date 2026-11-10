@@ -5,15 +5,21 @@
 //! <store>/state/journal          append-only records, preallocated, framed
 //! <store>/state/objects/<name>   immutable objects: memory deltas, vm state,
 //!                                reflink disks (thin disks live in the pool)
-//! <store>/state/manifests/<name> signed capture manifests, named by digest
-//! <store>/state/quarantine/      refused imports and damaged state
+//! <store>/state/quarantine/      refused imports
 //! ```
 //!
 //! A capture commits in this order, each step a crash boundary of E04:
 //! reserve (journal) → capture → seal → object_flush → directory_flush →
-//! heads (manifest) → switch → journal_flush (commit record) → publish →
-//! ack. Nothing is acknowledged before its objects, their directory entries,
-//! its manifest and the commit record passed fsync/fdatasync. Recovery
+//! heads (commit record with the signed manifest, written) → switch →
+//! journal_flush (that record's fdatasync) → publish → ack. Nothing is
+//! acknowledged before its objects, their directory entries and the commit
+//! record passed fsync/fdatasync.
+//!
+//! Each barrier is the only thing that makes its step durable. The commit
+//! record overwrites preallocated, already written journal blocks, so its
+//! fdatasync carries no filesystem metadata: on ext4/XFS, whose journals
+//! are global, a later metadata commit cannot quietly cover an omitted
+//! `directory_flush` (E04's negative controls rely on this). Recovery
 //! trusts only committed records: an uncommitted capture is unreachable
 //! garbage, and a committed one keeps its ancestors (a capture with a live
 //! descendant cannot be deleted). Objects are verified against the signed
@@ -152,13 +158,11 @@ pub enum Record {
     },
     Commit {
         capture: String,
-        manifest: String,
-        sha256: String,
+        manifest: CaptureManifest,
     },
     Redirect {
         capture: String,
-        manifest: String,
-        sha256: String,
+        manifest: CaptureManifest,
         retire: Vec<String>,
     },
     Delete {
@@ -291,11 +295,15 @@ impl Journal {
         frame.extend_from_slice(&checksum(&payload));
         frame.extend_from_slice(&payload);
         self.file.write_all_at(&frame, self.end)?;
-        if sync {
-            self.file.sync_data().ctx("sync state journal")?;
-        }
         self.end += need;
+        if sync {
+            self.sync()?;
+        }
         Ok(())
+    }
+
+    fn sync(&self) -> Result<()> {
+        self.file.sync_data().ctx("sync state journal")
     }
 }
 
@@ -303,7 +311,6 @@ impl Journal {
 #[derive(Debug, Clone)]
 pub struct Entry {
     pub manifest: CaptureManifest,
-    pub manifest_name: String,
 }
 
 #[derive(Debug, Default)]
@@ -337,19 +344,6 @@ pub struct Listed {
     pub reason: Option<String>,
 }
 
-fn write_synced(path: &Path, bytes: &[u8], sync: bool) -> Result<()> {
-    let f = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
-        .ctx(format!("create {}", path.display()))?;
-    f.write_all_at(bytes, 0)?;
-    if sync {
-        f.sync_all().ctx(format!("fsync {}", path.display()))?;
-    }
-    Ok(())
-}
-
 pub fn sha256_file(path: &Path) -> Result<String> {
     let bytes = std::fs::read(path).ctx(format!("read {}", path.display()))?;
     Ok(manifest::sha256_hex(&bytes))
@@ -359,9 +353,6 @@ impl Store {
     pub fn objects(&self) -> PathBuf {
         self.root.join("objects")
     }
-    pub fn manifests(&self) -> PathBuf {
-        self.root.join("manifests")
-    }
     pub fn object(&self, name: &str) -> PathBuf {
         self.objects().join(name)
     }
@@ -369,7 +360,7 @@ impl Store {
     /// Opens and recovers the state under `store/state`.
     pub fn open(store: &Path, trusted: &HashMap<String, VerifyingKey>) -> Result<Store> {
         let root = store.join("state");
-        for d in ["objects", "manifests", "quarantine", "incoming"] {
+        for d in ["objects", "quarantine", "incoming"] {
             std::fs::create_dir_all(root.join(d)).ctx("create state dirs")?;
         }
         fsutil::chmod(&root, 0o700)?;
@@ -386,23 +377,16 @@ impl Store {
     }
 
     fn recover(&self, records: Vec<Record>, trusted: &HashMap<String, VerifyingKey>) {
-        let mut last: BTreeMap<String, (String, String)> = BTreeMap::new();
+        let mut last: BTreeMap<String, CaptureManifest> = BTreeMap::new();
         let mut ix = self.index.lock().unwrap();
         for r in records {
             match r {
                 Record::Reserve { thin, .. } => ix.reserved_thin.extend(thin),
-                Record::Commit {
-                    capture,
-                    manifest,
-                    sha256,
-                }
+                Record::Commit { capture, manifest }
                 | Record::Redirect {
-                    capture,
-                    manifest,
-                    sha256,
-                    ..
+                    capture, manifest, ..
                 } => {
-                    last.insert(capture, (manifest, sha256));
+                    last.insert(capture, manifest);
                 }
                 Record::Delete { capture } => {
                     last.remove(&capture);
@@ -410,8 +394,8 @@ impl Store {
                 }
             }
         }
-        for (cid, (name, sha)) in last {
-            match self.load_entry(&cid, &name, &sha, trusted) {
+        for (cid, m) in last {
+            match self.load_entry(&cid, m, trusted) {
                 Ok(e) => {
                     ix.live.insert(cid, e);
                 }
@@ -449,26 +433,13 @@ impl Store {
     fn load_entry(
         &self,
         cid: &str,
-        name: &str,
-        sha: &str,
+        m: CaptureManifest,
         trusted: &HashMap<String, VerifyingKey>,
     ) -> Result<Entry> {
-        let path = self.manifests().join(name);
-        let bytes = std::fs::read(&path).map_err(|e| {
-            EngineError::new("DATA_UNAVAILABLE", format!("manifest {name}: {e}"))
-        })?;
-        if manifest::sha256_hex(&bytes) != sha {
-            return Err(EngineError::new(
-                "DATA_UNAVAILABLE",
-                format!("manifest {name} does not match its commit record"),
-            ));
-        }
-        let m: CaptureManifest = serde_json::from_slice(&bytes)
-            .map_err(|e| EngineError::new("DATA_UNAVAILABLE", format!("manifest {name}: {e}")))?;
         if m.capture_id != cid || m.format != FORMAT {
             return Err(EngineError::new(
                 "DATA_UNAVAILABLE",
-                "manifest names another capture",
+                "commit record names another capture",
             ));
         }
         m.verify(trusted)?;
@@ -495,10 +466,7 @@ impl Store {
                 ));
             }
         }
-        Ok(Entry {
-            manifest: m,
-            manifest_name: name.to_string(),
-        })
+        Ok(Entry { manifest: m })
     }
 
     pub fn get(&self, cid: &str) -> Option<Entry> {
@@ -613,47 +581,30 @@ impl Store {
         Ok(())
     }
 
-    /// Step `heads`: the signed manifest, named by its digest, is durable
-    /// with its directory entry. Returns (name, sha256).
-    pub fn write_manifest(&self, m: &CaptureManifest) -> Result<(String, String)> {
-        let bytes = manifest::canonical_json(m)?;
-        let sha = manifest::sha256_hex(&bytes);
-        let name = format!("{}-{}.json", m.capture_id, &sha[..16]);
-        let path = self.manifests().join(&name);
-        if !path.exists() {
-            write_synced(&path, &bytes, true)?;
-        }
-        if !fault::omitted("directory_flush") {
-            fsutil::fsync_path(&self.manifests())?;
-        }
-        Ok((name, sha))
+    /// Step `heads`: the commit record carrying the signed manifest is
+    /// written into the journal (not yet flushed).
+    pub fn stage(&self, m: &CaptureManifest) -> Result<()> {
+        let r = Record::Commit {
+            capture: m.capture_id.clone(),
+            manifest: m.clone(),
+        };
+        self.journal.lock().unwrap().append(&r, false)
     }
 
-    /// Step `journal_flush`: the commit record. From here the capture is
-    /// recoverable.
-    pub fn commit(&self, cid: &str, name: &str, sha: &str) -> Result<()> {
-        let r = Record::Commit {
-            capture: cid.into(),
-            manifest: name.into(),
-            sha256: sha.into(),
-        };
-        self.journal
-            .lock()
-            .unwrap()
-            .append(&r, !fault::omitted("journal_flush"))
+    /// Step `journal_flush`: the staged commit record reaches stable
+    /// storage. From here the capture is recoverable.
+    pub fn flush(&self) -> Result<()> {
+        if fault::omitted("journal_flush") {
+            return Ok(());
+        }
+        self.journal.lock().unwrap().sync()
     }
 
     /// Step `publish`: restorable from now on.
-    pub fn insert(&self, m: CaptureManifest, name: String) {
+    pub fn insert(&self, m: CaptureManifest) {
         let mut ix = self.index.lock().unwrap();
         ix.in_flight.remove(&m.capture_id);
-        ix.live.insert(
-            m.capture_id.clone(),
-            Entry {
-                manifest: m,
-                manifest_name: name,
-            },
-        );
+        ix.live.insert(m.capture_id.clone(), Entry { manifest: m });
     }
 
     /// Deletes a capture unless a live capture descends from it or uses it
@@ -688,58 +639,38 @@ impl Store {
         })
     }
 
-    /// Object and manifest files no live or in-flight capture references.
-    pub fn unreferenced(&self) -> (Vec<PathBuf>, Vec<PathBuf>) {
+    /// Object files no live or in-flight capture references.
+    pub fn unreferenced(&self) -> Vec<PathBuf> {
         let ix = self.index.lock().unwrap();
-        let mut keep_obj: BTreeSet<String> = BTreeSet::new();
-        let mut keep_man: BTreeSet<String> = BTreeSet::new();
+        let mut keep: BTreeSet<String> = BTreeSet::new();
         for e in ix.live.values() {
-            keep_obj.extend(e.manifest.objects());
-            keep_man.insert(e.manifest_name.clone());
+            keep.extend(e.manifest.objects());
         }
-        for (cid, (objs, _)) in &ix.in_flight {
+        for (objs, _) in ix.in_flight.values() {
             for o in objs {
-                keep_obj.insert(o.clone());
-                keep_obj.insert(format!("{o}.tmp"));
+                keep.insert(o.clone());
+                keep.insert(format!("{o}.tmp"));
             }
-            keep_man.insert(format!("{cid}-"));
         }
-        let pick = |dir: PathBuf, keep: &BTreeSet<String>, prefix_ok: bool| -> Vec<PathBuf> {
-            std::fs::read_dir(&dir)
-                .into_iter()
-                .flatten()
-                .flatten()
-                .filter(|e| {
-                    let n = e.file_name().to_string_lossy().into_owned();
-                    !(keep.contains(&n)
-                        || prefix_ok
-                            && keep
-                                .iter()
-                                .any(|k| k.ends_with('-') && n.starts_with(k.as_str())))
-                })
-                .map(|e| e.path())
-                .collect()
-        };
-        (
-            pick(self.objects(), &keep_obj, false),
-            pick(self.manifests(), &keep_man, true),
-        )
+        std::fs::read_dir(self.objects())
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|e| !keep.contains(&*e.file_name().to_string_lossy()))
+            .map(|e| e.path())
+            .collect()
     }
 
-    /// Removes unreferenced object and manifest files. Returns their count.
+    /// Removes unreferenced object files. Returns their count.
     pub fn gc_files(&self) -> Result<usize> {
-        let (objs, mans) = self.unreferenced();
-        let n = objs.len() + mans.len();
-        for p in objs.iter().chain(mans.iter()) {
+        let objs = self.unreferenced();
+        for p in &objs {
             std::fs::remove_file(p).ctx(format!("remove {}", p.display()))?;
         }
         if !objs.is_empty() {
             fsutil::fsync_path(&self.objects())?;
         }
-        if !mans.is_empty() {
-            fsutil::fsync_path(&self.manifests())?;
-        }
-        Ok(n)
+        Ok(objs.len())
     }
 
     /// Step `compact_redirect`: atomically points `cid` at a new manifest
@@ -747,23 +678,19 @@ impl Store {
     /// manifest used and the new one does not.
     pub fn redirect(&self, m: CaptureManifest, retire: Vec<String>) -> Result<()> {
         let cid = m.capture_id.clone();
-        let (name, sha) = self.write_manifest(&m)?;
         self.journal.lock().unwrap().append(
             &Record::Redirect {
                 capture: cid.clone(),
-                manifest: name.clone(),
-                sha256: sha,
+                manifest: m.clone(),
                 retire,
             },
             true,
         )?;
-        self.index.lock().unwrap().live.insert(
-            cid,
-            Entry {
-                manifest: m,
-                manifest_name: name,
-            },
-        );
+        self.index
+            .lock()
+            .unwrap()
+            .live
+            .insert(cid, Entry { manifest: m });
         Ok(())
     }
 
@@ -881,9 +808,9 @@ mod tests {
         std::fs::write(s.object(&format!("{}.tmp", m.vmstate.object)), b"vs").unwrap();
         s.publish_objects(&[m.memory.object.clone(), m.vmstate.object.clone()])
             .unwrap();
-        let (n, sha) = s.write_manifest(m).unwrap();
-        s.commit(&m.capture_id, &n, &sha).unwrap();
-        s.insert(m.clone(), n);
+        s.stage(m).unwrap();
+        s.flush().unwrap();
+        s.insert(m.clone());
     }
 
     #[test]
@@ -910,7 +837,7 @@ mod tests {
         drop(s);
         let s = Store::open(&d, &trusted).unwrap();
         assert!(s.live().is_empty());
-        assert_eq!(s.gc_files().unwrap(), 6);
+        assert_eq!(s.gc_files().unwrap(), 4);
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -929,12 +856,17 @@ mod tests {
         {
             let s = Store::open(&d, &trusted).unwrap();
             commit(&s, &manifest("cp_a", None, &key));
-            let name = s.get("cp_a").unwrap().manifest_name;
-            std::fs::write(s.manifests().join(name), b"{}").unwrap();
+            // A validly framed commit of a rogue producer's capture, and one
+            // whose manifest was altered after signing.
+            commit(&s, &m);
+            s.stage(&forged).unwrap();
+            s.flush().unwrap();
         }
         let s = Store::open(&d, &trusted).unwrap();
-        assert!(s.get("cp_a").is_none());
-        assert_eq!(s.list()[0].state, "damaged");
+        assert!(s.get("cp_a").is_some());
+        assert!(s.get("cp_r").is_none() && s.get("cp_f").is_none());
+        let damaged: Vec<_> = s.list().into_iter().filter(|l| l.state == "damaged").collect();
+        assert_eq!(damaged.len(), 2);
         std::fs::remove_dir_all(d).unwrap();
     }
 

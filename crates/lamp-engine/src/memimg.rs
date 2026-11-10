@@ -157,7 +157,10 @@ pub fn read_header(file: &File) -> Result<Header> {
 /// Writes the pages of `image` that differ from `base` into `out` (created,
 /// mode 0600) and fdatasyncs it unless `sync` is false. `base` may be
 /// sparse and must be exactly as long as `image`.
-pub fn encode(image: &Path, base: &Path, out: &Path, sync: bool) -> Result<Encoded> {
+/// `sync` waits for the data to be stable before returning. `direct`
+/// writes the pages with O_DIRECT where the filesystem supports it;
+/// without it the pages stay in the page cache until a later sync.
+pub fn encode(image: &Path, base: &Path, out: &Path, sync: bool, direct: bool) -> Result<Encoded> {
     let img = File::open(image).ctx("open capture image")?;
     let len = img.metadata()?.len();
     if !len.is_multiple_of(PAGE as u64) {
@@ -262,11 +265,15 @@ pub fn encode(image: &Path, base: &Path, out: &Path, sync: bool) -> Result<Encod
         offsets[u] = at;
         at += (counts[u] * PAGE) as u64;
     }
-    let direct = OpenOptions::new()
-        .write(true)
-        .custom_flags(libc::O_DIRECT)
-        .open(out)
-        .ok();
+    let direct = if direct {
+        OpenOptions::new()
+            .write(true)
+            .custom_flags(libc::O_DIRECT)
+            .open(out)
+            .ok()
+    } else {
+        None
+    };
     let changed_list: Vec<u32> = (0..pages)
         .filter(|&p| bitmap[p / 8] & (1 << (p % 8)) != 0)
         .map(|p| p as u32)
@@ -543,7 +550,7 @@ mod tests {
                 .unwrap();
         }
         std::fs::write(&ip, &image).unwrap();
-        let enc = encode(&ip, &bp, &d.join("delta"), true).unwrap();
+        let enc = encode(&ip, &bp, &d.join("delta"), true, true).unwrap();
         assert_eq!(enc.changed_pages, 4);
         assert_eq!(enc.digest, crate::fsutil::digest_file(&d.join("delta")).unwrap());
         materialize(&d.join("delta"), &bp, &d.join("out")).unwrap();
@@ -567,7 +574,7 @@ mod tests {
         File::create(&bp).unwrap().set_len(len as u64).unwrap();
         let ip = d.join("image");
         std::fs::write(&ip, &image).unwrap();
-        let enc = encode(&ip, &bp, &d.join("delta"), true).unwrap();
+        let enc = encode(&ip, &bp, &d.join("delta"), true, true).unwrap();
         assert_eq!(enc.changed_pages as usize, len / PAGE);
         assert!(enc.object_bytes as usize > CHUNK);
         assert_eq!(enc.digest, crate::fsutil::digest_file(&d.join("delta")).unwrap());

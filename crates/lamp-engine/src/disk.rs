@@ -27,7 +27,7 @@ use std::process::Command;
 use std::sync::Mutex;
 
 const XFS_MAGIC: i64 = 0x5846_5342;
-const BTRFS_MAGIC: i64 = 0x9123_683e;
+pub const BTRFS_MAGIC: i64 = 0x9123_683e;
 /// 64 KiB pool blocks.
 const BLOCK_SECTORS: u64 = 128;
 

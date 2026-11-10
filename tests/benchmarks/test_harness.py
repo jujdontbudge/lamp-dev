@@ -412,6 +412,39 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(result["status"], "incomplete")
         self.assertEqual(set(result["missing_qualification_evidence"]), {"public_call_transcript", "injected_fault_barrier_trace"})
 
+    def test_real_e04_passes_only_with_traces_the_harness_can_check(self):
+        def kept_traces(root, tamper=None):
+            def fixture(command, request, evidence):
+                directory = Path(root) / request["nonce"]
+                directory.mkdir()
+                (directory / "transcript.jsonl").write_text(json.dumps({"kind": "ctl", "argv": ["capture"]}) + "\n")
+                trace = b'{"fault": "discard"}\n0 8 8 1 d\n1 0 0 8 a crash\n'
+                if tamper == "no-mark":
+                    trace = b'{"fault": "discard"}\n0 8 8 1 d\n'
+                (directory / "barrier-trace.txt.gz").write_bytes(gzip.compress(trace))
+                files = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in directory.iterdir()}
+                if tamper == "digest":
+                    files["transcript.jsonl"] = "0" * 64
+                observed = {"qualification": "real-filesystem-block-barrier", "objects": {"0": {}},
+                            "evidence": {"artifact_dir": str(directory), "files": files}}
+                if request.get("omit"):
+                    return ["lost acknowledged object 1"], observed
+                if request.get("unauthorized"):
+                    observed["unauthorized_capture_rejected"] = True
+                return [], observed
+            return fixture
+
+        for tamper, status in ((None, "pass"), ("digest", "incomplete"), ("no-mark", "incomplete")):
+            with self.subTest(tamper=tamper), tempfile.TemporaryDirectory() as root:
+                with mock.patch("benchmarks.storage.scenario", side_effect=kept_traces(root, tamper)):
+                    result = storage_suite(["real-fixture"], RecordingEvidence(), count=1000)
+                self.assertEqual(result["status"], status)
+                self.assertEqual(result["qualification"] == "real-filesystem-block-barrier", status == "pass")
+        with tempfile.TemporaryDirectory() as root:
+            with mock.patch("benchmarks.storage.scenario", side_effect=kept_traces(root)):
+                short = storage_suite(["real-fixture"], RecordingEvidence(), count=30)
+            self.assertEqual(short["status"], "incomplete")
+
     def test_e02_rejects_direct_and_invalid_secured_proxy_endpoints(self):
         harness = EngineHarness(
             mock.Mock(), RecordingEvidence(), "tp_bench", "/workload.py",

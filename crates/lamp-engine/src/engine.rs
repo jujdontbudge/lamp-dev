@@ -170,7 +170,7 @@ enum Source {
         template_id: String,
     },
     Capture(Arc<CaptureRec>),
-    Durable(durable::Entry),
+    Durable(Box<durable::Entry>),
 }
 
 /// The full memory image a sandbox's durable captures are encoded against.
@@ -697,16 +697,16 @@ impl Engine {
     /// Detaches and frees a working disk (its VMM must be gone).
     fn release_disk(&self, w: Option<disk::Working>) {
         if let (Some(w), disk::Backend::Thin(pool)) = (w, &self.disk) {
-            if let Some(name) = &w.dm_name {
-                if let Err(e) = pool.deactivate(name) {
-                    eprintln!("lamp-engine: deactivate {name}: {e}");
-                    return;
-                }
+            if let Some(name) = &w.dm_name
+                && let Err(e) = pool.deactivate(name)
+            {
+                eprintln!("lamp-engine: deactivate {name}: {e}");
+                return;
             }
-            if let DiskRef::Thin(id) = w.disk {
-                if let Err(e) = pool.delete(id) {
-                    eprintln!("lamp-engine: delete thin volume {id}: {e}");
-                }
+            if let DiskRef::Thin(id) = w.disk
+                && let Err(e) = pool.delete(id)
+            {
+                eprintln!("lamp-engine: delete thin volume {id}: {e}");
             }
         }
     }
@@ -1090,7 +1090,7 @@ impl Engine {
             None => match self.state.get(capture_id) {
                 Some(e) => {
                     let r = e.manifest.resources.clone();
-                    (Source::Durable(e), r)
+                    (Source::Durable(Box::new(e)), r)
                 }
                 None => {
                     let t = self.template(capture_id)?;
@@ -1864,10 +1864,12 @@ impl Engine {
         let mem_tmp = self.state.object(&format!("{mem_name}.tmp"));
         let state_tmp = self.state.object(&format!("{vmstate_name}.tmp"));
         let (enc, mem_digest, vm_sha, vm_size) = fault::step("object_flush", || {
-            let enc = memimg::encode(mem, &base_path, &mem_tmp, false)?;
+            // An omitted object_flush (negative control) leaves the pages
+            // in the page cache: only a flush would make them durable.
+            let skip = fault::omitted("object_flush");
+            let enc = memimg::encode(mem, &base_path, &mem_tmp, false, !skip)?;
             detail.insert("durable_encode_us".into(), us(t.elapsed()));
             let ts = Instant::now();
-            let skip = fault::omitted("object_flush");
             if !skip {
                 File::open(&mem_tmp)
                     .and_then(|f| f.sync_data())
@@ -1885,6 +1887,14 @@ impl Engine {
                     (DiskRef::File(_), _) => fsutil::fsync_path(seal_path.unwrap())?,
                     (DiskRef::Thin(_), disk::Backend::Thin(pool)) => pool.commit()?,
                     _ => {}
+                }
+                // btrfs logs a rename of an inode it already logged in the
+                // running transaction, so any later fsync would make the
+                // objects' final names durable as a side effect. Committing
+                // the transaction here leaves directory_flush as the only
+                // barrier for them, as on every other filesystem.
+                if disk::statfs_type(&self.state.objects())? == disk::BTRFS_MAGIC {
+                    fsutil::syncfs(&self.state.objects())?;
                 }
             }
             detail.insert("durable_sync_us".into(), us(ts.elapsed()));
@@ -1936,15 +1946,15 @@ impl Engine {
             m.disk.bytes = disk::size_of_file(&self.disk_path(p))?;
         }
         m.sign(&self.producer)?;
-        let (name, sha) = fault::step("heads", || self.state.write_manifest(&m))?;
+        fault::step("heads", || self.state.stage(&m))?;
         fault::step("switch", || {
             // The source now descends from this generation.
             sb.parent = Some(cid.to_string());
             Ok(())
         })?;
-        fault::step("journal_flush", || self.state.commit(cid, &name, &sha))?;
+        fault::step("journal_flush", || self.state.flush())?;
         fault::step("publish", || {
-            self.state.insert(m, name);
+            self.state.insert(m);
             Ok(())
         })?;
         detail.insert("durable_commit_us".into(), us(t.elapsed()));
@@ -1965,10 +1975,10 @@ impl Engine {
                 let _ = std::fs::remove_dir_all(&c.dir);
                 let _ = std::fs::remove_file(&c.mem);
                 let _ = std::fs::remove_file(&c.vmstate);
-                if !c.durable {
-                    if let (DiskRef::Thin(id), Some(pool)) = (&c.disk, self.disk.thin()) {
-                        let _ = pool.delete(*id);
-                    }
+                if !c.durable
+                    && let (DiskRef::Thin(id), Some(pool)) = (&c.disk, self.disk.thin())
+                {
+                    let _ = pool.delete(*id);
                 }
             }
             !consumed
@@ -2036,9 +2046,9 @@ impl Engine {
             let (enc, digest) = fault::step("compact_objects", || {
                 let full = scratch.join("full.mem");
                 self.materialize(cid, &full, &scratch, 0)?;
-                let enc = memimg::encode(&full, &t.dir.join(fc::MEM), &tmp, true)?;
+                let enc = memimg::encode(&full, &t.dir.join(fc::MEM), &tmp, true, true)?;
                 let _ = std::fs::remove_file(&full);
-                let digest = fsutil::digest_file(&tmp)?;
+                let digest = enc.digest.clone();
                 self.state.publish_objects(std::slice::from_ref(&mem_name))?;
                 Ok((enc, digest))
             })?;
@@ -2087,7 +2097,7 @@ impl Engine {
         std::fs::create_dir(dir).ctx("create export dir")?;
         let full = dir.join("full.mem");
         self.materialize(cid, &full, dir, 0)?;
-        memimg::encode(&full, &t.dir.join(fc::MEM), &dir.join("mem"), true)?;
+        memimg::encode(&full, &t.dir.join(fc::MEM), &dir.join("mem"), true, true)?;
         std::fs::remove_file(&full)?;
         std::fs::copy(self.state.object(&e.manifest.vmstate.object), dir.join("vmstate"))?;
         let disk_out = dir.join("disk");
@@ -2147,7 +2157,7 @@ impl Engine {
             .map_err(|e| refuse(EngineError::new("DATA_UNAVAILABLE", format!("manifest: {e}"))))?;
         // Producer authority first: an unenrolled key is refused even when
         // every digest is correct.
-        m.verify(&self.trusted).map_err(&refuse)?;
+        m.verify(&self.trusted).map_err(refuse)?;
         if m.memory.object != "mem" || m.vmstate.object != "vmstate" || m.disk.disk != "file:disk"
         {
             return Err(refuse(EngineError::new("DATA_UNAVAILABLE", "not an export bundle")));
@@ -2157,7 +2167,7 @@ impl Engine {
         {
             return Err(refuse(EngineError::new("DATA_UNAVAILABLE", "bundle digest mismatch")));
         }
-        let t = self.template(&m.template_id).map_err(&refuse)?;
+        let t = self.template(&m.template_id).map_err(refuse)?;
         if m.engine_digest != self.compat.engine_digest || m.cpu_baseline != self.compat.cpu_baseline
         {
             return Err(refuse(EngineError::new("ENGINE_UNQUALIFIED", "bundle is for another host")));
@@ -2200,9 +2210,9 @@ impl Engine {
             local.disk.disk = disk.encode();
             local.template_id = t.id.clone();
             local.sign(&self.producer)?;
-            let (name, sha) = self.state.write_manifest(&local)?;
-            self.state.commit(&cid, &name, &sha)?;
-            self.state.insert(local, name);
+            self.state.stage(&local)?;
+            self.state.flush()?;
+            self.state.insert(local);
             Ok(cid.clone())
         })();
         if r.is_err() {
