@@ -1,0 +1,17 @@
+lamp-engine: capture cp_1e1a899a0126_1 is not recoverable: DATA_UNAVAILABLE: object cp_1e1a899a0126_1-vmstate-a0c01e7c is missing or truncated
+lamp-engine: removed 2 uncommitted state file(s)
+lamp-engine: removed 2 unreferenced thin volume(s)
+lamp-supervisor: store open (dm-thin disks, 3 durable capture(s)), 1 verified template(s) in 313 ms
+lamp-supervisor: serving lamp.worker/1 on /run/lamp-e04/ext4/main/worker.sock
+lamp-supervisor: op op_802d1f352dbc_1 sandbox sb_1e1a899a0126_r0 handle_us=1389 
+lamp-supervisor: op op_802d1f352dbc_2 sandbox sb_1e1a899a0126_r0 handle_us=95687 attach_us=7104 barrier_us=3752 disk_attach_us=12847 load_us=5968 materialize_us=55451 prepare_us=68316 spawn_us=10525 total_us=95679
+lamp-supervisor: op op_802d1f352dbc_3 sandbox sb_1e1a899a0126_r0 handle_us=14896 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_802d264e972c_1 sandbox sb_1e1a899a0126_r0 handle_us=2422 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_802d282ed1a1_1 sandbox sb_1e1a899a0126_r0 handle_us=3754 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_802d2d8fb91f_1 sandbox sb_1e1a899a0126_r0 handle_us=31168 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

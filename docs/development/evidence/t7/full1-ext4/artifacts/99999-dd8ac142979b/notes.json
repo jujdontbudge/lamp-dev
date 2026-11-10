@@ -1,0 +1,34 @@
+{
+ "unauthorized": {
+  "code": "HOST_NOT_TRUSTED",
+  "ok": false,
+  "message": "capture cp_dd8ac142979b_1 was produced by pk_46d5d03764d8883a, which is not an enrolled producer",
+  "rogue_producer_key_id": "pk_46d5d03764d8883a"
+ },
+ "barrier": {
+  "entries": 894,
+  "crash_index": 805,
+  "last_flush_index": 803,
+  "flushes_before_crash": 54,
+  "fua_before_crash": 37,
+  "durable_writes": 751,
+  "volatile_applied": 0,
+  "volatile_dropped": 0
+ },
+ "recovered_list": {
+  "captures": [
+   {
+    "capture_id": "cp_dd8ac142979b_0",
+    "memory_base": null,
+    "parent": null,
+    "producer_key_id": "pk_cc2e8f828e8a89f2",
+    "reason": null,
+    "source_sandbox_id": "sb_dd8ac142979b_a",
+    "state": "committed",
+    "template_id": "tp_09a71c56dd8afbd2768048656d"
+   }
+  ],
+  "elapsed_ms": 0.016472999999999998,
+  "ok": true
+ }
+}

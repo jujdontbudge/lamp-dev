@@ -22,6 +22,10 @@ pub struct Definition {
     /// (T4) attaches to build sandboxes.
     #[serde(default = "no_network")]
     pub network: String,
+    /// Guest memory of the template (and of every sandbox restored from
+    /// it). Absent means the B1 standard, 4096 MiB.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory_mib: Option<u64>,
     #[serde(default)]
     pub steps: Vec<Step>,
 }
@@ -128,6 +132,13 @@ impl Definition {
             return Err(EngineError::invalid("arch must be x86_64 or arm64"));
         }
         parse_seed_ref(&self.seed_ref)?;
+        if let Some(m) = self.memory_mib
+            && (!(128..=65536).contains(&m) || !m.is_multiple_of(128))
+        {
+            return Err(EngineError::invalid(
+                "memory_mib must be a multiple of 128 between 128 and 65536",
+            ));
+        }
         if let Some(lock) = &self.package_lock_blob_id
             && (!lock.starts_with("bl_") || lock.contains('<'))
         {
