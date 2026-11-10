@@ -1,9 +1,13 @@
 # Verification and independent benchmark harness
 
-Run `make bootstrap verify` for workspace, contracts, interoperability, lint and
-the independent harness tests. For harness-only iteration use
-`python3 -m unittest discover -s tests/benchmarks -v`. Python uses only its
-standard library; the workloads additionally need `cc` for the fixed build row.
+Run `make bootstrap verify` for the workspace build and selected smoke tests,
+including contracts, generators and interoperability. CI runs this on LX, M5
+and LA; Linux also runs two selected Rust smokes. Run `make bootstrap test-all`
+for the full existing suites or `make lint` for vet, formatting and clippy, only
+when requested. For harness-only iteration use
+`python3 -m unittest discover -s tests/benchmarks -v`. The benchmark harness uses
+only Python's standard library; its workloads additionally need `cc` for the
+fixed build row.
 
 The measuring side lives in `benchmarks/`, not engine/control crates. Run with
 `python3 -m benchmarks.run --help`. It imports no Lamp runtime, generated API
