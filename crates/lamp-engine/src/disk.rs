@@ -138,7 +138,9 @@ impl Backend {
             "thin" => Ok(Backend::Thin(ThinPool::open(store, thin)?)),
             "auto" | "" if reflink => Ok(Backend::Reflink),
             "auto" | "" => Ok(Backend::Thin(ThinPool::open(store, thin)?)),
-            other => Err(EngineError::invalid(format!("unknown disk backend {other}"))),
+            other => Err(EngineError::invalid(format!(
+                "unknown disk backend {other}"
+            ))),
         }
     }
 
@@ -278,7 +280,11 @@ impl ThinPool {
                 p.ctl.remove(&name)?;
             }
         }
-        for e in std::fs::read_dir(p.dir.join("dev")).into_iter().flatten().flatten() {
+        for e in std::fs::read_dir(p.dir.join("dev"))
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
             let _ = std::fs::remove_file(e.path());
         }
         Ok(p)
@@ -310,7 +316,13 @@ impl ThinPool {
     }
 
     fn thin_params(&self, id: u32) -> String {
-        format!("{} {id}", self.ctl.exists(&self.pool).map(|d| d.spec()).unwrap_or_default())
+        format!(
+            "{} {id}",
+            self.ctl
+                .exists(&self.pool)
+                .map(|d| d.spec())
+                .unwrap_or_default()
+        )
     }
 
     fn name(&self, kind: char, id: u32) -> String {
@@ -365,8 +377,7 @@ impl ThinPool {
     pub fn import(&self, id: u32, file: &Path) -> Result<()> {
         use std::os::unix::fs::FileExt;
         let len = std::fs::metadata(file).ctx("stat image")?.len();
-        self.ctl
-            .message(&self.pool, &format!("create_thin {id}"))?;
+        self.ctl.message(&self.pool, &format!("create_thin {id}"))?;
         let (name, dev) = self.activate('i', id, len)?;
         let node = self.dir.join("dev").join(&name);
         let _ = std::fs::remove_file(&node);
@@ -453,7 +464,13 @@ mod tests {
         for r in [DiskRef::File("state/objects/d1".into()), DiskRef::Thin(77)] {
             assert_eq!(DiskRef::decode(&r.encode()).unwrap(), r);
         }
-        for bad in ["file:/etc/passwd", "file:a/../../b", "thin:16777216", "thin:x", "x"] {
+        for bad in [
+            "file:/etc/passwd",
+            "file:a/../../b",
+            "thin:16777216",
+            "thin:x",
+            "x",
+        ] {
             assert!(DiskRef::decode(bad).is_err(), "{bad}");
         }
     }

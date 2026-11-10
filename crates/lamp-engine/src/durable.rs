@@ -234,7 +234,9 @@ impl Journal {
                     return None;
                 }
                 let mut payload = vec![0_u8; n as usize];
-                self.file.read_exact_at(&mut payload, at + FRAME as u64).ok()?;
+                self.file
+                    .read_exact_at(&mut payload, at + FRAME as u64)
+                    .ok()?;
                 if checksum(&payload) != head[4..12] {
                     return None;
                 }
@@ -865,7 +867,11 @@ mod tests {
         let s = Store::open(&d, &trusted).unwrap();
         assert!(s.get("cp_a").is_some());
         assert!(s.get("cp_r").is_none() && s.get("cp_f").is_none());
-        let damaged: Vec<_> = s.list().into_iter().filter(|l| l.state == "damaged").collect();
+        let damaged: Vec<_> = s
+            .list()
+            .into_iter()
+            .filter(|l| l.state == "damaged")
+            .collect();
         assert_eq!(damaged.len(), 2);
         std::fs::remove_dir_all(d).unwrap();
     }

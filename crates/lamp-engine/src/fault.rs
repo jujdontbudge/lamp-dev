@@ -79,9 +79,11 @@ pub fn arm(spec: Spec) -> Result<()> {
 pub fn hit(point: &str, side: &str) {
     #[cfg(feature = "fault-injection")]
     {
-        let fire = ARMED.lock().unwrap().as_ref().is_some_and(|s| {
-            s.point.as_deref() == Some(point) && s.side == side
-        });
+        let fire = ARMED
+            .lock()
+            .unwrap()
+            .as_ref()
+            .is_some_and(|s| s.point.as_deref() == Some(point) && s.side == side);
         if fire {
             eprintln!("lamp-engine: fault injection: crash at {point}/{side}");
             // SAFETY: immediate process exit, nothing else runs.

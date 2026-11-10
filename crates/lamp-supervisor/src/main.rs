@@ -49,6 +49,7 @@ fn take_flag(args: &mut Vec<String>, name: &str) -> Option<String> {
     Some(v)
 }
 
+#[cfg(target_os = "linux")]
 fn take_bool(args: &mut Vec<String>, name: &str) -> bool {
     match args.iter().position(|a| a == name) {
         Some(i) => {
@@ -538,7 +539,11 @@ fn ctl(mut args: Vec<String>) {
             let (Some(id), Some(cid)) = (args.first().cloned(), args.get(1).cloned()) else {
                 die("capture|suspend SANDBOX_ID CAPTURE_ID")
             };
-            let consistency = if sub == "suspend" { "local".to_string() } else { durability };
+            let consistency = if sub == "suspend" {
+                "local".to_string()
+            } else {
+                durability
+            };
             let t = Instant::now();
             let r = c.call(
                 &id,

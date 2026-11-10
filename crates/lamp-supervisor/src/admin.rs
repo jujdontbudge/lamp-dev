@@ -84,8 +84,11 @@ fn handle(engine: &Engine, req: &Value) -> Value {
         "export" => field(req, "capture").and_then(|c| {
             field(req, "dir").and_then(|d| engine.state_export(c, Path::new(d)).map(|_| json!({})))
         }),
-        "import" => field(req, "dir")
-            .and_then(|d| engine.state_import(Path::new(d)).map(|c| json!({"capture_id": c}))),
+        "import" => field(req, "dir").and_then(|d| {
+            engine
+                .state_import(Path::new(d))
+                .map(|c| json!({"capture_id": c}))
+        }),
         "fault" => {
             let s = |k: &str| {
                 req.get(k)
@@ -136,5 +139,7 @@ pub fn client(socket: &Path, args: &[String]) -> Value {
         BufReader::new(s).read_line(&mut line)?;
         serde_json::from_str(&line).map_err(std::io::Error::other)
     })();
-    reply.unwrap_or_else(|e| json!({"ok": false, "code": "HOST_UNAVAILABLE", "message": e.to_string()}))
+    reply.unwrap_or_else(
+        |e| json!({"ok": false, "code": "HOST_UNAVAILABLE", "message": e.to_string()}),
+    )
 }

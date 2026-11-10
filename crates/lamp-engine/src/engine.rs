@@ -30,21 +30,21 @@
 //! only by root until it is handed to the one sandbox restoring it, which
 //! then owns it. No live KVM handle, process fork or mutable shared page is
 //! ever inherited.
+use crate::disk::{self, DiskRef};
+use crate::durable;
 use crate::error::{EngineError, IoContext, Result};
+use crate::fault;
 use crate::fc::{self, Binaries, Jail, Limits};
 use crate::fsutil::{self, now_ms, now_ns, random_bytes};
 use crate::guest;
-use crate::disk::{self, DiskRef};
-use crate::durable;
-use crate::fault;
 use crate::manifest::{self, AccelerationVariant, Compatibility, Manifest, Provenance, Resources};
 use crate::memimg;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use lamp_init::{Barrier, Empty, Exec, ExecDone, ExecStarted, GuestRequest, GuestResponse};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
-use std::fs::File;
 use std::time::{Duration, Instant};
 
 pub const ENGINE_NAME: &str = "firecracker-1.17.0";
@@ -584,10 +584,16 @@ impl Engine {
             let (live, _) = self.state.thin_ids();
             let keep: BTreeSet<u32> = live
                 .into_iter()
-                .chain(self.template_disks.read().unwrap().values().filter_map(|d| match d {
-                    DiskRef::Thin(id) => Some(*id),
-                    DiskRef::File(_) => None,
-                }))
+                .chain(
+                    self.template_disks
+                        .read()
+                        .unwrap()
+                        .values()
+                        .filter_map(|d| match d {
+                            DiskRef::Thin(id) => Some(*id),
+                            DiskRef::File(_) => None,
+                        }),
+                )
                 .collect();
             for id in &keep {
                 pool.note_used(*id);
@@ -616,9 +622,7 @@ impl Engine {
             return Ok(d.clone());
         }
         let d = match &self.disk {
-            disk::Backend::Reflink => {
-                DiskRef::File(format!("templates/{}/{}", t.id, fc::ROOTFS))
-            }
+            disk::Backend::Reflink => DiskRef::File(format!("templates/{}/{}", t.id, fc::ROOTFS)),
             disk::Backend::Thin(pool) => {
                 let map = pool.dir.join("templates").join(&t.id);
                 let known = std::fs::read_to_string(&map)
@@ -673,7 +677,8 @@ impl Engine {
             }
             (disk::Backend::Thin(pool), DiskRef::Thin(origin)) => {
                 let id = pool.new_id();
-                pool.snapshot(id, *origin).inspect_err(|_| pool.forget(id))?;
+                pool.snapshot(id, *origin)
+                    .inspect_err(|_| pool.forget(id))?;
                 let (name, dev) = match pool.activate('w', id, bytes) {
                     Ok(v) => v,
                     Err(e) => {
@@ -714,7 +719,6 @@ impl Engine {
             }
         }
     }
-
 
     fn reserve_leftover_uids(&self) {
         use std::os::unix::fs::MetadataExt;
@@ -1173,7 +1177,10 @@ impl Engine {
         {
             return Err(EngineError::new(
                 "ENGINE_UNQUALIFIED",
-                format!("capture {} was produced for another engine/CPU", m.capture_id),
+                format!(
+                    "capture {} was produced for another engine/CPU",
+                    m.capture_id
+                ),
             ));
         }
         if let Err(e) = self.state.verify_objects(m) {
@@ -1186,12 +1193,14 @@ impl Engine {
     /// Writes the full memory image of durable capture `cid` to `out`.
     fn materialize(&self, cid: &str, out: &Path, scratch: &Path, depth: usize) -> Result<()> {
         if depth > 64 {
-            return Err(EngineError::new("DATA_UNAVAILABLE", "capture chain too deep"));
+            return Err(EngineError::new(
+                "DATA_UNAVAILABLE",
+                "capture chain too deep",
+            ));
         }
-        let e = self
-            .state
-            .get(cid)
-            .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", format!("capture {cid} is gone")))?;
+        let e = self.state.get(cid).ok_or_else(|| {
+            EngineError::new("DATA_UNAVAILABLE", format!("capture {cid} is gone"))
+        })?;
         let m = &e.manifest;
         self.verify_durable(m)?;
         let delta = self.state.object(&m.memory.object);
@@ -1622,7 +1631,9 @@ impl Engine {
             disk::Backend::Reflink if durable => {
                 DiskRef::File(format!("state/objects/{disk_name}"))
             }
-            disk::Backend::Reflink => DiskRef::File(format!("captures/{capture_id}/{}", fc::ROOTFS)),
+            disk::Backend::Reflink => {
+                DiskRef::File(format!("captures/{capture_id}/{}", fc::ROOTFS))
+            }
             disk::Backend::Thin(pool) => DiskRef::Thin(pool.new_id()),
         };
         let mut detail = BTreeMap::new();
@@ -1637,7 +1648,8 @@ impl Engine {
                 DiskRef::File(_) => Vec::new(),
             };
             let t = Instant::now();
-            if let Err(e) = fault::step("reserve", || self.state.reserve(capture_id, objects, thin)) {
+            if let Err(e) = fault::step("reserve", || self.state.reserve(capture_id, objects, thin))
+            {
                 let _ = std::fs::remove_dir_all(&cdir);
                 if let (DiskRef::Thin(id), Some(pool)) = (&sealed, self.disk.thin()) {
                     pool.forget(*id);
@@ -2041,7 +2053,11 @@ impl Engine {
             return Ok(serde_json::json!({"capture_id": cid, "compacted": false}));
         }
         let t = self.template(&e.manifest.template_id)?;
-        let scratch = self.cfg.mem_dir.join("captures").join(format!("compact-{cid}"));
+        let scratch = self
+            .cfg
+            .mem_dir
+            .join("captures")
+            .join(format!("compact-{cid}"));
         let _ = std::fs::remove_dir_all(&scratch);
         std::fs::create_dir_all(&scratch).ctx("create compaction scratch")?;
         let r = (|| {
@@ -2053,7 +2069,8 @@ impl Engine {
                 let enc = memimg::encode(&full, &t.dir.join(fc::MEM), &tmp, true, true)?;
                 let _ = std::fs::remove_file(&full);
                 let digest = enc.digest.clone();
-                self.state.publish_objects(std::slice::from_ref(&mem_name))?;
+                self.state
+                    .publish_objects(std::slice::from_ref(&mem_name))?;
                 Ok((enc, digest))
             })?;
             let old = e.manifest.memory.object.clone();
@@ -2103,7 +2120,10 @@ impl Engine {
         self.materialize(cid, &full, dir, 0)?;
         memimg::encode(&full, &t.dir.join(fc::MEM), &dir.join("mem"), true, true)?;
         std::fs::remove_file(&full)?;
-        std::fs::copy(self.state.object(&e.manifest.vmstate.object), dir.join("vmstate"))?;
+        std::fs::copy(
+            self.state.object(&e.manifest.vmstate.object),
+            dir.join("vmstate"),
+        )?;
         let disk_out = dir.join("disk");
         match (e.manifest.disk_ref()?, &self.disk) {
             (DiskRef::File(p), _) => {
@@ -2157,24 +2177,37 @@ impl Engine {
             e
         };
         let bytes = std::fs::read(dir.join("manifest.json")).ctx("read bundle manifest")?;
-        let m: durable::CaptureManifest = serde_json::from_slice(&bytes)
-            .map_err(|e| refuse(EngineError::new("DATA_UNAVAILABLE", format!("manifest: {e}"))))?;
+        let m: durable::CaptureManifest = serde_json::from_slice(&bytes).map_err(|e| {
+            refuse(EngineError::new(
+                "DATA_UNAVAILABLE",
+                format!("manifest: {e}"),
+            ))
+        })?;
         // Producer authority first: an unenrolled key is refused even when
         // every digest is correct.
         m.verify(&self.trusted).map_err(refuse)?;
-        if m.memory.object != "mem" || m.vmstate.object != "vmstate" || m.disk.disk != "file:disk"
-        {
-            return Err(refuse(EngineError::new("DATA_UNAVAILABLE", "not an export bundle")));
+        if m.memory.object != "mem" || m.vmstate.object != "vmstate" || m.disk.disk != "file:disk" {
+            return Err(refuse(EngineError::new(
+                "DATA_UNAVAILABLE",
+                "not an export bundle",
+            )));
         }
         if fsutil::digest_file(&dir.join("mem"))?.digest != m.memory.digest
             || durable::sha256_file(&dir.join("vmstate"))? != m.vmstate.sha256
         {
-            return Err(refuse(EngineError::new("DATA_UNAVAILABLE", "bundle digest mismatch")));
+            return Err(refuse(EngineError::new(
+                "DATA_UNAVAILABLE",
+                "bundle digest mismatch",
+            )));
         }
         let t = self.template(&m.template_id).map_err(refuse)?;
-        if m.engine_digest != self.compat.engine_digest || m.cpu_baseline != self.compat.cpu_baseline
+        if m.engine_digest != self.compat.engine_digest
+            || m.cpu_baseline != self.compat.cpu_baseline
         {
-            return Err(refuse(EngineError::new("ENGINE_UNQUALIFIED", "bundle is for another host")));
+            return Err(refuse(EngineError::new(
+                "ENGINE_UNQUALIFIED",
+                "bundle is for another host",
+            )));
         }
         let cid = m.capture_id.clone();
         let (mem_name, vmstate_name, disk_name) = durable::object_names(&cid);
@@ -2186,7 +2219,8 @@ impl Engine {
         if thin.is_none() {
             objects.push(disk_name.clone());
         }
-        self.state.reserve(&cid, objects, thin.into_iter().collect())?;
+        self.state
+            .reserve(&cid, objects, thin.into_iter().collect())?;
         let r = (|| {
             for (from, to) in [("mem", &mem_name), ("vmstate", &vmstate_name)] {
                 let dst = self.state.object(&format!("{to}.tmp"));
@@ -2355,7 +2389,9 @@ fn sparse_copy(src: &Path, dst: &Path) -> Result<()> {
     let fd = s.as_raw_fd();
     let mut buf = vec![0_u8; 4 << 20];
     let mut off = 0_u64;
-    let block = std::fs::metadata(src).map(|m| m.file_type().is_file()).unwrap_or(false);
+    let block = std::fs::metadata(src)
+        .map(|m| m.file_type().is_file())
+        .unwrap_or(false);
     while off < len {
         let (data, end) = if block {
             // SAFETY: lseek on a valid descriptor.

@@ -7,7 +7,9 @@ use crate::error::{EngineError, IoContext, Result};
 use crate::fc::{self, Jail, Limits};
 use crate::fsutil::{self, now_ms, random_bytes};
 use crate::guest;
-use crate::manifest::{self, AccelerationVariant, Manifest, Object, Provenance, Resources, StepRecord};
+use crate::manifest::{
+    self, AccelerationVariant, Manifest, Object, Provenance, Resources, StepRecord,
+};
 use lamp_init::{Empty, Exec, GuestRequest, GuestResponse};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;

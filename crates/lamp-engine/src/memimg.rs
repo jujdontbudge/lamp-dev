@@ -19,10 +19,10 @@
 use crate::error::{EngineError, IoContext, Result};
 use crate::manifest::{CHUNK, Object, combine};
 use sha2::{Digest, Sha256};
-use std::os::unix::fs::OpenOptionsExt;
 use std::fs::{File, OpenOptions};
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::FileExt;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -126,7 +126,8 @@ fn header_bytes(h: &Header) -> Vec<u8> {
 
 pub fn read_header(file: &File) -> Result<Header> {
     let mut b = vec![0_u8; PAGE];
-    file.read_exact_at(&mut b, 0).ctx("read memory object header")?;
+    file.read_exact_at(&mut b, 0)
+        .ctx("read memory object header")?;
     if &b[0..8] != MAGIC
         || u32::from_le_bytes(b[8..12].try_into().unwrap()) != 0
         || u32::from_le_bytes(b[12..16].try_into().unwrap()) != PAGE as u32
@@ -552,7 +553,10 @@ mod tests {
         std::fs::write(&ip, &image).unwrap();
         let enc = encode(&ip, &bp, &d.join("delta"), true, true).unwrap();
         assert_eq!(enc.changed_pages, 4);
-        assert_eq!(enc.digest, crate::fsutil::digest_file(&d.join("delta")).unwrap());
+        assert_eq!(
+            enc.digest,
+            crate::fsutil::digest_file(&d.join("delta")).unwrap()
+        );
         materialize(&d.join("delta"), &bp, &d.join("out")).unwrap();
         assert_eq!(std::fs::read(d.join("out")).unwrap(), image);
         // A tampered bitmap is refused before any page is used.
@@ -577,7 +581,10 @@ mod tests {
         let enc = encode(&ip, &bp, &d.join("delta"), true, true).unwrap();
         assert_eq!(enc.changed_pages as usize, len / PAGE);
         assert!(enc.object_bytes as usize > CHUNK);
-        assert_eq!(enc.digest, crate::fsutil::digest_file(&d.join("delta")).unwrap());
+        assert_eq!(
+            enc.digest,
+            crate::fsutil::digest_file(&d.join("delta")).unwrap()
+        );
         materialize(&d.join("delta"), &bp, &d.join("out")).unwrap();
         assert_eq!(std::fs::read(d.join("out")).unwrap(), image);
         std::fs::remove_dir_all(d).unwrap();
