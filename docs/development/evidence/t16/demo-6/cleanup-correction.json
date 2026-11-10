@@ -1,0 +1,1 @@
+{"failure": "Public API port was already in use at startup; demonstration never admitted work.", "cleanup": "Exited daemon confirmed; ticket worker 893855 stopped and exact ticket grant revoked.", "live_ticket_sandboxes": 0}

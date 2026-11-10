@@ -65,7 +65,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		socket = filepath.Join(home, ".local", "state", "lamp-demo", "api.sock")
 	}
 	flags.StringVar(&socket, "socket", socket, "lampd Unix socket")
-	apiURL := flags.String("api-url", os.Getenv("LAMP_API_URL"), "HTTP API origin")
+	apiURL := flags.String("api-url", os.Getenv("LAMP_API_URL"), "HTTP API origin or lamp+fleet:///absolute/discovery.json")
 	tokenFile := flags.String("token-file", "", "private bearer file (or LAMP_TOKEN)")
 	jsonFlag := flags.Bool("json", false, "machine-readable result")
 	inputFile := flags.String("input", "", "canonical JSON input file")
@@ -182,8 +182,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 			in["resources"] = r
 		}
 	}
+	automaticKey := false
 	if op.Mutation {
 		if _, ok := in["idempotency_key"]; !ok {
+			automaticKey = true
 			b := make([]byte, 32)
 			if _, e := rand.Read(b); e != nil {
 				return usage("random source unavailable")
@@ -206,6 +208,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// Validate before transport so malformed local requests always exit 2.
 	if _, _, _, err := surface.Request(op, in); err != nil {
 		return usage(err.Error())
+	}
+	if automaticKey && name == "sandbox_create" {
+		in["idempotency_key"] = client.CreateRetryKey(ctx, in, strings.TrimPrefix(in["idempotency_key"].(string), "cli-"))
 	}
 	if *follow {
 		if name != "event_list" {
