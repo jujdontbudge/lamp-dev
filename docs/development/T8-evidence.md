@@ -33,6 +33,11 @@ cleanly between trials.
 
 ## Demonstration on each Mac (final binaries, commit `efbbad8`)
 
+The commits after `efbbad8` contain clippy fixes and the merge of `main`
+(T7). On macOS they change no behavior. The guest helper's refusal is now
+boxed, so the provisioned guests carry the helper built from `efbbad8`:
+`d854b148…` on the M5 and `90ebdd76…` on the AIR.
+
 | | M5 | AIR |
 | --- | --- | --- |
 | **Linux guest, memory fork** ([M5](evidence/t8/M5-e05-demo-20261110T2147Z/), [AIR](evidence/t8/AIR-e05-demo-20261110T2222Z/)) | ok | ok |
