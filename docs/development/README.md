@@ -31,7 +31,8 @@ fixtures; they are not production workers.
 | `pkg/workerpb`, `crates/lamp-worker-protocol` | Generated worker messages plus bounded framing helpers | T1; shared T2/T3 boundary |
 | `crates/lamp-engine`, `crates/lamp-supervisor`, `crates/lamp-init` | Rust engine, privileged service, guest-init seams | T2 |
 | `cmd/lamp`, `cmd/lampd`, `internal/control` | Go CLI, service, operation/admission state | T3, then T10 |
-| `internal/guard`, `crates/lamp-guard` | Guard integration boundary; Linux packet/process collectors and host spool. [T4 integration contract](T4-guard.md); [T12 transport-policy foundation and remaining gates](T12-network.md) | T4 |
+| `internal/network`, `cmd/lamp-network` | Host-owned exit/member/private-Ethernet service, scoped dev URLs/shares and directed links. [T12 evidence](T12-evidence.md) | T12 |
+| `internal/guard`, `crates/lamp-guard` | Guard integration boundary; Linux packet/process collectors and host spool. [T4 integration contract](T4-guard.md); [T12 host networking, demonstrations and integration limits](T12-network.md) | T4 |
 | `tests/` (outside `tests/contracts`), `benchmarks/` | Independent oracles and benchmark harness; create subdirectories as needed | T5 |
 | `tools/`, `tests/contracts`, workspace manifests, CI | Shared build/codegen/conformance infrastructure | T1; coordinate modifications |
 
