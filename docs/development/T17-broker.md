@@ -100,7 +100,10 @@ Tasks send this token as their bearer to `POST /v1/invoke`:
 For base-URL-aware OpenAI-compatible clients, use
 `https://broker/v1/models/models` as the base URL and the short-lived Lamp token
 as the API-key value. `POST .../chat/completions` returns the provider's chat
-response directly. Only allowlisted models, bounded string-only chat messages,
+response directly. To retry an owner-approved chat action, send its ID as
+`X-Lamp-Approval-Id` or a top-level `approval_id` body field. If both are supplied
+they must agree; this metadata is consumed by the broker and never forwarded to
+the model provider. Only allowlisted models, bounded string-only chat messages,
 `max_tokens` (1–4096), and optional configured `temperature` are accepted.
 This is not transparent interception of vendor TLS. Streaming, tools, images,
 HTTP/2/WebSocket interoperability and clients that cannot select a base URL are
@@ -140,6 +143,12 @@ complex MCP/service values require a trusted upstream semantic adapter to enforc
 nested resource restrictions. Do not configure arbitrary query/eval tools as a
 read operation.
 
+GET arguments are URL-encoded query parameters on the exact pinned path: strings
+are literal values; numbers and booleans use JSON spelling; arrays and objects
+use JSON within one query value. No GET body or argument is silently discarded.
+Incoming numbers retain their JSON spelling, and valid upstream JSON responses
+stay opaque through the broker, preserving integer IDs without float rounding.
+
 Ask-first returns `APPROVAL_REQUIRED`, `proposal_id` and an action digest. The
 owner reads `GET /owner/approvals/<id>`, inspects the exact action, and approves
 with `POST` to that path containing `{"digest":"inspected digest"}`. The task
@@ -152,8 +161,15 @@ not execute. There is no task-accessible approve endpoint.
 
 A source has an absolute host root and an explicit path allowlist. The owner
 must select **secret-free** files (harness settings, instructions, skills, MCP
-references, git identity and signing references, never signing keys). Private-key
-markers and NULs are refused, but that is not a universal secret classifier.
+references, git identity and signing references, never signing keys). A path
+allowlist does not authorize credential export: credential-bearing fields such
+as npm's registry-scoped `_authToken`/`_auth`, provider API keys, passwords and
+session tokens are refused regardless of their values or case. The same check
+covers JSON (including nested/escaped keys and embedded settings strings) and
+assignment-based settings, both before copy and before accepting a proposed
+return. Private-key markers, NULs and credential-bearing URLs are also refused.
+This is fail-closed rejection, not token redaction or permission to copy unknown
+opaque secret stores; owners must still select secret-free source material.
 
 1. Task `POST /v1/settings/<source>/copy {}` receives `files` and a content-hash
    `base_revision`. The task writes these bytes locally; no host mount exists.

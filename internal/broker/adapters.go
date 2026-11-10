@@ -47,8 +47,9 @@ func validateInvocation(c Connection, in Invocation) error {
 				return invalid
 			}
 		}
-		n, ok := in.Arguments["max_tokens"].(float64)
-		if !ok || n < 1 || n > 4096 || n != float64(int(n)) {
+		encoded, ok := in.Arguments["max_tokens"].(json.Number)
+		n, err := encoded.Float64() // bounded model count only, never an ID
+		if !ok || err != nil || n < 1 || n > 4096 || n != float64(int(n)) {
 			return invalid
 		}
 	case "cli":
@@ -134,7 +135,7 @@ func command(ctx context.Context, argv []string, input []byte) ([]byte, error) {
 	}
 	return out.Bytes(), nil
 }
-func (b *Broker) execute(ctx context.Context, c Connection, in Invocation) (any, error) {
+func (b *Broker) execute(ctx context.Context, c Connection, in Invocation) (json.RawMessage, error) {
 	var secret []byte
 	if len(c.CredentialCommand) > 0 {
 		raw, err := command(ctx, c.CredentialCommand, nil)
@@ -155,7 +156,27 @@ func (b *Broker) execute(ctx context.Context, c Connection, in Invocation) (any,
 		u, _ := url.Parse(c.Endpoint)
 		u.Path = strings.TrimSuffix(u.Path, "/") + c.Operations[in.Operation].Path
 		u.RawPath = ""
-		result, _, err = b.request(ctx, u.String(), c.Operations[in.Operation].Method, in.Arguments, secret, nil)
+		method := c.Operations[in.Operation].Method
+		var body any = in.Arguments
+		if method == http.MethodGet {
+			// GET inputs have an explicit query representation. Never discard a
+			// validated resource selector or move a task value into the path.
+			query := url.Values{}
+			for name, value := range in.Arguments {
+				if text, ok := value.(string); ok {
+					query.Set(name, text)
+				} else {
+					raw, e := json.Marshal(value)
+					if e != nil {
+						return nil, errors.New("INVALID_ARGUMENT")
+					}
+					query.Set(name, string(raw))
+				}
+			}
+			u.RawQuery = query.Encode()
+			body = nil
+		}
+		result, _, err = b.request(ctx, u.String(), method, body, secret, nil)
 	case "mcp":
 		result, err = b.mcp(ctx, c, in, secret)
 	case "cli":
@@ -196,11 +217,12 @@ func (b *Broker) execute(ctx context.Context, c Connection, in Invocation) (any,
 	if leaks(result, secret) {
 		return nil, errors.New("OUTPUT_BLOCKED")
 	}
-	var v any
-	if json.Unmarshal(result, &v) != nil {
+	if !json.Valid(result) {
 		return nil, errors.New("UPSTREAM_UNAVAILABLE")
 	}
-	return v, nil
+	// Keep valid upstream JSON opaque through send(), including CLI and MCP
+	// results. Decoding through any would silently coerce integer IDs to floats.
+	return json.RawMessage(result), nil
 }
 func leaks(data, secret []byte) bool {
 	if len(secret) == 0 {
@@ -211,7 +233,9 @@ func leaks(data, secret []byte) bool {
 	forms = append(forms, string(quoted[1:len(quoted)-1]))
 	// Also decode JSON escapes before scanning: a vendor may return \uXXXX.
 	var decoded any
-	if json.Unmarshal(data, &decoded) == nil {
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.UseNumber()
+	if d.Decode(&decoded) == nil {
 		var walk func(any) bool
 		walk = func(v any) bool {
 			switch v := v.(type) {
@@ -248,10 +272,18 @@ func leaks(data, secret []byte) bool {
 	return false
 }
 func (b *Broker) request(ctx context.Context, endpoint, method string, body any, secret []byte, headers map[string]string) ([]byte, http.Header, error) {
-	raw, _ := json.Marshal(body)
-	var input io.Reader = bytes.NewReader(raw)
-	if method == "GET" {
-		input = nil
+	// GET arguments must already be encoded by the service adapter. Reject an
+	// accidental body rather than silently losing selectors in a future caller.
+	if method == http.MethodGet && body != nil {
+		return nil, nil, errors.New("INVALID_ARGUMENT")
+	}
+	var input io.Reader
+	if body != nil {
+		raw, err := json.Marshal(body)
+		if err != nil {
+			return nil, nil, errors.New("INVALID_ARGUMENT")
+		}
+		input = bytes.NewReader(raw)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, input)
 	if err != nil {

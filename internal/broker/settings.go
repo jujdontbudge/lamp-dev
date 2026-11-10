@@ -2,11 +2,13 @@ package broker
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -48,9 +50,98 @@ func regular(root *os.Root, path string) bool {
 	}
 	return true
 }
+
+// File allowlisting is not permission to export authentication material. Inspect
+// credential field names, not token prefixes/entropy: even an unfamiliar npm or
+// provider canary must be refused. Reuse this boundary for copy and writeback.
+var settingsAssignments = regexp.MustCompile(`(?m)(?:^|[{},;=?&#\s])[\t ]*(?:-[\t ]+)?(?:export[\t ]+)?("(?:\\.|[^"\\])*"|'[^']*'|[A-Za-z0-9_./:@-]+)[\t ]*[:=]`)
+var settingsUserinfo = regexp.MustCompile(`(?i)\b[a-z][a-z0-9+.-]*://[^/\s"'<>]*@`)
+
+func credentialField(key string) bool {
+	// npm registry-scoped keys have the form //registry/path/:_authToken.
+	if i := strings.LastIndexByte(key, ':'); i >= 0 {
+		key = key[i+1:]
+	}
+	key = strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, key)
+	switch key {
+	case "auth", "authentication", "authorization", "credential", "credentials", "token", "tokens", "password", "passwd", "pwd", "secret":
+		return true
+	}
+	for _, suffix := range []string{"token", "password", "passwd", "apikey", "secret", "secretkey", "privatekey", "accesskey", "accesskeyid", "sessionkey", "authorization", "credentials"} {
+		if strings.HasSuffix(key, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+func settingsTextSafe(s string) bool {
+	if strings.Contains(strings.ToUpper(s), "PRIVATE KEY") || strings.ContainsRune(s, 0) || settingsUserinfo.MatchString(s) {
+		return false
+	}
+	for _, match := range settingsAssignments.FindAllStringSubmatch(s, -1) {
+		key := match[1]
+		if strings.HasPrefix(key, `"`) {
+			// JSON/TOML quoted keys may spell token names using Unicode escapes.
+			var decoded string
+			if json.Unmarshal([]byte(key), &decoded) != nil {
+				return false
+			}
+			key = decoded
+		} else {
+			key = strings.Trim(key, "'")
+		}
+		if credentialField(key) {
+			return false
+		}
+	}
+	return true
+}
+
 func settingsSafe(s string) bool {
-	upper := strings.ToUpper(s)
-	return !strings.Contains(upper, "PRIVATE KEY") && !strings.Contains(s, "\x00") && !strings.Contains(s, "aws_secret_access_key")
+	if !settingsTextSafe(s) {
+		return false
+	}
+	// Parse JSON as well as assignment-based settings so nested/escaped keys
+	// and embedded credential-bearing strings cannot evade the same policy.
+	if !json.Valid([]byte(s)) {
+		return true
+	}
+	var document any
+	d := json.NewDecoder(strings.NewReader(s))
+	d.UseNumber()
+	if d.Decode(&document) != nil {
+		return false
+	}
+	var safe func(any) bool
+	safe = func(value any) bool {
+		switch value := value.(type) {
+		case map[string]any:
+			for key, child := range value {
+				if credentialField(key) || !safe(child) {
+					return false
+				}
+			}
+		case []any:
+			for _, child := range value {
+				if !safe(child) {
+					return false
+				}
+			}
+		case string:
+			return settingsTextSafe(value)
+		}
+		return true
+	}
+	return safe(document)
 }
 func snapshot(root *os.Root, s SettingsSource) (map[string]string, error) {
 	files := map[string]string{}

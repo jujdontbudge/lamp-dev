@@ -95,6 +95,7 @@ func contains(a []string, s string) bool {
 }
 func decode(r *http.Request, v any) error {
 	d := json.NewDecoder(io.LimitReader(r.Body, limit+1))
+	d.UseNumber()
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
 		return errors.New("INVALID_ARGUMENT")
@@ -277,6 +278,26 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 		if decode(r, &in.Arguments) != nil {
 			fail(w, "INVALID_ARGUMENT")
 			return
+		}
+		// Approval is broker transport metadata, not a model parameter. Remove
+		// it before schema checks, action hashing and upstream serialization.
+		approval, hasApproval := in.Arguments["approval_id"]
+		if hasApproval {
+			var ok bool
+			in.Approval, ok = approval.(string)
+			if !ok {
+				fail(w, "INVALID_ARGUMENT")
+				return
+			}
+			delete(in.Arguments, "approval_id")
+		}
+		header := r.Header.Values("X-Lamp-Approval-Id")
+		if len(header) > 1 || len(header) == 1 && hasApproval && header[0] != in.Approval {
+			fail(w, "INVALID_ARGUMENT")
+			return
+		}
+		if len(header) == 1 {
+			in.Approval = header[0]
 		}
 		modelRoute = true
 	} else {

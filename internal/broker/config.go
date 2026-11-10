@@ -201,7 +201,7 @@ func validateFields(args map[string]any, fields map[string]string) error {
 			s, ok := v.(string)
 			good = ok && len(s) <= 65536
 		case "number":
-			_, good = v.(float64)
+			_, good = v.(json.Number)
 		case "boolean":
 			_, good = v.(bool)
 		case "object":

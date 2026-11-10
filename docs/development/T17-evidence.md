@@ -173,3 +173,29 @@ focused build/vet/format/clippy and Linux supervisor-check outcomes:
 The full suite and real guest journey were not repeated after the base update;
 the exact demonstrated binaries remain pinned in the transcript. No new final
 engine/storage certification is implied by these focused compilation checks.
+
+## Single review correction
+
+All four reported defects were accepted and corrected in the runtime boundary:
+
+1. Settings copy and proposed writeback reject credential-bearing assignments
+   and JSON fields (including npm `_authToken`, registry scopes, casing and
+   escaped/nested keys), rather than treating a path allowlist or a token's
+   appearance as evidence that it is safe.
+2. The model route consumes `approval_id` or `X-Lamp-Approval-Id` into the normal
+   bound, one-use approval flow, without sending approval metadata upstream.
+3. Service GET arguments become percent-encoded query values on the pinned
+   endpoint/path; the HTTP helper refuses accidental GET bodies instead of
+   silently dropping selectors.
+4. Upstream responses are validated `json.RawMessage`, not decoded through
+   floating-point `any`. Incoming arguments and secret inspection use
+   `json.Number`, preserving large IDs in query/body values and avoiding numeric
+   overflow bypasses in escaped-secret inspection.
+
+Per the owner, no new tests were added and no demonstration/trial runs were
+performed for this correction. The requested single `make verify` run **passed**
+(exit **0**), including workspace builds, existing suites, contracts, interop,
+vet, formatting and clippy. Its
+[log](evidence/t17/review-make-verify.log) is retained separately from the original
+implementation run. The owner will check the four corrected behaviors
+independently; no new behavioral certification is claimed here.
