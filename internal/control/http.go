@@ -518,6 +518,12 @@ func (s *Service) execute(id, source string) {
 			sb.State = "failed"
 			sb.Revision++
 			s.journal.Sandboxes[ref.Id] = sb
+		} else if ref.Kind == "exec" {
+			ex := s.journal.Execs[ref.Id]
+			ex.State = "failed"
+			ex.Revision++
+			ex.UpdatedAt = timestamp()
+			s.journal.Execs[ref.Id] = ex
 		}
 		if err := s.saveConcurrent(id, ref.Id); err != nil {
 			s.broken = true

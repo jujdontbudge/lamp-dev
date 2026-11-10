@@ -37,6 +37,16 @@ fn trace(
         Ok(n)
     }
 }
+// A killed tracee can disappear between waitpid's stop and ptrace restart.
+// Its reservation in `known` remains until the definitive waitpid exit.
+fn resume_or_await_exit(request: crate::PtraceRequest, pid: i32, signal: usize) -> io::Result<()> {
+    match trace(request, pid, 0, signal) {
+        Ok(_) => Ok(()),
+        Err(e) if e.raw_os_error() == Some(libc::ESRCH) => Ok(()),
+        Err(e) => Err(e),
+    }
+}
+
 fn status(pid: i32) -> io::Result<Value> {
     let s = fs::read_to_string(format!("/proc/{pid}/status"))?;
     let field = |name: &str| {
@@ -620,7 +630,7 @@ pub fn run(
         } else {
             libc::PTRACE_SYSCALL
         };
-        trace(resume, pid, 0, deliver as usize)?;
+        resume_or_await_exit(resume, pid, deliver as usize)?;
     }
     if !mapped {
         return Err(io::Error::other("task namespace admission failed"));
@@ -636,6 +646,47 @@ pub fn run(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn killed_stopped_tracee_is_reaped_after_restart_esrch() {
+        // Exercise the actual kernel race deterministically: leave a killed
+        // traced child waitable before asking ptrace to restart it.
+        unsafe {
+            let pid = libc::fork();
+            assert!(pid >= 0);
+            if pid == 0 {
+                if libc::ptrace(libc::PTRACE_TRACEME, 0, 0, 0) < 0 {
+                    libc::_exit(71);
+                }
+                libc::raise(libc::SIGSTOP);
+                libc::_exit(72);
+            }
+            let mut status = 0;
+            assert_eq!(libc::waitpid(pid, &mut status, 0), pid);
+            assert!(libc::WIFSTOPPED(status));
+            assert_eq!(libc::kill(pid, libc::SIGKILL), 0);
+            let mut info: libc::siginfo_t = std::mem::zeroed();
+            assert_eq!(
+                libc::waitid(
+                    libc::P_PID,
+                    pid as _,
+                    &mut info,
+                    libc::WEXITED | libc::WNOWAIT
+                ),
+                0
+            );
+            assert_eq!(
+                super::trace(libc::PTRACE_CONT, pid, 0, 0)
+                    .unwrap_err()
+                    .raw_os_error(),
+                Some(libc::ESRCH)
+            );
+            super::resume_or_await_exit(libc::PTRACE_CONT, pid, 0).unwrap();
+            assert_eq!(libc::waitpid(pid, &mut status, 0), pid);
+            assert!(libc::WIFSIGNALED(status));
+            assert_eq!(libc::WTERMSIG(status), libc::SIGKILL);
+        }
+    }
+
     #[test]
     fn task_env_is_validated() {
         let env = super::task_env(r#"{"FOO":"value","PATH":"/opt/bin","EMPTY":""}"#).unwrap();

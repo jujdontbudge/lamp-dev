@@ -23,6 +23,11 @@ def main():
     parser.add_argument('--bin-dir', required=True)
     parser.add_argument('--template', required=True)
     parser.add_argument('--integrated-e01', required=True)
+    parser.add_argument('--worker-socket', default='/run/lamp/worker.sock')
+    parser.add_argument('--worker-binary', default='/usr/local/lib/lamp/lamp-supervisor')
+    parser.add_argument('--worker-store', default='/var/lib/lamp')
+    parser.add_argument('--worker-pid', type=int, help='explicit private supervisor PID; otherwise systemd MainPID')
+    parser.add_argument('--policy', default='/etc/lamp/network.json')
     parser.add_argument('--profile', action='store_true', help='diagnostic syscall trace, never qualification')
     args = parser.parse_args()
     root = Path(args.root).resolve()
@@ -38,7 +43,7 @@ def main():
     def capture(argv):
         return subprocess.check_output(argv, text=True).strip()
 
-    grant = json.loads(capture(['sudo', '-n', '/usr/local/lib/lamp/lamp-supervisor', 'grant-install', '--caller-uid', str(os.getuid()), '--ttl-s', '7200']))
+    grant = json.loads(capture(['sudo', '-n', args.worker_binary, 'grant-install', '--store', args.worker_store, '--caller-uid', str(os.getuid()), '--ttl-s', '7200']))
     (root / 'grant.json').write_text(json.dumps(grant))
     owner = secrets.token_hex(32)
     enrollment = private / 'identity.json'
@@ -50,9 +55,9 @@ def main():
     binary = Path(args.bin_dir).resolve()
     daemon_log = (root / 'lampd.log').open('x')
     command = [str(binary / 'lampd'), '--identity-file', str(enrollment), '--state-dir', str(private / 'state'), '--socket', socket,
-               '--worker-socket', '/run/lamp/worker.sock', '--worker-id', 'lamp-supervisor@' + capture(['hostname']),
+               '--worker-socket', args.worker_socket, '--worker-id', 'lamp-supervisor@' + capture(['hostname']),
                '--worker-boot-id', Path('/proc/sys/kernel/random/boot_id').read_text().strip(), '--worker-uid', '0',
-               '--worker-pid', capture(['systemctl', 'show', '-p', 'MainPID', '--value', 'lamp-supervisor']), '--grant-id', grant['grant_id'], '--worker-timeout', '60s']
+               '--worker-pid', str(args.worker_pid) if args.worker_pid is not None else capture(['systemctl', 'show', '-p', 'MainPID', '--value', 'lamp-supervisor']), '--grant-id', grant['grant_id'], '--worker-timeout', '60s']
     if args.profile:
         command += ['--profile-dir', str(root / 'profiles')]
     daemon = subprocess.Popen(command, stdout=daemon_log, stderr=daemon_log)
@@ -103,16 +108,16 @@ def main():
         (root / 'callers.json').write_text(json.dumps(callers, indent=2))
         (private / 'tokens.json').write_text(json.dumps(tokens))
         (private / 'tokens.json').chmod(0o600)
-        raw = capture([sys.executable, str(source / 'infra/linux/run-metadata.py'), str(source), '/var/tmp', args.template])
+        raw = capture([sys.executable, str(source / 'infra/linux/run-metadata.py'), str(source), '/var/tmp', args.template, '--store', args.worker_store, '--worker-binary', args.worker_binary, '--policy', args.policy])
         metadata = json.loads(raw)
         metadata['artifacts'] = {k: v for k, v in metadata['artifacts'].items() if not k.startswith(str(Path.home() / 'lamp-t6/bin'))}
         for name in ('lamp', 'lampd'):
             metadata['artifacts'][str(binary / name)] = hashlib.sha256((binary / name).read_bytes()).hexdigest()
         metadata['hardware']['cpu_core_assignment'] = dict(control=sorted(os.sched_getaffinity(daemon.pid)), observer=sorted(os.sched_getaffinity(0)), guests='scheduler-placed; 2 guests, 2 vCPUs each; 16 credentialed callers per owner')
         metadata['durability'] = PublicLamp(socket_path=socket, token=tokens[0]).get(callers[0]['sandbox_id'])['durability']
-        metadata['access_route'] = 'local authenticated public HTTP Unix socket -> lampd -> lamp.worker/1 -> installed real Firecracker supervisor'
+        metadata['access_route'] = 'local authenticated public HTTP Unix socket -> lampd -> lamp.worker/1 -> pinned real Firecracker supervisor'
         (root / 'metadata.json').write_text(json.dumps(metadata, indent=2))
-        evidence = Evidence(root / 'run', metadata, dict(suite='E03', template=args.template, callers=32, rounds=200, engine='real installed Firecracker', caller_runtime='32 Linux processes', socket=socket))
+        evidence = Evidence(root / 'run', metadata, dict(suite='E03', template=args.template, callers=32, rounds=200, engine='real Firecracker', caller_runtime='32 Linux processes', socket=socket))
         if args.profile:
             tracer = subprocess.Popen(['sudo', '-n', 'strace', '-f', '-T', '-e', 'trace=fdatasync,fsync', '-p', str(daemon.pid), '-o', str(root / 'control-sync.trace')], stderr=(root / 'strace.log').open('x'))
         try:
@@ -164,7 +169,7 @@ def main():
             daemon.kill()
             daemon.wait()
         daemon_log.close()
-        subprocess.run(['sudo', '-n', '/usr/local/lib/lamp/lamp-supervisor', 'grant-revoke', grant['grant_id']], check=True)
+        subprocess.run(['sudo', '-n', args.worker_binary, 'grant-revoke', '--store', args.worker_store, grant['grant_id']], check=True)
 
 
 if __name__ == '__main__':

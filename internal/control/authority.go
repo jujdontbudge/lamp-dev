@@ -301,7 +301,7 @@ func (s *Service) admissionAllowed(a caller, name string, sb api.Sandbox) bool {
 					}
 				} else {
 					for _, ex := range s.journal.Execs {
-						if ex.OwnerId == a.Principal && (ex.State == "accepted" || ex.State == "running" || ex.State == "outcome_unknown") {
+						if ex.OwnerId == a.Principal && s.execCharged(ex) {
 							n++
 						}
 					}
@@ -313,6 +313,17 @@ func (s *Service) admissionAllowed(a caller, name string, sb api.Sandbox) bool {
 		}
 	}
 	return true
+}
+
+// A live or uncertain command retains its reservation until completion or
+// independently confirmed sandbox release. Keep its historical outcome even
+// after release: deletion proves capacity was freed, not how the command ended.
+func (s *Service) execCharged(ex api.Exec) bool {
+	if ex.State != "accepted" && ex.State != "running" && ex.State != "outcome_unknown" {
+		return false
+	}
+	sb, ok := s.journal.Sandboxes[value(ex.SandboxId)]
+	return !ok || sb.State != "deleted"
 }
 
 func (s *Service) sandboxCharged(sb api.Sandbox) bool {

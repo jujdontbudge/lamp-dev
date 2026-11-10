@@ -619,3 +619,49 @@ func TestConcurrentExecStartsShareSandboxWithoutDroppingAdmissions(t *testing.T)
 		t.Fatal("lost or repeated concurrent start", len(distinct))
 	}
 }
+
+func TestUnknownExecChargeEndsOnlyAfterConfirmedSandboxRelease(t *testing.T) {
+	f := newCore(t, nil)
+	create := func(key string) string {
+		return field(result(f.call(t, f.owner, "sandbox_create", map[string]any{"template_id": "tpl", "idempotency_key": key, "wait_ms": 30000}, 200)), "sandbox_id")
+	}
+	sb := create("unknown-charge-old")
+	key := result(f.mutation(t, f.owner, "key_create", map[string]any{"expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano), "scope": map[string]any{"limits": map[string]any{"concurrency": 1}}}))["secret"].(string)
+	f.worker.mu.Lock()
+	f.worker.commandState = "unknown"
+	f.worker.mu.Unlock()
+	ex := field(result(f.call(t, key, "exec_create", map[string]any{"sandbox_id": sb, "argv": []string{"/bin/true"}, "idempotency_key": "unknown-charge-exec", "wait_ms": 30000}, 200)), "exec_id")
+	deadline := time.Now().Add(5 * time.Second)
+	for data(f.call(t, key, "exec_get", map[string]any{"exec_id": ex}, 200))["state"] != "outcome_unknown" {
+		if time.Now().After(deadline) {
+			t.Fatal("command never became unknown")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	f.worker.mu.Lock()
+	f.worker.commandState = "exited"
+	f.worker.mu.Unlock()
+	replacement := create("unknown-charge-replacement")
+	f.call(t, key, "exec_create", map[string]any{"sandbox_id": replacement, "argv": []string{"/bin/true"}, "idempotency_key": "before-release", "wait_ms": 30000}, 403)
+	f.worker.mu.Lock()
+	f.worker.fail = "HOST_UNAVAILABLE"
+	f.worker.mu.Unlock()
+	before := data(f.call(t, key, "sandbox_get", map[string]any{"sandbox_id": sb}, 200))
+	f.call(t, key, "sandbox_delete", map[string]any{"sandbox_id": sb, "expected_revision": before["revision"], "idempotency_key": "unknown-failed-release", "wait_ms": 30000}, 503)
+	f.call(t, key, "exec_create", map[string]any{"sandbox_id": replacement, "argv": []string{"/bin/true"}, "idempotency_key": "pending-release", "wait_ms": 30000}, 403)
+	f.worker.mu.Lock()
+	f.worker.fail = ""
+	f.worker.mu.Unlock()
+	before = data(f.call(t, key, "sandbox_get", map[string]any{"sandbox_id": sb}, 200))
+	seen := len(f.worker.seen())
+	f.call(t, key, "sandbox_delete", map[string]any{"sandbox_id": sb, "expected_revision": before["revision"], "idempotency_key": "unknown-confirmed-release", "wait_ms": 30000}, 200)
+	requests := f.worker.seen()[seen:]
+	if len(requests) != 2 || requests[0].GetStop() == nil || requests[1].GetRelease() == nil {
+		t.Fatal("release did not confirm Stop and Release")
+	}
+	f.call(t, key, "exec_create", map[string]any{"sandbox_id": replacement, "argv": []string{"/bin/true"}, "idempotency_key": "after-unknown-release", "wait_ms": 30000}, 200)
+	old := data(f.call(t, key, "exec_get", map[string]any{"exec_id": ex}, 200))
+	if old["state"] != "outcome_unknown" || old["exit_code"] != nil {
+		t.Fatal("release fabricated historical task status", old)
+	}
+}

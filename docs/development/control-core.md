@@ -78,7 +78,7 @@ meet a supplied recipe selector or preexisting sandbox/resource selector, and
 is denied. Workload vCPU/RAM/disk limits are enforced at admission; concurrency
 bounds live sandbox admissions and commands in accepted, running or uncertain
 states for that principal. A command-start receipt does not release its charge;
-only observed completion does. Failed or uncertain cleanup remains charged until worker Stop/Release confirms release. A prevented create/fork can release its reservation because no allocation was dispatched. Deletion remains available for cleanup. Token, wall-time and retained
+observed completion or confirmed sandbox Stop/Release frees it. An Exec denied before dispatch is marked failed and releases its charge. Confirmed sandbox deletion frees the reservation of an unknown Exec while preserving its historical unknown outcome. Failed or uncertain cleanup remains charged until worker Stop/Release confirms release. A prevented create/fork can release its reservation because no allocation was dispatched. Deletion remains available for cleanup. Token, wall-time and retained
 state budgets require their owning subsystems and are rejected here rather than
 silently accepted. Fleet-wide accounting and the audit/revocation ledger remain
 T23's responsibility.

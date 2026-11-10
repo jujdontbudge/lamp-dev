@@ -182,6 +182,87 @@ allocation-guard observations. Private identity/token/state directories and
 worker grant files are excluded. The exact per-run source/artifact hashes remain
 in each manifest; the final source inventory is a separate snapshot.
 
+## Review r2 exec accounting
+
+Both reported accounting regressions were reproduced before the fixes; the
+failed regressions are retained in
+[`r2-exec-accounting-negative.log`](evidence/t10/r2-exec-accounting-negative.log).
+When authority expires or is revoked after durable admission but before dispatch,
+the executor now marks the partial Exec failed in the same journal transition
+as its failed Operation and complete cleanup. Another valid same-principal key
+can use its concurrency slot. The regression exercises both invalidations at
+that exact executor boundary.
+
+Live and unknown Exec resources continue to count against principal concurrency,
+including after a failed sandbox deletion. Only the sandbox's confirmed deleted
+state removes their reservation. Their historical outcome remains unknown; no
+exit status is invented. The public regression observes an unknown command,
+denies a command in a replacement ready sandbox, fails deletion, verifies the
+reservation remains, then confirms Stop and Release and executes through the
+same concurrency-one key. These checks and the existing M4/live-command
+regressions pass in
+[`r2-exec-accounting-fixed.log`](evidence/t10/r2-exec-accounting-fixed.log).
+
+## Exit-status investigation and private guest preparation
+
+The failed real run's sole incomplete process audit is retained in
+[`exit70-real-process-000032.ndjson`](evidence/t10/exit70-real-process-000032.ndjson).
+It durably records the requested echo command exiting 0, but has no final
+collector-complete record. The public caller observed exit 70. The guest helper
+had two producers competing on one completion channel: the trusted command-status
+reader and the collector reaper. The collector's status could win even after
+the command status had been written. The helper now reaps the collector on a
+separate channel and uses it only when the command-status pipe contains no
+report. A malformed report fails closed. A reported task failure cannot be
+replaced by collector success.
+
+A separate native collector trace reproduced `PTRACE_SYSCALL` returning ESRCH
+after a syscall-exit stop. The collector now retains that tracee until waitpid
+reports its definitive exit, so the durable process-exit record is still
+required. Other ptrace errors remain failures. The Linux regression kills a
+real stopped tracee, leaves its exit waitable, observes ESRCH, and then verifies
+the SIGKILL exit is reaped. The helper regression supplies collector completion
+first and checks both successful and failing command statuses.
+
+The initial native stress diagnostic inherited T7's disposable mounts. Its
+cleanup scans other mount namespaces for that device and can kill these native
+tracees; those runs are **confounded diagnostics**, retained in
+[`collector-unisolated.log`](evidence/t10/collector-unisolated.log) and the
+unisolated traces. They do not establish the source of an external kill in a
+real guest. Repeating the patched collector diagnostic inside a private mount
+namespace with those inherited mounts detached completed all 6,400 commands
+with 32 simultaneous callers and zero failures:
+[`collector-isolated-patched.log`](evidence/t10/collector-isolated-patched.log).
+It creates no VMs and makes no speed claim. Both new regressions fail with their fixes removed and pass when restored; see
+[`exit-status-negative-controls.log`](evidence/t10/exit-status-negative-controls.log).
+Linux package tests passed in
+[`exit-status-linux-tests.log`](evidence/t10/exit-status-linux-tests.log).
+
+The original shared seed, template, supervisor and installed guard remain
+unchanged. A disposable copy of the Ubuntu seed now contains the newly built
+static guest binaries; debugfs readback verified their exact bytes, e2fsck
+passed, and the rootfs/guest-binary digests were regenerated before importing it
+into a private T10 store. Preparation and its script are retained in
+[`private-seed-prepare.log`](evidence/t10/private-seed-prepare.log) and
+[`private-seed-prepare.py`](evidence/t10/private-seed-prepare.py).
+The E03 driver and metadata collector accept explicit worker/store/policy inputs
+and pin the selected artifacts, allowing that private engine to be measured
+without replacing another ticket's shared service. Template preparation and
+real-engine validation remain pending while T7's E04 occupies LX.
+
+Fresh `make verify` passed on LX with both r2 accounting fixes and the guest
+status changes in [`r2-verify-lx.log`](evidence/t10/r2-verify-lx.log).
+The focused accounting/M4/live-command race checks passed in
+[`r2-race-lx.log`](evidence/t10/r2-race-lx.log). The first LX verification
+failed Clippy's test-module ordering rule; its log remains in
+[`r2-verify-lx-lint-failed.log`](evidence/t10/r2-verify-lx-lint-failed.log), and
+the module was moved to the end before the successful full rerun.
+The preceding Mac `make bootstrap verify` passed in
+[`exit-status-verify-mac.log`](evidence/t10/exit-status-verify-mac.log).
+
+Main's PR #13 was merged as `01cd7f5`, retaining its bounded first-RPC readiness
+retry in the resident harness test.
+
 ## Integration boundaries
 
 This is one local authority. Distributed fleet replication, owner transfer,

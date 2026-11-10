@@ -643,20 +643,21 @@ mod linux {
         let (tx, status) = mpsc::channel();
         if let Some((r, w)) = status_pipe {
             drop(w);
-            let tx = tx.clone();
+            let (collector_tx, collector_status) = mpsc::channel();
+            // Reap the collector independently. Its status is a fallback only
+            // when no task status was reported, never a competing result.
             std::thread::spawn(move || {
-                let mut line = String::new();
-                let _ = std::fs::File::from(r).read_to_string(&mut line);
-                if let Ok(raw) = line.trim().parse::<i32>() {
-                    let _ = tx.send(Ok(std::process::ExitStatus::from_raw(raw)));
-                }
+                let _ = collector_tx.send(child.wait());
+            });
+            std::thread::spawn(move || {
+                let result = reported_task_status(std::fs::File::from(r), collector_status);
+                let _ = tx.send(result);
+            });
+        } else {
+            std::thread::spawn(move || {
+                let _ = tx.send(child.wait());
             });
         }
-        // Reaps the collector (or plain command) whenever it exits; for an
-        // audited command that is after its background jobs end.
-        std::thread::spawn(move || {
-            let _ = tx.send(child.wait());
-        });
         Ok(Running {
             started: ExecStarted {
                 pid,
@@ -668,6 +669,27 @@ mod linux {
             err,
             status,
         })
+    }
+
+    fn reported_task_status(
+        mut report: impl Read,
+        collector: mpsc::Receiver<io::Result<std::process::ExitStatus>>,
+    ) -> io::Result<std::process::ExitStatus> {
+        let mut line = String::new();
+        report.read_to_string(&mut line)?;
+        if !line.is_empty() {
+            let raw = line.trim().parse::<i32>().map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidData, "invalid task status report")
+            })?;
+            if raw < 0 || !(libc::WIFEXITED(raw) || libc::WIFSIGNALED(raw)) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "invalid task wait status",
+                ));
+            }
+            return Ok(std::process::ExitStatus::from_raw(raw));
+        }
+        collector.recv().map_err(io::Error::other)?
     }
 
     fn finish(r: Running) -> io::Result<ExecDone> {
@@ -707,5 +729,38 @@ mod linux {
             libc::reboot(libc::RB_AUTOBOOT);
         }
         std::process::exit(0)
+    }
+    #[cfg(test)]
+    mod status_tests {
+        use super::*;
+
+        #[test]
+        fn malformed_report_cannot_fall_back_to_collector_success() {
+            for report in ["broken", "-1", "4991"] {
+                let (tx, rx) = mpsc::channel();
+                tx.send(Ok(std::process::ExitStatus::from_raw(0))).unwrap();
+                assert_eq!(
+                    reported_task_status(report.as_bytes(), rx)
+                        .unwrap_err()
+                        .kind(),
+                    io::ErrorKind::InvalidData
+                );
+            }
+        }
+
+        #[test]
+        fn task_report_wins_even_when_collector_exit_arrives_first() {
+            for (report, collector_code, expected) in
+                [("0\n", 70, 0), ("10752\n", 0, 42), ("", 70, 70)]
+            {
+                let (tx, rx) = mpsc::channel();
+                tx.send(Ok(std::process::ExitStatus::from_raw(collector_code << 8)))
+                    .unwrap();
+                assert_eq!(
+                    reported_task_status(report.as_bytes(), rx).unwrap().code(),
+                    Some(expected)
+                );
+            }
+        }
     }
 }
