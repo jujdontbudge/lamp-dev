@@ -96,7 +96,10 @@ worker integration semantics and explicit fixture/engine evidence boundaries.
 with memory; see [crates/lamp-engine/README.md](../../crates/lamp-engine/README.md)
 and [T2-evidence.md](T2-evidence.md). T6 joins the parallel tickets and runs
 the gate on lane LX; the measured result (failed) is in
-[T6-evidence.md](T6-evidence.md).
+[T6-evidence.md](T6-evidence.md). The Mac engine (T8: Linux guests with
+memory fork and native macOS guests on Virtualization.framework, M5 and AIR)
+is in [T8-evidence.md](T8-evidence.md); the installer and the guest build are
+in `infra/mac/`.
 
 ## CI on owner machines
 
