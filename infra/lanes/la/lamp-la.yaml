@@ -25,7 +25,7 @@ provision:
       set -euo pipefail
       export DEBIAN_FRONTEND=noninteractive
       apt-get update
-      apt-get install -y --no-install-recommends qemu-system-arm busybox-static cpio gzip zstd python3
+      apt-get install -y --no-install-recommends qemu-system-arm busybox-static cpio gzip zstd python3 bubblewrap
       usermod -aG kvm {{.User}}
       install -d -m 755 /opt/lamp-la/rootfs/{bin,dev,proc,sys}
       cp /bin/busybox /opt/lamp-la/rootfs/bin/busybox
