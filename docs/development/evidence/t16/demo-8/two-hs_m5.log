@@ -1,0 +1,24 @@
+2026-11-10T16:22:05.121-0600 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-10T16:22:05.122-0600 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:30032 [Follower]" leader-address= leader-id=
+lampd: control API listening on /tmp/l16-577c5903/two/api.sock
+2026-11-10T16:22:08.065-0600 [DEBUG] raft: received a requestPreVote with a newer term, grant the pre-vote
+2026-11-10T16:22:08.074-0600 [DEBUG] raft: lost leadership because received a requestVote with a newer term
+2026-11-10T16:22:08.125-0600 [WARN]  raft: failed to get previous log: previous-index=1 last-index=0 error="log not found"
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61600: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61621: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61622: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61639: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61593: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61716: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61626: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61667: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61636: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61707: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61606: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61700: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61680: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61679: EOF
+2026/11/10 16:22:44 http: TLS handshake error from 127.0.0.1:61706: EOF
+2026/11/10 16:22:45 http: TLS handshake error from 127.0.0.1:61717: EOF
+2026-11-10T16:22:47.008-0600 [DEBUG] raft: received a requestPreVote with a newer term, grant the pre-vote
+2026-11-10T16:22:47.022-0600 [DEBUG] raft: lost leadership because received a requestVote with a newer term

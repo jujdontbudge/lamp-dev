@@ -83,6 +83,7 @@ func (s *Service) approvalMutation(a caller, op api.OperationDescriptor, in map[
 			return fail("INVALID_ARGUMENT", "approval TTL must be positive and at most 60 seconds")
 		}
 		m := newResource("approval", c.OwnerID)
+		m["id"] = s.resourceID("approval")
 		m["state"] = "pending"
 		m["principal_id"] = bound.PrincipalID
 		m["task_id"] = bound.TaskID
@@ -115,7 +116,7 @@ func (s *Service) approvalMutation(a caller, op api.OperationDescriptor, in map[
 		if approval.Revision != uintField(in, "expected_revision") {
 			return fail("REVISION_CONFLICT", fmt.Sprintf("current revision is %d", approval.Revision))
 		}
-		if expired(approval.ExpiresAt) {
+		if s.expired(approval.ExpiresAt) {
 			return fail("APPROVAL_REQUIRED", "approval expired")
 		}
 		switch op.Name {
@@ -151,7 +152,7 @@ func (s *Service) approvalSelectors(a caller, approval api.Approval) bool {
 		return false
 	}
 	for _, scope := range s.scopes(a) {
-		if !has(scope.SandboxIds, sb.Id) || !has(scope.RecipeIds, value(sb.RecipeId)) || !has(scope.HostIds, "hs_local") {
+		if !has(scope.SandboxIds, sb.Id) || !has(scope.RecipeIds, value(sb.RecipeId)) || !has(scope.HostIds, sandboxHost(sb)) {
 			return false
 		}
 	}
@@ -163,7 +164,7 @@ func (s *Service) approvalSelectors(a caller, approval api.Approval) bool {
 // dispatch; a crash then leaves consumption and the effect outcome unknown.
 func (s *Service) consumeApproval(a caller, id string, bound BoundAction) error {
 	approval, ok := s.journal.Control.Approvals[id]
-	if !ok || approval.State != "approved" || expired(approval.ExpiresAt) || value(approval.PrincipalId) != a.Principal || bound.PrincipalID != a.Principal {
+	if !ok || approval.State != "approved" || s.expired(approval.ExpiresAt) || value(approval.PrincipalId) != a.Principal || bound.PrincipalID != a.Principal {
 		return reject("APPROVAL_REQUIRED", "approved exact action required")
 	}
 	sb, ok := s.journal.Sandboxes[bound.SandboxID]
