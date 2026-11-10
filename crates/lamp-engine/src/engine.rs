@@ -834,7 +834,7 @@ impl Engine {
         sb.stack = stack;
         sb.state = State::Running;
         Ok(Outcome {
-            state: "running".into(),
+            state: "restored".into(),
             detail,
             ..Default::default()
         })
@@ -915,7 +915,7 @@ impl Engine {
         let reply = guest::call(&vsock, &request, Duration::from_millis(timeout_ms + 5_000))?;
         match reply {
             GuestResponse::ExecDone(done) => Ok(Outcome {
-                state: "exited".into(),
+                state: "command_started".into(),
                 command: Some(done),
                 ..Default::default()
             }),
@@ -942,13 +942,15 @@ impl Engine {
         consistency: &str,
     ) -> Result<Outcome> {
         let t0 = Instant::now();
-        if !valid_id(capture_id, "cp_") {
+        // Capture IDs are opaque to callers; the prefixes keep them disjoint
+        // from template IDs and names, which Restore also resolves.
+        if !valid_id(capture_id, "cp_") && !valid_id(capture_id, "capture_") {
             return Err(EngineError::invalid(
-                "capture_id must match cp_[a-z0-9_]+ (≤60)",
+                "capture_id must match (cp_|capture_)[a-z0-9_]+ (≤60)",
             ));
         }
         let durable = match consistency {
-            "" | "volatile" => false,
+            "" | "crash" | "volatile" => false,
             "local" => true,
             other => {
                 return Err(EngineError::invalid(format!(
@@ -981,6 +983,9 @@ impl Engine {
         let tp = Instant::now();
         jail.api("PATCH", "/vm", r#"{"state":"Paused"}"#)?;
         let sealed = (|| -> Result<()> {
+            // The layer outlives this sandbox's own limits (forks keep it),
+            // so its pages are charged to the shared layer cgroup.
+            let _charge = fc::LayerCharge::begin(&jail.id)?;
             let t = Instant::now();
             let body = format!(
                 r#"{{"snapshot_type":"Diff","mem_file_path":"/{m}/cap.mem","snapshot_path":"/{m}/cap.vmstate","sync_snapshot_files":false}}"#,

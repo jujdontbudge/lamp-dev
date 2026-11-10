@@ -56,6 +56,11 @@ pub fn cgroup_dir(id: &str) -> PathBuf {
     Path::new("/sys/fs/cgroup").join(CGROUP_PARENT).join(id)
 }
 
+/// Shared cgroup that is charged for sealed memory layers. A layer outlives
+/// the sandbox that wrote it (forks and captures keep it), so its RAM must
+/// not count against that sandbox's own `memory.max`.
+pub const LAYER_CGROUP: &str = "layers";
+
 /// Makes sure the parent cgroup exists with the controllers jails need.
 pub fn init_cgroups() -> Result<()> {
     let parent = Path::new("/sys/fs/cgroup").join(CGROUP_PARENT);
@@ -64,7 +69,46 @@ pub fn init_cgroups() -> Result<()> {
         parent.join("cgroup.subtree_control"),
         "+cpu +memory +pids +io",
     )
-    .ctx("enable lamp cgroup controllers")
+    .ctx("enable lamp cgroup controllers")?;
+    std::fs::create_dir_all(cgroup_dir(LAYER_CGROUP)).ctx("create layer cgroup")
+}
+
+/// While alive, the jail's processes run in the shared layer cgroup, so
+/// memory they newly allocate (the snapshot's tmpfs pages) is charged there.
+/// Pages already charged, such as guest RAM, stay with the sandbox: cgroup v2
+/// never moves existing charges. Dropping it moves exactly those processes
+/// back, even if the capture failed.
+pub struct LayerCharge {
+    home: PathBuf,
+    pids: Vec<String>,
+}
+
+impl LayerCharge {
+    pub fn begin(jail_id: &str) -> Result<LayerCharge> {
+        let home = cgroup_dir(jail_id);
+        let procs = std::fs::read_to_string(home.join("cgroup.procs")).ctx("read cgroup.procs")?;
+        let mut charge = LayerCharge {
+            home,
+            pids: Vec::new(),
+        };
+        let layer = cgroup_dir(LAYER_CGROUP).join("cgroup.procs");
+        for pid in procs.split_whitespace() {
+            std::fs::write(&layer, pid).ctx("move VMM to layer cgroup")?;
+            charge.pids.push(pid.to_string());
+        }
+        Ok(charge)
+    }
+}
+
+impl Drop for LayerCharge {
+    fn drop(&mut self) {
+        for pid in &self.pids {
+            if let Err(e) = std::fs::write(self.home.join("cgroup.procs"), pid) {
+                // Only a process that already exited can fail to move.
+                eprintln!("lamp-engine: return pid {pid} to its jail cgroup: {e}");
+            }
+        }
+    }
 }
 
 /// Creates a persistent network namespace bound at `path`.

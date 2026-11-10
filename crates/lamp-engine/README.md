@@ -57,7 +57,7 @@ the booted standard sandbox (2 vCPU, 4 GiB, 20 GiB), hole-punched. Create:
 3. send the identity barrier over vsock: sandbox ID, generation, hostname,
    machine-id, 64 fresh bytes mixed into the guest CRNG
    (`RNDADDENTROPY` + `RNDRESEEDCRNG`) and the host clock;
-4. reply `running` only after the barrier is acknowledged.
+4. reply `restored` only after the barrier is acknowledged.
 
 The guest refuses any exec whose sandbox ID/generation differ from its last
 barrier, so a restored copy can never run work as its parent.
@@ -74,6 +74,12 @@ complete template image, the ones above are sparse dirty-page layers. Fork:
 3. reflink the source disk; resume the source;
 4. seal the diff as a new read-only layer and record the capture
    (layer stack + vmstate).
+
+While the snapshot is written the VMM runs in the shared `lamp/layers`
+cgroup, so the layer's tmpfs pages are charged there and not to the source's
+`memory.max` (guest RAM stays charged to the sandbox; cgroup v2 never moves
+existing charges). Without this, layers kept alive by forks accumulate
+against the source until its own cgroup OOM-kills it.
 
 The child restores from the same stack through Firecracker's UFFD backend.
 Its `lamp-pager` receives the layer files as inherited descriptors, binds the

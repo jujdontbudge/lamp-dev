@@ -82,7 +82,7 @@ fn create_command_and_memory_fork() {
     let start = Instant::now();
     t.allocate(&src);
     let r = t.restore(&src, &template);
-    assert_eq!(r.state, "running");
+    assert_eq!(r.state, "restored");
     let (code, out) = t.sh(
         &src,
         "uname -s; grep -c ^VERSION_CODENAME=trixie /etc/os-release; hostname",
@@ -106,15 +106,15 @@ fn create_command_and_memory_fork() {
     let cap = t.ok(
         &src,
         request::Command::Capture(Capture {
-            capture_id: format!("cp_e2e_{tag}"),
+            capture_id: format!("capture_e2e_{tag}"),
             preserves_memory: true,
-            consistency: "volatile".into(),
+            consistency: "crash".into(),
             output_handles: vec![],
         }),
     );
     assert_eq!(cap.state, "captured");
     t.allocate(&child);
-    t.restore(&child, &format!("cp_e2e_{tag}"));
+    t.restore(&child, &format!("capture_e2e_{tag}"));
     let (a, _) = t.sh(&child, "true");
     let (b, _) = t.sh(&src, "true");
     let fork_ms = start.elapsed().as_secs_f64() * 1000.0;
