@@ -274,20 +274,36 @@ impl ThinPool {
             dir,
             used: Mutex::new(BTreeSet::new()),
         };
-        // No sandbox survives a restart: drop every thin device of ours.
-        for name in p.ctl.list()? {
-            if name.starts_with(&p.prefix) && name != p.pool {
-                p.ctl.remove(&name)?;
+        Ok(p)
+    }
+
+    /// Drops every activated thin device of ours: no sandbox survives a
+    /// restart. Called once leftover jails are gone, because a VMM that
+    /// outlived a crashed supervisor still holds its device open. A device
+    /// that is still busy is reported and left; it never stops startup.
+    pub fn remove_stale(&self) {
+        let names = match self.ctl.list() {
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("lamp-engine: list thin devices: {e}");
+                return;
+            }
+        };
+        for name in names {
+            if name.starts_with(&self.prefix)
+                && name != self.pool
+                && let Err(e) = self.ctl.remove(&name)
+            {
+                eprintln!("lamp-engine: stale thin device {name} not removed: {e}");
             }
         }
-        for e in std::fs::read_dir(p.dir.join("dev"))
+        for e in std::fs::read_dir(self.dir.join("dev"))
             .into_iter()
             .flatten()
             .flatten()
         {
             let _ = std::fs::remove_file(e.path());
         }
-        Ok(p)
     }
 
     pub fn status(&self) -> String {

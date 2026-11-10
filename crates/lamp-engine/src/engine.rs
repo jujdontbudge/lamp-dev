@@ -59,6 +59,8 @@ pub const DEFAULT_PIDS_MAX: u64 = 4096;
 /// Completed commands remembered per sandbox for completion lookups. Running
 /// commands are never forgotten; at most `MAX_RUNNING` run at once.
 const COMMAND_MEMORY: usize = 256;
+/// Longest chain of memory deltas a durable capture may rest on.
+const MAX_CHAIN: usize = 64;
 const MAX_RUNNING: usize = 1024;
 /// Capture states (`CaptureRec::restores`): a capture is restored once.
 const CAPTURE_AVAILABLE: u64 = 0;
@@ -552,9 +554,19 @@ impl Engine {
             _lock: lock,
         };
         match mode {
-            Mode::Daemon => engine.clean_stale(),
+            Mode::Daemon => {
+                engine.clean_stale();
+                if let Some(pool) = engine.disk.thin() {
+                    pool.remove_stale();
+                }
+            }
             // Never reuse the identity of a jail left behind by a daemon.
-            Mode::Offline => engine.reserve_leftover_uids(),
+            Mode::Offline => {
+                engine.reserve_leftover_uids();
+                if let Some(pool) = engine.disk.thin() {
+                    pool.remove_stale();
+                }
+            }
             Mode::ReadOnly => {}
         }
         engine.load_templates(mode != Mode::ReadOnly);
@@ -1190,9 +1202,29 @@ impl Engine {
         Ok(())
     }
 
+    /// Memory-base links below durable capture `cid` (0: against the template).
+    fn chain_depth(&self, cid: &str) -> usize {
+        let mut depth = 0;
+        let mut at = self
+            .state
+            .get(cid)
+            .and_then(|e| e.manifest.memory.base.clone());
+        while let Some(b) = at {
+            depth += 1;
+            if depth > MAX_CHAIN {
+                break;
+            }
+            at = self
+                .state
+                .get(&b)
+                .and_then(|e| e.manifest.memory.base.clone());
+        }
+        depth
+    }
+
     /// Writes the full memory image of durable capture `cid` to `out`.
     fn materialize(&self, cid: &str, out: &Path, scratch: &Path, depth: usize) -> Result<()> {
-        if depth > 64 {
+        if depth > MAX_CHAIN {
             return Err(EngineError::new(
                 "DATA_UNAVAILABLE",
                 "capture chain too deep",
@@ -1869,8 +1901,11 @@ impl Engine {
         let template = self.template(&sb.template_id)?;
         // Encode against the full image this sandbox started from, when
         // that is still a live durable capture; the template otherwise.
+        // A delta whose chain would be longer than materialization follows
+        // is encoded against the template instead, so every acknowledged
+        // capture can be resumed.
         let (base, base_path) = match &sb.base {
-            Base::Capture(c) if self.state.get(c).is_some() => (
+            Base::Capture(c) if self.state.get(c).is_some() && self.chain_depth(c) < MAX_CHAIN => (
                 Some(c.clone()),
                 sb.jail.as_ref().unwrap().memdir.join(SRC_MEM),
             ),
@@ -1949,6 +1984,7 @@ impl Engine {
             disk: durable::DiskRecord {
                 disk: sealed.encode(),
                 bytes: disk_bytes,
+                digest: None,
             },
             engine_digest: self.compat.engine_digest.clone(),
             cpu_baseline: self.compat.cpu_baseline.clone(),
@@ -1962,7 +1998,7 @@ impl Engine {
             m.disk.bytes = disk::size_of_file(&self.disk_path(p))?;
         }
         m.sign(&self.producer)?;
-        fault::step("heads", || self.state.stage(&m))?;
+        fault::step("heads", || self.state.stage_checked(&m))?;
         fault::step("switch", || {
             // The source now descends from this generation.
             sb.parent = Some(cid.to_string());
@@ -2009,7 +2045,18 @@ impl Engine {
     /// Deletes a durable capture (refused while a live capture descends
     /// from it). Its objects go at the next gc.
     pub fn state_delete(&self, cid: &str) -> Result<()> {
-        self.state.delete(cid)
+        // A live sandbox restored from (or captured as) a generation keeps
+        // it: its next capture names it as parent and delta base.
+        let all: Vec<_> = self.sandboxes.lock().unwrap().values().cloned().collect();
+        let mut pinned = BTreeSet::new();
+        for sb in all {
+            let sb = sb.lock().unwrap();
+            pinned.extend(sb.parent.clone());
+            if let Base::Capture(b) = &sb.base {
+                pinned.insert(b.clone());
+            }
+        }
+        self.state.delete_unless_pinned(cid, &pinned)
     }
 
     /// Removes every object, manifest and durable thin volume that no
@@ -2060,8 +2107,14 @@ impl Engine {
             .join(format!("compact-{cid}"));
         let _ = std::fs::remove_dir_all(&scratch);
         std::fs::create_dir_all(&scratch).ctx("create compaction scratch")?;
+        let (mem_name, _, _) = durable::object_names(cid);
+        // Not a capture ID (no `cp_` prefix), so it cannot collide with one.
+        let hold = format!("compact:{cid}");
+        if let Err(e) = self.state.hold(&hold, vec![mem_name.clone()]) {
+            let _ = std::fs::remove_dir_all(&scratch);
+            return Err(e);
+        }
         let r = (|| {
-            let (mem_name, _, _) = durable::object_names(cid);
             let tmp = self.state.object(&format!("{mem_name}.tmp"));
             let (enc, digest) = fault::step("compact_objects", || {
                 let full = scratch.join("full.mem");
@@ -2074,7 +2127,7 @@ impl Engine {
                 Ok((enc, digest))
             })?;
             let old = e.manifest.memory.object.clone();
-            fault::step("compact_redirect", || {
+            let redirected = fault::step("compact_redirect", || {
                 let mut m = e.manifest.clone();
                 m.memory = durable::MemoryRef {
                     base: None,
@@ -2086,13 +2139,17 @@ impl Engine {
                 };
                 m.sign(&self.producer)?;
                 self.state.redirect(m, vec![old.clone()])
-            })?;
+            });
+            // Referenced by the committed redirect now, or garbage if it failed.
+            self.state.release(&hold);
+            redirected?;
             let removed = fault::step("compact_gc", || self.state.gc_files())?;
             Ok(serde_json::json!({
                 "capture_id": cid, "compacted": true, "object": mem_name,
                 "retired": old, "removed_files": removed,
             }))
         })();
+        self.state.release(&hold);
         let _ = std::fs::remove_dir_all(&scratch);
         r
     }
@@ -2159,6 +2216,7 @@ impl Engine {
         m.vmstate.object = "vmstate".into();
         m.disk.disk = "file:disk".into();
         m.disk.bytes = disk::size_of_file(&disk_out)?;
+        m.disk.digest = Some(fsutil::digest_file(&disk_out)?.digest);
         m.sign(&self.producer)?;
         std::fs::write(dir.join("manifest.json"), manifest::canonical_json(&m)?)?;
         Ok(())
@@ -2192,8 +2250,17 @@ impl Engine {
                 "not an export bundle",
             )));
         }
+        // The signed manifest binds all three: memory, vm state and disk.
+        let disk_digest = m.disk.digest.as_deref().ok_or_else(|| {
+            refuse(EngineError::new(
+                "DATA_UNAVAILABLE",
+                "bundle manifest binds no disk digest",
+            ))
+        })?;
         if fsutil::digest_file(&dir.join("mem"))?.digest != m.memory.digest
             || durable::sha256_file(&dir.join("vmstate"))? != m.vmstate.sha256
+            || fsutil::digest_file(&dir.join("disk"))?.digest != disk_digest
+            || disk::size_of_file(&dir.join("disk"))? != m.disk.bytes
         {
             return Err(refuse(EngineError::new(
                 "DATA_UNAVAILABLE",

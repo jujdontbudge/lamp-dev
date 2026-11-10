@@ -76,6 +76,11 @@ pub struct DiskRecord {
     /// `file:<path under store>` or `thin:<id>`.
     pub disk: String,
     pub bytes: u64,
+    /// `sha256-c4m` of the raw disk. Required in an export bundle, whose
+    /// disk is a plain file that could otherwise be swapped for another
+    /// generation of the same size; local captures leave it out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub digest: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -570,6 +575,23 @@ impl Store {
         self.index.lock().unwrap().in_flight.remove(cid);
     }
 
+    /// Keeps `objects` (and their `.tmp` names) out of garbage collection
+    /// until `release(key)`, for work that writes objects before any
+    /// record references them (compaction). Not journaled: after a crash
+    /// they are unreferenced garbage, which is correct.
+    pub fn hold(&self, key: &str, objects: Vec<String>) -> Result<()> {
+        let mut ix = self.index.lock().unwrap();
+        if ix.in_flight.contains_key(key) {
+            return Err(EngineError::in_use(format!("{key} is in progress")));
+        }
+        ix.in_flight.insert(key.into(), (objects, vec![]));
+        Ok(())
+    }
+
+    pub fn release(&self, key: &str) {
+        self.index.lock().unwrap().in_flight.remove(key);
+    }
+
     /// Step `directory_flush`: temporary names become final names, and the
     /// objects directory is fsynced.
     pub fn publish_objects(&self, names: &[String]) -> Result<()> {
@@ -593,6 +615,26 @@ impl Store {
         self.journal.lock().unwrap().append(&r, false)
     }
 
+    /// `stage` for a new capture: refused unless its parent and memory base
+    /// are still live. The check and the write happen under the index lock
+    /// that `delete` also holds, so a capture whose ancestor is being
+    /// deleted is never committed (or acknowledged) with a dangling one.
+    pub fn stage_checked(&self, m: &CaptureManifest) -> Result<()> {
+        let ix = self.index.lock().unwrap();
+        for a in [m.parent.as_deref(), m.memory.base.as_deref()]
+            .into_iter()
+            .flatten()
+        {
+            if !ix.live.contains_key(a) {
+                return Err(EngineError::in_use(format!(
+                    "capture {}: ancestor {a} is no longer live",
+                    m.capture_id
+                )));
+            }
+        }
+        self.stage(m)
+    }
+
     /// Step `journal_flush`: the staged commit record reaches stable
     /// storage. From here the capture is recoverable.
     pub fn flush(&self) -> Result<()> {
@@ -612,20 +654,30 @@ impl Store {
     /// Deletes a capture unless a live capture descends from it or uses it
     /// as its memory base (ancestors are kept).
     pub fn delete(&self, cid: &str) -> Result<()> {
-        {
-            let ix = self.index.lock().unwrap();
-            if !ix.live.contains_key(cid) {
-                return Err(EngineError::not_found(format!("capture {cid}")));
-            }
-            if let Some(child) = ix.live.values().find(|e| {
-                e.manifest.parent.as_deref() == Some(cid)
-                    || e.manifest.memory.base.as_deref() == Some(cid)
-            }) {
-                return Err(EngineError::in_use(format!(
-                    "capture {cid} is an ancestor of {}",
-                    child.manifest.capture_id
-                )));
-            }
+        self.delete_unless_pinned(cid, &BTreeSet::new())
+    }
+
+    /// `delete`, also refused when `pinned` (the parents and memory bases
+    /// of live sandboxes) names the capture. The index lock is held from
+    /// the check to the record, so no commit can stage in between.
+    pub fn delete_unless_pinned(&self, cid: &str, pinned: &BTreeSet<String>) -> Result<()> {
+        let mut ix = self.index.lock().unwrap();
+        if !ix.live.contains_key(cid) {
+            return Err(EngineError::not_found(format!("capture {cid}")));
+        }
+        if let Some(child) = ix.live.values().find(|e| {
+            e.manifest.parent.as_deref() == Some(cid)
+                || e.manifest.memory.base.as_deref() == Some(cid)
+        }) {
+            return Err(EngineError::in_use(format!(
+                "capture {cid} is an ancestor of {}",
+                child.manifest.capture_id
+            )));
+        }
+        if pinned.contains(cid) {
+            return Err(EngineError::in_use(format!(
+                "capture {cid} is an ancestor of a live sandbox"
+            )));
         }
         fault::step("delete", || {
             self.journal.lock().unwrap().append(
@@ -634,7 +686,6 @@ impl Store {
                 },
                 true,
             )?;
-            let mut ix = self.index.lock().unwrap();
             ix.live.remove(cid);
             ix.deleted.insert(cid.into());
             Ok(())
@@ -791,6 +842,7 @@ mod tests {
             disk: DiskRecord {
                 disk: "thin:5".into(),
                 bytes: 1 << 20,
+                digest: None,
             },
             engine_digest: String::new(),
             cpu_baseline: String::new(),
