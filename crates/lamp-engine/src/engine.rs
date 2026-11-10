@@ -44,7 +44,7 @@ use std::time::{Duration, Instant};
 
 pub const ENGINE_NAME: &str = "firecracker-1.17.0";
 pub const STATE_ABI: &str = "firecracker-1.17.0/snapshot";
-pub const DEVICE_GRAPH: &str = "virtio-blk:rootfs,vsock:cid3,serial;no-net";
+pub const DEVICE_GRAPH: &str = "virtio-blk:rootfs,vsock:cid3,serial,virtio-net:eth0-lamp0";
 pub const STANDARD: Resources = Resources {
     vcpus: 2,
     memory_mib: 4096,
@@ -75,6 +75,9 @@ pub struct Config {
     pub mem_dir_size: String,
     /// Extra trusted producer keys beyond this host's own.
     pub trusted_producers: Vec<VerifyingKey>,
+    /// Guard network and protected-process audit. `None` leaves sandboxes
+    /// with an unconnected link and unaudited commands (diagnostic only).
+    pub network: Option<crate::net::Policy>,
 }
 
 impl Config {
@@ -92,6 +95,7 @@ impl Config {
             uid_count: 65_536,
             host_id: hostname(),
             trusted_producers: Vec::new(),
+            network: None,
         }
     }
 }
@@ -235,14 +239,21 @@ pub struct Sandbox {
     pub barrier: Option<lamp_init::BarrierAck>,
     /// Commands by the operation ID of their `Start`, oldest first.
     pub commands: Arc<Mutex<CommandTable>>,
+    /// Guard network and audit listener of this generation.
+    pub net: Option<crate::net::Attachment>,
 }
 
 impl Sandbox {
-    /// Kills the VMM and removes its jail (and with it the memory it mapped).
-    fn teardown(&mut self) {
+    /// Kills the VMM and removes its jail (and with it the memory it mapped),
+    /// then its guard, uplink and audit receivers.
+    fn teardown(&mut self) -> Option<u32> {
         if let Some(j) = self.jail.take() {
             j.destroy();
         }
+        self.net.take().map(|mut n| {
+            n.detach();
+            n.guard_uid
+        })
     }
 }
 
@@ -286,6 +297,8 @@ pub struct Engine {
     sandboxes: Mutex<HashMap<String, Arc<Mutex<Sandbox>>>>,
     captures: Mutex<HashMap<String, Arc<CaptureRec>>>,
     uids: Mutex<BTreeSet<u32>>,
+    /// Host addresses and on-link prefixes every guard denies.
+    pub inventory: Vec<String>,
     /// Exclusive store ownership while this engine may change the store.
     _lock: Option<std::fs::File>,
 }
@@ -484,6 +497,7 @@ impl Engine {
             trusted.insert(manifest::key_id(k), *k);
         }
         let compat = HostCompat::detect(&cfg.bins)?;
+        let cfg_network = cfg.network.is_some() && mode == Mode::Daemon;
         let engine = Engine {
             cfg,
             compat,
@@ -493,6 +507,11 @@ impl Engine {
             sandboxes: Mutex::new(HashMap::new()),
             captures: Mutex::new(HashMap::new()),
             uids: Mutex::new(BTreeSet::new()),
+            inventory: if cfg_network {
+                crate::net::host_inventory()?
+            } else {
+                Vec::new()
+            },
             _lock: lock,
         };
         match mode {
@@ -801,6 +820,7 @@ impl Engine {
                 captures: Vec::new(),
                 barrier: None,
                 commands: Arc::default(),
+                net: None,
             })),
         );
         Ok(Outcome {
@@ -931,6 +951,39 @@ impl Engine {
         };
         detail.insert("prepare_us".into(), us(t0.elapsed()));
         let t = Instant::now();
+        match &self.cfg.network {
+            Some(policy) => {
+                let guard_uid = self.alloc_uid()?;
+                let attached = crate::net::Attachment::attach(
+                    policy,
+                    &self.inventory,
+                    jail,
+                    guard_uid,
+                    crate::net::Identity {
+                        host_id: &self.cfg.host_id,
+                        sandbox_id: &sb.id,
+                        generation: sb.generation,
+                        operation_id: "op_restore",
+                    },
+                );
+                match attached {
+                    Ok(a) => {
+                        for (k, v) in &a.timings {
+                            detail.insert(k.clone(), v.to_string());
+                        }
+                        sb.net = Some(a);
+                    }
+                    Err(e) => {
+                        self.free_uid(guard_uid);
+                        return Err(e);
+                    }
+                }
+            }
+            None => crate::net::tap_only(jail)?,
+        }
+        detail.insert("attach_us".into(), us(t.elapsed()));
+        let jail = sb.jail.as_mut().unwrap();
+        let t = Instant::now();
         jail.spawn(&self.cfg.bins, limits)?;
         detail.insert("spawn_us".into(), us(t.elapsed()));
         let t = Instant::now();
@@ -948,6 +1001,15 @@ impl Engine {
         let t = Instant::now();
         let vsock = jail.path(fc::VSOCK);
         let ack = self.barrier(&vsock, &sb.id, sb.generation)?;
+        detail.insert(
+            "audit".into(),
+            if sb.net.is_some() {
+                "collector"
+            } else {
+                "none"
+            }
+            .into(),
+        );
         detail.insert("barrier_us".into(), us(t.elapsed()));
         detail.insert("rng_sample".into(), ack.rng_sample_hex.clone());
         detail.insert("machine_id".into(), ack.machine_id.clone());
@@ -1014,7 +1076,7 @@ impl Engine {
         if argv.is_empty() {
             return Err(EngineError::invalid("argv is empty"));
         }
-        let (vsock, commands, vmm_alive) = {
+        let (vsock, commands, vmm_alive, audited) = {
             let sb = self.sandbox(auth.sandbox_id)?;
             let sb = sb.lock().unwrap();
             Self::check(&sb, auth)?;
@@ -1031,7 +1093,12 @@ impl Engine {
                 ));
             }
             let jail = sb.jail.as_ref().unwrap();
-            (jail.path(fc::VSOCK), sb.commands.clone(), jail.liveness())
+            (
+                jail.path(fc::VSOCK),
+                sb.commands.clone(),
+                jail.liveness(),
+                sb.net.is_some(),
+            )
         };
         let request = GuestRequest::Exec(Exec {
             sandbox_id: auth.sandbox_id.into(),
@@ -1042,6 +1109,10 @@ impl Engine {
             cwd,
             timeout_ms,
             output_limit: lamp_init::DEFAULT_OUTPUT_LIMIT,
+            audit: audited.then_some(lamp_init::Audit {
+                port: lamp_init::AUDIT_PORT,
+                task_uid: crate::net::TASK_UID,
+            }),
         });
         let mut conn = guest::send(&vsock, &request)?;
         let started = match conn.next(Some(Duration::from_secs(10)))? {
@@ -1346,7 +1417,9 @@ impl Engine {
         {
             let mut sb = arc.lock().unwrap();
             Self::check(&sb, auth)?;
-            sb.teardown();
+            if let Some(uid) = sb.teardown() {
+                self.free_uid(uid);
+            }
             self.free_uid(sb.uid);
             sb.state = State::Stopped;
         }
@@ -1412,7 +1485,7 @@ impl Engine {
         let all: Vec<_> = self.sandboxes.lock().unwrap().drain().collect();
         let n = all.len();
         for (_, sb) in all {
-            sb.lock().unwrap().teardown();
+            let _ = sb.lock().unwrap().teardown();
         }
         n
     }

@@ -32,11 +32,11 @@ pub fn close_other_fds(keep: &[i32]) -> io::Result<()> {
     let mut first = 3;
     for fd in keep {
         if first < fd {
-            check(unsafe { libc::close_range(first, fd - 1, 0) } as _)?;
+            check(unsafe { crate::close_range(first, fd - 1, 0) } as _)?;
         }
         first = fd + 1;
     }
-    check(unsafe { libc::close_range(first, u32::MAX, 0) } as _)
+    check(unsafe { crate::close_range(first, u32::MAX, 0) } as _)
 }
 pub fn enter(uid: u32, net_admin: bool, keep: &[i32]) -> io::Result<()> {
     close_other_fds(keep)?;

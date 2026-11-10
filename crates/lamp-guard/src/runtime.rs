@@ -170,7 +170,8 @@ impl Connections {
         let key;
         let mut admitted = false;
         if p.hook == 2 && outbound && t.source == config.guest_ip {
-            if !public_v4(t.destination, &config.host_denies) {
+            let excepted = config.excepted(&t);
+            if !excepted && !public_v4(t.destination, &config.host_denies) {
                 return self.deny(spool, Some(t), "private_lan_metadata_or_host", &p.bytes);
             }
             let syn = if t.protocol == 6 && p.bytes[33] & 0x17 == 0x02 {
@@ -209,7 +210,12 @@ impl Connections {
                     draining: false,
                     dirty: false,
                 };
-                self.durable(spool, vec![f.record(&t, "start", "public_transport")])?;
+                let reason = if excepted {
+                    "policy_exception"
+                } else {
+                    "public_transport"
+                };
+                self.durable(spool, vec![f.record(&t, "start", reason)])?;
                 self.flows.insert(t.clone(), f);
                 admitted = true;
             }
@@ -293,7 +299,7 @@ pub fn run(config: Config) -> io::Result<()> {
     )?;
     spool.record("host_guard",json!({"type":"lifecycle","state":"ready","filter_mode":"transport",
         "ipv6":"deny","max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis(),
-        "audit_batch_ms":AUDIT_BATCH.as_millis(),"audit_deadline_ms":AUDIT_DEADLINE.as_millis(),"max_pending_denials":MAX_DENIALS}))?;
+        "audit_batch_ms":AUDIT_BATCH.as_millis(),"exceptions":config.exceptions,"audit_deadline_ms":AUDIT_DEADLINE.as_millis(),"max_pending_denials":MAX_DENIALS}))?;
     println!(
         "{}",
         json!({"state":"ready","policy_revision":config.attribution.policy_revision})

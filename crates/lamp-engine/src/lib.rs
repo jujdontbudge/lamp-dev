@@ -16,5 +16,7 @@ pub mod fc;
 pub mod fsutil;
 #[cfg(target_os = "linux")]
 pub mod guest;
+#[cfg(target_os = "linux")]
+pub mod net;
 
 pub use error::{EngineError, Result};

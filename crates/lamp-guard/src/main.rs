@@ -4,7 +4,7 @@ fn main() {
     use std::{env, fs, io};
     fn run() -> io::Result<i32> {
         let args: Vec<String> = env::args().collect();
-        let usage = "usage: lamp-guard policy CONFIG | run CONFIG | receive CONFIG FD | collect FD UID -- ARGV...";
+        let usage = "usage: lamp-guard policy CONFIG | run CONFIG | receive CONFIG FD | collect FD|vsock:PORT UID -- ARGV...";
         let config = |p: &str| -> io::Result<Config> {
             let c: Config = serde_json::from_slice(&fs::read(p)?)?;
             c.validate()?;
@@ -34,11 +34,21 @@ fn main() {
                 Ok(0)
             }
             Some("collect") if args.len() >= 6 && args[4] == "--" => {
-                let socket = unsafe { audit::stream(fd(&args[2])?)? };
-                use std::os::fd::AsRawFd;
-                lamp_guard::confinement::close_other_fds(&[socket.as_raw_fd()])?;
+                // `vsock:PORT` (guest): the collector owns its host stream and
+                // reconnects after Firecracker resets vsock at a snapshot.
+                // `FD`: a single inherited stream, as the fixture uses.
+                let emitter = if let Some(port) = args[2].strip_prefix("vsock:") {
+                    let port: u32 = port.parse().map_err(io::Error::other)?;
+                    lamp_guard::confinement::close_other_fds(&[])?;
+                    audit::Emitter::reconnecting(Box::new(move || audit::vsock_connect(port)))?
+                } else {
+                    let socket = unsafe { audit::stream(fd(&args[2])?)? };
+                    use std::os::fd::AsRawFd;
+                    lamp_guard::confinement::close_other_fds(&[socket.as_raw_fd()])?;
+                    audit::Emitter::new(socket)
+                };
                 process::run(
-                    audit::Emitter::new(socket),
+                    emitter,
                     args[3].parse().map_err(io::Error::other)?,
                     args[5..].to_vec(),
                 )

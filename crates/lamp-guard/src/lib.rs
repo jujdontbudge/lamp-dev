@@ -14,6 +14,22 @@ pub mod process;
 #[cfg(target_os = "linux")]
 pub mod runtime;
 
+/// `close_range(2)` through the raw syscall, so static musl builds (the guest
+/// collector) and glibc builds share one definition.
+/// # Safety
+/// Closes descriptors; callers must own every descriptor in the range.
+#[cfg(target_os = "linux")]
+pub unsafe fn close_range(first: u32, last: u32, flags: u32) -> libc::c_int {
+    unsafe { libc::syscall(libc::SYS_close_range, first, last, flags) as libc::c_int }
+}
+/// `PTRACE_GET_SYSCALL_INFO` (Linux 5.3), missing from some libc bindings.
+pub const PTRACE_GET_SYSCALL_INFO: PtraceRequest = 0x420e;
+/// The ptrace request type differs between the glibc and musl bindings.
+#[cfg(target_env = "musl")]
+pub type PtraceRequest = libc::c_int;
+#[cfg(not(target_env = "musl"))]
+pub type PtraceRequest = libc::c_uint;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Attribution {
@@ -116,8 +132,33 @@ pub struct Config {
     pub host_denies: Vec<Prefix>,
     pub spool: String,
     pub spool_bytes: u64,
+    /// Explicit, exact destination exceptions (address, transport and port)
+    /// allowed despite the special-use ceiling and host denies. Each is part
+    /// of the policy revision and every flow to one is recorded with reason
+    /// `policy_exception`. Empty by default; there are no prefix exceptions.
+    #[serde(default)]
+    pub exceptions: Vec<Exception>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Exception {
+    pub address: Ipv4Addr,
+    /// "tcp" or "udp".
+    pub transport: String,
+    pub port: u16,
+}
+impl Exception {
+    pub fn matches(&self, t: &Tuple) -> bool {
+        t.destination == self.address
+            && t.destination_port == self.port
+            && t.protocol == if self.transport == "udp" { 17 } else { 6 }
+    }
 }
 impl Config {
+    pub fn excepted(&self, t: &Tuple) -> bool {
+        self.exceptions.iter().any(|e| e.matches(t))
+    }
     pub fn validate(&self) -> io::Result<()> {
         self.attribution.validate()?;
         if self.interface.is_empty()
@@ -130,6 +171,11 @@ impl Config {
             || self.spool_bytes < 4096
             || self.guard_uid < 65536
             || self.guard_uid == u32::MAX
+            || self.exceptions.len() > 64
+            || self
+                .exceptions
+                .iter()
+                .any(|e| (e.transport != "tcp" && e.transport != "udp") || e.port == 0)
         {
             return Err(io::Error::other(
                 "invalid interface, missing host denies or insufficient spool",

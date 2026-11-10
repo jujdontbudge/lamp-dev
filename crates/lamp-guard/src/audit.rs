@@ -139,31 +139,125 @@ pub unsafe fn stream(fd: RawFd) -> io::Result<UnixStream> {
     Ok(s)
 }
 
+type Connector = Box<dyn FnMut() -> io::Result<UnixStream> + Send>;
+
+/// How long a reconnecting collector keeps trying before it gives up (and
+/// its tracer exits, killing the traced tree through `PTRACE_O_EXITKILL`).
+pub const RECONNECT_DEADLINE: Duration = Duration::from_secs(5);
+
+/// Connects the trusted guest collector to the host over AF_VSOCK (host CID 2).
+/// Only guest root outside the task namespaces can do this; the task seccomp
+/// filter denies AF_VSOCK.
+#[cfg(target_os = "linux")]
+pub fn vsock_connect(port: u32) -> io::Result<UnixStream> {
+    unsafe {
+        let fd = libc::socket(libc::AF_VSOCK, libc::SOCK_STREAM | libc::SOCK_CLOEXEC, 0);
+        if fd < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let mut addr: libc::sockaddr_vm = std::mem::zeroed();
+        addr.svm_family = libc::AF_VSOCK as libc::sa_family_t;
+        addr.svm_port = port;
+        addr.svm_cid = libc::VMADDR_CID_HOST;
+        let len = std::mem::size_of::<libc::sockaddr_vm>() as libc::socklen_t;
+        if libc::connect(fd, (&raw const addr).cast(), len) != 0 {
+            let e = io::Error::last_os_error();
+            libc::close(fd);
+            return Err(e);
+        }
+        stream(fd)
+    }
+}
+
 pub struct Emitter {
     socket: UnixStream,
     sequence: u64,
+    reconnect: Option<Connector>,
+    /// Frames acknowledged across every segment of this collector.
+    acknowledged: u64,
+    segment: u64,
 }
 impl Emitter {
     pub fn new(socket: UnixStream) -> Self {
         Self {
             socket,
             sequence: 0,
+            reconnect: None,
+            acknowledged: 0,
+            segment: 1,
         }
     }
-    pub fn send(&mut self, details: Value) -> io::Result<()> {
-        self.sequence += 1;
-        let bytes = serde_json::to_vec(&json!({"sequence":self.sequence,"details":details}))?;
+    /// An emitter whose stream may be reset underneath it, as Firecracker does
+    /// to every guest vsock connection when it snapshots a VM. On a transport
+    /// error it opens a new stream (a new host segment, sequence restarting at
+    /// 1), records a `segment_resume` linking it to the previous segment, and
+    /// resends the unacknowledged frame. The frame may therefore appear in both
+    /// segments (at least once); it is never silently dropped. If no stream is
+    /// accepted within `RECONNECT_DEADLINE` the error is returned.
+    pub fn reconnecting(mut connect: Connector) -> io::Result<Self> {
+        let socket = connect()?;
+        Ok(Self {
+            socket,
+            sequence: 0,
+            reconnect: Some(connect),
+            acknowledged: 0,
+            segment: 1,
+        })
+    }
+    fn exchange(&mut self, details: &Value) -> io::Result<()> {
+        let sequence = self.sequence + 1;
+        let bytes = serde_json::to_vec(&json!({"sequence":sequence,"details":details}))?;
         if bytes.len() > MAX_FRAME / 2 {
-            return Err(io::Error::other("collector frame oversized"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "collector frame oversized",
+            ));
         }
         self.socket.write_all(&(bytes.len() as u32).to_be_bytes())?;
         self.socket.write_all(&bytes)?;
         let mut ack = [0; 8];
         self.socket.read_exact(&mut ack)?;
-        if u64::from_be_bytes(ack) != self.sequence {
-            return Err(io::Error::other("audit ACK sequence mismatch"));
+        if u64::from_be_bytes(ack) != sequence {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "audit ACK sequence mismatch",
+            ));
         }
+        self.sequence = sequence;
+        self.acknowledged += 1;
         Ok(())
+    }
+    pub fn send(&mut self, details: Value) -> io::Result<()> {
+        let first = match self.exchange(&details) {
+            Ok(()) => return Ok(()),
+            Err(e) => e,
+        };
+        if first.kind() == io::ErrorKind::InvalidData || self.reconnect.is_none() {
+            return Err(first);
+        }
+        let deadline = std::time::Instant::now() + RECONNECT_DEADLINE;
+        let mut last = first;
+        while std::time::Instant::now() < deadline {
+            let connect = self.reconnect.as_mut().unwrap();
+            match connect() {
+                Ok(socket) => {
+                    self.socket = socket;
+                    self.sequence = 0;
+                    self.segment += 1;
+                    let resume = json!({"type":"segment_resume","segment":self.segment,
+                        "previous_acknowledged":self.acknowledged,"resending_unacknowledged":true,
+                        "reason":last.to_string()});
+                    match self.exchange(&resume).and_then(|_| self.exchange(&details)) {
+                        Ok(()) => return Ok(()),
+                        Err(e) if e.kind() == io::ErrorKind::InvalidData => return Err(e),
+                        Err(e) => last = e,
+                    }
+                }
+                Err(e) => last = e,
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        Err(last)
     }
 }
 

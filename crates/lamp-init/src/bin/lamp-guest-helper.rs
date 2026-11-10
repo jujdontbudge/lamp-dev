@@ -528,9 +528,25 @@ mod linux {
         }
         let limit = x.output_limit.min(MAX_GUEST_FRAME / 4);
         let procs = std::ffi::CString::new(cgroup_file("cgroup.procs")).unwrap();
-        let mut command = Command::new(&x.argv[0]);
+        // Audited commands run only under the protected collector; if it is
+        // missing or fails, nothing runs (fail closed).
+        let argv: Vec<String> = match &x.audit {
+            Some(a) => {
+                let mut v = vec![
+                    GUARD_BIN.to_string(),
+                    "collect".into(),
+                    format!("vsock:{}", a.port),
+                    a.task_uid.to_string(),
+                    "--".into(),
+                ];
+                v.extend(x.argv.iter().cloned());
+                v
+            }
+            None => x.argv.clone(),
+        };
+        let mut command = Command::new(&argv[0]);
         command
-            .args(&x.argv[1..])
+            .args(&argv[1..])
             .env_clear()
             .env(
                 "PATH",
