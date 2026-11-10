@@ -15,7 +15,7 @@ the confined vendor proxy. Completing that challenge required account
 authorization. A fresh, isolated headless Chrome instance reached OpenAI's
 `Just a moment...` verification page, with no sign-in form available.
 The secure owner-approval request was first interrupted and then timed out.
-No owner-app credentials or browser profiles were read, and the verification
+During that attempt, no owner-app credentials or browser profiles were read, and the verification
 challenge was not bypassed.
 
 A later fresh headless retry, intended to allow ordinary page verification to
@@ -80,10 +80,48 @@ The existing failing check and the remaining verification steps are recorded in
 `make verify` command. That continuation exited 0. Verification is not a substitute for the missing real
 demonstration.
 
-## Remaining action
+## Authorized browser follow-up
 
-An authorized account holder must complete the official device authorization
-on a fresh attempt. Then obtain the fixed response from the signed-in source,
-fork the live private sandbox, and obtain it again from the continued official
-process in the fork. Record those actual results and release both sandboxes.
-Until then, sign-in-and-fork acceptance and E07 remain incomplete.
+At the owner's request, one additional attempt used an authorized, restricted
+copy of the M5 Chrome Default session. This was a browser preflight, not a new
+sandbox sign-in-and-fork run.
+
+`Local State` and a read-only SQLite backup of `Default/Cookies` were copied to
+a new private scratch user-data directory. Only cookies for `chatgpt.com`,
+`openai.com` and their subdomains were retained in the copy. The original
+profile's contents were not changed. No cookie values or tokens were printed
+or committed.
+
+A separate Chrome was launched through `open -n -g` with `--headless=new`,
+the scratch user-data directory and loopback CDP on port 9334. Playwright
+connected over CDP and visited `https://auth.openai.com/codex/device`.
+After a 30-second wait for a visible input, the page still said
+`Just a moment...` and had zero visible inputs.
+
+The requested automation-detection override and user-agent spoofing were
+**not used**. This result therefore does not establish that the exact proposed
+anti-detection route failed. Nor does it establish that Chrome decrypted the
+copied session successfully or that the copied account session was still valid:
+authorization never advanced past the verification page.
+
+No fresh guest device challenge, inference or fork was attempted after that
+browser preflight failed. No LX sandbox was created and no LX memory was
+allocated. No new owner-approval request was made.
+
+Only the owned headless Chrome (PID 6238) was stopped, and the scratch profile
+was deleted. Follow-up checks found no owned Chrome process or port-9334
+listener, and confirmed the scratch directory was absent. The owner's visible
+window was not driven.
+
+The token-free record is
+`attempts/t9-authorized-browser-20261110-08/summary.json`. This follow-up changes
+only evidence/docs; it does not change implementation or tests, and it does not
+supersede the verification results recorded for the previous implementation.
+
+## Remaining status
+
+The owner instructed that an unsuccessful follow-up be recorded and then
+stopped, with PR #10 eligible to merge as-is. This thread makes no further
+attempts. Sign-in-and-fork acceptance and E07 remain incomplete; the format
+freeze remains unauthorized. The owner has authorized the accounts; no new
+owner-approval requirement is being imposed.

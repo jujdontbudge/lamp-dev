@@ -1,6 +1,17 @@
 {
   "ticket": "T9",
   "status": "incomplete",
+  "latest_browser_followup": {
+    "summary": "attempts/t9-authorized-browser-20261110-08/summary.json",
+    "status": "normal_headless_authorized_session_blocked",
+    "exact_requested_anti_detection_route_tested": false,
+    "authorization_completed": false,
+    "lx_sandboxes_created": 0,
+    "owned_browser_and_scratch_profile_cleaned_up": true,
+    "new_owner_approval_request": false,
+    "implementation_changed": false,
+    "further_attempts": "stopped per owner instruction"
+  },
   "format_freeze_authorized": false,
   "requirements": ["CRED-003", "CRED-004", "E07"],
   "subscription_routes": {
