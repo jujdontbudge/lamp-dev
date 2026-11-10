@@ -1,0 +1,48 @@
+{
+ "barrier": {
+  "entries": 1669,
+  "crash_index": 1540,
+  "last_flush_index": 1539,
+  "flushes_before_crash": 89,
+  "fua_before_crash": 55,
+  "durable_writes": 1451,
+  "volatile_applied": 0,
+  "volatile_dropped": 0
+ },
+ "recovered_list": {
+  "captures": [
+   {
+    "capture_id": "cp_1e1a899a0126_0",
+    "memory_base": null,
+    "parent": null,
+    "producer_key_id": "pk_cc2e8f828e8a89f2",
+    "reason": null,
+    "source_sandbox_id": "sb_1e1a899a0126_a",
+    "state": "committed",
+    "template_id": "tp_09a71c56dd8afbd2768048656d"
+   },
+   {
+    "capture_id": "cp_1e1a899a0126_x",
+    "memory_base": null,
+    "parent": "cp_1e1a899a0126_0",
+    "producer_key_id": "pk_cc2e8f828e8a89f2",
+    "reason": null,
+    "source_sandbox_id": "sb_1e1a899a0126_a",
+    "state": "committed",
+    "template_id": "tp_09a71c56dd8afbd2768048656d"
+   },
+   {
+    "capture_id": "cp_1e1a899a0126_1",
+    "memory_base": null,
+    "parent": null,
+    "producer_key_id": "",
+    "reason": "DATA_UNAVAILABLE: object cp_1e1a899a0126_1-vmstate-a0c01e7c is missing or truncated",
+    "source_sandbox_id": "",
+    "state": "damaged",
+    "template_id": ""
+   }
+  ],
+  "elapsed_ms": 0.010394,
+  "ok": true
+ }
+}

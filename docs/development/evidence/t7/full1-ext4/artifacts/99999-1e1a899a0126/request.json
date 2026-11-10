@@ -1,0 +1,1 @@
+{"nonce": "1e1a899a012644f6bd7b0d8182f4fa2e", "point": "ack", "side": "after", "phases": ["reserve", "capture", "seal", "object_flush", "directory_flush", "heads", "switch", "journal_flush", "publish", "ack", "delete", "gc", "compact_objects", "compact_redirect", "compact_gc"], "omit": "object_flush"}

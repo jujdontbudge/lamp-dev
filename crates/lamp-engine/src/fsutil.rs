@@ -128,6 +128,20 @@ pub fn sparsify(path: &Path) -> Result<u64> {
     Ok(punched)
 }
 
+/// Commits the filesystem holding `path` (syncfs(2)).
+pub fn syncfs(path: &Path) -> Result<()> {
+    let f = File::open(path).ctx(format!("open {}", path.display()))?;
+    // SAFETY: plain syscall on our descriptor.
+    if unsafe { libc::syncfs(f.as_raw_fd()) } != 0 {
+        return Err(EngineError::host(format!(
+            "syncfs {}: {}",
+            path.display(),
+            std::io::Error::last_os_error()
+        )));
+    }
+    Ok(())
+}
+
 /// True when `[start, end)` contains no data extents.
 fn is_hole(fd: i32, start: u64, end: u64) -> bool {
     // SAFETY: lseek on a valid descriptor.

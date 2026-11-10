@@ -1,0 +1,26 @@
+lamp-engine: removed 1 uncommitted state file(s)
+lamp-engine: removed 1 unreferenced thin volume(s)
+lamp-supervisor: store open (dm-thin disks, 2 durable capture(s)), 1 verified template(s) in 297 ms
+lamp-supervisor: serving lamp.worker/1 on /run/lamp-e04/ext4/main/worker.sock
+lamp-supervisor: op op_71ea364d1b7a_1 sandbox sb_1a9cff4bd98a_r0 handle_us=967 
+lamp-supervisor: op op_71ea364d1b7a_2 sandbox sb_1a9cff4bd98a_r0 handle_us=86330 attach_us=9204 barrier_us=4570 disk_attach_us=7740 load_us=5329 materialize_us=46098 prepare_us=53847 spawn_us=13346 total_us=86313
+lamp-supervisor: op op_71ea364d1b7a_3 sandbox sb_1a9cff4bd98a_r0 handle_us=13670 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_71eb11d9f0b_1 sandbox sb_1a9cff4bd98a_r0 handle_us=1986 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_71eb2445aae_1 sandbox sb_1a9cff4bd98a_r0 handle_us=2248 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_71eb7ce1fe1_1 sandbox sb_1a9cff4bd98a_r0 handle_us=37038 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_71eba55f848_1 sandbox sb_1a9cff4bd98a_r1 handle_us=844 
+lamp-supervisor: op op_71eba55f848_2 sandbox sb_1a9cff4bd98a_r1 handle_us=106607 attach_us=9136 barrier_us=16358 disk_attach_us=12425 load_us=8624 materialize_us=43732 prepare_us=56169 spawn_us=16289 total_us=106595
+lamp-supervisor: op op_71eba55f848_3 sandbox sb_1a9cff4bd98a_r1 handle_us=10546 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_71eb11a8b86f_1 sandbox sb_1a9cff4bd98a_r1 handle_us=1724 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_71eb13af86ac_1 sandbox sb_1a9cff4bd98a_r1 handle_us=15906 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_71eb1bd0ae6a_1 sandbox sb_1a9cff4bd98a_r1 handle_us=39316 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms
