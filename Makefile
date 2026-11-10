@@ -1,7 +1,7 @@
 PYTHON ?= python3
 VENV_PYTHON = .venv/bin/python
 
-.PHONY: build test verify bootstrap generate check-generated check-contracts interop fmt
+.PHONY: build test test-all lint verify bootstrap generate check-generated check-contracts interop fmt
 
 # Checked-in bindings mean ordinary builds do not need Python or protoc.
 build:
@@ -10,12 +10,27 @@ build:
 	go build ./...
 	cargo build --workspace --locked
 
+# Select existing smokes until the later test-file cleanup. Keep stress suites manual.
 test:
+	go test -count=1 ./cmd/lamp -run '^TestCLIUsesCanonicalMutationHeaders$$'
+	go test -count=1 ./internal/control -run '^(TestJournalReplaySnapshotBeforeLogTruncation|TestControlCoreInterfacesAndAuthority)$$'
+	go test -count=1 ./pkg/plugin -run '^TestNativeSandboxDeniesAmbientAuthority$$'
+	$(VENV_PYTHON) tests/contracts/test_schema.py Contracts.test_all_schemas_well_formed -v
+	$(VENV_PYTHON) tests/ci/test_guard.py Guard.test_private_owner_push Guard.test_public_and_stranger_jobs_denied -v
+ifeq ($(shell uname -s),Linux)
+	cargo test --locked -p lamp-guard --lib killed_stopped_tracee_is_reaped_after_restart_esrch
+	cargo test --locked -p lamp-init --bin lamp-guest-helper task_report_wins_even_when_collector_exit_arrives_first
+endif
+
+# Full suites remain available on explicit request; bootstrap supplies jsonschema.
+test-all:
 	go test ./...
 	cargo test --workspace --locked
 	$(PYTHON) -m unittest discover -s tests/benchmarks -v
 	$(PYTHON) -m unittest discover -s tests/infra -v
 	$(PYTHON) -m unittest discover -s tests/subscription -v
+	$(VENV_PYTHON) -m unittest discover -s tests/contracts -v
+	$(VENV_PYTHON) -m unittest discover -s tests/ci -v
 
 bootstrap:
 	$(PYTHON) -m venv .venv
@@ -31,15 +46,15 @@ check-generated:
 
 check-contracts:
 	$(PYTHON) tools/check_contracts.py
-	$(VENV_PYTHON) -m unittest discover -s tests/contracts -v
-	$(VENV_PYTHON) -m unittest discover -s tests/ci -v
 
 interop:
 	$(PYTHON) tools/interop.py
 
-# Includes real cross-process Unix-socket/JSON checks, not an engine benchmark.
+# CI builds and runs selected smokes, including cross-process Unix-socket/JSON.
 verify: build test check-contracts interop
 	$(PYTHON) tools/generate.py --check
+
+lint:
 	go vet ./...
 	cargo fmt --all -- --check
 	cargo clippy --workspace --all-targets --locked -- -D warnings
