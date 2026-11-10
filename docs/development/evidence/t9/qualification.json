@@ -1,0 +1,88 @@
+{
+  "ticket": "T9",
+  "status": "incomplete",
+  "format_freeze_authorized": false,
+  "requirements": ["CRED-003", "CRED-004", "E07"],
+  "subscription_routes": {
+    "claude_code": {"status": "not_exercised", "qualified": false},
+    "codex": {"status": "not_exercised", "qualified": false}
+  },
+  "real_engine_control": {
+    "summary": "runs/t9-control-20261110-04/summary.json",
+    "status": "pass",
+    "qualification": "diagnostic-engine-api-only",
+    "source_contains_synthetic_canaries": true,
+    "fresh_rebuilt_guest_runs_installed_tool": true,
+    "all_emitted_clean_template_files_scanned": true,
+    "clean_template_canary_matches": 0,
+    "memory_mount_cleanup_confirmed": true,
+    "subscription_credentials_used": false,
+    "public_subscription_boundary_exercised": false
+  },
+  "retained_runs": [
+    {
+      "directory": "runs/t9-control-20261110-01",
+      "status": "fail",
+      "observation": "observer rejected the real template IDs; parser incorrectly expected 24 rather than 26 hex characters"
+    },
+    {
+      "directory": "runs/t9-control-20261110-02",
+      "status": "fail",
+      "observation": "fixture failed after publishing both templates; the original run did not record its failing phase"
+    },
+    {
+      "directory": "runs/t9-control-20261110-03",
+      "status": "fail",
+      "observation": "fixture failed at restore_clean; its generated sandbox ID made the host Unix socket path exceed the Linux limit"
+    },
+    {
+      "directory": "runs/t9-control-20261110-04",
+      "status": "incomplete",
+      "observation": "short-ID real-guest clean-builder control passed; E07 remained incomplete; results recovered from disk after SSH disconnected"
+    }
+  ],
+  "verification": {
+    "linux": {
+      "command": "make bootstrap verify; make verify",
+      "status": "pass",
+      "logs": ["verify-linux.log", "verify-linux-final.log", "verify-linux-custody-final.log"]
+    },
+    "macos": {
+      "command": "make bootstrap verify",
+      "status": "fail",
+      "observation": "existing internal/control Go suite timed out at its default ten-minute limit; isolated TestDurabilityRejectionHasNoEffect passed but the full control-suite retry also timed out",
+      "logs": ["verify-macos-failed.log", "go-control-macos-retry-failed.log"],
+      "other_checks_passed": [
+        "Rust workspace tests",
+        "Rust formatting and clippy",
+        "Go vet",
+        "contracts and interoperability",
+        "public and worker binding regeneration with /opt/homebrew/bin/protoc 35.0",
+        "benchmark and infrastructure tests"
+      ]
+    }
+  },
+  "integration_blockers": [
+    "Custody is an in-memory metadata graph, not yet a persistent control/session authority; existing public capture and sharing paths do not consult it.",
+    "Official subscription sign-in, account eligibility, useful inference, same-person live memory fork, suspend/resume and permitted refresh have not been exercised for either harness.",
+    "RefreshLineage is a host coordination primitive only. It is not a token refresher, cannot update stale copied credentials and does not itself stop an official process or coordinate separate host processes.",
+    "Per-sandbox vendor-only guard enforcement and a certified bounded native harness task bridge with independent encoded-exfiltration sinks remain unintegrated.",
+    "Actual public export/share/session handoff and fresh official harness startup remain unintegrated.",
+    "A nonsecret definition digest is an authenticated owner's input approval, not automatic proof of secrecy. Seed and reconstruction inputs must be verified independently of the tainted source.",
+    "The synthetic source builder powers down before template capture. This control does not prove retention of a live subscription-bearing heap, environment, cache or refresh chain."
+  ],
+  "vendor_references_reviewed": [
+    "https://code.claude.com/docs/en/legal-and-compliance",
+    "https://code.claude.com/docs/en/authentication",
+    "https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions"
+  ],
+  "operational_scope": {
+    "owner_services_stopped_or_modified_by_this_ticket": false,
+    "docker_touched": false,
+    "owner_visible_apps_or_browser_driven": false,
+    "credentials_copied_from_owner_apps": false,
+    "paid_service_or_subscription_purchased": false,
+    "thresholds_changed": false,
+    "large_disposable_artifacts_retained_on_LX": "/var/lib/lamp/t9-control-20261110-01 through /var/lib/lamp/t9-control-20261110-04"
+  }
+}

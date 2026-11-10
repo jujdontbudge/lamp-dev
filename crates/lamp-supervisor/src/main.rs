@@ -56,8 +56,8 @@ fn main() {
         block_term_signals();
     }
     match cmd.as_str() {
-        "serve" | "seed-import" | "template-build" | "templates" | "grant-install"
-        | "grant-revoke" => host(&cmd, args),
+        "serve" | "seed-import" | "template-build" | "template-rebuild" | "templates"
+        | "grant-install" | "grant-revoke" => host(&cmd, args),
         "ctl" => ctl(args),
         other => die(format!("unknown command {other}")),
     }
@@ -164,6 +164,19 @@ fn host(cmd: &str, mut args: Vec<String>) {
             lamp_engine::net::Policy::load(std::path::Path::new(&p)).unwrap_or_else(|e| die(e)),
         );
     }
+    let reconstruction = if cmd == "template-rebuild" {
+        let digest = take_flag(&mut args, "--approved-nonsecret-digest")
+            .unwrap_or_else(|| die("template-rebuild requires --approved-nonsecret-digest"));
+        if args.len() != 1 {
+            die("template-rebuild FILE --approved-nonsecret-digest SHA256");
+        }
+        let text = std::fs::read_to_string(&args[0]).unwrap_or_else(|e| die(e));
+        Some(
+            lamp_engine::custody::Reconstruction::verify(&text, &digest).unwrap_or_else(|e| die(e)),
+        )
+    } else {
+        None
+    };
     let mode = match cmd {
         "serve" => Mode::Daemon,
         "templates" => Mode::ReadOnly,
@@ -210,10 +223,15 @@ fn host(cmd: &str, mut args: Vec<String>) {
                     .unwrap_or_else(|e| die(e))
             );
         }
-        "template-build" => {
-            let file = args.first().unwrap_or_else(|| die("template-build FILE"));
-            let text = std::fs::read_to_string(file).unwrap_or_else(|e| die(e));
-            match lamp_engine::build::build_template(&engine, &text) {
+        "template-build" | "template-rebuild" => {
+            let result = if let Some(input) = reconstruction {
+                input.build(&engine)
+            } else {
+                let file = args.first().unwrap_or_else(|| die("template-build FILE"));
+                let text = std::fs::read_to_string(file).unwrap_or_else(|e| die(e));
+                lamp_engine::build::build_template(&engine, &text)
+            };
+            match result {
                 Ok(r) => {
                     eprint!("{}", r.log);
                     println!(

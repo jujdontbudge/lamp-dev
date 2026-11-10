@@ -128,3 +128,31 @@ runs. Keep all run directories, including failed/incomplete ones. Hard run
 thresholds are constants in `benchmarks/protocol.py`, not CLI overrides.
 T6/T7 must supply real engine, independent collector and filesystem evidence;
 successful deterministic tests alone are not engine or power-loss certification.
+
+## Subscription custody primitives (T9, not yet E07-qualified)
+
+`cargo test -p lamp-engine custody_tests --locked` exercises the metadata-only
+custody graph and conservative official-run refresh coordination. Callers must
+authenticate the owner, persist the graph before credential delivery, enforce
+per-sandbox vendor-only egress, and quiesce the official harness before releasing
+an official-run lease. A stale copied refresh lineage requires fresh vendor
+sign-in; a lock alone cannot make a copied rotating refresh token current.
+These primitives are not yet wired into the public control/session path.
+
+`lamp-supervisor template-rebuild FILE --approved-nonsecret-digest SHA256`
+builds from the digest-approved definition and its pinned seed, never a source
+sandbox/capture. The digest is an authenticated caller's approval of nonsecret
+inputs, not automatic secret detection. Approve the seed and recipes before
+sign-in; new custom tools need separately verified nonsecret recipes.
+
+On LX, build the diagnostic fixture with
+`cargo build -p lamp-engine --example custody_rebuild --locked`, then run
+`python3 -m benchmarks.custody_probe --fixture target/debug/examples/custody_rebuild
+--seed /absolute/path/to/verified/seed --metadata /absolute/path/to/observations.json
+--output /new/disposable/run` as root. It uses new isolated store/memory/netns
+paths and synthetic canaries, not real credentials or owner services. Keep every
+run, including failures. Its independent scanner covers all emitted template
+files; sparse-hole edges and chunk boundaries are regression-tested. The
+fixture uses engine APIs, not the public subscription/session boundary, so it
+always leaves E07 incomplete and exits nonzero even when its control passes.
+No diagnostic result authorizes T14 to freeze subscription capture formats.

@@ -2,9 +2,13 @@
 //!
 //! Platform-neutral parts (definitions, manifests, errors) build everywhere;
 //! the VMM adapter, store and template builder are Linux-only.
+pub mod custody;
 pub mod definition;
 pub mod error;
 pub mod manifest;
+
+#[cfg(test)]
+mod custody_tests;
 
 #[cfg(target_os = "linux")]
 pub mod build;
