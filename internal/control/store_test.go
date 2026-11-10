@@ -537,3 +537,119 @@ func TestJournalWriterProcess(t *testing.T) {
 		delete(s.journal.Outputs, id)
 	}
 }
+
+// A process killed at any step of publishing the first marker, on a fresh
+// state directory or when migrating a snapshot-only (legacy) one, restarts
+// cleanly: no empty or partial journal.commit is ever left behind, leftover
+// temporary markers are removed, and the legacy history is intact.
+func TestJournalFirstMarkerSurvivesKillAtEveryStep(t *testing.T) {
+	if testing.Short() {
+		t.Skip("spawns processes")
+	}
+	legacy := `{"version":1,"operations":{"op_legacy":{"operation":{"id":"op_legacy","state":"succeeded"},"hash":"h","key":"key_legacy","resource":{}}},"sandboxes":{},"execs":{}}`
+	for _, start := range []string{"fresh", "legacy"} {
+		for _, stage := range []string{"created", "half-written", "synced", "renamed", "published"} {
+			config := storeConfig(t)
+			if start == "legacy" {
+				if err := PrivateDir(config.StateDir); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(config.StateDir, "journal.json"), []byte(legacy), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cmd := exec.Command(os.Args[0], "-test.run=^TestJournalMarkerKillChild$")
+			cmd.Env = append(os.Environ(), "LAMP_MARKER_CHILD_DIR="+config.StateDir, "LAMP_MARKER_CHILD_STAGE="+stage)
+			out, err := cmd.StdoutPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := cmd.Start(); err != nil {
+				t.Fatal(err)
+			}
+			lines := bufio.NewScanner(out)
+			reached := false
+			for lines.Scan() {
+				if lines.Text() == "stage "+stage {
+					reached = true
+					cmd.Process.Kill()
+					break
+				}
+			}
+			cmd.Wait()
+			if !reached {
+				t.Fatalf("%s/%s: child never reached the stage", start, stage)
+			}
+			// The state a killed start leaves behind.
+			temps, _ := filepath.Glob(filepath.Join(config.StateDir, commitTempPrefix+"*"))
+			marker, markerErr := os.ReadFile(markerPath(config))
+			switch {
+			case markerErr == nil && len(marker) != markSize:
+				t.Fatalf("%s/%s: a %d-byte journal.commit was published", start, stage, len(marker))
+			case stage == "created" || stage == "half-written" || stage == "synced":
+				if markerErr == nil || len(temps) != 1 {
+					t.Fatalf("%s/%s: want only a leftover temporary marker, got marker err %v, temps %v", start, stage, markerErr, temps)
+				}
+			}
+			s, err := Open(config)
+			if err != nil {
+				t.Fatalf("%s/%s: restart refused: %v", start, stage, err)
+			}
+			if start == "legacy" && s.keys["key_legacy"] != "op_legacy" {
+				t.Fatalf("%s/%s: legacy history lost", start, stage)
+			}
+			// Restart published a complete marker and removed temporaries,
+			// and the store commits and reopens normally.
+			s.journal.Operations["op_after"] = &record{Key: "key_after", Hash: "h", Operation: api.Operation{Id: "op_after", State: "succeeded"}}
+			if err := s.save("op_after"); err != nil {
+				t.Fatal(err)
+			}
+			s.Close()
+			if temps, _ := filepath.Glob(filepath.Join(config.StateDir, commitTempPrefix+"*")); len(temps) != 0 {
+				t.Fatalf("%s/%s: temporary markers left: %v", start, stage, temps)
+			}
+			s, err = Open(config)
+			if err != nil {
+				t.Fatalf("%s/%s: second restart refused: %v", start, stage, err)
+			}
+			if s.keys["key_after"] != "op_after" {
+				t.Fatalf("%s/%s: commit after recovery lost", start, stage)
+			}
+			s.Close()
+			removeStore(t, config)
+		}
+	}
+}
+
+// TestJournalMarkerKillChild opens a store and stops at one marker-publishing
+// step for the test above to kill it; it runs only in a child process.
+func TestJournalMarkerKillChild(t *testing.T) {
+	dir, stage := os.Getenv("LAMP_MARKER_CHILD_DIR"), os.Getenv("LAMP_MARKER_CHILD_STAGE")
+	if dir == "" {
+		t.Skip("marker child only")
+	}
+	markerStage = func(got string) {
+		if got == stage {
+			fmt.Println("stage " + got)
+			select {} // wait to be killed
+		}
+	}
+	config := storeConfig(t)
+	config.StateDir = dir
+	if _, err := Open(config); err != nil {
+		fmt.Println("open failed", err)
+		os.Exit(2)
+	}
+	fmt.Println("stage never reached")
+	os.Exit(3)
+}
+
+// A zero-length journal.commit, the state the old creation order could
+// leave, is a published marker that is damaged: it is still refused.
+func TestJournalRefusesEmptyPublishedMarker(t *testing.T) {
+	config, _, _ := journalWithCommits(t, 1, 0)
+	if err := os.WriteFile(markerPath(config), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	mustRefuse(t, config, "empty published marker")
+}

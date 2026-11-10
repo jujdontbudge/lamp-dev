@@ -173,6 +173,10 @@ func Open(config Config) (*Service, error) {
 	var mark commitMark
 	var haveMark bool
 	if err == nil {
+		// An unpublished marker left by a killed start is never the marker.
+		err = removeCommitTemps(s.dir)
+	}
+	if err == nil {
 		mark, haveMark, err = readCommitMark(s.dir)
 	}
 	if err == nil {
@@ -554,18 +558,83 @@ func (s *Service) compact() error {
 	if err = s.extendLog(logPrealloc); err != nil {
 		return err
 	}
+	m := commitMark{Generation: s.journal.LogGeneration, Sequence: s.journal.Sequence}
 	if s.mark == nil {
-		if s.mark, err = os.OpenFile(filepath.Join(s.dir, "journal.commit"), os.O_RDWR|os.O_CREATE|unix.O_NOFOLLOW, 0600); err != nil {
+		if err = s.openCommitMark(m); err != nil {
 			return err
 		}
-		if err = syncDirectory(s.dir); err != nil {
-			return err
-		}
-	}
-	if err = s.writeCommitMark(commitMark{Generation: s.journal.LogGeneration, Sequence: s.journal.Sequence}); err != nil {
+	} else if err = s.writeCommitMark(m); err != nil {
 		return err
 	}
 	s.logRecords = 0
+	return nil
+}
+
+// openCommitMark opens journal.commit for in-place updates and writes m. A
+// marker that does not exist yet (first start, or migration from a snapshot
+// alone) is published atomically: written and synced under a temporary name,
+// renamed into place, and the directory synced. A process killed at any point
+// leaves either no marker, which Open accepts only with an all-zero log, or a
+// complete one; never an empty or partial journal.commit.
+func (s *Service) openCommitMark(m commitMark) error {
+	path := filepath.Join(s.dir, "journal.commit")
+	f, err := os.OpenFile(path, os.O_RDWR|unix.O_NOFOLLOW, 0600)
+	if err == nil {
+		s.mark = f
+		return s.writeCommitMark(m)
+	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+	tmp, err := os.CreateTemp(s.dir, commitTempPrefix)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	markerStage("created")
+	if _, err = tmp.Write(m.encode()[:markSize/2]); err == nil {
+		markerStage("half-written")
+		_, err = tmp.Write(m.encode()[markSize/2:])
+	}
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		markerStage("synced")
+		err = os.Rename(tmp.Name(), path)
+	}
+	if err == nil {
+		markerStage("renamed")
+		err = syncDirectory(s.dir)
+	}
+	if err != nil {
+		return err
+	}
+	markerStage("published")
+	s.mark, err = os.OpenFile(path, os.O_RDWR|unix.O_NOFOLLOW, 0600)
+	return err
+}
+
+// markerStage marks the steps of publishing a new marker; crash tests replace
+// it to kill a real process at each one. Nothing outside tests sets it.
+var markerStage = func(string) {}
+
+// commitTempPrefix names unpublished markers; Open removes any left behind.
+const commitTempPrefix = ".commit-"
+
+func removeCommitTemps(dir string) error {
+	leftovers, err := filepath.Glob(filepath.Join(dir, commitTempPrefix+"*"))
+	if err != nil {
+		return err
+	}
+	for _, path := range leftovers {
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 func (s *Service) Close() error {

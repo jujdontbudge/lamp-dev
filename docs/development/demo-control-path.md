@@ -195,7 +195,10 @@ The owner-private journal appends one framed write-set record per state change,
 made durable with `fdatasync`. Then the change's committed end is published in
 `journal.commit`: one 512-byte sector `JC1 <log generation> <end> <sequence>
 <CRC32C>`, rewritten in place and `fdatasync`ed. Only then is the change
-acknowledged. This second sync costs about 0.6 ms per commit on lane LX
+acknowledged. The first marker (new state directory, or migration from a snapshot
+alone) is written and synced under a temporary name, renamed into place and
+the directory synced, so a killed start never leaves an empty or partial
+marker; leftover temporaries are removed on open. This second sync costs about 0.6 ms per commit on lane LX
 (p50 0.64 → 1.27 ms, 1,000 commits, ext4 on NVMe). Save work is independent of retained history;
 idempotency lookups use an in-memory index rebuilt on open. Admission is durable
 before effect dispatch; terminal evidence is durable before publication.
