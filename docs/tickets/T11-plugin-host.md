@@ -20,3 +20,19 @@ Lamp's adapters for CI systems, consoles, password managers, harnesses, access m
 
 ## Evidence of done
 Show evidence that the goal is done, taken from the real thing: an end-to-end test, a video, screenshots, or whatever fits.
+
+### Live verification
+The deliverable is a host library, not a new console/UI surface. Drive its real
+public API with separately executed workers (no mocked process confinement):
+- New plugin author: package/admit an exact executable+manifest, negotiate, grant
+  one useful effect for each of the ten types; reject additional authority.
+- Established owner: validate immutable Adapter/Configuration references, refuse
+  changed packages/schemas/permissions and require exact engine warning approval.
+- Mid-task user: crash/hang/flood or revoke a worker, verify external grant
+  revocation/dependent cleanup, then continue using an unrelated worker.
+- Hostile author: probe actual filesystem, TCP, Unix IPC, non-CLOEXEC descriptors,
+  environment and subprocess escape; forge/replay effect bindings.
+
+Results, reproducible commands and qualification gaps are recorded in
+[`../development/T11-evidence.md`](../development/T11-evidence.md). Passing the
+reference fixtures alone is not a full PLG-001/002 release certification.
