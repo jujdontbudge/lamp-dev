@@ -1,0 +1,16 @@
+lamp-supervisor: store open (dm-thin disks, 0 durable capture(s)), 1 verified template(s) in 297 ms
+lamp-supervisor: serving lamp.worker/1 on /run/lamp-e04/ext4/rogue/worker.sock
+lamp-supervisor: op op_80352d188b1a_1 sandbox sb_dd8ac142979b_rogue handle_us=1787 
+lamp-supervisor: op op_80352d188b1a_2 sandbox sb_dd8ac142979b_rogue handle_us=45259 attach_us=11806 barrier_us=5789 disk_attach_us=8940 load_us=4000 prepare_us=9514 spawn_us=14131 total_us=45252
+lamp-supervisor: op op_80352d188b1a_3 sandbox sb_dd8ac142979b_rogue handle_us=15844 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_8035318456fe_1 sandbox sb_dd8ac142979b_rogue handle_us=2328 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_8036166a407_1 sandbox sb_dd8ac142979b_rogue handle_us=22898 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_80366253c7f_1 sandbox sb_dd8ac142979b_rogue handle_us=253199 disk_seal_us=4436 durable_commit_us=491 durable_encode_us=78525 durable_mem_sync_us=931 durable_sync_us=31071 durable_vmstate_us=29908 freeze_us=1736 full_write_us=115870 memory_bytes=536870912 publish_us=110284 reserve_us=379 source_pause_us=139672 spare=0 thaw_us=1040 total_us=253189
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_8036155fbcc3_1 sandbox sb_dd8ac142979b_rogue handle_us=55350 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

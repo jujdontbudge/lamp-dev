@@ -1,0 +1,1 @@
+{"nonce": "1a9cff4bd98a400080af9521ad717cb9", "point": "compact_redirect", "side": "after", "phases": ["reserve", "capture", "seal", "object_flush", "directory_flush", "heads", "switch", "journal_flush", "publish", "ack", "delete", "gc", "compact_objects", "compact_redirect", "compact_gc"], "fault": "reorder", "iteration": 27}

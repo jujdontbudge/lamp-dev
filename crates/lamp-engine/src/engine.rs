@@ -30,14 +30,19 @@
 //! only by root until it is handed to the one sandbox restoring it, which
 //! then owns it. No live KVM handle, process fork or mutable shared page is
 //! ever inherited.
+use crate::disk::{self, DiskRef};
+use crate::durable;
 use crate::error::{EngineError, IoContext, Result};
+use crate::fault;
 use crate::fc::{self, Binaries, Jail, Limits};
 use crate::fsutil::{self, now_ms, now_ns, random_bytes};
 use crate::guest;
 use crate::manifest::{self, AccelerationVariant, Compatibility, Manifest, Provenance, Resources};
+use crate::memimg;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use lamp_init::{Barrier, Empty, Exec, ExecDone, ExecStarted, GuestRequest, GuestResponse};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
@@ -54,6 +59,8 @@ pub const DEFAULT_PIDS_MAX: u64 = 4096;
 /// Completed commands remembered per sandbox for completion lookups. Running
 /// commands are never forgotten; at most `MAX_RUNNING` run at once.
 const COMMAND_MEMORY: usize = 256;
+/// Longest chain of memory deltas a durable capture may rest on.
+const MAX_CHAIN: usize = 64;
 const MAX_RUNNING: usize = 1024;
 /// Capture states (`CaptureRec::restores`): a capture is restored once.
 const CAPTURE_AVAILABLE: u64 = 0;
@@ -73,6 +80,9 @@ pub struct Config {
     /// RAM-backed (tmpfs) directory for volatile memory captures.
     pub mem_dir: PathBuf,
     pub mem_dir_size: String,
+    /// Keep one preallocated image ready for a sandbox's next capture
+    /// (fast forks; costs one guest-size of RAM per forked sandbox).
+    pub capture_spare: bool,
     /// Extra trusted producer keys beyond this host's own.
     pub trusted_producers: Vec<VerifyingKey>,
     /// Guard network and protected-process audit. `None` leaves sandboxes
@@ -80,6 +90,10 @@ pub struct Config {
     pub network: Option<crate::net::Policy>,
     pub subscription: Option<crate::subscription::SubscriptionPolicy>,
     pub exports_dir: Option<PathBuf>,
+    /// Disk backend: `auto` (reflink on XFS/btrfs, dm-thin otherwise),
+    /// `reflink` or `thin`.
+    pub disk_backend: String,
+    pub thin: crate::disk::ThinConfig,
 }
 
 impl Config {
@@ -93,6 +107,7 @@ impl Config {
             },
             mem_dir: PathBuf::from("/run/lamp/mem"),
             mem_dir_size: "75%".into(),
+            capture_spare: true,
             uid_base: 900_000,
             uid_count: 65_536,
             host_id: hostname(),
@@ -100,6 +115,8 @@ impl Config {
             network: None,
             subscription: None,
             exports_dir: None,
+            disk_backend: "auto".into(),
+            thin: crate::disk::ThinConfig::default(),
         }
     }
 }
@@ -159,53 +176,21 @@ enum Source {
     Template {
         mem: PathBuf,
         vmstate: PathBuf,
-        disk: PathBuf,
+        disk: DiskRef,
+        template_id: String,
     },
     Capture(Arc<CaptureRec>),
+    Durable(Box<durable::Entry>),
 }
 
-/// Copies a full RAM image to the store for a durable capture, leaving
-/// all-zero pages as holes. Every page is still read and checked.
-fn copy_nonzero(src: &Path, dst: &Path) -> Result<()> {
-    use std::os::unix::fs::FileExt;
-    const PAGE: usize = 4096;
-    let input = std::fs::File::open(src).ctx("open capture image")?;
-    let len = input.metadata()?.len();
-    let out = std::fs::File::create(dst).ctx("create durable image")?;
-    out.set_len(len)?;
-    let mut buf = vec![0_u8; 4 << 20];
-    let mut off = 0_u64;
-    // Bounded writeback: sync every SYNC_EVERY bytes so no other fsync on
-    // this disk (the audit spools in particular) queues behind gigabytes of
-    // image data. The final fsync in `capture` still covers the whole file.
-    const SYNC_EVERY: u64 = 64 << 20;
-    let mut unsynced = 0_u64;
-    while off < len {
-        let n = buf.len().min((len - off) as usize);
-        input.read_exact_at(&mut buf[..n], off)?;
-        let mut p = 0;
-        while p < n {
-            let end = (p + PAGE).min(n);
-            if buf[p..end].iter().any(|&b| b != 0) {
-                // Extend the run while pages are nonzero.
-                let mut q = end;
-                while q < n && buf[q..(q + PAGE).min(n)].iter().any(|&b| b != 0) {
-                    q = (q + PAGE).min(n);
-                }
-                out.write_all_at(&buf[p..q], off + p as u64)?;
-                unsynced += (q - p) as u64;
-                if unsynced >= SYNC_EVERY {
-                    out.sync_data().ctx("sync durable image")?;
-                    unsynced = 0;
-                }
-                p = q;
-            } else {
-                p = end;
-            }
-        }
-        off += n as u64;
-    }
-    Ok(())
+/// The full memory image a sandbox's durable captures are encoded against.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Base {
+    /// The template's memory image.
+    Template,
+    /// The durable capture this sandbox was restored from; its full image
+    /// is the sandbox's own read-only `src.mem`.
+    Capture(String),
 }
 
 /// Commands by operation ID, plus their insertion order for bounding.
@@ -250,6 +235,12 @@ pub struct Sandbox {
     pub uid: u32,
     pub source: String,
     pub captures: Vec<String>,
+    /// The writable disk attached in the jail.
+    pub working: Option<disk::Working>,
+    pub template_id: String,
+    pub base: Base,
+    /// Durable ancestor of the current state (lineage for new captures).
+    pub parent: Option<String>,
     pub barrier: Option<lamp_init::BarrierAck>,
     /// Commands by the operation ID of their `Start`, oldest first.
     pub commands: Arc<Mutex<CommandTable>>,
@@ -288,6 +279,14 @@ impl Sandbox {
 pub struct CaptureRec {
     pub id: String,
     pub dir: PathBuf,
+    /// Sealed disk (volatile: owned by this record; durable: the store's).
+    pub disk: DiskRef,
+    pub template_id: String,
+    pub base: Base,
+    pub parent: Option<String>,
+    /// Committed to the durable store; this record only holds its tmpfs
+    /// image for a fast first restore.
+    pub durable: bool,
     /// Full RAM image and VM state on tmpfs, root:root 0400.
     pub mem: PathBuf,
     pub vmstate: PathBuf,
@@ -324,6 +323,10 @@ pub struct Engine {
     sandboxes: Mutex<HashMap<String, Arc<Mutex<Sandbox>>>>,
     pub(crate) captures: Mutex<HashMap<String, Arc<CaptureRec>>>,
     uids: Mutex<BTreeSet<u32>>,
+    pub disk: disk::Backend,
+    pub state: durable::Store,
+    /// Template disks in the active backend, by template id.
+    template_disks: RwLock<HashMap<String, DiskRef>>,
     /// Host addresses and on-link prefixes every guard denies.
     pub inventory: Vec<String>,
     pub custody: Option<Mutex<crate::custody_store::CustodyStore>>,
@@ -550,6 +553,17 @@ impl Engine {
             )?;
             Some(Mutex::new(store))
         };
+        // Read-only listings never touch the pool or the state journal.
+        let backend = if mode == Mode::ReadOnly {
+            disk::Backend::Reflink
+        } else {
+            disk::Backend::open(&cfg.store, &cfg.disk_backend, &cfg.thin)?
+        };
+        let state = if mode == Mode::ReadOnly {
+            durable::Store::open(&std::env::temp_dir().join("lamp-readonly-state"), &trusted)?
+        } else {
+            durable::Store::open(&cfg.store, &trusted)?
+        };
         let engine = Engine {
             cfg,
             compat,
@@ -559,6 +573,9 @@ impl Engine {
             sandboxes: Mutex::new(HashMap::new()),
             captures: Mutex::new(HashMap::new()),
             uids: Mutex::new(BTreeSet::new()),
+            disk: backend,
+            state,
+            template_disks: RwLock::new(HashMap::new()),
             inventory: if cfg_network {
                 crate::net::host_inventory()?
             } else {
@@ -570,13 +587,182 @@ impl Engine {
             bridge_task: Mutex::new(None),
         };
         match mode {
-            Mode::Daemon => engine.clean_stale(),
+            Mode::Daemon => {
+                engine.clean_stale();
+                if let Some(pool) = engine.disk.thin() {
+                    pool.remove_stale();
+                }
+            }
             // Never reuse the identity of a jail left behind by a daemon.
-            Mode::Offline => engine.reserve_leftover_uids(),
+            Mode::Offline => {
+                engine.reserve_leftover_uids();
+                if let Some(pool) = engine.disk.thin() {
+                    pool.remove_stale();
+                }
+            }
             Mode::ReadOnly => {}
         }
         engine.load_templates(mode != Mode::ReadOnly);
+        if mode != Mode::ReadOnly {
+            for t in engine.templates() {
+                if let Err(e) = engine.template_disk(&t) {
+                    eprintln!("lamp-engine: template {} has no disk: {e}", t.id);
+                }
+            }
+        }
+        if mode == Mode::Daemon {
+            engine.recover_state();
+        }
         Ok(engine)
+    }
+
+    /// Collects what no committed capture references: uncommitted objects
+    /// and manifests, and (thin backend) every volume that is neither a
+    /// template nor a live durable disk. Nothing else survives a restart.
+    fn recover_state(&self) {
+        match self.state.gc_files() {
+            Ok(n) if n > 0 => eprintln!("lamp-engine: removed {n} uncommitted state file(s)"),
+            Ok(_) => {}
+            Err(e) => eprintln!("lamp-engine: state gc: {e}"),
+        }
+        if let Some(pool) = self.disk.thin() {
+            let (live, _) = self.state.thin_ids();
+            let keep: BTreeSet<u32> = live
+                .into_iter()
+                .chain(
+                    self.template_disks
+                        .read()
+                        .unwrap()
+                        .values()
+                        .filter_map(|d| match d {
+                            DiskRef::Thin(id) => Some(*id),
+                            DiskRef::File(_) => None,
+                        }),
+                )
+                .collect();
+            for id in &keep {
+                pool.note_used(*id);
+            }
+            match pool.volumes() {
+                Ok(all) => {
+                    let mut removed = 0;
+                    for id in all.difference(&keep) {
+                        if pool.delete(*id).is_ok() {
+                            removed += 1;
+                        }
+                    }
+                    let _ = pool.commit();
+                    if removed > 0 {
+                        eprintln!("lamp-engine: removed {removed} unreferenced thin volume(s)");
+                    }
+                }
+                Err(e) => eprintln!("lamp-engine: cannot list thin volumes: {e}"),
+            }
+        }
+    }
+
+    /// The template's disk in the active backend (thin: imported once).
+    pub fn template_disk(&self, t: &Template) -> Result<DiskRef> {
+        if let Some(d) = self.template_disks.read().unwrap().get(&t.id) {
+            return Ok(d.clone());
+        }
+        let d = match &self.disk {
+            disk::Backend::Reflink => DiskRef::File(format!("templates/{}/{}", t.id, fc::ROOTFS)),
+            disk::Backend::Thin(pool) => {
+                let map = pool.dir.join("templates").join(&t.id);
+                let known = std::fs::read_to_string(&map)
+                    .ok()
+                    .and_then(|s| s.trim().parse::<u32>().ok());
+                match known {
+                    Some(id) => {
+                        pool.note_used(id);
+                        DiskRef::Thin(id)
+                    }
+                    None => {
+                        let id = pool.new_id();
+                        let t0 = Instant::now();
+                        pool.import(id, &t.dir.join(fc::ROOTFS))?;
+                        let tmp = map.with_extension("tmp");
+                        std::fs::write(&tmp, format!("{id}\n")).ctx("record template volume")?;
+                        fsutil::fsync_path(&tmp)?;
+                        std::fs::rename(&tmp, &map).ctx("record template volume")?;
+                        fsutil::fsync_path(&pool.dir.join("templates"))?;
+                        eprintln!(
+                            "lamp-engine: template {} imported as thin volume {id} in {} ms",
+                            t.id,
+                            t0.elapsed().as_millis()
+                        );
+                        DiskRef::Thin(id)
+                    }
+                }
+            }
+        };
+        self.template_disks
+            .write()
+            .unwrap()
+            .insert(t.id.clone(), d.clone());
+        Ok(d)
+    }
+
+    fn disk_path(&self, p: &str) -> PathBuf {
+        self.cfg.store.join(p)
+    }
+
+    /// A new writable disk for `jail`, descending from `src`.
+    fn attach_disk(&self, src: &DiskRef, jail: &Jail, bytes: u64) -> Result<disk::Working> {
+        let node = jail.path(fc::ROOTFS);
+        match (&self.disk, src) {
+            (disk::Backend::Reflink, DiskRef::File(p)) => {
+                fsutil::reflink(&self.disk_path(p), &node, 0o600)?;
+                fsutil::chown(&node, jail.uid, jail.uid)?;
+                Ok(disk::Working {
+                    disk: DiskRef::File(String::new()),
+                    dm_name: None,
+                })
+            }
+            (disk::Backend::Thin(pool), DiskRef::Thin(origin)) => {
+                let id = pool.new_id();
+                pool.snapshot(id, *origin)
+                    .inspect_err(|_| pool.forget(id))?;
+                let (name, dev) = match pool.activate('w', id, bytes) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        let _ = pool.delete(id);
+                        return Err(e);
+                    }
+                };
+                let w = disk::Working {
+                    disk: DiskRef::Thin(id),
+                    dm_name: Some(name),
+                };
+                if let Err(e) = pool.node(&node, dev, jail.uid) {
+                    self.release_disk(Some(w));
+                    return Err(e);
+                }
+                Ok(w)
+            }
+            _ => Err(EngineError::new(
+                "ENGINE_UNQUALIFIED",
+                format!("disk {} is not in this store's backend", src.encode()),
+            )),
+        }
+    }
+
+    /// Detaches and frees a working disk (its VMM must be gone).
+    fn release_disk(&self, w: Option<disk::Working>) {
+        if let (Some(w), disk::Backend::Thin(pool)) = (w, &self.disk) {
+            if let Some(name) = &w.dm_name
+                && let Err(e) = pool.deactivate(name)
+            {
+                eprintln!("lamp-engine: deactivate {name}: {e}");
+                return;
+            }
+            if let DiskRef::Thin(id) = w.disk
+                && let Err(e) = pool.delete(id)
+            {
+                eprintln!("lamp-engine: delete thin volume {id}: {e}");
+            }
+        }
     }
 
     fn reserve_leftover_uids(&self) {
@@ -918,6 +1104,10 @@ impl Engine {
                 uid,
                 source: String::new(),
                 captures: Vec::new(),
+                working: None,
+                template_id: String::new(),
+                base: Base::Template,
+                parent: None,
                 barrier: None,
                 commands: Arc::default(),
                 net: None,
@@ -931,8 +1121,11 @@ impl Engine {
         })
     }
 
-    /// Restores a template variant or a memory capture into an allocated
-    /// sandbox and applies the identity barrier before any command.
+    /// Restores a template variant, a memory capture or a durable capture
+    /// into an allocated sandbox and applies the identity barrier before
+    /// any command. A durable capture is verified (enrolled producer,
+    /// signature, compatibility, object digests) before anything parses it,
+    /// and may be restored any number of times.
     pub fn restore(&self, auth: Authority<'_>, capture_id: &str) -> Result<Outcome> {
         self.restore_with_registration(auth, capture_id, true)
     }
@@ -1007,32 +1200,44 @@ impl Engine {
                 sb.state.name()
             )));
         }
-        let capture = self.captures.lock().unwrap().get(capture_id).cloned();
-        if !register_subscription && capture.is_some() {
+        // A durable capture's tmpfs image serves its first restore only.
+        let capture = self
+            .captures
+            .lock()
+            .unwrap()
+            .get(capture_id)
+            .filter(|c| *c.restores.lock().unwrap() == CAPTURE_AVAILABLE || !c.durable)
+            .cloned();
+        let durable = self.state.get(capture_id);
+        let is_capture = capture.is_some() || durable.is_some();
+        if !register_subscription && is_capture {
             return Err(EngineError::new(
                 "SCOPE_DENIED",
                 "a builder probe must restore a fresh template, not a capture",
             ));
         }
-        self.prepare_subscription_restore(
-            &mut sb,
-            capture_id,
-            capture.is_some(),
-            register_subscription,
-        )?;
+        self.prepare_subscription_restore(&mut sb, capture_id, is_capture, register_subscription)?;
         let (source, resources) = match &capture {
             Some(c) => (Source::Capture(c.clone()), c.resources.clone()),
-            None => {
-                let t = self.template(capture_id)?;
-                (
-                    Source::Template {
-                        mem: t.dir.join(fc::MEM),
-                        vmstate: t.dir.join(fc::VMSTATE),
-                        disk: t.dir.join(fc::ROOTFS),
-                    },
-                    t.variant.resources.clone(),
-                )
-            }
+            None => match durable {
+                Some(e) => {
+                    let r = e.manifest.resources.clone();
+                    (Source::Durable(Box::new(e)), r)
+                }
+                None => {
+                    let t = self.template(capture_id)?;
+                    let disk = self.template_disk(&t)?;
+                    (
+                        Source::Template {
+                            mem: t.dir.join(fc::MEM),
+                            vmstate: t.dir.join(fc::VMSTATE),
+                            disk,
+                            template_id: t.id.clone(),
+                        },
+                        t.variant.resources.clone(),
+                    )
+                }
+            },
         };
         if sb.resources != resources {
             return Err(EngineError::new(
@@ -1049,7 +1254,7 @@ impl Engine {
             ));
         }
         if let Some(c) = &capture {
-            // A capture is restored at most once; claim it before any effect.
+            // A capture image is restored at most once; claim it first.
             let mut n = c.restores.lock().unwrap();
             if *n != CAPTURE_AVAILABLE {
                 return Err(EngineError::not_found(format!(
@@ -1073,6 +1278,8 @@ impl Engine {
                 if let Some(j) = sb.jail.as_mut() {
                     j.kill();
                 }
+                let w = sb.working.take();
+                self.release_disk(w);
                 if let Some(c) = &capture {
                     // Hand the image back to root and allow another attempt.
                     let _ = fsutil::chown(&c.mem, 0, 0);
@@ -1085,24 +1292,121 @@ impl Engine {
         }
     }
 
+    /// Checks a durable capture end to end before its bytes are used.
+    pub fn verify_durable(&self, m: &durable::CaptureManifest) -> Result<()> {
+        m.verify(&self.trusted)?;
+        if m.engine_digest != self.compat.engine_digest
+            || m.cpu_baseline != self.compat.cpu_baseline
+            || m.state_abi != STATE_ABI
+        {
+            return Err(EngineError::new(
+                "ENGINE_UNQUALIFIED",
+                format!(
+                    "capture {} was produced for another engine/CPU",
+                    m.capture_id
+                ),
+            ));
+        }
+        if let Err(e) = self.state.verify_objects(m) {
+            self.state.quarantine(&m.capture_id, &e.message);
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    /// Memory-base links below durable capture `cid` (0: against the template).
+    fn chain_depth(&self, cid: &str) -> usize {
+        let mut depth = 0;
+        let mut at = self
+            .state
+            .get(cid)
+            .and_then(|e| e.manifest.memory.base.clone());
+        while let Some(b) = at {
+            depth += 1;
+            if depth > MAX_CHAIN {
+                break;
+            }
+            at = self
+                .state
+                .get(&b)
+                .and_then(|e| e.manifest.memory.base.clone());
+        }
+        depth
+    }
+
+    /// Writes the full memory image of durable capture `cid` to `out`.
+    fn materialize(&self, cid: &str, out: &Path, scratch: &Path, depth: usize) -> Result<()> {
+        if depth > MAX_CHAIN {
+            return Err(EngineError::new(
+                "DATA_UNAVAILABLE",
+                "capture chain too deep",
+            ));
+        }
+        let e = self.state.get(cid).ok_or_else(|| {
+            EngineError::new("DATA_UNAVAILABLE", format!("capture {cid} is gone"))
+        })?;
+        let m = &e.manifest;
+        self.verify_durable(m)?;
+        let delta = self.state.object(&m.memory.object);
+        match &m.memory.base {
+            None => {
+                let t = self.template(&m.template_id)?;
+                memimg::materialize(&delta, &t.dir.join(fc::MEM), out)
+            }
+            Some(b) => {
+                let tmp = scratch.join(format!("base-{b}.mem"));
+                let _ = std::fs::remove_file(&tmp);
+                self.materialize(b, &tmp, scratch, depth + 1)?;
+                let r = memimg::materialize(&delta, &tmp, out);
+                let _ = std::fs::remove_file(&tmp);
+                r
+            }
+        }
+    }
+
     fn restore_into(&self, sb: &mut Sandbox, source: Source, t0: Instant) -> Result<Outcome> {
         let limits = Limits {
             vcpus: sb.resources.vcpus,
             memory_mib: sb.resources.memory_mib,
             pids_max: DEFAULT_PIDS_MAX,
         };
+        let mut detail = BTreeMap::new();
+        let (disk_src, template_id, base, parent) = match &source {
+            Source::Template {
+                disk, template_id, ..
+            } => (disk.clone(), template_id.clone(), Base::Template, None),
+            Source::Capture(c) => (
+                c.disk.clone(),
+                c.template_id.clone(),
+                // A durable capture's image is the full image of a durable
+                // generation; a volatile one's is not durable anywhere.
+                if c.durable {
+                    Base::Capture(c.id.clone())
+                } else {
+                    match &c.base {
+                        Base::Template => Base::Template,
+                        Base::Capture(_) => Base::Template,
+                    }
+                },
+                if c.durable {
+                    Some(c.id.clone())
+                } else {
+                    c.parent.clone()
+                },
+            ),
+            Source::Durable(e) => (
+                e.manifest.disk_ref()?,
+                e.manifest.template_id.clone(),
+                Base::Capture(e.manifest.capture_id.clone()),
+                Some(e.manifest.capture_id.clone()),
+            ),
+        };
+        let disk_bytes = sb.resources.disk_gib << 30;
         let jail = sb
             .jail
-            .as_mut()
+            .as_ref()
             .ok_or_else(|| EngineError::in_use("sandbox has no jail"))?;
         let uid = jail.uid;
-        let mut detail = BTreeMap::new();
-        let disk = match &source {
-            Source::Template { disk, .. } => disk.clone(),
-            Source::Capture(c) => c.dir.join(fc::ROOTFS),
-        };
-        fsutil::reflink(&disk, &jail.path(fc::ROOTFS), 0o600)?;
-        fsutil::chown(&jail.path(fc::ROOTFS), uid, uid)?;
         let mem_path = match &source {
             Source::Template { mem, vmstate, .. } => {
                 // Prepared-template create: the kernel maps the immutable,
@@ -1125,7 +1429,34 @@ impl Engine {
                 }
                 format!("/{}/{SRC_MEM}", fc::MEMDIR)
             }
+            Source::Durable(e) => {
+                // Verified before any byte is used, then rebuilt privately
+                // in this sandbox's own memdir.
+                let t = Instant::now();
+                let m = &e.manifest;
+                let src = jail.memdir.join(SRC_MEM);
+                self.materialize(&m.capture_id, &src, &jail.memdir, 0)?;
+                let state = jail.memdir.join(fc::VMSTATE);
+                std::fs::copy(self.state.object(&m.vmstate.object), &state)
+                    .ctx("place vm state")?;
+                if durable::sha256_file(&state)? != m.vmstate.sha256 {
+                    return Err(EngineError::new("DATA_UNAVAILABLE", "vm state changed"));
+                }
+                for p in [&src, &state] {
+                    fsutil::chown(p, uid, uid)?;
+                    fsutil::chmod(p, 0o400)?;
+                }
+                detail.insert("materialize_us".into(), us(t.elapsed()));
+                format!("/{}/{SRC_MEM}", fc::MEMDIR)
+            }
         };
+        let t = Instant::now();
+        let working = self.attach_disk(&disk_src, jail, disk_bytes)?;
+        detail.insert("disk_attach_us".into(), us(t.elapsed()));
+        sb.working = Some(working);
+        sb.template_id = template_id;
+        sb.base = base;
+        sb.parent = parent;
         detail.insert("prepare_us".into(), us(t0.elapsed()));
         let t = Instant::now();
         match &sb.network_policy {
@@ -1488,14 +1819,55 @@ impl Engine {
                 )
             })?;
         let cdir = self.cfg.store.join("captures").join(capture_id);
-        if self.captures.lock().unwrap().contains_key(capture_id) || cdir.exists() {
+        if self.captures.lock().unwrap().contains_key(capture_id)
+            || cdir.exists()
+            || self.state.exists(capture_id)
+        {
             return Err(EngineError::in_use(format!("capture {capture_id} exists")));
         }
         std::fs::create_dir(&cdir).ctx("create capture dir")?;
         fsutil::chmod(&cdir, 0o700)?;
+        let (mem_name, vmstate_name, disk_name) = durable::object_names(capture_id);
+        let sealed = match &self.disk {
+            disk::Backend::Reflink if durable => {
+                DiskRef::File(format!("state/objects/{disk_name}"))
+            }
+            disk::Backend::Reflink => {
+                DiskRef::File(format!("captures/{capture_id}/{}", fc::ROOTFS))
+            }
+            disk::Backend::Thin(pool) => DiskRef::Thin(pool.new_id()),
+        };
+        let mut detail = BTreeMap::new();
+        detail.insert("disk_backend".into(), self.disk.name().into());
+        if durable {
+            let mut objects = vec![mem_name.clone(), vmstate_name.clone()];
+            if matches!(sealed, DiskRef::File(_)) {
+                objects.push(disk_name.clone());
+            }
+            let thin: Vec<u32> = match &sealed {
+                DiskRef::Thin(id) => vec![*id],
+                DiskRef::File(_) => Vec::new(),
+            };
+            let t = Instant::now();
+            if let Err(e) = fault::step("reserve", || self.state.reserve(capture_id, objects, thin))
+            {
+                let _ = std::fs::remove_dir_all(&cdir);
+                if let (DiskRef::Thin(id), Some(pool)) = (&sealed, self.disk.thin()) {
+                    pool.forget(*id);
+                }
+                return Err(e.context("capture"));
+            }
+            detail.insert("reserve_us".into(), us(t.elapsed()));
+        }
+        // Where the sealed disk is cloned to (reflink: a temporary name
+        // for a durable object until directory_flush).
+        let seal_path = match &sealed {
+            DiskRef::File(p) if durable => Some(self.disk_path(&format!("{p}.tmp"))),
+            DiskRef::File(p) => Some(self.disk_path(p)),
+            DiskRef::Thin(_) => None,
+        };
         let jail = sb.jail.as_ref().unwrap();
         let vsock = jail.path(fc::VSOCK);
-        let mut detail = BTreeMap::new();
         let tmp_mem = jail.memdir.join("cap.mem");
         let tmp_state = jail.memdir.join("cap.vmstate");
         let _ = std::fs::remove_file(&tmp_mem);
@@ -1504,10 +1876,20 @@ impl Engine {
         // the file Firecracker would otherwise allocate during the pause.
         let spare = std::fs::rename(jail.memdir.join(fc::SPARE_READY), &tmp_mem).is_ok();
         detail.insert("spare".into(), u8::from(spare).to_string());
+        let sealed_disk = sealed.clone();
         let discard = |e: EngineError| {
             let _ = std::fs::remove_dir_all(&cdir);
             let _ = std::fs::remove_file(&tmp_mem);
             let _ = std::fs::remove_file(&tmp_state);
+            if let Some(p) = &seal_path {
+                let _ = std::fs::remove_file(p);
+            }
+            if let (DiskRef::Thin(id), Some(pool)) = (&sealed_disk, self.disk.thin()) {
+                let _ = pool.delete(*id);
+            }
+            if durable {
+                self.state.abandon(capture_id);
+            }
             e.context("capture")
         };
 
@@ -1522,7 +1904,8 @@ impl Engine {
         detail.insert("freeze_us".into(), us(t.elapsed()));
         // --- source paused from here ---
         let tp = Instant::now();
-        let sealed = jail
+        let working = sb.working.as_ref();
+        let seal_result = jail
             .api("PATCH", "/vm", r#"{"state":"Paused"}"#)
             .and_then(|_| {
                 // The image outlives this sandbox's own limits (the fork owns
@@ -1533,10 +1916,25 @@ impl Engine {
                     r#"{{"snapshot_type":"Full","mem_file_path":"/{m}/cap.mem","snapshot_path":"/{m}/cap.vmstate","sync_snapshot_files":false}}"#,
                     m = fc::MEMDIR
                 );
-                jail.api("PUT", "/snapshot/create", &body)?;
+                fault::step("capture", || jail.api("PUT", "/snapshot/create", &body))?;
                 detail.insert("full_write_us".into(), us(t.elapsed()));
                 let t = Instant::now();
-                fsutil::reflink(&jail.path(fc::ROOTFS), &cdir.join(fc::ROOTFS), 0o400)?;
+                fault::step("seal", || match (&sealed, &self.disk) {
+                    (DiskRef::File(_), _) => fsutil::reflink(
+                        &jail.path(fc::ROOTFS),
+                        seal_path.as_ref().unwrap(),
+                        0o400,
+                    ),
+                    (DiskRef::Thin(new), disk::Backend::Thin(pool)) => {
+                        let w = working
+                            .ok_or_else(|| EngineError::host("sandbox has no working disk"))?;
+                        let (DiskRef::Thin(origin), Some(name)) = (&w.disk, &w.dm_name) else {
+                            return Err(EngineError::host("working disk is not a thin volume"));
+                        };
+                        pool.seal(name, &jail.path(fc::ROOTFS), *origin, *new)
+                    }
+                    _ => Err(EngineError::host("disk backend mismatch")),
+                })?;
                 detail.insert("disk_seal_us".into(), us(t.elapsed()));
                 Ok(())
             });
@@ -1549,7 +1947,7 @@ impl Engine {
         if let Err(e) = &thawed {
             sb.state = State::Failed(format!("tasks may be frozen: {}", e.message));
         }
-        if let Err(e) = sealed.and(resumed.map(|_| ())).and(thawed) {
+        if let Err(e) = seal_result.and(resumed.map(|_| ())).and(thawed) {
             return Err(discard(e));
         }
         detail.insert("source_pause_us".into(), us(pause));
@@ -1560,27 +1958,47 @@ impl Engine {
             .join("captures")
             .join(format!("{capture_id}.mem"));
         let vmstate = mem.with_extension("vmstate");
-        std::fs::rename(&tmp_mem, &mem).ctx("seal memory image")?;
-        std::fs::rename(&tmp_state, &vmstate).ctx("seal state")?;
-        // Root-only until handed to the one sandbox that restores it.
-        for p in [&mem, &vmstate, &cdir.join(fc::ROOTFS)] {
-            fsutil::chown(p, 0, 0)?;
-            fsutil::chmod(p, 0o400)?;
-        }
-        let mem_bytes = std::fs::metadata(&mem).map(|m| m.len()).unwrap_or(0);
+        let sealed_tmpfs = (|| -> Result<u64> {
+            std::fs::rename(&tmp_mem, &mem).ctx("seal memory image")?;
+            std::fs::rename(&tmp_state, &vmstate).ctx("seal state")?;
+            // Root-only until handed to the one sandbox that restores it.
+            for p in [&mem, &vmstate] {
+                fsutil::chown(p, 0, 0)?;
+                fsutil::chmod(p, 0o400)?;
+            }
+            if let (DiskRef::File(_), Some(p)) = (&sealed, &seal_path) {
+                fsutil::chown(p, 0, 0)?;
+            }
+            Ok(std::fs::metadata(&mem).map(|m| m.len()).unwrap_or(0))
+        })();
+        let mem_bytes = match sealed_tmpfs {
+            Ok(n) => n,
+            Err(e) => {
+                let _ = std::fs::remove_file(&mem);
+                let _ = std::fs::remove_file(&vmstate);
+                return Err(discard(e));
+            }
+        };
         detail.insert("memory_bytes".into(), mem_bytes.to_string());
         if durable {
-            // Local durability: image, state and disk reach stable storage
-            // before the capture is reported.
-            copy_nonzero(&mem, &cdir.join(fc::MEM))?;
-            std::fs::copy(&vmstate, cdir.join(fc::VMSTATE)).ctx("persist state")?;
-            for p in [
-                &cdir.join(fc::MEM),
-                &cdir.join(fc::VMSTATE),
-                &cdir.join(fc::ROOTFS),
-                &cdir,
-            ] {
-                fsutil::fsync_path(p)?;
+            let committed = self.commit_durable(
+                &mut sb,
+                capture_id,
+                &mem,
+                &vmstate,
+                &sealed,
+                seal_path.as_deref(),
+                (&mem_name, &vmstate_name, &disk_name),
+                &mut detail,
+            );
+            if let Err(e) = committed {
+                self.state.abandon(capture_id);
+                let _ = std::fs::remove_file(&mem);
+                let _ = std::fs::remove_file(&vmstate);
+                let _ = std::fs::remove_dir_all(&cdir);
+                // Objects already written are uncommitted garbage, collected
+                // by the next gc; a thin seal goes with them.
+                return Err(e.context("capture"));
             }
         }
         let meta = serde_json::json!({
@@ -1591,6 +2009,7 @@ impl Engine {
             "memory": "full",
             "memory_bytes": mem_bytes,
             "durability": if durable { "local" } else { "volatile" },
+            "disk": sealed.encode(),
             "resources": sb.resources,
             "engine": ENGINE_NAME,
             "engine_digest": self.compat.engine_digest,
@@ -1603,6 +2022,11 @@ impl Engine {
         let rec = CaptureRec {
             id: capture_id.into(),
             dir: cdir,
+            disk: sealed,
+            template_id: sb.template_id.clone(),
+            base: sb.base.clone(),
+            parent: sb.parent.clone(),
+            durable,
             mem,
             vmstate,
             source_sandbox: sb.id.clone(),
@@ -1618,7 +2042,7 @@ impl Engine {
         detail.insert("total_us".into(), us(t0.elapsed()));
         // A sandbox that forked keeps one image ready for its next fork.
         if self.cfg.subscription.is_none()
-            && let Some(jail) = sb.jail.as_ref()
+            && let Some(jail) = sb.jail.as_ref().filter(|_| self.cfg.capture_spare)
         {
             fc::prepare_spare(jail, sb.resources.memory_mib * 1024 * 1024);
         }
@@ -1630,8 +2054,139 @@ impl Engine {
         })
     }
 
+    /// The durable half of a `local` capture, after the source resumed:
+    /// object_flush → directory_flush → heads → switch → journal_flush →
+    /// publish. Returns only once the capture is recoverable.
+    #[allow(clippy::too_many_arguments)]
+    fn commit_durable(
+        &self,
+        sb: &mut Sandbox,
+        cid: &str,
+        mem: &Path,
+        vmstate: &Path,
+        sealed: &DiskRef,
+        seal_path: Option<&Path>,
+        (mem_name, vmstate_name, disk_name): (&str, &str, &str),
+        detail: &mut BTreeMap<String, String>,
+    ) -> Result<()> {
+        let template = self.template(&sb.template_id)?;
+        // Encode against the full image this sandbox started from, when
+        // that is still a live durable capture; the template otherwise.
+        // A delta whose chain would be longer than materialization follows
+        // is encoded against the template instead, so every acknowledged
+        // capture can be resumed.
+        let (base, base_path) = match &sb.base {
+            Base::Capture(c) if self.state.get(c).is_some() && self.chain_depth(c) < MAX_CHAIN => (
+                Some(c.clone()),
+                sb.jail.as_ref().unwrap().memdir.join(SRC_MEM),
+            ),
+            _ => (None, template.dir.join(fc::MEM)),
+        };
+        let t = Instant::now();
+        let mem_tmp = self.state.object(&format!("{mem_name}.tmp"));
+        let state_tmp = self.state.object(&format!("{vmstate_name}.tmp"));
+        let (enc, mem_digest, vm_sha, vm_size) = fault::step("object_flush", || {
+            // An omitted object_flush (negative control) leaves the pages
+            // in the page cache: only a flush would make them durable.
+            let skip = fault::omitted("object_flush");
+            let enc = memimg::encode(mem, &base_path, &mem_tmp, false, !skip)?;
+            detail.insert("durable_encode_us".into(), us(t.elapsed()));
+            let ts = Instant::now();
+            if !skip {
+                File::open(&mem_tmp)
+                    .and_then(|f| f.sync_data())
+                    .ctx("sync memory object")?;
+            }
+            let digest = enc.digest.clone();
+            detail.insert("durable_mem_sync_us".into(), us(ts.elapsed()));
+            std::fs::copy(vmstate, &state_tmp).ctx("persist vm state")?;
+            let vm_sha = durable::sha256_file(&state_tmp)?;
+            let vm_size = std::fs::metadata(&state_tmp)?.len();
+            if !skip {
+                fsutil::fsync_path(&state_tmp)?;
+                detail.insert("durable_vmstate_us".into(), us(ts.elapsed()));
+                match (sealed, &self.disk) {
+                    (DiskRef::File(_), _) => fsutil::fsync_path(seal_path.unwrap())?,
+                    (DiskRef::Thin(_), disk::Backend::Thin(pool)) => pool.commit()?,
+                    _ => {}
+                }
+                // btrfs logs a rename of an inode it already logged in the
+                // running transaction, so any later fsync would make the
+                // objects' final names durable as a side effect. Committing
+                // the transaction here leaves directory_flush as the only
+                // barrier for them, as on every other filesystem.
+                if disk::statfs_type(&self.state.objects())? == disk::BTRFS_MAGIC {
+                    fsutil::syncfs(&self.state.objects())?;
+                }
+            }
+            detail.insert("durable_sync_us".into(), us(ts.elapsed()));
+            Ok((enc, digest, vm_sha, vm_size))
+        })?;
+        detail.insert("changed_pages".into(), enc.changed_pages.to_string());
+        detail.insert("durable_bytes".into(), enc.object_bytes.to_string());
+        let t = Instant::now();
+        let mut names = vec![mem_name.to_string(), vmstate_name.to_string()];
+        if matches!(sealed, DiskRef::File(_)) {
+            names.push(disk_name.to_string());
+        }
+        fault::step("directory_flush", || self.state.publish_objects(&names))?;
+        let disk_bytes = sb.resources.disk_gib << 30;
+        let mut m = durable::CaptureManifest {
+            format: durable::FORMAT.into(),
+            capture_id: cid.into(),
+            parent: sb.parent.clone(),
+            source_sandbox_id: sb.id.clone(),
+            source_generation: sb.generation,
+            template_id: sb.template_id.clone(),
+            resources: sb.resources.clone(),
+            memory: durable::MemoryRef {
+                base,
+                object: mem_name.into(),
+                digest: mem_digest.digest,
+                size: mem_digest.size,
+                image_bytes: enc.image_bytes,
+                changed_pages: enc.changed_pages,
+            },
+            vmstate: durable::ObjectRef {
+                object: vmstate_name.into(),
+                sha256: vm_sha,
+                size: vm_size,
+            },
+            disk: durable::DiskRecord {
+                disk: sealed.encode(),
+                bytes: disk_bytes,
+                digest: None,
+            },
+            engine_digest: self.compat.engine_digest.clone(),
+            cpu_baseline: self.compat.cpu_baseline.clone(),
+            state_abi: STATE_ABI.into(),
+            producer_key_id: String::new(),
+            producer_host_id: self.cfg.host_id.clone(),
+            created_at_unix_ms: now_ms(),
+            signature: String::new(),
+        };
+        if let DiskRef::File(p) = sealed {
+            m.disk.bytes = disk::size_of_file(&self.disk_path(p))?;
+        }
+        m.sign(&self.producer)?;
+        fault::step("heads", || self.state.stage_checked(&m))?;
+        fault::step("switch", || {
+            // The source now descends from this generation.
+            sb.parent = Some(cid.to_string());
+            Ok(())
+        })?;
+        fault::step("journal_flush", || self.state.flush())?;
+        fault::step("publish", || {
+            self.state.insert(m);
+            Ok(())
+        })?;
+        detail.insert("durable_commit_us".into(), us(t.elapsed()));
+        Ok(())
+    }
+
     /// Removes captures that were restored (or whose source is gone and
     /// nobody is restoring them). A restored fork keeps its own image link.
+    /// A durable capture only gives up its tmpfs image: the store keeps it.
     fn gc_captures(&self) {
         let live: BTreeSet<String> = self.sandboxes.lock().unwrap().keys().cloned().collect();
         self.captures.lock().unwrap().retain(|_, c| {
@@ -1643,9 +2198,305 @@ impl Engine {
                 let _ = std::fs::remove_dir_all(&c.dir);
                 let _ = std::fs::remove_file(&c.mem);
                 let _ = std::fs::remove_file(&c.vmstate);
+                if !c.durable
+                    && let (DiskRef::Thin(id), Some(pool)) = (&c.disk, self.disk.thin())
+                {
+                    let _ = pool.delete(*id);
+                }
             }
             !consumed
         });
+    }
+
+    /// Committed durable captures (and damaged ones, with the reason).
+    pub fn state_list(&self) -> Vec<durable::Listed> {
+        self.state.list()
+    }
+
+    /// Deletes a durable capture (refused while a live capture descends
+    /// from it). Its objects go at the next gc.
+    pub fn state_delete(&self, cid: &str) -> Result<()> {
+        // A live sandbox restored from (or captured as) a generation keeps
+        // it: its next capture names it as parent and delta base.
+        let all: Vec<_> = self.sandboxes.lock().unwrap().values().cloned().collect();
+        let mut pinned = BTreeSet::new();
+        for sb in all {
+            let sb = sb.lock().unwrap();
+            pinned.extend(sb.parent.clone());
+            if let Base::Capture(b) = &sb.base {
+                pinned.insert(b.clone());
+            }
+        }
+        self.state.delete_unless_pinned(cid, &pinned)
+    }
+
+    /// Removes every object, manifest and durable thin volume that no
+    /// committed capture references.
+    pub fn state_gc(&self) -> Result<serde_json::Value> {
+        fault::step("gc", || {
+            let files = self.state.gc_files()?;
+            let mut volumes = 0;
+            if let Some(pool) = self.disk.thin() {
+                let (live, reserved) = self.state.thin_ids();
+                let templates: BTreeSet<u32> = self
+                    .template_disks
+                    .read()
+                    .unwrap()
+                    .values()
+                    .filter_map(|d| match d {
+                        DiskRef::Thin(id) => Some(*id),
+                        DiskRef::File(_) => None,
+                    })
+                    .collect();
+                for id in reserved.difference(&live) {
+                    if !templates.contains(id) && pool.delete(*id).is_ok() {
+                        volumes += 1;
+                    }
+                }
+                pool.commit()?;
+            }
+            Ok(serde_json::json!({"files": files, "thin_volumes": volumes}))
+        })
+    }
+
+    /// Re-encodes a chained capture's memory against its template, then
+    /// atomically redirects the capture to the new object and collects the
+    /// old one: compact_objects → compact_redirect → compact_gc.
+    pub fn state_compact(&self, cid: &str) -> Result<serde_json::Value> {
+        let e = self
+            .state
+            .get(cid)
+            .ok_or_else(|| EngineError::not_found(format!("capture {cid}")))?;
+        if e.manifest.memory.base.is_none() {
+            return Ok(serde_json::json!({"capture_id": cid, "compacted": false}));
+        }
+        let t = self.template(&e.manifest.template_id)?;
+        let (mem_name, _, _) = durable::object_names(cid);
+        // Scratch is private to this compaction: named after its own random
+        // object and created exclusively, so no other compaction (of the same
+        // capture or not) can replace or remove an image it is encoding.
+        let parent = self.cfg.mem_dir.join("captures");
+        std::fs::create_dir_all(&parent).ctx("create compaction scratch")?;
+        let scratch = parent.join(format!("compact-{mem_name}"));
+        std::fs::create_dir(&scratch).ctx("create compaction scratch")?;
+        // One hold per compaction (the object name is random), so one
+        // compaction's release never drops another's. Not a capture ID (no
+        // `cp_` prefix), so it cannot collide with one either.
+        let hold = format!("compact:{mem_name}");
+        if let Err(e) = self.state.hold(&hold, vec![mem_name.clone()]) {
+            let _ = std::fs::remove_dir_all(&scratch);
+            return Err(e);
+        }
+        let r = (|| {
+            let tmp = self.state.object(&format!("{mem_name}.tmp"));
+            let (enc, digest) = fault::step("compact_objects", || {
+                let full = scratch.join("full.mem");
+                self.materialize(cid, &full, &scratch, 0)?;
+                let enc = memimg::encode(&full, &t.dir.join(fc::MEM), &tmp, true, true)?;
+                let _ = std::fs::remove_file(&full);
+                let digest = enc.digest.clone();
+                self.state
+                    .publish_objects(std::slice::from_ref(&mem_name))?;
+                Ok((enc, digest))
+            })?;
+            let old = e.manifest.memory.object.clone();
+            let redirected = fault::step("compact_redirect", || {
+                let mut m = e.manifest.clone();
+                m.memory = durable::MemoryRef {
+                    base: None,
+                    object: mem_name.clone(),
+                    digest: digest.digest.clone(),
+                    size: digest.size,
+                    image_bytes: enc.image_bytes,
+                    changed_pages: enc.changed_pages,
+                };
+                m.sign(&self.producer)?;
+                self.state.redirect(m, vec![old.clone()])
+            });
+            // Referenced by the committed redirect now, or garbage if it failed.
+            self.state.release(&hold);
+            redirected?;
+            let removed = fault::step("compact_gc", || self.state.gc_files())?;
+            Ok(serde_json::json!({
+                "capture_id": cid, "compacted": true, "object": mem_name,
+                "retired": old, "removed_files": removed,
+            }))
+        })();
+        self.state.release(&hold);
+        let _ = std::fs::remove_dir_all(&scratch);
+        r
+    }
+
+    /// Fully verifies a durable capture (signature, compatibility, digests).
+    pub fn state_verify(&self, cid: &str) -> Result<()> {
+        let e = self
+            .state
+            .get(cid)
+            .ok_or_else(|| EngineError::not_found(format!("capture {cid}")))?;
+        self.verify_durable(&e.manifest)
+    }
+
+    /// Writes a self-contained, signed bundle of a durable capture to `dir`
+    /// (memory against the template, vm state, raw disk, manifest).
+    pub fn state_export(&self, cid: &str, dir: &Path) -> Result<()> {
+        let e = self
+            .state
+            .get(cid)
+            .ok_or_else(|| EngineError::not_found(format!("capture {cid}")))?;
+        self.verify_durable(&e.manifest)?;
+        let t = self.template(&e.manifest.template_id)?;
+        std::fs::create_dir(dir).ctx("create export dir")?;
+        let full = dir.join("full.mem");
+        self.materialize(cid, &full, dir, 0)?;
+        memimg::encode(&full, &t.dir.join(fc::MEM), &dir.join("mem"), true, true)?;
+        std::fs::remove_file(&full)?;
+        std::fs::copy(
+            self.state.object(&e.manifest.vmstate.object),
+            dir.join("vmstate"),
+        )?;
+        let disk_out = dir.join("disk");
+        match (e.manifest.disk_ref()?, &self.disk) {
+            (DiskRef::File(p), _) => {
+                if fsutil::reflink(&self.disk_path(&p), &disk_out, 0o600).is_err() {
+                    sparse_copy(&self.disk_path(&p), &disk_out)?;
+                }
+            }
+            (DiskRef::Thin(id), disk::Backend::Thin(pool)) => {
+                let (name, dev) = pool.activate('x', id, e.manifest.disk.bytes)?;
+                let node = pool.dir.join("dev").join(&name);
+                let _ = std::fs::remove_file(&node);
+                let r = pool
+                    .node(&node, dev, 0)
+                    .and_then(|_| sparse_copy(&node, &disk_out));
+                let _ = std::fs::remove_file(&node);
+                pool.deactivate(&name)?;
+                r?;
+            }
+            _ => return Err(EngineError::host("disk backend mismatch")),
+        }
+        let mut m = e.manifest.clone();
+        let mem = fsutil::digest_file(&dir.join("mem"))?;
+        let header = memimg::read_header(&File::open(dir.join("mem"))?)?;
+        m.parent = None;
+        m.memory = durable::MemoryRef {
+            base: None,
+            object: "mem".into(),
+            digest: mem.digest,
+            size: mem.size,
+            image_bytes: header.image_bytes,
+            changed_pages: header.changed_pages,
+        };
+        m.vmstate.object = "vmstate".into();
+        m.disk.disk = "file:disk".into();
+        m.disk.bytes = disk::size_of_file(&disk_out)?;
+        m.disk.digest = Some(fsutil::digest_file(&disk_out)?.digest);
+        m.sign(&self.producer)?;
+        std::fs::write(dir.join("manifest.json"), manifest::canonical_json(&m)?)?;
+        Ok(())
+    }
+
+    /// Imports a capture bundle. The manifest's producer must be enrolled
+    /// and its signature and digests must verify before any object is
+    /// copied; otherwise the bundle is quarantined and nothing is published.
+    pub fn state_import(&self, dir: &Path) -> Result<String> {
+        let refuse = |e: EngineError| {
+            let q = self.state.quarantine_dir(dir);
+            eprintln!(
+                "lamp-engine: refused capture import ({e}); quarantined at {}",
+                q.display()
+            );
+            e
+        };
+        let bytes = std::fs::read(dir.join("manifest.json")).ctx("read bundle manifest")?;
+        let m: durable::CaptureManifest = serde_json::from_slice(&bytes).map_err(|e| {
+            refuse(EngineError::new(
+                "DATA_UNAVAILABLE",
+                format!("manifest: {e}"),
+            ))
+        })?;
+        // Producer authority first: an unenrolled key is refused even when
+        // every digest is correct.
+        m.verify(&self.trusted).map_err(refuse)?;
+        if m.memory.object != "mem" || m.vmstate.object != "vmstate" || m.disk.disk != "file:disk" {
+            return Err(refuse(EngineError::new(
+                "DATA_UNAVAILABLE",
+                "not an export bundle",
+            )));
+        }
+        // The signed manifest binds all three: memory, vm state and disk.
+        let disk_digest = m.disk.digest.as_deref().ok_or_else(|| {
+            refuse(EngineError::new(
+                "DATA_UNAVAILABLE",
+                "bundle manifest binds no disk digest",
+            ))
+        })?;
+        if fsutil::digest_file(&dir.join("mem"))?.digest != m.memory.digest
+            || durable::sha256_file(&dir.join("vmstate"))? != m.vmstate.sha256
+            || fsutil::digest_file(&dir.join("disk"))?.digest != disk_digest
+            || disk::size_of_file(&dir.join("disk"))? != m.disk.bytes
+        {
+            return Err(refuse(EngineError::new(
+                "DATA_UNAVAILABLE",
+                "bundle digest mismatch",
+            )));
+        }
+        let t = self.template(&m.template_id).map_err(refuse)?;
+        if m.engine_digest != self.compat.engine_digest
+            || m.cpu_baseline != self.compat.cpu_baseline
+        {
+            return Err(refuse(EngineError::new(
+                "ENGINE_UNQUALIFIED",
+                "bundle is for another host",
+            )));
+        }
+        let cid = m.capture_id.clone();
+        let (mem_name, vmstate_name, disk_name) = durable::object_names(&cid);
+        let thin = match &self.disk {
+            disk::Backend::Thin(pool) => Some(pool.new_id()),
+            disk::Backend::Reflink => None,
+        };
+        let mut objects = vec![mem_name.clone(), vmstate_name.clone()];
+        if thin.is_none() {
+            objects.push(disk_name.clone());
+        }
+        self.state
+            .reserve(&cid, objects, thin.into_iter().collect())?;
+        let r = (|| {
+            for (from, to) in [("mem", &mem_name), ("vmstate", &vmstate_name)] {
+                let dst = self.state.object(&format!("{to}.tmp"));
+                std::fs::copy(dir.join(from), &dst)?;
+                fsutil::fsync_path(&dst)?;
+            }
+            let mut names = vec![mem_name.clone(), vmstate_name.clone()];
+            let disk = match (thin, &self.disk) {
+                (Some(id), disk::Backend::Thin(pool)) => {
+                    pool.import(id, &dir.join("disk"))?;
+                    DiskRef::Thin(id)
+                }
+                _ => {
+                    let dst = self.state.object(&format!("{disk_name}.tmp"));
+                    sparse_copy(&dir.join("disk"), &dst)?;
+                    fsutil::fsync_path(&dst)?;
+                    names.push(disk_name.clone());
+                    DiskRef::File(format!("state/objects/{disk_name}"))
+                }
+            };
+            self.state.publish_objects(&names)?;
+            let mut local = m.clone();
+            local.memory.object = mem_name.clone();
+            local.vmstate.object = vmstate_name.clone();
+            local.disk.disk = disk.encode();
+            local.template_id = t.id.clone();
+            local.sign(&self.producer)?;
+            self.state.stage(&local)?;
+            self.state.flush()?;
+            self.state.insert(local);
+            Ok(cid.clone())
+        })();
+        if r.is_err() {
+            self.state.abandon(&cid);
+        }
+        r
     }
 
     pub fn stop(&self, auth: Authority<'_>) -> Result<Outcome> {
@@ -1673,6 +2524,8 @@ impl Engine {
                 self.free_uid(uid);
             }
             self.free_uid(sb.uid);
+            let w = sb.working.take();
+            self.release_disk(w);
             sb.state = State::Stopped;
         }
         self.sandboxes.lock().unwrap().remove(auth.sandbox_id);
@@ -1756,7 +2609,10 @@ impl Engine {
         let all: Vec<_> = self.sandboxes.lock().unwrap().drain().collect();
         let n = all.len();
         for (_, sb) in all {
-            let _ = sb.lock().unwrap().teardown();
+            let mut sb = sb.lock().unwrap();
+            let _ = sb.teardown();
+            let w = sb.working.take();
+            self.release_disk(w);
         }
         n
     }
@@ -1771,6 +2627,55 @@ impl Engine {
             device_graph_digest: manifest::sha256_hex(DEVICE_GRAPH.as_bytes()),
         }
     }
+}
+
+/// Copies a file's data extents only (sparse images stay sparse).
+fn sparse_copy(src: &Path, dst: &Path) -> Result<()> {
+    use std::os::fd::AsRawFd;
+    use std::os::unix::fs::FileExt;
+    let s = File::open(src).ctx(format!("open {}", src.display()))?;
+    let len = {
+        use std::io::Seek;
+        let mut f = &s;
+        f.seek(std::io::SeekFrom::End(0))?
+    };
+    let d = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(dst)
+        .ctx(format!("create {}", dst.display()))?;
+    d.set_len(len)?;
+    let fd = s.as_raw_fd();
+    let mut buf = vec![0_u8; 4 << 20];
+    let mut off = 0_u64;
+    let block = std::fs::metadata(src)
+        .map(|m| m.file_type().is_file())
+        .unwrap_or(false);
+    while off < len {
+        let (data, end) = if block {
+            // SAFETY: lseek on a valid descriptor.
+            let data = unsafe { libc::lseek(fd, off as libc::off_t, libc::SEEK_DATA) };
+            if data < 0 {
+                break;
+            }
+            let end = unsafe { libc::lseek(fd, data, libc::SEEK_HOLE) };
+            (data as u64, (end as u64).min(len))
+        } else {
+            (off, len)
+        };
+        let mut at = data;
+        while at < end {
+            let n = (end - at).min(buf.len() as u64) as usize;
+            s.read_exact_at(&mut buf[..n], at)?;
+            if buf[..n].iter().any(|&b| b != 0) {
+                d.write_all_at(&buf[..n], at)?;
+            }
+            at += n as u64;
+        }
+        off = end;
+    }
+    d.sync_all()?;
+    Ok(())
 }
 
 #[cfg(test)]
