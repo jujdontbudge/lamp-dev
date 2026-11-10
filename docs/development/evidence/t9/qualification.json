@@ -1,0 +1,160 @@
+{
+  "ticket": "T9",
+  "status": "incomplete",
+  "latest_browser_followup": {
+    "summary": "attempts/t9-authorized-browser-20261110-08/summary.json",
+    "status": "normal_headless_authorized_session_blocked",
+    "exact_requested_anti_detection_route_tested": false,
+    "authorization_completed": false,
+    "lx_sandboxes_created": 0,
+    "owned_browser_and_scratch_profile_cleaned_up": true,
+    "new_owner_approval_request": false,
+    "implementation_changed": false,
+    "further_attempts": "stopped per owner instruction"
+  },
+  "format_freeze_authorized": false,
+  "single_review_fixes": {
+    "details": "single-review-fixes.md",
+    "confirmed_and_fixed_findings": [1, 2, 3, 4, 5, 6],
+    "tests_authored_or_extended": false,
+    "new_trial_runs": false
+  },
+  "requirements": ["CRED-003", "CRED-004", "E07"],
+  "subscription_routes": {
+    "claude_code": {"status": "sign_in_not_completed", "qualified": false},
+    "codex": {"status": "device_challenge_only", "qualified": false}
+  },
+  "real_engine_control": {
+    "summary": "runs/t9-control-20261110-04/summary.json",
+    "status": "pass",
+    "qualification": "diagnostic-engine-api-only",
+    "source_contains_synthetic_canaries": true,
+    "fresh_rebuilt_guest_runs_installed_tool": true,
+    "all_emitted_clean_template_files_scanned": true,
+    "clean_template_canary_matches": 0,
+    "memory_mount_cleanup_confirmed": true,
+    "subscription_credentials_used": false,
+    "public_subscription_boundary_exercised": false
+  },
+  "retained_runs": [
+    {
+      "directory": "runs/t9-control-20261110-01",
+      "status": "fail",
+      "observation": "observer rejected the real template IDs; parser incorrectly expected 24 rather than 26 hex characters"
+    },
+    {
+      "directory": "runs/t9-control-20261110-02",
+      "status": "fail",
+      "observation": "fixture failed after publishing both templates; the original run did not record its failing phase"
+    },
+    {
+      "directory": "runs/t9-control-20261110-03",
+      "status": "fail",
+      "observation": "fixture failed at restore_clean; its generated sandbox ID made the host Unix socket path exceed the Linux limit"
+    },
+    {
+      "directory": "runs/t9-control-20261110-04",
+      "status": "incomplete",
+      "observation": "short-ID real-guest clean-builder control passed; E07 remained incomplete; results recovered from disk after SSH disconnected"
+    }
+  ],
+  "verification": {
+    "linux": {
+      "command": "make bootstrap verify; make verify",
+      "status": "pass",
+      "scope": "historical clean-builder runs; not current tunnel-handler Linux runtime verification",
+      "logs": ["verify-linux.log", "verify-linux-final.log", "verify-linux-custody-final.log"]
+    },
+    "macos": {
+      "command": "make bootstrap verify; python3 tools/protobuf.py --check",
+      "status": "pass",
+      "scope": "historical pre-T10 verification; see latest_main_merge for the current merge",
+      "observation": "full local verification passes after merging current main d0e4cc64656ecff3bf30ba5f981a27fd5c8be43d; previous timeout failures remain retained",
+      "logs": ["verify-macos-proxy-20261110-01.log", "verify-macos-proxy-20261110-02.log"],
+      "historical_failed_logs": ["verify-macos-failed.log", "go-control-macos-retry-failed.log"],
+      "other_checks_passed": [
+        "Rust workspace tests",
+        "Rust formatting and clippy",
+        "Go vet",
+        "contracts and interoperability",
+        "public and worker binding regeneration with protoc 35.0",
+        "benchmark, infrastructure and subscription bridge tests"
+      ]
+    },
+    "linux_target_on_macos": {
+      "command": "cargo check --workspace --all-targets --target x86_64-unknown-linux-gnu --locked; cargo clippy --workspace --all-targets --target x86_64-unknown-linux-gnu --locked -- -D warnings",
+      "status": "pass",
+      "runtime_executed": false,
+      "scope": "historical pre-T10 target check; the live attempt used 9c9b45c",
+      "logs": ["verify-macos-proxy-20261110-02.log"]
+    },
+    "latest_main_merge": {
+      "main": "09899fd704a0cfd02112bd677e692931ad562a0d",
+      "verified_source": "9febad2042c7d976de3a414d8070b973b88095ac",
+      "command": "make verify (one invocation)",
+      "status": "pass",
+      "command_exit_code": 0,
+      "linux_target_compile": "pass",
+      "linux_target_clippy": "pass",
+      "linux_runtime_trial": false,
+      "logs": ["verify-review-main-09899fd-01.log"]
+    },
+    "t10_main_merge": {
+      "main": "2ce9e8c8c3a2b02aac787f006d2d4f04294732ab",
+      "verified_source": "66df8f8c1a90069626c2386fdedac8c0c5233f10",
+      "command": "make verify (one invocation)",
+      "command_exit_code": 2,
+      "observation": "Go and Rust passed. The historical four-control-run assertion failed because the live attempt had been placed in the control directory. The attempt was moved unchanged to attempts/. The existing failed check and all remaining verification steps then passed; the full make verify command was not repeated.",
+      "continuation_exit_code": 0,
+      "tests_added_or_extended": false,
+      "logs": ["verify-macos-main-2ce9e8c-01.log", "verify-macos-main-2ce9e8c-continuation-01.log"]
+    }
+  },
+  "integration_blockers": [
+    "Persisted custody, public capture/export/share checks, subscription-only guard policy and bounded bridge are implemented, but not yet qualified by a complete signed-in E07 run.",
+    "Official subscription sign-in has not completed. Account eligibility, useful inference, same-person live memory fork, suspend/resume and vendor-permitted refresh remain unproved for both harnesses.",
+    "Official-run authority serializes persisted lineages, but does not refresh a vendor token or make stale copied credentials current.",
+    "The corrected thread-free tunnel handler ran under confinement in a real LX guest and obtained an official device challenge. Signed-in inference and fork continuation remain unproved.",
+    "Actual signed-in public export/share/session handoff, fresh official harness startup and complete memory/disk/cache/journal/export zero-canary evidence remain unproved.",
+    "A nonsecret definition digest is an authenticated owner's input approval, not automatic proof of secrecy. Seed and reconstruction inputs must be verified independently of the tainted source.",
+    "The synthetic source builder powers down before template capture. This control does not prove retention of a live subscription-bearing heap, environment, cache or refresh chain.",
+    "The laptop lane was released and one real attempt was made. Native authorization was not completed, the headless browser encountered the vendor verification page, and the secure approval request timed out. The guest and both locks were released."
+  ],
+  "local_tunnel_fix": {
+    "details": "tunnel-handler.md",
+    "guard_tests_macos": "pass (15 tests)",
+    "linux_target_all_targets_clippy": "pass",
+    "seccomp_profile_changed": false,
+    "linux_confined_runtime": "exercised by real native device challenge; not signed-in inference",
+    "official_signed_in_E07": "incomplete",
+    "failed_live_fixture_retained_at": "/var/lib/lamp/t9e06",
+    "released_sandbox_id": "sb_6f9cd899723cc1be69d76cc5057afdfa",
+    "release_operation_id": "op_c57dfbb08018fda482f0bbf41c48870e"
+  },
+  "current_demonstration": {
+    "details": "signin-fork-demonstration.md",
+    "summary": "attempts/t9-signin-20261110-07/summary.json",
+    "status": "incomplete",
+    "native_device_challenge_received": true,
+    "signed_in_inference_proved": false,
+    "fork_continuation_proved": false,
+    "maximum_sandboxes": 1,
+    "minimum_available_bytes": 24885805056,
+    "remaining_sandboxes": 0,
+    "locks_released": true
+  },
+  "vendor_references_reviewed": [
+    "https://code.claude.com/docs/en/legal-and-compliance",
+    "https://code.claude.com/docs/en/authentication",
+    "https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions"
+  ],
+  "operational_scope": {
+    "owner_services_stopped_or_modified_by_this_ticket": false,
+    "docker_touched": false,
+    "owner_visible_apps_or_browser_driven": false,
+    "credentials_copied_from_owner_apps": false,
+    "paid_service_or_subscription_purchased": false,
+    "thresholds_changed": false,
+    "large_disposable_artifacts_retained_on_LX": "/var/lib/lamp/t9-control-20261110-01 through /var/lib/lamp/t9-control-20261110-04; /var/lib/lamp/t9e01 through /var/lib/lamp/t9e07"
+  }
+}

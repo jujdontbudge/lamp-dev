@@ -1,0 +1,47 @@
+{
+  "ticket": "T9",
+  "observed_at": "2026-11-10T22:22:20Z",
+  "source_head": "b19525a925f5093f596f4482974bb214cae16515",
+  "host_cpu": "Apple M5",
+  "status": "incomplete",
+  "stage": "authorized-browser-preflight",
+  "owner_authorized_session_copy": true,
+  "original_profile_content_modified": false,
+  "scratch_cookie_hosts": ["chatgpt.com", "openai.com", "subdomains of either"],
+  "launch": {
+    "separate_headless_chrome": true,
+    "via_open": true,
+    "debug_address": "127.0.0.1:9334",
+    "automation_detection_disabled": false,
+    "user_agent_overridden": false,
+    "exact_requested_anti_detection_route_tested": false
+  },
+  "observation": {
+    "host": "auth.openai.com",
+    "path": "/codex/device",
+    "page_title": "Just a moment...",
+    "visible_input_wait_ms": 30000,
+    "visible_input_count": 0,
+    "cookie_decryption_or_account_session_validity_proved": false,
+    "authorization_completed": false,
+    "fresh_guest_device_challenge_requested": false,
+    "signed_in_inference_proved": false,
+    "fork_continuation_proved": false
+  },
+  "resources": {
+    "lx_accessed": false,
+    "lx_sandboxes_created": 0,
+    "lx_memory_allocated_by_attempt": false
+  },
+  "cleanup": {
+    "owned_browser_pid_stopped": 6238,
+    "remaining_owned_chrome_processes": 0,
+    "debug_listener_remaining": false,
+    "scratch_profile_deleted": true,
+    "owner_visible_window_driven": false
+  },
+  "new_owner_approval_request": false,
+  "cookie_values_or_tokens_in_evidence": false,
+  "implementation_changed": false,
+  "new_tests_added_or_extended": false
+}

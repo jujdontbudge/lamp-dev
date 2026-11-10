@@ -29,6 +29,7 @@ type record struct {
 	Hash      string          `json:"hash"`
 	Key       string          `json:"key"`
 	Resource  api.ResourceRef `json:"resource"`
+	Custody   *custodyPlan    `json:"custody,omitempty"`
 }
 type journal struct {
 	EventSequence uint64        `json:"event_sequence,omitempty"`
@@ -38,12 +39,15 @@ type journal struct {
 	Sequence      uint64        `json:"sequence,omitempty"`
 	// LogGeneration names the journal.log instance that follows this
 	// snapshot; every compaction starts a new one (see commitMark).
-	LogGeneration uint64                 `json:"log_generation,omitempty"`
-	Outputs       map[string][]api.Frame `json:"outputs,omitempty"`
-	Version       int                    `json:"version"`
-	Operations    map[string]*record     `json:"operations"`
-	Sandboxes     map[string]api.Sandbox `json:"sandboxes"`
-	Execs         map[string]api.Exec    `json:"execs"`
+	LogGeneration uint64                   `json:"log_generation,omitempty"`
+	Outputs       map[string][]api.Frame   `json:"outputs,omitempty"`
+	Version       int                      `json:"version"`
+	Operations    map[string]*record       `json:"operations"`
+	Sandboxes     map[string]api.Sandbox   `json:"sandboxes"`
+	Execs         map[string]api.Exec      `json:"execs"`
+	Snapshots     map[string]savedSnapshot `json:"snapshots,omitempty"`
+	Shares        map[string]api.Share     `json:"shares,omitempty"`
+	Templates     map[string]cleanExport   `json:"templates,omitempty"`
 }
 type Config struct {
 	Fleet            *FleetConfig
@@ -51,6 +55,8 @@ type Config struct {
 	Worker           WorkerConfig
 	Identity         *IdentityConfig
 	ProtectedActions map[string]ProtectedAction
+	ExportsDir       string
+	SharedReaders    map[uint32]string
 }
 type Service struct {
 	fleet          *Fleet
@@ -64,6 +70,8 @@ type Service struct {
 	eventRevisions map[string]uint64
 	journal        journal
 	dir            string
+	exportsDir     string
+	readers        map[uint32]string
 	lock           *os.File
 	worker         workerClient
 	rootContext    context.Context
@@ -199,6 +207,18 @@ func Open(config Config) (*Service, error) {
 			return nil, errors.New("invalid operation journal version or maps")
 		}
 	}
+	s.initCustody()
+	s.exportsDir = config.ExportsDir
+	if len(config.SharedReaders) > 32 {
+		return nil, errors.New("at most 32 local share readers are supported")
+	}
+	s.readers = map[uint32]string{}
+	for uid, principal := range config.SharedReaders {
+		if int(uid) == os.Geteuid() || !validPrincipal(principal) {
+			return nil, errors.New("share readers require another OS UID and a principal ID")
+		}
+		s.readers[uid] = principal
+	}
 	if s.journal.Outputs == nil {
 		s.journal.Outputs = map[string][]api.Frame{}
 	}
@@ -248,6 +268,15 @@ func Open(config Config) (*Service, error) {
 			for id, frames := range delta.Outputs {
 				s.journal.Outputs[id] = frames
 			}
+			for id, snapshot := range delta.Snapshots {
+				s.journal.Snapshots[id] = snapshot
+			}
+			for id, share := range delta.Shares {
+				s.journal.Shares[id] = share
+			}
+			for id, template := range delta.Templates {
+				s.journal.Templates[id] = template
+			}
 			if delta.Control != nil {
 				s.journal.Control = delta.Control
 			}
@@ -289,7 +318,7 @@ func Open(config Config) (*Service, error) {
 		for id, r := range s.journal.Operations {
 			if strings.Count(r.Key, "\n") == 1 {
 				name, _, _ := strings.Cut(r.Key, "\n")
-				if name == "sandbox_create" || name == "sandbox_fork" || name == "sandbox_delete" || name == "exec_create" {
+				if name == "sandbox_create" || name == "sandbox_fork" || name == "sandbox_delete" || name == "exec_create" || name == "snapshot_create" || name == "share_create" || name == "sandbox_suspend" || name == "sandbox_resume" {
 					r.Key = r.Operation.OwnerId + "\n" + r.Key
 				}
 			}
@@ -306,10 +335,10 @@ func Open(config Config) (*Service, error) {
 				r.Operation.UpdatedAt = timestamp()
 			}
 		}
-		// Read-only reconciliation below must re-observe the original command
-		// before promoting a saved sandbox back to ready.
+		// Reconcile running guests before declaring them ready again. A durable
+		// suspension stays suspended; resume validates its capture with the worker.
 		for id, sb := range s.journal.Sandboxes {
-			if sb.State != "failed" && sb.State != "deleted" {
+			if sb.State != "failed" && sb.State != "deleted" && sb.State != "suspended" {
 				sb.State = "unavailable"
 				sb.Revision++
 				sb.UpdatedAt = timestamp()
@@ -744,6 +773,9 @@ func (s *Service) Close() error {
 // never alias the mutable journal while the group writer flushes them.
 func (s *Service) prepareDelta(ids ...string) ([]byte, journal, error) {
 	delta := journal{Version: 1, Sequence: s.journal.Sequence + 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
+	delta.Snapshots = map[string]savedSnapshot{}
+	delta.Shares = map[string]api.Share{}
+	delta.Templates = map[string]cleanExport{}
 	for _, id := range ids {
 		if rec, ok := s.journal.Operations[id]; ok {
 			delta.Operations[id] = rec
@@ -756,6 +788,15 @@ func (s *Service) prepareDelta(ids ...string) ([]byte, journal, error) {
 		}
 		if frames, ok := s.journal.Outputs[id]; ok {
 			delta.Outputs[id] = frames
+		}
+		if snapshot, ok := s.journal.Snapshots[id]; ok {
+			delta.Snapshots[id] = snapshot
+		}
+		if share, ok := s.journal.Shares[id]; ok {
+			delta.Shares[id] = share
+		}
+		if template, ok := s.journal.Templates[id]; ok {
+			delta.Templates[id] = template
 		}
 	}
 	for _, id := range ids {

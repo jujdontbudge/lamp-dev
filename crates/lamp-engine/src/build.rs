@@ -578,7 +578,7 @@ fn probe(engine: &Engine, template_id: &str, tag: &str, resources: &Resources) -
         policy_revision: 0,
     };
     engine.allocate(auth, Some(resources.clone()))?;
-    let result = engine.restore(auth, template_id).and_then(|_| {
+    let result = engine.restore_build_probe(auth, template_id).and_then(|_| {
         engine.run(
             auth,
             vec![

@@ -88,6 +88,7 @@ fn main() {
         "serve"
         | "seed-import"
         | "template-build"
+        | "template-rebuild"
         | "templates"
         | "grant-install"
         | "grant-revoke"
@@ -254,6 +255,33 @@ fn host(cmd: &str, mut args: Vec<String>) {
             lamp_engine::net::Policy::load(std::path::Path::new(&p)).unwrap_or_else(|e| die(e)),
         );
     }
+    if let Some(path) = take_flag(&mut args, "--subscription-policy") {
+        cfg.subscription = Some(
+            serde_json::from_slice(
+                &std::fs::read(path).unwrap_or_else(|_| die("cannot read subscription policy")),
+            )
+            .unwrap_or_else(|_| die("invalid subscription policy")),
+        );
+    }
+    if let Some(path) = take_flag(&mut args, "--exports-dir") {
+        cfg.exports_dir = Some(path.into());
+    }
+    if let Some(host) = take_flag(&mut args, "--host-id") {
+        cfg.host_id = host;
+    }
+    let reconstruction = if cmd == "template-rebuild" {
+        let digest = take_flag(&mut args, "--approved-nonsecret-digest")
+            .unwrap_or_else(|| die("template-rebuild requires --approved-nonsecret-digest"));
+        if args.len() != 1 {
+            die("template-rebuild FILE --approved-nonsecret-digest SHA256");
+        }
+        let text = std::fs::read_to_string(&args[0]).unwrap_or_else(|e| die(e));
+        Some(
+            lamp_engine::custody::Reconstruction::verify(&text, &digest).unwrap_or_else(|e| die(e)),
+        )
+    } else {
+        None
+    };
     let mode = match cmd {
         "serve" => Mode::Daemon,
         "templates" => Mode::ReadOnly,
@@ -304,10 +332,15 @@ fn host(cmd: &str, mut args: Vec<String>) {
                     .unwrap_or_else(|e| die(e))
             );
         }
-        "template-build" => {
-            let file = args.first().unwrap_or_else(|| die("template-build FILE"));
-            let text = std::fs::read_to_string(file).unwrap_or_else(|e| die(e));
-            match lamp_engine::build::build_template(&engine, &text) {
+        "template-build" | "template-rebuild" => {
+            let result = if let Some(input) = reconstruction {
+                input.build(&engine)
+            } else {
+                let file = args.first().unwrap_or_else(|| die("template-build FILE"));
+                let text = std::fs::read_to_string(file).unwrap_or_else(|e| die(e));
+                lamp_engine::build::build_template(&engine, &text)
+            };
+            match result {
                 Ok(r) => {
                     eprint!("{}", r.log);
                     println!(

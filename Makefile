@@ -28,6 +28,7 @@ test-all:
 	cargo test --workspace --locked
 	$(PYTHON) -m unittest discover -s tests/benchmarks -v
 	$(PYTHON) -m unittest discover -s tests/infra -v
+	$(PYTHON) -m unittest discover -s tests/subscription -v
 	$(VENV_PYTHON) -m unittest discover -s tests/contracts -v
 	$(VENV_PYTHON) -m unittest discover -s tests/ci -v
 

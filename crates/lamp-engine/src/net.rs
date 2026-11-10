@@ -80,6 +80,8 @@ pub struct Policy {
     /// Owner/principal recorded in attribution.
     #[serde(default = "local_principal")]
     pub principal_id: String,
+    #[serde(default)]
+    pub subscription_domains: Option<Vec<String>>,
 }
 
 fn local_principal() -> String {
@@ -243,10 +245,14 @@ impl Attachment {
     ) -> Result<Attachment> {
         let t0 = Instant::now();
         let mut timings = Vec::new();
-        let dir = policy
-            .audit_dir
-            .join(format!("{}-g{}", who.sandbox_id, who.generation));
-        std::fs::create_dir_all(&dir).ctx("create audit dir")?;
+        let dir = policy.audit_dir.join(format!(
+            "{}-g{}-{}",
+            who.sandbox_id,
+            who.generation,
+            lamp_init::hex_encode(&crate::fsutil::random_bytes::<16>())
+        ));
+        std::fs::create_dir_all(&policy.audit_dir).ctx("create audit root")?;
+        std::fs::create_dir(&dir).ctx("create attachment audit dir")?;
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))
             .ctx("chmod audit dir")?;
         crate::fsutil::chown(&dir, guard_uid, guard_uid)?;
@@ -264,6 +270,7 @@ impl Attachment {
                 "interface": TAP, "guest_ip": lamp_init::GUEST_ADDR, "queue": QUEUE,
                 "guard_uid": guard_uid, "host_denies": denies,
                 "spool": spool, "spool_bytes": bytes, "exceptions": policy.exceptions,
+                "subscription_domains": policy.subscription_domains,
                 "safety_denies": policy.safety_denies, "policy_layers": policy.policy_layers,
                 "policy_ceiling": policy.policy_ceiling,
                 "require_allowlist": policy.require_allowlist,
@@ -320,12 +327,23 @@ impl Attachment {
             .ctx("start lamp-guard")?;
         let guard_out = guard.stdout.take().unwrap();
         a.guard = Some(guard);
-        let mut proxy = Command::new("nsenter")
-            .arg(format!("--net={}", jail.netns.display()))
-            .arg(&policy.guard)
+        let mut proxy_command = if policy.subscription_domains.is_some() {
+            Command::new(&policy.guard)
+        } else {
+            let mut command = Command::new("nsenter");
+            command
+                .arg(format!("--net={}", jail.netns.display()))
+                .arg(&policy.guard);
+            command
+        };
+        proxy_command
             .arg("proxy")
             .arg(&net_config)
-            .arg(dir.join("proxy.ndjson"))
+            .arg(dir.join("proxy.ndjson"));
+        if policy.subscription_domains.is_some() {
+            proxy_command.arg(&jail.netns);
+        }
+        let mut proxy = proxy_command
             .env_clear()
             .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
             .stdin(Stdio::null())

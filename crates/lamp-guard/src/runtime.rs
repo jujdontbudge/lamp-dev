@@ -226,6 +226,9 @@ impl Connections {
         let proxied_in = p.hook == 1 && config.to_proxy(&t);
         let proxied_out = p.hook == 3 && config.to_proxy(&t.reverse());
         if (forward || proxied_in) && outbound && t.source == config.guest_ip {
+            if config.subscription_domains.is_some() && !proxied_in {
+                return self.deny(spool, Some(t), "subscription_proxy_only", &p.bytes);
+            }
             let reason = if proxied_in {
                 "mediated_proxy"
             } else {
