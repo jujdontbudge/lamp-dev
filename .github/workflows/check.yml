@@ -1,8 +1,10 @@
 name: contracts and workspace
 # PR events are deliberately absent: outside code must never reach these hosts.
+# Ticket branches (t3/**) run only when dispatched at review time, so the three
+# owner machines are not rerunning every work-in-progress push (owner, 2026-11-10).
 on:
   push:
-    branches: [main, 't3/**']
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
