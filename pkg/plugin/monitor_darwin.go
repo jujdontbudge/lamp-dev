@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// The Linux-only preparation branch never invokes this on Darwin.
+func platformLimits(string, Limits) runtimeProof { return runtimeProof{} }
+
 // macOS has no cgroup MemoryMax/CPUQuota equivalent. A fail-closed watchdog
 // enforces sampled RSS and cumulative CPU, but this is NOT hard resource-cap
 // qualification: allocations can exceed RSS between samples. See README.

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"unicode/utf8"
 )
 
@@ -20,16 +19,14 @@ type Schema struct {
 	Enum       []json.RawMessage `json:"enum,omitempty"`
 	MaxLength  int               `json:"maxLength,omitempty"`
 	MaxItems   int               `json:"maxItems,omitempty"`
-	Minimum    *float64          `json:"minimum,omitempty"`
-	Maximum    *float64          `json:"maximum,omitempty"`
+	Minimum    *json.Number      `json:"minimum,omitempty"`
+	Maximum    *json.Number      `json:"maximum,omitempty"`
 }
 
 func (s *Schema) UnmarshalJSON(raw []byte) error {
 	type plain Schema
 	var value plain
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&value); err != nil {
+	if err := decode(raw, &value); err != nil {
 		return err
 	}
 	var fields map[string]json.RawMessage
@@ -39,6 +36,9 @@ func (s *Schema) UnmarshalJSON(raw []byte) error {
 	for key, raw := range fields {
 		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 			return fmt.Errorf("null schema keyword: %s", key)
+		}
+		if (key == "minimum" || key == "maximum") && !decimalSyntax.Match(bytes.TrimSpace(raw)) {
+			return fmt.Errorf("schema %s must be a JSON number", key)
 		}
 	}
 	*s = Schema(value)
@@ -60,10 +60,21 @@ func (s Schema) check(depth int) error {
 	if s.MaxLength < 0 || s.MaxItems < 0 {
 		return errors.New("negative schema limit")
 	}
-	if (s.Minimum != nil && (math.IsNaN(*s.Minimum) || math.IsInf(*s.Minimum, 0))) || (s.Maximum != nil && (math.IsNaN(*s.Maximum) || math.IsInf(*s.Maximum, 0))) {
-		return errors.New("invalid numeric bound")
+	var lower, upper decimal
+	var err error
+	if s.Minimum != nil {
+		lower, err = parseDecimal(*s.Minimum)
+		if err != nil {
+			return err
+		}
 	}
-	if s.Minimum != nil && s.Maximum != nil && *s.Minimum > *s.Maximum {
+	if s.Maximum != nil {
+		upper, err = parseDecimal(*s.Maximum)
+		if err != nil {
+			return err
+		}
+	}
+	if s.Minimum != nil && s.Maximum != nil && lower.compare(upper) > 0 {
 		return errors.New("inverted numeric bounds")
 	}
 	if s.Type == "array" && s.Items == nil {
@@ -177,9 +188,21 @@ func (s Schema) value(v any) error {
 		if !ok {
 			return bad()
 		}
-		n, err := x.Float64()
-		if err != nil || math.IsInf(n, 0) || math.IsNaN(n) || (s.Type == "integer" && math.Trunc(n) != n) || (s.Minimum != nil && n < *s.Minimum) || (s.Maximum != nil && n > *s.Maximum) {
+		n, err := parseDecimal(x)
+		if err != nil || (s.Type == "integer" && !n.integral) {
 			return bad()
+		}
+		if s.Minimum != nil {
+			bound, err := parseDecimal(*s.Minimum)
+			if err != nil || n.compare(bound) < 0 {
+				return bad()
+			}
+		}
+		if s.Maximum != nil {
+			bound, err := parseDecimal(*s.Maximum)
+			if err != nil || n.compare(bound) > 0 {
+				return bad()
+			}
 		}
 	}
 	return nil

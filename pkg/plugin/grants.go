@@ -53,6 +53,9 @@ type Authority interface {
 }
 
 func (w *Worker) Grant(r GrantRequest) (Grant, error) {
+	if err := w.checkRuntime(); err != nil {
+		return Grant{}, err
+	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.reason != nil {

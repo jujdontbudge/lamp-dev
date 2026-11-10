@@ -27,7 +27,7 @@ func randomID() string {
 // Native runners never fall back to an unsandboxed exec. Executables are copied
 // into a private read-only staging directory AFTER their admitted bytes are
 // checked. No plugin-selected paths, arguments, environment or inherited FDs.
-func prepare(o StartOptions) (*exec.Cmd, func() error, error) {
+func prepare(o StartOptions, proof *runtimeProof) (*exec.Cmd, func() error, error) {
 	info, err := os.Stat(o.Executable)
 	if err != nil {
 		return nil, nil, err
@@ -77,7 +77,8 @@ func prepare(o StartOptions) (*exec.Cmd, func() error, error) {
 		cmd = exec.Command("/usr/bin/sandbox-exec", "-p", profile, path)
 	case "linux":
 		unit = "lamp-plugin-" + randomID()
-		args := []string{"--user", "--quiet", "--wait", "--pipe", "--collect", "--unit=" + unit, "--service-type=exec", "--property=MemoryMax=" + strconv.FormatUint(l.MemoryBytes, 10), "--property=MemorySwapMax=0", "--property=CPUQuota=" + strconv.Itoa(l.CPUPercent) + "%", "--property=TasksMax=32", "--property=KillMode=control-group", "--property=RuntimeMaxSec=3600", "--property=NoNewPrivileges=yes", "--property=LimitCORE=0", "--property=LimitNOFILE=64", "--property=UMask=0077", "--", "/usr/bin/bwrap", "--unshare-all", "--die-with-parent", "--new-session", "--cap-drop", "ALL", "--clearenv", "--setenv", "LANG", "C", "--ro-bind", "/usr/lib", "/usr/lib", "--ro-bind", "/usr/lib64", "/usr/lib64", "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64", "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--ro-bind", path, "/worker", "--chdir", "/", "/worker"}
+		*proof = platformLimits(unit, l)
+		args := []string{"--user", "--quiet", "--wait", "--pipe", "--collect", "--unit=" + unit, "--service-type=exec", "--property=MemoryMax=" + strconv.FormatUint(l.MemoryBytes, 10), "--property=MemorySwapMax=0", "--property=CPUQuota=" + strconv.Itoa(l.CPUPercent) + "%", "--property=TasksMax=32", "--property=KillMode=control-group", "--property=RuntimeMaxSec=3600", "--property=NoNewPrivileges=yes", "--property=LimitCORE=0", "--property=LimitNOFILE=64", "--property=UMask=0077", "--", o.Launcher, "--await-admission", "/usr/bin/bwrap", "--unshare-all", "--die-with-parent", "--new-session", "--cap-drop", "ALL", "--clearenv", "--setenv", "LANG", "C", "--ro-bind", "/usr/lib", "/usr/lib", "--ro-bind", "/usr/lib64", "/usr/lib64", "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64", "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--ro-bind", path, "/worker", "--chdir", "/", "/worker"}
 		// /usr/lib64 is absent on some distributions (including arm64).
 		if _, err := os.Stat("/usr/lib64"); os.IsNotExist(err) {
 			for i := 0; i < len(args)-2; i++ {

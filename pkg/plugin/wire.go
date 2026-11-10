@@ -136,6 +136,9 @@ func decode(raw []byte, v any) error {
 	if err := StrictJSON(raw); err != nil {
 		return err
 	}
+	if err := checkExactFields(raw, v); err != nil {
+		return err
+	}
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
 	return d.Decode(v)

@@ -134,8 +134,15 @@ dumps are disabled and the file-descriptor limit is 64.
 Linux requires an available user systemd manager, cgroup v2 delegation and
 `/usr/bin/bwrap`. A unique `lamp-plugin-*` service gets default `MemoryMax=64M`,
 `MemorySwapMax=0`, `CPUQuota=25%`, `TasksMax=32`, `NoNewPrivileges=yes` and an
-absolute one-hour runtime ceiling. Bubblewrap unshares all namespaces, drops
-capabilities, mounts only public system libraries and the exact worker read-only,
+absolute one-hour runtime ceiling. Requested systemd properties are not proof:
+the pinned bootstrap waits behind a private admission gate before executing any
+plugin code. The host identifies the unit's cgroup and MainPID, verifies the
+cgroup-v2 mount, reads actual `memory.max`, `memory.swap.max`, `pids.max` and
+`cpu.max` ceilings, and checks `/proc/<MainPID>/cgroup` membership. Missing
+controllers, unlimited/excessive ceilings, or unreadable evidence refuse startup
+without releasing the gate. Limits/membership are rechecked before grants and
+effects and by a 100 ms watchdog; lost enforcement opens the circuit. Bubblewrap
+unshares all namespaces, drops capabilities, mounts only public system libraries and the exact worker read-only,
 provides isolated proc/dev/tmp, and clears the environment again. No host home,
 store, IPC endpoint, device, network namespace, system binary tree or credential
 is mounted. Descendants remain in the same bounded cgroup; cleanup stops only
@@ -156,6 +163,13 @@ No dialog, visible app, Docker or owner-service change is involved.
 
 The embedded `Schema` vocabulary is deliberately closed: `type`, `properties`,
 `required`, `items`, `enum`, `maxLength`, `maxItems`, `minimum`, `maximum`.
+All record fields are closed and case-exact, including nested/embedded records;
+Go's case-folded struct-field aliases are rejected. Schema property names and
+opaque application data retain their own case-sensitive names. Numeric schema
+bounds are retained as exact `json.Number` values in the Go API. Integrality and
+bounds use normalized decimal arithmetic, not `float64` or expanded powers of
+ten, including very large integer/decimal/exponent values.
+
 Objects always reject extra fields; arrays require an item schema. Empty enums
 and null-valued schema keywords are rejected (a literal `null` inside a nonempty
 enum remains valid). Zero optional length/item limits mean no additional ceiling. Schema nesting is limited to 16;

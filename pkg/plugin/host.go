@@ -76,6 +76,7 @@ type Worker struct {
 	stderr       io.ReadCloser
 	cleanup      func() error
 	cleanupErr   error
+	limits       runtimeProof
 	pending      map[string]*pending
 	grants       map[string]Grant
 	next         uint64
@@ -93,11 +94,12 @@ func Start(ctx context.Context, o StartOptions) (*Worker, error) {
 	if o.Package == nil || o.Authority == nil || !boundedID(o.ID) {
 		return nil, errors.New("admitted package, plugin identity and core authority required")
 	}
-	cmd, cleanup, err := prepare(o)
+	var proof runtimeProof
+	cmd, cleanup, err := prepare(o, &proof)
 	if err != nil {
 		return nil, err
 	}
-	w := &Worker{pkg: o.Package, id: o.ID, authority: o.Authority, cmd: cmd, cleanup: cleanup, pending: map[string]*pending{}, grants: map[string]Grant{}, writes: make(chan Message, o.Package.manifest.Limits.Concurrent), stopped: make(chan struct{}), done: make(chan struct{}), exited: make(chan struct{}), effects: make(chan struct{}, o.Package.manifest.Limits.Concurrent)}
+	w := &Worker{pkg: o.Package, id: o.ID, authority: o.Authority, cmd: cmd, cleanup: cleanup, limits: proof, pending: map[string]*pending{}, grants: map[string]Grant{}, writes: make(chan Message, o.Package.manifest.Limits.Concurrent), stopped: make(chan struct{}), done: make(chan struct{}), exited: make(chan struct{}), effects: make(chan struct{}, o.Package.manifest.Limits.Concurrent)}
 	if w.stdin, err = cmd.StdinPipe(); err != nil {
 		_ = cleanup()
 		return nil, err
@@ -128,6 +130,11 @@ func Start(ctx context.Context, o StartOptions) (*Worker, error) {
 		}
 		w.trip(err)
 	}()
+	if err := w.admitRuntime(ctx); err != nil {
+		w.trip(err)
+		<-w.done
+		return nil, err
+	}
 	go w.writeLoop()
 	go w.readLoop()
 	go w.stderrLoop()
@@ -367,6 +374,9 @@ func (w *Worker) readLoop() {
 }
 func (w *Worker) effect(m Message) {
 	defer func() { <-w.effects }()
+	if w.checkRuntime() != nil {
+		return
+	}
 	deny := func() {
 		_ = w.send(context.Background(), Message{JSONRPC: "2.0", ID: m.ID, Error: &RPCError{Code: -32001, Message: "effect denied"}})
 	}

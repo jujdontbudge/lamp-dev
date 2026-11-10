@@ -1,5 +1,8 @@
 # T11 plugin host evidence — 2026-11-10
 
+PR #14 review r1 follow-up: [three fixes, red/green regressions and current
+verification](T11-review-r1.md). Earlier transcripts below are retained history.
+
 ## Delivered boundary
 
 `pkg/plugin` implements the public `lamp.plugin/1` pipe transport, exact-byte
