@@ -198,8 +198,9 @@ class TimingRun(unittest.TestCase):
         self.assertEqual(self.active(), sorted(UNITS))
 
     def test_group_member_ignoring_term_is_killed_before_restore(self):
-        body = ('bash -c \'trap "" TERM; while :; do sleep 0.05; done\' & echo $! >> "$STUB/pids"; '
-                'echo started >> "$STUB/events"; wait')
+        # The member says it is ready only after it ignores TERM.
+        body = ('bash -c \'trap "" TERM; echo started >> "$STUB/events"; while :; do sleep 0.05; done\' & '
+                'echo $! >> "$STUB/pids"; wait')
         p = self.start(*self.command(body))
         self.wait_for("started")
         p.send_signal(signal.SIGTERM)
