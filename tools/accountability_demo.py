@@ -21,6 +21,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for flag in ('root', 'store', 'policy', 'template', 'binary-dir'):
         p.add_argument('--'+flag, required=True)
+    p.add_argument('--quota-only', action='store_true')
     args = p.parse_args()
     root = Path(args.root).resolve()
     root.mkdir(mode=0o700, exist_ok=False)
@@ -101,6 +102,13 @@ def main():
             raise RuntimeError('owner sandbox capacity guard denied')
         sandbox=call('sandbox','create',dict(template_id=args.template,task_id=child,wait_ms=60000))['result']['sandbox_id']
         record('real sandbox ready',call('sandbox','get',dict(sandbox_id=sandbox)))
+        if args.quota_only:
+            refused=call('snapshot','create',dict(sandbox_id=sandbox,preserves_memory=True,capture_trust='owner_private'),okay=False)
+            record('retained capture admission refused',refused)
+            assert refused['error']['code']=='CONTROL_QUOTA_EXCEEDED'
+            work=call('exec','create',dict(sandbox_id=sandbox,argv=['/bin/true'],wait_ms=60000))
+            record('admitted work continues after retained quota refusal',work)
+            return
         record('quota rejects excess allocation',call('sandbox','create',dict(template_id=args.template,task_id=child),okay=False))
         code='import socket,subprocess; subprocess.run(["/bin/echo","t23-child-process"],check=True); s=socket.socket(); s.settimeout(2)\ntry:s.connect(("1.1.1.1",443))\nexcept OSError:pass\nprint("opaque-route-usage-best-effort")'
         executed=call('exec','create',dict(sandbox_id=sandbox,argv=['python3','-c',code],wait_ms=60000))

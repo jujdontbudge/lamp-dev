@@ -322,6 +322,7 @@ func (s *Service) taskStopped(t api.Task) bool {
 	return true
 }
 func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error {
+	retains := name == "sandbox_fork" || name == "snapshot_create" || name == "sandbox_suspend" || name == "share_create"
 	if name == "sandbox_delete" {
 		return nil
 	}
@@ -367,12 +368,15 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 		if uint64(len(s.journal.Sandboxes)+1) > q.AuditBytes/(24<<20) {
 			return reject("CONTROL_QUOTA_EXCEEDED", "retained guard spool reservations exhausted")
 		}
-		if name == "sandbox_fork" && sb.Resources != nil {
+		if retains && sb.Resources != nil {
 			disk += sb.Resources.DiskGib + (sb.Resources.MemoryMib+1023)/1024
 		}
 		if n >= q.Sandboxes || sb.Resources == nil || sb.Resources.MemoryMib > q.MemoryMiB || mem > q.MemoryMiB-sb.Resources.MemoryMib || sb.Resources.DiskGib > q.DiskGiB || disk > q.DiskGiB-sb.Resources.DiskGib {
 			return reject("CONTROL_QUOTA_EXCEEDED", "sandbox resource quota reached")
 		}
+	}
+	if retains && name != "sandbox_fork" && sb.Resources != nil && (disk+sb.Resources.DiskGib+(sb.Resources.MemoryMib+1023)/1024 > q.DiskGiB) {
+		return reject("CONTROL_QUOTA_EXCEEDED", "retained capture disk quota reached")
 	}
 	if sb.TaskId != nil {
 		t, ok := s.journal.Accountability.Tasks[*sb.TaskId]
@@ -401,7 +405,7 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 				v += sb.Resources.Vcpus
 			}
 			retained := s.journal.Accountability.RetainedBytes[b.Id]
-			if name == "sandbox_fork" {
+			if retains {
 				retained += (sb.Resources.DiskGib << 30) + (sb.Resources.MemoryMib << 20)
 			}
 			if l.RetainedBytes != nil && retained > *l.RetainedBytes {
@@ -434,6 +438,11 @@ func (s *Service) sandboxMustStop(sb api.Sandbox) bool {
 	}
 	for _, r := range s.journal.Operations {
 		if r.Resource.Id == sb.Id && (value(r.Operation.OperationName) == "sandbox_create" || value(r.Operation.OperationName) == "sandbox_fork") && r.Caller.Principal != "" && !s.can(r.Caller, strings.Replace(value(r.Operation.OperationName), "_", ".", 1)) {
+			return true
+		}
+	}
+	for _, r := range s.journal.Operations {
+		if r.Custody != nil && r.Custody.Source == sb.Id && r.Caller.Principal != "" && !s.current(r.Caller) {
 			return true
 		}
 	}
