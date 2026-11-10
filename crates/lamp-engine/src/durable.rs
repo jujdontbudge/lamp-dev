@@ -330,6 +330,9 @@ struct Index {
     in_flight: BTreeMap<String, (Vec<String>, Vec<u32>)>,
     /// Thin volumes ever reserved for durable captures (journal).
     reserved_thin: BTreeSet<u32>,
+    /// Ancestors (parent, memory base) of commits staged but not yet
+    /// published: `delete` must keep them, like those of live captures.
+    staged: BTreeMap<String, Vec<String>>,
 }
 
 pub struct Store {
@@ -572,7 +575,9 @@ impl Store {
     /// Forgets an in-flight capture that failed before it committed. Its
     /// objects are garbage for the next collection.
     pub fn abandon(&self, cid: &str) {
-        self.index.lock().unwrap().in_flight.remove(cid);
+        let mut ix = self.index.lock().unwrap();
+        ix.in_flight.remove(cid);
+        ix.staged.remove(cid);
     }
 
     /// Keeps `objects` (and their `.tmp` names) out of garbage collection
@@ -619,12 +624,17 @@ impl Store {
     /// are still live. The check and the write happen under the index lock
     /// that `delete` also holds, so a capture whose ancestor is being
     /// deleted is never committed (or acknowledged) with a dangling one.
+    ///
+    /// The ancestors stay pinned (see `delete_unless_pinned`) from here
+    /// until the capture is published or abandoned, so a delete that comes
+    /// after this check but before `insert` is refused.
     pub fn stage_checked(&self, m: &CaptureManifest) -> Result<()> {
-        let ix = self.index.lock().unwrap();
-        for a in [m.parent.as_deref(), m.memory.base.as_deref()]
+        let mut ix = self.index.lock().unwrap();
+        let ancestors: Vec<String> = [m.parent.clone(), m.memory.base.clone()]
             .into_iter()
             .flatten()
-        {
+            .collect();
+        for a in &ancestors {
             if !ix.live.contains_key(a) {
                 return Err(EngineError::in_use(format!(
                     "capture {}: ancestor {a} is no longer live",
@@ -632,7 +642,9 @@ impl Store {
                 )));
             }
         }
-        self.stage(m)
+        self.stage(m)?;
+        ix.staged.insert(m.capture_id.clone(), ancestors);
+        Ok(())
     }
 
     /// Step `journal_flush`: the staged commit record reaches stable
@@ -648,6 +660,7 @@ impl Store {
     pub fn insert(&self, m: CaptureManifest) {
         let mut ix = self.index.lock().unwrap();
         ix.in_flight.remove(&m.capture_id);
+        ix.staged.remove(&m.capture_id);
         ix.live.insert(m.capture_id.clone(), Entry { manifest: m });
     }
 
@@ -672,6 +685,11 @@ impl Store {
             return Err(EngineError::in_use(format!(
                 "capture {cid} is an ancestor of {}",
                 child.manifest.capture_id
+            )));
+        }
+        if let Some((child, _)) = ix.staged.iter().find(|(_, a)| a.iter().any(|a| a == cid)) {
+            return Err(EngineError::in_use(format!(
+                "capture {cid} is an ancestor of {child}, which is being committed"
             )));
         }
         if pinned.contains(cid) {

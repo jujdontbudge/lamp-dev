@@ -2108,8 +2108,10 @@ impl Engine {
         let _ = std::fs::remove_dir_all(&scratch);
         std::fs::create_dir_all(&scratch).ctx("create compaction scratch")?;
         let (mem_name, _, _) = durable::object_names(cid);
-        // Not a capture ID (no `cp_` prefix), so it cannot collide with one.
-        let hold = format!("compact:{cid}");
+        // One hold per compaction (the object name is random), so one
+        // compaction's release never drops another's. Not a capture ID (no
+        // `cp_` prefix), so it cannot collide with one either.
+        let hold = format!("compact:{mem_name}");
         if let Err(e) = self.state.hold(&hold, vec![mem_name.clone()]) {
             let _ = std::fs::remove_dir_all(&scratch);
             return Err(e);
