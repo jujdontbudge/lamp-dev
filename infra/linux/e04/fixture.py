@@ -57,10 +57,20 @@ POOL_BLOCK = 128            # sectors (64 KiB)
 VOLUME_SECTORS = 32 << 21   # 32 GiB virtual per disposable volume
 LOG_SECTORS = 16 << 21      # 16 GiB virtual log device
 GOLDEN, WORK, LOG, REPLAY, ROGUE, ROGUE_LOG = 1, 10, 11, 12, 13, 14
+# Host memory (owner, 2026-11-10): available memory must stay at or above
+# FLOOR with everything else running. A scenario starts only with
+# FLOOR + BUDGET available, and a watchdog stops it below FLOOR.
+GIB = 1 << 30
+FLOOR = 12 * GIB
+BUDGET = 4 * GIB
+MEM_DIR_SIZE = "3G"
 BEFORE_ACK = ("reserve", "capture", "seal", "object_flush", "directory_flush",
               "heads", "switch", "journal_flush", "publish")
 LANES = {
-    "ext4": {"mkfs": ["mkfs.ext4", "-F", "-q", "-E", "nodiscard,lazy_itable_init=0,lazy_journal_init=0"],
+    # Fully initialised inode tables and journal (no lazy background writes
+    # inside a trace), sized so the whole volume stays small in host RAM.
+    "ext4": {"mkfs": ["mkfs.ext4", "-F", "-q", "-i", "1048576", "-J", "size=128",
+                      "-E", "nodiscard,lazy_itable_init=0,lazy_journal_init=0"],
              "mount": "commit=600", "backend": "thin"},
     "xfs": {"mkfs": ["mkfs.xfs", "-f", "-q", "-K", "-m", "reflink=1"],
             "mount": "", "backend": "reflink"},
@@ -113,6 +123,42 @@ def thin_delete(cfg, thin_id):
     pool_msg(cfg, "delete %d" % thin_id, check=False)
 
 
+def available():
+    with open("/proc/meminfo") as f:
+        for line in f:
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) * 1024
+    return 0
+
+
+class Watchdog:
+    """Kills this scenario's processes if host memory falls below FLOOR."""
+
+    def __init__(self, work):
+        import threading
+        self.tripped = Path(work) / "memory-guard-tripped"
+        self.instances = []
+        self.stop = threading.Event()
+        self.thread = threading.Thread(target=self.watch, daemon=True)
+        self.thread.start()
+
+    def watch(self):
+        while not self.stop.wait(0.25):
+            free = available()
+            if free < FLOOR:
+                self.tripped.write_text("MemAvailable %d at %s\n" % (free, time.ctime()))
+                for inst in self.instances:
+                    if inst.proc and inst.proc.poll() is None:
+                        inst.proc.kill()
+                    inst.kill_jails()
+                return
+
+
+def blkdiscard(dev):
+    """Returns a volume's blocks to the pool, and so its RAM to the host."""
+    sh(["blkdiscard", dev], check=False, timeout=300)
+
+
 def mounted(path):
     return sh(["mountpoint", "-q", str(path)], check=False).returncode == 0
 
@@ -154,7 +200,9 @@ class Instance:
                 "--admin-socket", str(self.admin), "--allow-uid", "0",
                 "--mem-dir", str(self.run / "mem"), "--netns-dir", str(self.run / "netns"),
                 "--uid-base", str(self.uid_base), "--disk-backend", self.cfg["backend"],
-                "--thin-data-gib", "24"]
+                "--thin-data-gib", "24", "--mem-dir-size", MEM_DIR_SIZE, "--no-capture-spare"]
+        if WATCH:
+            WATCH[0].instances.append(self)
         if self.name == "rogue":
             # The rogue host may use the shared template, but nobody enrolled
             # the rogue's own key.
@@ -172,16 +220,17 @@ class Instance:
         raise Fail("supervisor did not start")
 
     def ctl(self, *args, check=True, timeout=120):
-        argv = [self.cfg["binary"], "ctl", "--socket", str(self.socket), *map(str, args)]
+        argv = [self.cfg["binary"], "ctl", "--socket", str(self.socket),
+                "--memory-mib", str(self.cfg["memory_mib"]), *map(str, args)]
         env = dict(os.environ, LAMP_GRANT_ID=self.cfg["grant"])
         t = time.monotonic()
         try:
             r = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                stdin=subprocess.DEVNULL, env=env, text=True, timeout=timeout)
         except subprocess.TimeoutExpired:
-            self.t.add("ctl", argv[3:], None, "", "timeout", (time.monotonic() - t) * 1000)
+            self.t.add("ctl", argv[5:], None, "", "timeout", (time.monotonic() - t) * 1000)
             raise Fail("ctl %s timed out" % args[0])
-        self.t.add("ctl", argv[3:], r.returncode, r.stdout, r.stderr, (time.monotonic() - t) * 1000)
+        self.t.add("ctl", argv[5:], r.returncode, r.stdout, r.stderr, (time.monotonic() - t) * 1000)
         if check and r.returncode:
             raise Fail("ctl %s: %s" % (" ".join(map(str, args[:2])), r.stderr.strip()[-300:]))
         return r
@@ -354,6 +403,7 @@ def prepare(args):
     t = Transcript(logs / "prepare.jsonl")
     grant = json.loads(sh([cfg["binary"], "grant-install", "--store", str(mnt), "--caller-uid", "0"]).stdout)
     cfg["grant"] = grant["grant_id"]
+    cfg["memory_mib"] = template_memory(mnt / "templates" / tid / "manifest.json")
     inst = Instance(cfg, "main", mnt, t, logs)
     inst.start()
     status = inst.state("status")
@@ -371,6 +421,11 @@ def prepare(args):
     Path(cfg["artifacts"]).mkdir(parents=True, exist_ok=True)
     (work / "config.json").write_text(json.dumps(cfg, indent=1))
     print(json.dumps({"config": str(work / "config.json"), "backend": cfg["backend_name"]}))
+
+
+def template_memory(path):
+    m = json.loads(Path(path).read_text())
+    return m["acceleration_variants"][0]["resources"]["memory_mib"]
 
 
 def teardown(args):
@@ -419,9 +474,11 @@ class Volume:
 
     def remove(self):
         dm_remove(self.lw)
+        blkdiscard("/dev/mapper/" + self.snap)
         dm_remove(self.snap)
 
     def drop(self):
+        blkdiscard("/dev/mapper/" + self.log)
         dm_remove(self.log)
         thin_delete(self.cfg, self.snap_id)
         thin_delete(self.cfg, self.log_id)
@@ -585,6 +642,7 @@ def scenario(cfg, root, request, out_events):
                                          "capture_id": cid})
     finally:
         release_store(cfg, rec, mnt)
+        blkdiscard("/dev/mapper/e04-%s-replay" % cfg["lane"])
         dm_remove("e04-%s-replay" % cfg["lane"])
         thin_delete(cfg, REPLAY)
         t.close()
@@ -598,6 +656,7 @@ def scenario(cfg, root, request, out_events):
 
 
 _AUTH = {}
+WATCH = []
 
 
 def authorized_key(inst):
@@ -675,6 +734,12 @@ def run(args):
     lock = open(Path(cfg["work"]) / "lock", "w")
     import fcntl
     fcntl.flock(lock, fcntl.LOCK_EX)
+    tripped = Path(cfg["work"]) / "memory-guard-tripped"
+    if tripped.exists():
+        raise Fail("memory guard tripped earlier in this run: " + tripped.read_text().strip())
+    if available() < FLOOR + BUDGET:
+        raise Fail("memory guard: %d MiB available, need %d" % (available() >> 20, (FLOOR + BUDGET) >> 20))
+    WATCH.append(Watchdog(cfg["work"]))
     crash_exit, value = scenario(cfg, args.root, request, Events(request))
     print(json.dumps({"event": "recovered", "crash_exit": crash_exit, "value": value}), flush=True)
     return 0
@@ -691,7 +756,7 @@ def main():
     pr.add_argument("--template", default="bench")
     pr.add_argument("--artifacts", required=True)
     pr.add_argument("--uid-base", type=int, required=True)
-    pr.add_argument("--ram-gib", type=int, default=12)
+    pr.add_argument("--ram-gib", type=int, default=3)
     rn = sub.add_parser("run")
     rn.add_argument("--config", required=True)
     rn.add_argument("--root", required=True)
@@ -703,8 +768,19 @@ def main():
         raise SystemExit("the E04 fixture runs as root (sudo -n)")
     try:
         return {"prepare": prepare, "run": run, "teardown": teardown}[args.cmd](args) or 0
-    except Fail as e:
-        print("e04 fixture: %s" % e, file=sys.stderr)
+    except BaseException as e:
+        # The harness keeps no fixture stderr: every failure is also kept
+        # in the lane's failures.log, next to the run's artifacts.
+        import traceback
+        text = "".join(traceback.format_exception(e))
+        if args.cmd == "run":
+            try:
+                work = json.loads(Path(args.config).read_text())["work"]
+                with open(Path(work) / "failures.log", "a") as f:
+                    f.write("%s request=%s\n%s\n" % (time.ctime(), args.request, text))
+            except (OSError, ValueError, KeyError):
+                pass
+        print("e04 fixture: %s" % (e if isinstance(e, Fail) else text), file=sys.stderr)
         return 1
 
 

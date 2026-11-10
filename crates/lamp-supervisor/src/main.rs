@@ -49,6 +49,16 @@ fn take_flag(args: &mut Vec<String>, name: &str) -> Option<String> {
     Some(v)
 }
 
+fn take_bool(args: &mut Vec<String>, name: &str) -> bool {
+    match args.iter().position(|a| a == name) {
+        Some(i) => {
+            args.remove(i);
+            true
+        }
+        None => false,
+    }
+}
+
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() {
@@ -199,6 +209,12 @@ fn host(cmd: &str, mut args: Vec<String>) {
             .unwrap_or_else(|| die("bad --trust-producer (hex Ed25519 public key)"));
         cfg.trusted_producers.push(key);
     }
+    if let Some(size) = take_flag(&mut args, "--mem-dir-size") {
+        cfg.mem_dir_size = size;
+    }
+    if take_bool(&mut args, "--no-capture-spare") {
+        cfg.capture_spare = false;
+    }
     if let Some(fc) = take_flag(&mut args, "--firecracker") {
         cfg.bins.firecracker = fc.into();
     }
@@ -305,6 +321,9 @@ struct Ctl {
     tag: String,
     /// When the last `exec` was acknowledged as started.
     last_ack: Option<Instant>,
+    /// `--memory-mib`: allocate sandboxes of this guest size (a template
+    /// built smaller than the standard), otherwise the standard.
+    memory_mib: Option<u64>,
 }
 
 fn rand_tag() -> String {
@@ -339,7 +358,12 @@ impl Ctl {
         self.call(
             sandbox,
             request::Command::Allocate(Allocate {
-                resources: None,
+                resources: self.memory_mib.map(|m| Resources {
+                    vcpus: 2,
+                    memory_mib: m,
+                    disk_gib: 20,
+                    pids_max: 4096,
+                }),
                 engine_id: String::new(),
                 handles: vec![],
             }),
@@ -432,6 +456,8 @@ fn ctl(mut args: Vec<String>) {
     let socket =
         PathBuf::from(take_flag(&mut args, "--socket").unwrap_or_else(|| DEFAULT_SOCKET.into()));
     let durability = take_flag(&mut args, "--durability").unwrap_or_else(|| "volatile".into());
+    let memory_mib = take_flag(&mut args, "--memory-mib")
+        .map(|m| m.parse().unwrap_or_else(|_| die("bad --memory-mib")));
     if args.is_empty() {
         die("ctl needs a subcommand");
     }
@@ -443,6 +469,7 @@ fn ctl(mut args: Vec<String>) {
         op: 0,
         tag: rand_tag(),
         last_ack: None,
+        memory_mib,
     };
     match sub.as_str() {
         "create" => {

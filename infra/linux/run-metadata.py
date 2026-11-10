@@ -74,12 +74,13 @@ artifacts["benchmarks/workload.py (installed in template)"] = sha(SRC / "benchma
 artifacts["infra/linux/observer.py"] = sha(SRC / "infra" / "linux" / "observer.py")
 # The template's manifest/provenance pin its seed, kernel and image digests;
 # the kernel and the template's root disk are hashed here directly.
-tdir = f"/var/lib/lamp/templates/{TEMPLATE}"
+store = os.environ.get("LAMP_TEMPLATE_STORE", "/var/lib/lamp")
+tdir = f"{store}/templates/{TEMPLATE}"
 for name in ("manifest.json", "provenance.json", "vmlinux", "rootfs.ext4"):
     artifacts[f"{tdir}/{name}"] = root_sha(f"{tdir}/{name}")
 manifest = json.loads(subprocess.run(["sudo", "-n", "cat", f"{tdir}/manifest.json"], capture_output=True, text=True, check=True).stdout)
 seed = manifest["seed_ref"].rsplit("sha256:", 1)[1]
-artifacts[f"/var/lib/lamp/seeds/{seed}/seed.json"] = root_sha(f"/var/lib/lamp/seeds/{seed}/seed.json")
+artifacts[f"{store}/seeds/{seed}/seed.json"] = root_sha(f"{store}/seeds/{seed}/seed.json")
 
 cpuinfo = read("/proc/cpuinfo", "")
 model = re.search(r"model name\s*:\s*(.+)", cpuinfo).group(1)

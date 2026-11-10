@@ -78,6 +78,9 @@ pub struct Config {
     /// RAM-backed (tmpfs) directory for volatile memory captures.
     pub mem_dir: PathBuf,
     pub mem_dir_size: String,
+    /// Keep one preallocated image ready for a sandbox's next capture
+    /// (fast forks; costs one guest-size of RAM per forked sandbox).
+    pub capture_spare: bool,
     /// Extra trusted producer keys beyond this host's own.
     pub trusted_producers: Vec<VerifyingKey>,
     /// Guard network and protected-process audit. `None` leaves sandboxes
@@ -100,6 +103,7 @@ impl Config {
             },
             mem_dir: PathBuf::from("/run/lamp/mem"),
             mem_dir_size: "75%".into(),
+            capture_spare: true,
             uid_base: 900_000,
             uid_count: 65_536,
             host_id: hostname(),
@@ -1824,7 +1828,7 @@ impl Engine {
             .insert(capture_id.into(), Arc::new(rec));
         detail.insert("total_us".into(), us(t0.elapsed()));
         // A sandbox that forked keeps one image ready for its next fork.
-        if let Some(jail) = sb.jail.as_ref() {
+        if let Some(jail) = sb.jail.as_ref().filter(|_| self.cfg.capture_spare) {
             fc::prepare_spare(jail, sb.resources.memory_mib * 1024 * 1024);
         }
         Ok(Outcome {
