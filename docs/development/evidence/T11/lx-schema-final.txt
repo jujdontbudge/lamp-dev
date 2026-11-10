@@ -1,0 +1,29 @@
+LX schema follow-up
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"type":"object","enum":[]}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"type":null}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"properties":null,"type":"object"}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"required":null,"type":"object"}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"items":null,"type":"object"}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"enum":null,"type":"object"}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"maxLength":null,"type":"object"}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"maxItems":null,"type":"object"}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"minimum":null,"type":"object"}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"maximum":null,"type":"object"}
+=== RUN   TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"type":"object","properties":{"nested":{"type":"object","enum":[]}}}
+--- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"type":"object","enum":[]} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"type":null} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"properties":null,"type":"object"} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"required":null,"type":"object"} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"items":null,"type":"object"} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"enum":null,"type":"object"} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"maxLength":null,"type":"object"} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"maxItems":null,"type":"object"} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"minimum":null,"type":"object"} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"maximum":null,"type":"object"} (0.00s)
+    --- PASS: TestEmbeddedSchemaRejectsNullAndEmptyEnum/{"type":"object","properties":{"nested":{"type":"object","enum":[]}}} (0.00s)
+=== RUN   TestNullEnumValueRemainsValid
+--- PASS: TestNullEnumValueRemainsValid (0.00s)
+PASS
+ok  	github.com/JohanSardar/lamp/pkg/plugin	0.008s

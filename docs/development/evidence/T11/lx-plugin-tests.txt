@@ -1,0 +1,95 @@
+T11 source directory: /tmp/lamp-t11-final.sPjxBH
+=== RUN   TestConfigurationDoesNotRoundLargeIntegers
+--- PASS: TestConfigurationDoesNotRoundLargeIntegers (0.00s)
+=== RUN   TestImmutableAdapterAndConfiguration
+--- PASS: TestImmutableAdapterAndConfiguration (0.00s)
+=== RUN   TestAllTenReferenceTypes
+=== RUN   TestAllTenReferenceTypes/engine
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+=== RUN   TestAllTenReferenceTypes/network
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+=== RUN   TestAllTenReferenceTypes/credential_source
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+=== RUN   TestAllTenReferenceTypes/harness
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+=== RUN   TestAllTenReferenceTypes/kit
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+=== RUN   TestAllTenReferenceTypes/ci
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+=== RUN   TestAllTenReferenceTypes/trigger
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+=== RUN   TestAllTenReferenceTypes/console
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+=== RUN   TestAllTenReferenceTypes/access
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+=== RUN   TestAllTenReferenceTypes/notification_sink
+    conformance_test.go:202: separate confined worker: useful scoped effect, extra effect denied, grant revoked
+--- PASS: TestAllTenReferenceTypes (1.27s)
+    --- PASS: TestAllTenReferenceTypes/engine (0.15s)
+    --- PASS: TestAllTenReferenceTypes/network (0.07s)
+    --- PASS: TestAllTenReferenceTypes/credential_source (0.06s)
+    --- PASS: TestAllTenReferenceTypes/harness (0.13s)
+    --- PASS: TestAllTenReferenceTypes/kit (0.08s)
+    --- PASS: TestAllTenReferenceTypes/ci (0.05s)
+    --- PASS: TestAllTenReferenceTypes/trigger (0.13s)
+    --- PASS: TestAllTenReferenceTypes/console (0.11s)
+    --- PASS: TestAllTenReferenceTypes/access (0.08s)
+    --- PASS: TestAllTenReferenceTypes/notification_sink (0.03s)
+=== RUN   TestSixteenConcurrentRPCs
+--- PASS: TestSixteenConcurrentRPCs (0.26s)
+=== RUN   TestRealConfinedPluginEffect
+--- PASS: TestRealConfinedPluginEffect (0.26s)
+=== RUN   TestNativeSandboxDeniesAmbientAuthority
+    isolation_test.go:115: real OS probes: {"env":false,"fd":false,"file":false,"subprocess":false,"tcp":false,"unix":false}
+--- PASS: TestNativeSandboxDeniesAmbientAuthority (0.44s)
+=== RUN   TestPluginCannotForgeOrReplayEffect
+=== RUN   TestPluginCannotForgeOrReplayEffect/forge
+=== RUN   TestPluginCannotForgeOrReplayEffect/replay
+--- PASS: TestPluginCannotForgeOrReplayEffect (0.33s)
+    --- PASS: TestPluginCannotForgeOrReplayEffect/forge (0.08s)
+    --- PASS: TestPluginCannotForgeOrReplayEffect/replay (0.10s)
+=== RUN   TestWorkerFailureRevokesOnlyDependentWork
+=== RUN   TestWorkerFailureRevokesOnlyDependentWork/crash
+    isolation_test.go:180: circuit opened, grants revoked: EOF
+=== RUN   TestWorkerFailureRevokesOnlyDependentWork/hang
+    isolation_test.go:180: circuit opened, grants revoked: context deadline exceeded
+=== RUN   TestWorkerFailureRevokesOnlyDependentWork/oversize
+    isolation_test.go:180: circuit opened, grants revoked: plugin frame length out of bounds
+=== RUN   TestWorkerFailureRevokesOnlyDependentWork/stderr
+    isolation_test.go:180: circuit opened, grants revoked: plugin stderr flood
+=== RUN   TestWorkerFailureRevokesOnlyDependentWork/malformed
+    isolation_test.go:180: circuit opened, grants revoked: invalid character 'x' looking for beginning of value
+=== RUN   TestWorkerFailureRevokesOnlyDependentWork/flood
+    isolation_test.go:180: circuit opened, grants revoked: unsolicited or duplicate plugin response
+=== RUN   TestWorkerFailureRevokesOnlyDependentWork/memory
+    isolation_test.go:180: circuit opened, grants revoked: read |0: file already closed
+--- PASS: TestWorkerFailureRevokesOnlyDependentWork (2.28s)
+    --- PASS: TestWorkerFailureRevokesOnlyDependentWork/crash (0.09s)
+    --- PASS: TestWorkerFailureRevokesOnlyDependentWork/hang (1.16s)
+    --- PASS: TestWorkerFailureRevokesOnlyDependentWork/oversize (0.12s)
+    --- PASS: TestWorkerFailureRevokesOnlyDependentWork/stderr (0.10s)
+    --- PASS: TestWorkerFailureRevokesOnlyDependentWork/malformed (0.10s)
+    --- PASS: TestWorkerFailureRevokesOnlyDependentWork/flood (0.09s)
+    --- PASS: TestWorkerFailureRevokesOnlyDependentWork/memory (0.20s)
+=== RUN   TestManifestAdmissionPinsBytesAndTrust
+--- PASS: TestManifestAdmissionPinsBytesAndTrust (0.00s)
+=== RUN   TestManifestRequiredFields
+--- PASS: TestManifestRequiredFields (0.00s)
+=== RUN   TestSchemaIsStrictAndBounded
+--- PASS: TestSchemaIsStrictAndBounded (0.00s)
+=== RUN   TestWireBoundary
+--- PASS: TestWireBoundary (0.00s)
+=== RUN   TestExactFrameCeiling
+--- PASS: TestExactFrameCeiling (0.01s)
+=== RUN   TestFrameShortWrites
+--- PASS: TestFrameShortWrites (0.00s)
+=== RUN   FuzzReadFrame
+=== RUN   FuzzReadFrame/seed#0
+=== RUN   FuzzReadFrame/seed#1
+=== RUN   FuzzReadFrame/seed#2
+--- PASS: FuzzReadFrame (0.00s)
+    --- PASS: FuzzReadFrame/seed#0 (0.00s)
+    --- PASS: FuzzReadFrame/seed#1 (0.00s)
+    --- PASS: FuzzReadFrame/seed#2 (0.00s)
+PASS
+ok  	github.com/JohanSardar/lamp/pkg/plugin	4.850s
