@@ -24,6 +24,11 @@ import (
 var lampBinary, daemonBinary string
 
 func TestMain(m *testing.M) {
+	// The journal kill tests rerun this binary as a child and kill it, so a
+	// child must neither build the CLI binaries nor leave them behind.
+	if os.Getenv("LAMP_JOURNAL_WRITER_DIR") != "" || os.Getenv("LAMP_MARKER_CHILD_DIR") != "" {
+		os.Exit(m.Run())
+	}
 	dir, err := os.MkdirTemp("", "lamp-control-test-")
 	if err != nil {
 		panic(err)
