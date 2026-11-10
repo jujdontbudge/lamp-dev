@@ -72,19 +72,27 @@ are the live interface; screenshots would not prove this boundary.
 
 | Command | Result | Evidence |
 | --- | --- | --- |
-| `TMPDIR=/tmp CARGO_BUILD_JOBS=2 make verify` | FAIL, exit 2: existing control daemon bind failure and ten-minute package timeout; plugin package passed | [Full transcript](evidence/T11/m5-verify.txt) |
+| `TMPDIR=/tmp CARGO_BUILD_JOBS=2 make verify` after merging `origin/main` | PASS, exit 0; control suite completed in 448.476 s, all workspace gates reached | [Final full transcript](evidence/T11/m5-verify-after-main.txt) |
+| Same command before the main merge | FAIL, exit 2: existing control daemon bind failure and ten-minute package timeout; plugin package passed | [Retained failed transcript](evidence/T11/m5-verify.txt) |
 | `TMPDIR=/tmp GOMAXPROCS=2 go test -race -p=2 ./pkg/plugin -count=1 -v` | PASS, exit 0; no race reports | [Final race transcript](evidence/T11/m5-race-final.txt) |
-| `go test ./pkg/plugin -run 'TestEmbeddedSchema|TestNullEnum' -v` | PASS, exit 0 | Also included in the final race transcript |
+| `go test ./pkg/plugin -run 'TestEmbeddedSchema\|TestNullEnum' -v` | PASS, exit 0 | Also included in the final race transcript |
 | `.venv/bin/python -m unittest discover -s tests/contracts -p test_plugin.py -v` | PASS, exit 0; both independent contract tests | Full contract suite also passed in the separate remaining-gates transcript below |
 
-The full run stopped in `go test ./...`: `TestDurabilityRejectionHasNoEffect`
-reported that lampd did not bind its socket, then the package reached its overall
-ten-minute timeout during `TestRustWorkerControlPath`. The plugin package passed
-in that same invocation. No control code, startup deadline or test selection was
-changed to turn this into a passing result.
+Before the main merge, the full run stopped in `go test ./...`:
+`TestDurabilityRejectionHasNoEffect` reported that lampd did not bind its socket,
+then the package reached its overall ten-minute timeout during
+`TestRustWorkerControlPath`. The plugin package passed in that same invocation.
+Those failures remain failures in the retained transcripts.
 
-All remaining gates passed **separately**, exit 0; this does not relabel the full
-verification failure. [Remaining-gates transcript](evidence/T11/m5-remaining-checks.txt):
+Then PR #11 merged. This branch merged `origin/main` at
+`0dec89b`, including the coordinator's test-temp cleanup and
+main-only push CI policy. A fresh complete `make verify` passed after that merge;
+no control startup deadline was increased and no test was excluded. T11 itself adds no
+control-core implementation changes. Review CI is left to the coordinator.
+
+Before merging, all remaining gates also passed **separately**, exit 0; this did
+not relabel the earlier full verification failure.
+[Remaining-gates transcript](evidence/T11/m5-remaining-checks.txt):
 
 ```sh
 cargo test --workspace --locked
