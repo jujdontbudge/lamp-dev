@@ -1,0 +1,8 @@
+=== RUN   TestCancelBeforeDispatchAndTerminalReplay
+--- PASS: TestCancelBeforeDispatchAndTerminalReplay (1.53s)
+=== RUN   TestExpiryAndCursorRetentionBoundaries
+--- PASS: TestExpiryAndCursorRetentionBoundaries (1.09s)
+=== RUN   TestDeniedAdmissionDoesNotAdvanceSourceRevision
+--- PASS: TestDeniedAdmissionDoesNotAdvanceSourceRevision (1.24s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	9.603s

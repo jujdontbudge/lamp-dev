@@ -5,6 +5,8 @@ VENV_PYTHON = .venv/bin/python
 
 # Checked-in bindings mean ordinary builds do not need Python or protoc.
 build:
+	mkdir -p bin
+	$(CC) -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
 	go build ./...
 	cargo build --workspace --locked
 

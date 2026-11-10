@@ -1,0 +1,13 @@
+test_all_requires_e03_in_completeness (test_control.ControlProtocolTests.test_all_requires_e03_in_completeness) ... ok
+test_bearers_cannot_be_loaded_from_a_manifest (test_control.ControlProtocolTests.test_bearers_cannot_be_loaded_from_a_manifest) ... ok
+test_fixed_allocation_and_invalid_preparation (test_control.ControlProtocolTests.test_fixed_allocation_and_invalid_preparation) ... ok
+test_individual_failure_does_not_skip_remaining_commands (test_control.ControlProtocolTests.test_individual_failure_does_not_skip_remaining_commands) ... ok
+test_process_callers_keep_full_count_on_two_owner_sandboxes (test_control.ControlProtocolTests.test_process_callers_keep_full_count_on_two_owner_sandboxes) ... {"status": "incomplete", "evidence": "/tmp"}
+ok
+test_quota_contention_rejects_public_and_independent_overspend (test_control.ControlProtocolTests.test_quota_contention_rejects_public_and_independent_overspend) ... ok
+test_unix_http_uses_public_headers_and_json (test_control.ControlProtocolTests.test_unix_http_uses_public_headers_and_json) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 1.241s
+
+OK

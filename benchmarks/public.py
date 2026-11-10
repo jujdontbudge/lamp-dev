@@ -1,6 +1,8 @@
 import base64
 import json
+import http.client
 import os
+import socket
 import subprocess
 import time
 import urllib.parse
@@ -14,8 +16,30 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise urllib.error.HTTPError(request.full_url, code, "API redirects are not allowed", headers, response)
 
 
+class UnixHTTPHandler(urllib.request.HTTPHandler):
+    """HTTP over the public private Unix socket, without a gateway process."""
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+
+    def http_open(self, request):
+        path = self.path
+
+        class Connection(http.client.HTTPConnection):
+            def connect(self):
+                self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                self.sock.settimeout(self.timeout)
+                self.sock.connect(path)
+
+        return self.do_open(Connection, request)
+
+
 class PublicLamp:
-    def __init__(self, url=None, cli=None, timeout=30, token=None):
+    def __init__(self, url=None, cli=None, timeout=30, token=None, socket_path=None):
+        if socket_path:
+            if url or cli:
+                raise ValueError("Unix API socket is a separate transport choice")
+            url = "http://localhost"
         if bool(url) == bool(cli):
             raise ValueError("choose API URL or CLI executable")
         if url and urllib.parse.urlsplit(url).scheme not in ("http", "https"):
@@ -28,7 +52,7 @@ class PublicLamp:
                 raise ValueError("remote authenticated API requires HTTPS")
         self.url, self.cli, self.timeout, self.token = url, cli, timeout, token
         self.calls = []
-        self.opener = urllib.request.build_opener(NoRedirect())
+        self.opener = urllib.request.build_opener(NoRedirect(), *([UnixHTTPHandler(socket_path)] if socket_path else []))
 
     def call(self, noun, action, fields=None):
         fields = dict(fields or {})
@@ -52,9 +76,11 @@ class PublicLamp:
                 result = subprocess.run(args, capture_output=True, timeout=self.timeout, check=True)
                 value = json.loads(result.stdout)
             else:
-                path = "/v1/" + {"sandbox": "sandboxes", "exec": "execs", "operation": "operations"}[noun]
+                path = "/v1/" + {"sandbox": "sandboxes", "exec": "execs", "operation": "operations", "key": "keys"}[noun]
                 method = "POST"
-                if action != "create":
+                if action == "list":
+                    method = "GET"
+                elif action != "create":
                     identity = fields.pop(noun + "_id")
                     path += "/" + urllib.parse.quote(identity, safe="")
                     if action in ("get", "watch"):
@@ -132,6 +158,9 @@ class PublicLamp:
 
     def execute(self, sandbox, argv):
         identity = self.mutation("exec", "create", {"sandbox_id": sandbox, "argv": argv})["exec_id"]
+        return self.wait_exec(identity)
+
+    def wait_exec(self, identity):
         deadline = time.monotonic() + self.timeout
         cursor, output, seen = None, bytearray(), set()
         exit_observed = False

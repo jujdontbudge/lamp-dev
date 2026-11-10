@@ -104,7 +104,13 @@ runners. T1 does not claim a fresh macOS-VM public CI system is already built.
 
 Run infra/ci/install.py --lane lx|m5|la on the named host, piping a fresh
 repository registration token to stdin. It needs Python 3.12+ with venv, free
-network downloads, a working Go/Rust/C toolchain and git/make. Linux users need
+network downloads, a working Go/Rust/C toolchain and git/make. Plugin boundary
+tests additionally require Linux bubblewrap (`/usr/bin/bwrap`), cgroup v2
+memory/CPU delegation and a working user systemd manager; install the free
+`bubblewrap` OS package before running verification. The LA provisioner includes
+it. macOS tests use the built-in sandbox-exec and explicitly mark resource limits
+diagnostic; production native starts remain fail-closed until hard quotas qualify.
+Linux users need
 lingering already enabled; the installer does not elevate privileges. Package
 version and SHA-256 are pinned in runner-packages.json from the official release.
 It installs under ~/.local/share/lamp-ci, not the repository, and enables the

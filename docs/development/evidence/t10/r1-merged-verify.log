@@ -1,0 +1,20 @@
+go build ./...
+cargo build --workspace --locked
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.87s
+go test ./...
+ok  	github.com/JohanSardar/lamp/cmd/lamp	(cached)
+?   	github.com/JohanSardar/lamp/cmd/lamp-mcp	[no test files]
+?   	github.com/JohanSardar/lamp/cmd/lampd	[no test files]
+?   	github.com/JohanSardar/lamp/contracts/public	[no test files]
+?   	github.com/JohanSardar/lamp/docs/spec	[no test files]
+--- FAIL: TestExecLostAfterStart (0.22s)
+    benchmark_e2e_test.go:156: Inspect did not address original Start
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	409.477s
+?   	github.com/JohanSardar/lamp/internal/guard	[no test files]
+ok  	github.com/JohanSardar/lamp/internal/surface	(cached)
+?   	github.com/JohanSardar/lamp/pkg/api	[no test files]
+ok  	github.com/JohanSardar/lamp/pkg/workerpb	(cached)
+?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
+FAIL
+make: *** [test] Error 1

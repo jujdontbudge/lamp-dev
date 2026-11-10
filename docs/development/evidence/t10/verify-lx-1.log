@@ -1,0 +1,460 @@
+python3 -m venv .venv
+.venv/bin/pip install --disable-pip-version-check -r tools/requirements.txt
+Collecting jsonschema==4.25.1 (from -r tools/requirements.txt (line 1))
+  Using cached jsonschema-4.25.1-py3-none-any.whl.metadata (7.6 kB)
+Collecting attrs==25.4.0 (from -r tools/requirements.txt (line 2))
+  Using cached attrs-25.4.0-py3-none-any.whl.metadata (10 kB)
+Collecting jsonschema-specifications==2025.9.1 (from -r tools/requirements.txt (line 3))
+  Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting referencing==0.37.0 (from -r tools/requirements.txt (line 4))
+  Using cached referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting rpds-py==0.30.0 (from -r tools/requirements.txt (line 5))
+  Using cached rpds_py-0.30.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+Using cached jsonschema-4.25.1-py3-none-any.whl (90 kB)
+Using cached attrs-25.4.0-py3-none-any.whl (67 kB)
+Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Using cached referencing-0.37.0-py3-none-any.whl (26 kB)
+Using cached rpds_py-0.30.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (382 kB)
+Installing collected packages: rpds-py, attrs, referencing, jsonschema-specifications, jsonschema
+
+Successfully installed attrs-25.4.0 jsonschema-4.25.1 jsonschema-specifications-2025.9.1 referencing-0.37.0 rpds-py-0.30.0
+go build ./...
+cargo build --workspace --locked
+   Compiling unicode-ident v1.0.27
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling typenum v1.20.1
+   Compiling serde v1.0.229
+   Compiling libc v0.2.191
+   Compiling serde_json v1.0.154
+   Compiling hybrid-array v0.4.15
+   Compiling memchr v2.8.3
+   Compiling anyhow v1.0.104
+   Compiling itoa v1.0.19
+   Compiling either v1.19.0
+   Compiling semver v1.0.28
+   Compiling crypto-common v0.2.2
+   Compiling itertools v0.14.0
+   Compiling rustc_version v0.4.1
+   Compiling block-buffer v0.12.1
+   Compiling const-oid v0.10.2
+   Compiling curve25519-dalek v5.0.0
+   Compiling cpufeatures v0.3.1
+   Compiling digest v0.11.3
+   Compiling cfg-if v1.0.5
+   Compiling bytes v1.12.1
+   Compiling signature v3.0.0
+   Compiling zeroize v1.9.1
+   Compiling subtle v2.6.1
+   Compiling syn v2.0.119
+   Compiling syn v3.0.10
+   Compiling ed25519 v3.0.0
+   Compiling sha2 v0.11.1
+   Compiling rustix v1.1.6
+   Compiling winnow v1.0.5
+   Compiling toml_writer v1.2.0+spec-1.1.0
+   Compiling prettyplease v0.2.37
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling regex-syntax v0.8.11
+   Compiling prost-derive v0.14.4
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling serde_derive v1.0.229
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.3
+   Compiling linux-raw-sys v0.12.1
+   Compiling bitflags v2.13.2
+   Compiling foldhash v0.1.5
+   Compiling indexmap v2.14.2
+   Compiling hashbrown v0.15.5
+   Compiling regex-automata v0.4.18
+   Compiling fastrand v2.5.0
+   Compiling ed25519-dalek v3.0.0
+   Compiling once_cell v1.21.4
+   Compiling fixedbitset v0.5.9
+   Compiling regex v1.13.1
+   Compiling tempfile v3.27.0
+   Compiling petgraph v0.8.3
+   Compiling heck v0.5.0
+   Compiling multimap v0.10.1
+   Compiling log v0.4.35
+   Compiling prost v0.14.4
+   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-worker-protocol)
+   Compiling prost-types v0.14.4
+   Compiling toml_datetime v1.1.3+spec-1.1.0
+   Compiling serde_spanned v1.1.3
+   Compiling prost-build v0.14.4
+   Compiling lamp-protogen v0.1.0 (/home/johan/lamp-t10-control-core/src/tools/protogen)
+   Compiling toml v1.2.1+spec-1.1.0
+   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-contracts)
+   Compiling lamp-engine v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-supervisor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.59s
+go test ./...
+ok  	github.com/JohanSardar/lamp/cmd/lamp	0.026s
+?   	github.com/JohanSardar/lamp/cmd/lamp-mcp	[no test files]
+?   	github.com/JohanSardar/lamp/cmd/lampd	[no test files]
+?   	github.com/JohanSardar/lamp/contracts/public	[no test files]
+?   	github.com/JohanSardar/lamp/docs/spec	[no test files]
+ok  	github.com/JohanSardar/lamp/internal/control	30.340s
+?   	github.com/JohanSardar/lamp/internal/guard	[no test files]
+ok  	github.com/JohanSardar/lamp/internal/surface	0.019s
+?   	github.com/JohanSardar/lamp/pkg/api	[no test files]
+ok  	github.com/JohanSardar/lamp/pkg/workerpb	0.007s
+?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
+cargo test --workspace --locked
+   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-contracts)
+   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-supervisor)
+   Compiling lamp-protogen v0.1.0 (/home/johan/lamp-t10-control-core/src/tools/protogen)
+   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-worker-protocol)
+   Compiling lamp-engine v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-engine)
+   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.22s
+
+running 0 tests
+     Running unittests src/lib.rs (target/debug/deps/lamp_contracts-9d2c54fff3d891b8)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 16 tests
+test definition::tests::accepts_journey_definition ... ok
+test fsutil::tests::store_lock_is_exclusive_until_released ... ok
+test engine::tests::uncertain_freeze_is_thawed ... ok
+test definition::tests::rejects_container_inputs_and_bad_fields ... ok
+test guest::tests::failure_before_dispatch_is_retryable ... ok
+test guest::tests::lost_reply_after_delivery_is_outcome_unknown ... ok
+test manifest::tests::canonical_json_sorts_keys ... ok
+test fc::tests::liveness_ends_with_the_process ... ok
+test net::tests::prefixes_are_normalized ... ok
+test engine::tests::running_commands_are_never_evicted ... ok
+     Running unittests src/lib.rs (target/debug/deps/lamp_engine-d161afca60ba2237)
+test manifest::tests::provenance_signature_binds_every_field ... ok
+test guest::tests::completion_survives_a_reset_connection ... ok
+test fc::tests::api_connect_waits_for_listen_after_bind ... ok
+test engine::tests::unconfirmed_thaw_after_uncertain_freeze_is_reported ... ok
+test manifest::tests::chunk_digest_matches_reference_and_zero_shortcut ... ok
+test fsutil::tests::sparse_digest_equals_dense_reference ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s
+
+
+running 19 tests
+test audit::tests::full_spool_never_overwrites_acknowledged_history ... ok
+test netlink::tests::final_attribute_can_be_unpadded ... ok
+test netlink::tests::no_truncated_messages ... ok
+test audit::tests::ack_must_match ... ok
+test audit::tests::gap_is_not_acknowledged_or_spooled ... ok
+test proxy::tests::absolute_form_is_rewritten_to_origin_form ... ok
+test proxy::tests::policy_matches_the_guard ... ok
+test proxy::tests::unsafe_requests_are_refused ... ok
+test process::tests::task_env_is_validated ... ok
+test audit::tests::pipelined_frames_share_a_barrier_and_are_acked_in_order ... ok
+test tests::default_ceiling ... ok
+test tests::malformed_and_encapsulated_packets ... ok
+test runtime::tests::fin_then_peer_data_crash_remains_unterminated ... ok
+test runtime::tests::tcp_rst_then_reconnect_has_two_admissions ... ok
+test runtime::tests::fin_drains_and_same_isn_retransmission_does_not_readmit ... ok
+     Running unittests src/lib.rs (target/debug/deps/lamp_guard-dbd2770d561a80ca)
+test runtime::tests::established_flow_adds_no_per_packet_durable_writes ... ok
+test runtime::tests::denials_are_batched_and_capacity_fails_closed ... ok
+test runtime::tests::idle_tick_expires_and_audit_failure_stops_established_traffic ... ok
+test audit::tests::a_slow_ack_is_waited_for_on_the_same_stream ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test tests::exec_environment_is_validated ... ok
+test tests::barrier_validation ... ok
+test tests::frames_roundtrip_and_reject_unknown ... ok
+test tests::base64_roundtrip ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test grants::tests::scope_generation_policy_and_expiry_are_enforced ... ok
+test grants::tests::install_writes_a_private_file_and_load_rejects_writable_ones ... ok
+test server::tests::fingerprint_ignores_map_order_but_not_content ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test create_command_and_memory_fork ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test tests::truncated_and_invalid ... ok
+test wire::tests::malformed_input_is_never_equivalent ... ok
+test unix::tests::rejects_unknown_fields_and_bad_lengths ... ok
+test unix::tests::descriptors_cross_a_real_socket ... ok
+test wire::tests::socket_receive_accepts_go_map_order ... ok
+test grant::tests::single_use_and_indices ... ok
+test wire::tests::map_order_is_accepted_and_unknown_fields_are_not ... ok
+     Running unittests src/main.rs (target/debug/deps/lamp_guard-6862a058140a195b)
+     Running unittests src/lib.rs (target/debug/deps/lamp_init-e49245778e45d667)
+     Running unittests src/bin/lamp-guest-helper.rs (target/debug/deps/lamp_guest_helper-413318a4b2fc2a0b)
+     Running unittests src/bin/lamp-init.rs (target/debug/deps/lamp_init-fa7ceb89103f83ac)
+     Running unittests src/main.rs (target/debug/deps/lamp_protogen-0b10ada5db114885)
+     Running unittests src/lib.rs (target/debug/deps/lamp_supervisor-2bac6dd3edcb8f0d)
+     Running unittests src/main.rs (target/debug/deps/lamp_supervisor-88dc66001cacc5ef)
+     Running tests/e2e.rs (target/debug/deps/e2e-04ac43cb56b07da8)
+     Running unittests src/lib.rs (target/debug/deps/lamp_worker_protocol-1c598191003983f2)
+test tests::roundtrip_and_limits ... ok
+test grant::tests::accepts_valid_and_rejects_tampering ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+   Doc-tests lamp_contracts
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_guard
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_init
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_supervisor
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_worker_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+python3 -m unittest discover -s tests/benchmarks -v
+test_bearers_cannot_be_loaded_from_a_manifest (test_control.ControlProtocolTests.test_bearers_cannot_be_loaded_from_a_manifest) ... ok
+test_fixed_allocation_and_invalid_preparation (test_control.ControlProtocolTests.test_fixed_allocation_and_invalid_preparation) ... ok
+test_acknowledged_loss_ancestor_and_unauthorized_are_errors (test_harness.HarnessTests.test_acknowledged_loss_ancestor_and_unauthorized_are_errors) ... ok
+test_api_real_useful_work_and_async_operations (test_harness.HarnessTests.test_api_real_useful_work_and_async_operations) ... ok
+test_check_fork_rejects_one_tick_child_rollback (test_harness.HarnessTests.test_check_fork_rejects_one_tick_child_rollback) ... ok
+test_checked_in_run_evidence_hash_chains_and_honest_status (test_harness.HarnessTests.test_checked_in_run_evidence_hash_chains_and_honest_status) ... ok
+test_cli_adapter_uses_public_flags_and_real_workload (test_harness.HarnessTests.test_cli_adapter_uses_public_flags_and_real_workload) ... ok
+test_e02_rejects_direct_and_invalid_secured_proxy_endpoints (test_harness.HarnessTests.test_e02_rejects_direct_and_invalid_secured_proxy_endpoints) ... ok
+test_every_required_metadata_field_is_typed_and_nonblank (test_harness.HarnessTests.test_every_required_metadata_field_is_typed_and_nonblank) ... ok
+test_evidence_preserves_failed_runs_and_rejects_overwrite (test_harness.HarnessTests.test_evidence_preserves_failed_runs_and_rejects_overwrite) ... ok
+test_execute_drains_output_after_exit_and_deduplicates_final_pages (test_harness.HarnessTests.test_execute_drains_output_after_exit_and_deduplicates_final_pages) ... ok
+test_external_history_crashes_and_omitted_flush_controls (test_harness.HarnessTests.test_external_history_crashes_and_omitted_flush_controls) ... ok
+test_fixture_partial_line_timeout_cannot_hang_runner (test_harness.HarnessTests.test_fixture_partial_line_timeout_cannot_hang_runner) ... ok
+test_fork_oracle_detects_shared_writes_through_public_api (test_harness.HarnessTests.test_fork_oracle_detects_shared_writes_through_public_api) ... ok
+test_fork_trial_rejects_one_tick_child_rollback (test_harness.HarnessTests.test_fork_trial_rejects_one_tick_child_rollback) ... ok
+test_frozen_rows_and_thresholds (test_harness.HarnessTests.test_frozen_rows_and_thresholds) ... ok
+test_independent_generation_checksum (test_harness.HarnessTests.test_independent_generation_checksum) ... ok
+test_metadata_requires_typed_measurements_not_free_text (test_harness.HarnessTests.test_metadata_requires_typed_measurements_not_free_text) ... ok
+test_pair_directions_boundary_and_uncertainty (test_harness.HarnessTests.test_pair_directions_boundary_and_uncertainty) ... ok
+test_placeholder_metadata_cannot_produce_passing_evidence (test_harness.HarnessTests.test_placeholder_metadata_cannot_produce_passing_evidence) ... ok
+test_proxy_only_guest_leaves_ledger_checks_to_host_for_both_sides (test_harness.HarnessTests.test_proxy_only_guest_leaves_ledger_checks_to_host_for_both_sides) ... ok
+test_proxy_receipts_bind_origin_response_and_request_body (test_harness.HarnessTests.test_proxy_receipts_bind_origin_response_and_request_body) ... ok
+test_real_e04_self_attestation_without_harness_traces_is_incomplete (test_harness.HarnessTests.test_real_e04_self_attestation_without_harness_traces_is_incomplete) ... ok
+test_real_network_fixture_every_measure_and_required_proxy (test_harness.HarnessTests.test_real_network_fixture_every_measure_and_required_proxy) ... ok
+test_real_resident_memory_and_disk_generations (test_harness.HarnessTests.test_real_resident_memory_and_disk_generations) ... ok
+test_real_workload_compute_disk (test_harness.HarnessTests.test_real_workload_compute_disk) ... ok
+test_recovery_validates_unacknowledged_objects_against_external_writes (test_harness.HarnessTests.test_recovery_validates_unacknowledged_objects_against_external_writes) ... ok
+test_rest_mutation_preconditions_are_headers_not_body (test_harness.HarnessTests.test_rest_mutation_preconditions_are_headers_not_body) ... ok
+test_runner_process_writes_incomplete_model_evidence (test_harness.HarnessTests.test_runner_process_writes_incomplete_model_evidence) ... ok
+test_unavailable_or_unsampled_metadata_cannot_pass (test_harness.HarnessTests.test_unavailable_or_unsampled_metadata_cannot_pass) ... python3 -m unittest discover -s tests/infra -v
+ok
+
+----------------------------------------------------------------------
+Ran 30 tests in 14.207s
+
+OK
+test_launch_delay_and_timeouts_are_ignored (test_timing_run.ProductionScript.test_launch_delay_and_timeouts_are_ignored) ... ok
+test_production_file_has_no_hooks (test_timing_run.ProductionScript.test_production_file_has_no_hooks) ... ok
+test_sysctl_paths_are_fixed (test_timing_run.ProductionScript.test_sysctl_paths_are_fixed) ... ok
+test_command_ignoring_term_is_killed_then_services_restored (test_timing_run.TimingRun.test_command_ignoring_term_is_killed_then_services_restored) ... ok
+test_command_status_is_kept_and_services_restored (test_timing_run.TimingRun.test_command_status_is_kept_and_services_restored) ... ok
+test_failed_cache_drop_does_not_measure_even_if_compaction_succeeds (test_timing_run.TimingRun.test_failed_cache_drop_does_not_measure_even_if_compaction_succeeds) ... ok
+test_failed_compaction_does_not_measure (test_timing_run.TimingRun.test_failed_compaction_does_not_measure) ... ok
+test_failed_host_preparation_does_not_measure_and_restores (test_timing_run.TimingRun.test_failed_host_preparation_does_not_measure_and_restores) ... ok
+test_failed_restore_exits_nonzero (test_timing_run.TimingRun.test_failed_restore_exits_nonzero) ... ok
+test_failed_stop_does_not_measure (test_timing_run.TimingRun.test_failed_stop_does_not_measure) ... ok
+test_group_member_ignoring_term_is_killed_before_restore (test_timing_run.TimingRun.test_group_member_ignoring_term_is_killed_before_restore) ... ok
+test_signal_during_launch_is_held_until_the_command_is_recorded (test_timing_run.TimingRun.test_signal_during_launch_is_held_until_the_command_is_recorded) ... ok
+test_stragglers_after_a_normal_exit_are_stopped_before_restore (test_timing_run.TimingRun.test_stragglers_after_a_normal_exit_are_stopped_before_restore) ... ok
+test_success_stops_runs_and_restores (test_timing_run.TimingRun.test_success_stops_runs_and_restores) ... ok
+test_term_reaps_the_whole_process_group (test_timing_run.TimingRun.test_term_reaps_the_whole_process_group) ... ok
+test_term_stops_and_reaps_the_command_before_restoring (test_timing_run.TimingRun.test_term_stops_and_reaps_the_command_before_restoring) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 12.591s
+
+OK
+python3 tools/check_contracts.py
+56 resources, 328 operations/scopes, 31 errors, 200 events: match architecture §§11–12
+.venv/bin/python -m unittest discover -s tests/contracts -v
+test_all_operation_inputs_are_closed (test_schema.Contracts.test_all_operation_inputs_are_closed) ... ok
+test_all_schemas_well_formed (test_schema.Contracts.test_all_schemas_well_formed) ... ok
+test_create_and_unknown_fields (test_schema.Contracts.test_create_and_unknown_fields) ... ok
+test_drift_checks_fail_closed (test_schema.Contracts.test_drift_checks_fail_closed) ... ok
+test_expiry_continuation_and_preauth_shape (test_schema.Contracts.test_expiry_continuation_and_preauth_shape) ... ok
+test_nested_readiness_and_transfer (test_schema.Contracts.test_nested_readiness_and_transfer) ... ok
+test_reviewed_resource_and_operation_drift (test_schema.Contracts.test_reviewed_resource_and_operation_drift) ... .venv/bin/python -m unittest discover -s tests/ci -v
+ok
+test_tags_enums_and_location (test_schema.Contracts.test_tags_enums_and_location) ... ok
+test_transient_results_and_wrapped_reads (test_schema.Contracts.test_transient_results_and_wrapped_reads) ... ok
+test_uint64_precision_and_scope_empty (test_schema.Contracts.test_uint64_precision_and_scope_empty) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 2.170s
+
+OK
+test_context_mismatch_and_reruns_denied (test_guard.Guard.test_context_mismatch_and_reruns_denied) ... ok
+test_denial_kills_only_ancestor_worker (test_guard.Guard.test_denial_kills_only_ancestor_worker) ... Lamp host guard: terminated denied Runner.Worker 30
+ok
+test_discovery_failure_never_returns_a_failed_hook (test_guard.Guard.test_discovery_failure_never_returns_a_failed_hook) ... Lamp host guard: cannot terminate Worker; holding hook for operator intervention
+Lamp host guard: cannot terminate Worker; holding hook for operator intervention
+ok
+test_main_and_manual (test_guard.Guard.test_main_and_manual) ... ok
+test_private_owner_push (test_guard.Guard.test_private_owner_push) ... ok
+test_public_and_stranger_jobs_denied (test_guard.Guard.test_public_and_stranger_jobs_denied) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.001s
+
+python3 tools/interop.py
+OK
+   Compiling unicode-ident v1.0.27
+   Compiling serde_core v1.0.229
+   Compiling digest v0.11.3
+   Compiling proc-macro2 v1.0.107
+   Compiling sha2 v0.11.1
+   Compiling quote v1.0.47
+   Compiling syn v2.0.119
+   Compiling syn v3.0.10
+   Compiling serde_derive v1.0.229
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling prost-derive v0.14.4
+   Compiling curve25519-dalek v5.0.0
+   Compiling ed25519-dalek v3.0.0
+   Compiling prost v0.14.4
+   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-worker-protocol)
+   Compiling serde_json v1.0.154
+   Compiling serde v1.0.229
+   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-contracts)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.45s
+PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
+PASS: Go request → Unix socket → Rust typed Protobuf → Go response
+python3 tools/generate.py --check
+public codegen: clean
+go vet ./...
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+    Checking itoa v1.0.19
+    Checking memchr v2.8.3
+    Checking serde_core v1.0.229
+    Checking zmij v1.0.23
+    Checking libc v0.2.191
+    Checking typenum v1.20.1
+    Checking const-oid v0.10.2
+    Checking cpufeatures v0.3.1
+    Checking cfg-if v1.0.5
+    Checking bytes v1.12.1
+    Checking subtle v2.6.1
+    Checking signature v3.0.0
+    Checking zeroize v1.9.1
+    Checking winnow v1.0.5
+    Checking toml_writer v1.2.0+spec-1.1.0
+    Checking prost v0.14.4
+    Checking ed25519 v3.0.0
+    Checking unicode-ident v1.0.27
+    Checking hashbrown v0.17.1
+    Checking regex-syntax v0.8.11
+    Checking hybrid-array v0.4.15
+    Checking equivalent v1.0.3
+    Checking toml_parser v1.1.5+spec-1.1.0
+    Checking proc-macro2 v1.0.107
+    Checking linux-raw-sys v0.12.1
+    Checking bitflags v2.13.2
+    Checking foldhash v0.1.5
+    Checking block-buffer v0.12.1
+    Checking crypto-common v0.2.2
+    Checking indexmap v2.14.2
+    Checking once_cell v1.21.4
+    Checking quote v1.0.47
+    Checking rustix v1.1.6
+    Checking hashbrown v0.15.5
+    Checking digest v0.11.3
+    Checking regex-automata v0.4.18
+    Checking fastrand v2.5.0
+    Checking syn v2.0.119
+    Checking fixedbitset v0.5.9
+    Checking sha2 v0.11.1
+    Checking curve25519-dalek v5.0.0
+    Checking either v1.19.0
+    Checking petgraph v0.8.3
+    Checking prost-types v0.14.4
+    Checking regex v1.13.1
+    Checking itertools v0.14.0
+    Checking prettyplease v0.2.37
+    Checking multimap v0.10.1
+    Checking tempfile v3.27.0
+    Checking log v0.4.35
+    Checking heck v0.5.0
+    Checking ed25519-dalek v3.0.0
+    Checking prost-build v0.14.4
+    Checking lamp-worker-protocol v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-worker-protocol)
+    Checking lamp-protogen v0.1.0 (/home/johan/lamp-t10-control-core/src/tools/protogen)
+    Checking serde v1.0.229
+    Checking serde_json v1.0.154
+    Checking serde_spanned v1.1.3
+    Checking toml_datetime v1.1.3+spec-1.1.0
+    Checking toml v1.2.1+spec-1.1.0
+    Checking lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+    Checking lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
+    Checking lamp-contracts v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-contracts)
+    Checking lamp-engine v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-engine)
+    Checking lamp-supervisor v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-supervisor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 22.80s
