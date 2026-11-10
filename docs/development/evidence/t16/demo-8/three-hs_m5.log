@@ -1,0 +1,7 @@
+2026-11-10T16:23:22.499-0600 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-10T16:23:22.500-0600 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:30032 [Follower]" leader-address= leader-id=
+lampd: control API listening on /tmp/l16-577c5903/three/api.sock
+2026-11-10T16:23:27.477-0600 [WARN]  raft: no known peers, aborting election
+2026-11-10T16:24:00.274-0600 [DEBUG] raft: received a requestPreVote with a newer term, grant the pre-vote
+2026-11-10T16:24:00.310-0600 [DEBUG] raft: lost leadership because received a requestVote with a newer term
+2026-11-10T16:24:00.366-0600 [WARN]  raft: failed to get previous log: previous-index=1 last-index=0 error="log not found"

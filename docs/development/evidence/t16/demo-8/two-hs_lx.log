@@ -1,0 +1,80 @@
+2026-11-10T17:22:04.045-0500 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-10T17:22:04.045-0500 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:30022 [Follower]" leader-address= leader-id=
+lampd: control API listening on /tmp/l16-577c5903/two/api.sock
+2026-11-10T17:22:07.919-0500 [WARN]  raft: heartbeat timeout reached, starting election: last-leader-addr= last-leader-id=
+2026-11-10T17:22:07.919-0500 [INFO]  raft: entering candidate state: node="Node at 127.0.0.1:30022 [Candidate]" term=2
+2026-11-10T17:22:07.919-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
+2026-11-10T17:22:07.919-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=127.0.0.1:30032
+2026-11-10T17:22:07.919-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
+2026-11-10T17:22:07.919-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
+2026-11-10T17:22:07.919-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
+2026-11-10T17:22:08.070-0500 [DEBUG] raft: pre-vote received: from=hs_m5 term=2 tally=1
+2026-11-10T17:22:08.070-0500 [DEBUG] raft: pre-vote granted: from=hs_m5 term=2 tally=2
+2026-11-10T17:22:08.070-0500 [INFO]  raft: pre-vote successful, starting election: term=2 tally=2 refused=0 votesNeeded=2
+2026-11-10T17:22:08.070-0500 [DEBUG] raft: voting for self: term=2 id=hs_lx
+2026-11-10T17:22:08.070-0500 [DEBUG] raft: asking for vote: term=2 from=hs_m5 address=127.0.0.1:30032
+2026-11-10T17:22:08.070-0500 [DEBUG] raft: vote granted: from=hs_lx term=2 tally=1
+2026-11-10T17:22:08.120-0500 [DEBUG] raft: vote granted: from=hs_m5 term=2 tally=2
+2026-11-10T17:22:08.121-0500 [INFO]  raft: election won: term=2 tally=2
+2026-11-10T17:22:08.121-0500 [INFO]  raft: entering leader state: leader="Node at 127.0.0.1:30022 [Leader]"
+2026-11-10T17:22:08.121-0500 [INFO]  raft: added peer, starting replication: peer=hs_m5
+2026-11-10T17:22:08.132-0500 [WARN]  raft: appendEntries rejected, sending older logs: peer="{Voter hs_m5 127.0.0.1:30032}" next=1
+2026-11-10T17:22:08.153-0500 [INFO]  raft: pipelining replication: peer="{Voter hs_m5 127.0.0.1:30032}"
+2026-11-10T17:22:26.690-0500 [INFO]  raft: aborting pipeline replication: peer="{Voter hs_m5 127.0.0.1:30032}"
+2026-11-10T17:22:26.932-0500 [ERROR] raft: failed to heartbeat to: peer=127.0.0.1:30032 backoff time=10ms error="msgpack decode error [pos 2403]: read tcp 127.0.0.1:45488->127.0.0.1:30032: i/o timeout"
+2026-11-10T17:22:28.762-0500 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_m5 127.0.0.1:30032}" error="context deadline exceeded"
+2026-11-10T17:22:29.538-0500 [ERROR] raft: failed to heartbeat to: peer=127.0.0.1:30032 backoff time=10ms error="context deadline exceeded"
+2026-11-10T17:22:29.690-0500 [WARN]  raft: failed to contact: server-id=hs_m5 time=3.000527558s
+2026-11-10T17:22:29.690-0500 [WARN]  raft: failed to contact quorum of nodes, stepping down
+2026-11-10T17:22:29.690-0500 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:30022 [Follower]" leader-address= leader-id=
+2026-11-10T17:22:30.861-0500 [ERROR] raft: failed to appendEntries to: peer="{Voter hs_m5 127.0.0.1:30032}" error="context deadline exceeded"
+2026-11-10T17:22:32.059-0500 [ERROR] raft: failed to heartbeat to: peer=127.0.0.1:30032 backoff time=10ms error="context deadline exceeded"
+2026-11-10T17:22:33.439-0500 [WARN]  raft: heartbeat timeout reached, starting election: last-leader-addr= last-leader-id=
+2026-11-10T17:22:33.439-0500 [INFO]  raft: entering candidate state: node="Node at 127.0.0.1:30022 [Candidate]" term=3
+2026-11-10T17:22:33.439-0500 [DEBUG] raft: pre-voting for self: term=3 id=hs_lx
+2026-11-10T17:22:33.439-0500 [DEBUG] raft: asking for pre-vote: term=3 from=hs_m5 address=127.0.0.1:30032
+2026-11-10T17:22:33.439-0500 [DEBUG] raft: calculated votes needed: needed=2 term=3
+2026-11-10T17:22:33.439-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=3 tally=0
+2026-11-10T17:22:33.439-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=3 tally=1
+2026-11-10T17:22:35.440-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 127.0.0.1:30032}" error="context deadline exceeded" term=3
+2026-11-10T17:22:35.440-0500 [DEBUG] raft: pre-vote received: from=hs_m5 term=3 tally=1
+2026-11-10T17:22:35.440-0500 [DEBUG] raft: pre-vote denied: from=hs_m5 term=3 tally=1
+2026-11-10T17:22:39.033-0500 [WARN]  raft: Election timeout reached, restarting election
+2026-11-10T17:22:39.033-0500 [INFO]  raft: entering candidate state: node="Node at 127.0.0.1:30022 [Candidate]" term=3
+2026-11-10T17:22:39.033-0500 [DEBUG] raft: pre-voting for self: term=3 id=hs_lx
+2026-11-10T17:22:39.033-0500 [DEBUG] raft: asking for pre-vote: term=3 from=hs_m5 address=127.0.0.1:30032
+2026-11-10T17:22:39.033-0500 [DEBUG] raft: calculated votes needed: needed=2 term=3
+2026-11-10T17:22:39.033-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=3 tally=0
+2026-11-10T17:22:39.033-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=3 tally=1
+2026-11-10T17:22:41.035-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 127.0.0.1:30032}" error="context deadline exceeded" term=3
+2026-11-10T17:22:41.035-0500 [DEBUG] raft: pre-vote received: from=hs_m5 term=3 tally=1
+2026-11-10T17:22:41.035-0500 [DEBUG] raft: pre-vote denied: from=hs_m5 term=3 tally=1
+2026-11-10T17:22:42.353-0500 [WARN]  raft: Election timeout reached, restarting election
+2026-11-10T17:22:42.353-0500 [INFO]  raft: entering candidate state: node="Node at 127.0.0.1:30022 [Candidate]" term=3
+2026-11-10T17:22:42.353-0500 [DEBUG] raft: pre-voting for self: term=3 id=hs_lx
+2026-11-10T17:22:42.353-0500 [DEBUG] raft: asking for pre-vote: term=3 from=hs_m5 address=127.0.0.1:30032
+2026-11-10T17:22:42.353-0500 [DEBUG] raft: calculated votes needed: needed=2 term=3
+2026-11-10T17:22:42.353-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=3 tally=0
+2026-11-10T17:22:42.353-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=3 tally=1
+2026-11-10T17:22:44.354-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 127.0.0.1:30032}" error="context deadline exceeded" term=3
+2026-11-10T17:22:44.354-0500 [DEBUG] raft: pre-vote received: from=hs_m5 term=3 tally=1
+2026-11-10T17:22:44.354-0500 [DEBUG] raft: pre-vote denied: from=hs_m5 term=3 tally=1
+2026-11-10T17:22:46.936-0500 [WARN]  raft: Election timeout reached, restarting election
+2026-11-10T17:22:46.936-0500 [INFO]  raft: entering candidate state: node="Node at 127.0.0.1:30022 [Candidate]" term=3
+2026-11-10T17:22:46.936-0500 [DEBUG] raft: pre-voting for self: term=3 id=hs_lx
+2026-11-10T17:22:46.936-0500 [DEBUG] raft: asking for pre-vote: term=3 from=hs_m5 address=127.0.0.1:30032
+2026-11-10T17:22:46.936-0500 [DEBUG] raft: calculated votes needed: needed=2 term=3
+2026-11-10T17:22:46.936-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=3 tally=0
+2026-11-10T17:22:46.936-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=3 tally=1
+2026-11-10T17:22:47.017-0500 [DEBUG] raft: pre-vote received: from=hs_m5 term=3 tally=1
+2026-11-10T17:22:47.017-0500 [DEBUG] raft: pre-vote granted: from=hs_m5 term=3 tally=2
+2026-11-10T17:22:47.017-0500 [INFO]  raft: pre-vote successful, starting election: term=3 tally=2 refused=0 votesNeeded=2
+2026-11-10T17:22:47.017-0500 [DEBUG] raft: voting for self: term=3 id=hs_lx
+2026-11-10T17:22:47.017-0500 [DEBUG] raft: asking for vote: term=3 from=hs_m5 address=127.0.0.1:30032
+2026-11-10T17:22:47.017-0500 [DEBUG] raft: vote granted: from=hs_lx term=3 tally=1
+2026-11-10T17:22:47.138-0500 [DEBUG] raft: vote granted: from=hs_m5 term=3 tally=2
+2026-11-10T17:22:47.138-0500 [INFO]  raft: election won: term=3 tally=2
+2026-11-10T17:22:47.138-0500 [INFO]  raft: entering leader state: leader="Node at 127.0.0.1:30022 [Leader]"
+2026-11-10T17:22:47.139-0500 [INFO]  raft: added peer, starting replication: peer=hs_m5
+2026-11-10T17:22:47.168-0500 [INFO]  raft: pipelining replication: peer="{Voter hs_m5 127.0.0.1:30032}"
+2026-11-10T17:22:53.371-0500 [INFO]  raft: aborting pipeline replication: peer="{Voter hs_m5 127.0.0.1:30032}"

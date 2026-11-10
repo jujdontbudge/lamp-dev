@@ -71,7 +71,7 @@ func (s *Service) invokeProtected(w http.ResponseWriter, r *http.Request, reques
 		writeError(w, requestID, code, err.Error(), nil)
 		return
 	}
-	id := newID("op")
+	id := s.resourceID("op")
 	now := timestamp()
 	ref := *bound.Plan.ResourceRef
 	refs := []api.ResourceRef{ref}
@@ -97,7 +97,7 @@ func (s *Service) protectedScope(a caller, b BoundAction) bool {
 		return false
 	}
 	for _, sc := range s.scopes(a) {
-		if !has(sc.SandboxIds, sb.Id) || !has(sc.RecipeIds, value(sb.RecipeId)) || !has(sc.HostIds, "hs_local") {
+		if !has(sc.SandboxIds, sb.Id) || !has(sc.RecipeIds, value(sb.RecipeId)) || !has(sc.HostIds, sandboxHost(sb)) {
 			return false
 		}
 		if sc.ResourceIds != nil {
@@ -132,7 +132,7 @@ func (s *Service) executeProtected(id string, in api.ConnectionInvokeInput, boun
 	if err == nil && (!s.can(rec.Caller, "connection.invoke") || !s.protectedScope(rec.Caller, checked) || digest(checked) != digest(bound)) {
 		err = reject("SCOPE_DENIED", "protected authority or action changed before dispatch")
 	}
-	if approval, ok := s.journal.Control.Approvals[value(in.ApprovalId)]; err == nil && (!ok || approval.State != "consumed" || expired(approval.ExpiresAt)) {
+	if approval, ok := s.journal.Control.Approvals[value(in.ApprovalId)]; err == nil && (!ok || approval.State != "consumed" || s.expired(approval.ExpiresAt)) {
 		err = reject("APPROVAL_REQUIRED", "approval expired before dispatch")
 	}
 	if err == nil {

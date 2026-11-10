@@ -191,7 +191,7 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		return
 	}
 	now := timestamp()
-	operationID := newID("op")
+	operationID := s.resourceID("op")
 	refs := []api.ResourceRef{ref}
 	resultRaw, _ := json.Marshal(result)
 	adapter := api.AdapterDocument(resultRaw)
@@ -263,7 +263,7 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 			writeError(w, id, "NOT_FOUND", "documentation topic not found", nil)
 			return
 		}
-		prepareJSON(w, 200, map[string]any{"topic": topic, "format": "text/markdown", "text": content, "installed_operations": surface.CoreNames, "request_id": id})()
+		prepareJSON(w, 200, map[string]any{"topic": topic, "format": "text/markdown", "text": content, "installed_operations": s.installedOperations(), "request_id": id})()
 		return
 	}
 	kind, action, _ := strings.Cut(op.Scope, ".")
@@ -362,7 +362,7 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 				if !s.approvalSelectors(a, v) {
 					continue
 				}
-				if expired(v.ExpiresAt) && v.State != "consumed" && v.State != "denied" && v.State != "revoked" {
+				if s.expired(v.ExpiresAt) && v.State != "consumed" && v.State != "denied" && v.State != "revoked" {
 					v.State = "expired"
 				}
 				items = append(items, object(v))
@@ -720,4 +720,16 @@ func (w *responseSnapshot) Write(b []byte) (int, error) {
 		w.status = 200
 	}
 	return w.body.Write(b)
+}
+
+func (s *Service) installedOperations() map[string]bool {
+	installed := map[string]bool{}
+	for name, value := range surface.CoreNames {
+		installed[name] = value
+	}
+	if s.fleet != nil {
+		installed["host_get"] = true
+		installed["host_list"] = true
+	}
+	return installed
 }
