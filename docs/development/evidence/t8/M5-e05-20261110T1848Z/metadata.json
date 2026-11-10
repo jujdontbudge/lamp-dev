@@ -1,0 +1,223 @@
+{
+ "lane": "M5",
+ "captured_at_unix_ms": 1794336542291,
+ "git_commit": "27193d4d1fa952a9639802f41fdd89115ea67609",
+ "git_dirty": false,
+ "source_hashes": {
+  "crates": "592ce927e72b2127251268abf099c98d5b51e9a50b551fe644d37b8436c98c8a",
+  "infra_mac": "8ac4f6e6b3a57230e60b76eaf8b43438cdec668e9caa2d257324918f1015c786"
+ },
+ "dependency_hashes": {
+  "Cargo.lock": "1d1396c9b96768370a7e1fc5cfc0eeed93dab8588ace923ddc2c1186acbd7174"
+ },
+ "artifacts": {
+  "lamp-vz": "9a0e41fe21cbc0518549e424b0fc97e41a039440718cd07a110d211a2c6435fb",
+  "lamp-supervisor": "37dfbb7ecba6482710701bca767bc7688119fe98b97266402cdcdd0b0bb09a5a",
+  "template.manifest.json": "5dd73c6ac44460732257ea8303658490754ca556e391850d42191c039c62fe40"
+ },
+ "worker_signature": "Executable=/usr/local/lib/lamp/lamp-vz\nIdentifier=lamp-vz-55554944411c0e100ddc3b0fb7e35c2e2998f2ab\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=3249 flags=0x10002(adhoc,runtime) hashes=90+7 location=embedded\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nRuntime Version=26.4.0\nSealed Resources=none\nInternal requirements count=0 size=12",
+ "worker_entitlements": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.security.virtualization</key><true/></dict></plist>",
+ "hardware": {
+  "model": "Mac17,2",
+  "cpu": "Apple M5",
+  "perf_cores": "4",
+  "eff_cores": "6",
+  "memory_bytes": 25769803776,
+  "page_size": 16384
+ },
+ "os": {
+  "kernel": "Darwin",
+  "release": "25.5.0",
+  "product_version": "26.5.2",
+  "build": "25F84"
+ },
+ "filesystem": {
+  "store": "/private/var/lamp/store",
+  "device": "/dev/disk3s5",
+  "mount": "/dev/disk3s5 on /System/Volumes/Data (apfs, local, journaled, nobrowse, protect, root data)",
+  "ram_volume": "/dev/disk6 on /private/var/lamp/ram (hfs, local, noatime, nobrowse)"
+ },
+ "storage": {
+  "diskutil": [
+   "Device Identifier:         disk3s5",
+   "   Device Node:               /dev/disk3s5",
+   "   Whole:                     No",
+   "   Part of Whole:             disk3",
+   "",
+   "   Volume Name:               Data",
+   "   Mounted:                   Yes",
+   "   Mount Point:               /System/Volumes/Data",
+   "",
+   "   Partition Type:            41504653-0000-11AA-AA11-00306543ECAC",
+   "   File System Personality:   APFS",
+   "   Type (Bundle):             apfs",
+   "   Name (User Visible):       APFS",
+   "   Owners:                    Enabled",
+   "",
+   "   OS Can Be Installed:       Yes",
+   "   Booter Disk:               disk3s2",
+   "   Recovery Disk:             disk3s3",
+   "   Media Type:                Generic",
+   "   Protocol:                  Apple Fabric",
+   "   SMART Status:              Verified",
+   "   Volume UUID:               4DC050C4-9B70-4B0C-958E-2E35D2028D99",
+   "   Disk / Partition UUID:     4DC050C4-9B70-4B0C-958E-2E35D2028D99",
+   "",
+   "   Disk Size:                 994.6 GB (994610155520 Bytes) (exactly 1942597960 512-Byte-Units)",
+   "   Device Block Size:         4096 Bytes",
+   "",
+   "   Volume Used Space:         900.0 GB (899999686656 Bytes) (exactly 1757811888 512-Byte-Units)",
+   "   Container Total Space:     994.6 GB (994610155520 Bytes) (exactly 1942597960 512-Byte-Units)",
+   "   Container Free Space:      48.3 GB (48334364672 Bytes) (exactly 94403056 512-Byte-Units)",
+   "   Allocation Block Size:     4096 Bytes",
+   "",
+   "   Media OS Use Only:         No",
+   "   Media Read-Only:           No",
+   "   Volume Read-Only:          No",
+   "",
+   "   Device Location:           Internal",
+   "   Removable Media:           Fixed",
+   "",
+   "   Solid State:               Yes"
+  ]
+ },
+ "power": {
+  "pmset_batt": "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=23068771)\t68%; discharging; 1:21 remaining present: true",
+  "pmset_custom": [
+   "System-wide power settings:",
+   " SleepDisabled\t\t0",
+   "Currently in use:",
+   " standby              1",
+   " Sleep On Power Button 1",
+   " hibernatefile        /var/vm/sleepimage",
+   " powernap             1",
+   " networkoversleep     0",
+   " disksleep            10",
+   " sleep                1 (sleep prevented by sharingd, Amphetamine, powerd, Google Chrome, Claude, useractivityd)",
+   " hibernatemode        0",
+   " ttyskeepawake        1",
+   " displaysleep         0 (display sleep prevented by Amphetamine)",
+   " tcpkeepalive         1",
+   " lowpowermode         0",
+   " womp                 0"
+  ]
+ },
+ "thermal": {
+  "pmset_therm": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+  "load_avg": "{ 6.49 8.45 10.58 }"
+ },
+ "memory": {
+  "vm_stat": [
+   "Mach Virtual Memory Statistics: (page size of 16384 bytes)",
+   "Pages free:                                     3694.",
+   "Pages active:                                 325344.",
+   "Pages inactive:                               305482.",
+   "Pages speculative:                             19379.",
+   "Pages throttled:                                   0.",
+   "Pages wired down:                             227723.",
+   "Pages purgeable:                                   2.",
+   "\"Translation faults\":                     3190606764.",
+   "Pages copy-on-write:                       197105574.",
+   "Pages zero filled:                        1460306685.",
+   "Pages reactivated:                         360772247.",
+   "Pages purged:                               33729753.",
+   "File-backed pages:                            166328.",
+   "Anonymous pages:                              483877.",
+   "Pages stored in compressor:                  2973030.",
+   "Pages occupied by compressor:                 635572.",
+   "Decompressions:                            347305059.",
+   "Compressions:                              393080413.",
+   "Pageins:                                    83453418.",
+   "Pageouts:                                    1979418.",
+   "Swapins:                                     4001799.",
+   "Swapouts:                                    5547062.",
+   "Pages tagged:                                 139139.",
+   "Pages tagged resident:                        100710.",
+   "Pages tagged compressed:                       38429.",
+   "Pages tag-storage:                             49152.",
+   "Pages tag-storage holding tags:                 4699.",
+   "Pages tag-storage free:                          158.",
+   "Pages tag-storage non-tag pageable:            44261.",
+   "Pages tag-storage non-tag wired:                  34.",
+   "Bytes of compressed tags:                    6442688.",
+   "Tagged compressions:                         8206276.",
+   "Tagged decompressions:                       7906316."
+  ],
+  "swap": "total = 18432.00M  used = 17345.69M  free = 1086.31M  (encrypted)"
+ },
+ "confinement": {
+  "inventory": {
+   "entitlements": [
+    "com.apple.security.virtualization"
+   ],
+   "files": {
+    "metadata_read": "all paths (stat only, no content)",
+    "read_files": [
+     "/private/var/lamp/store/templates/tp_5dd73c6ac44460732257ea8303/state.vzvmsave",
+     "/private/var/lamp/store/templates/tp_5dd73c6ac44460732257ea8303/Image"
+    ],
+    "read_subpaths": [],
+    "read_write_files": [
+     "/private/var/lamp/store/sb/sb_e5_6704df8b84b/disk.img"
+    ],
+    "read_write_subpaths": [
+     "/private/var/lamp/store/sb/sb_e5_6704df8b84b",
+     "/private/var/lamp/ram/sb_e5_6704df8b84b"
+    ],
+    "system_read": [
+     "/System",
+     "/usr/lib",
+     "/usr/share",
+     "/Library/Apple",
+     "/private/var/db/dyld",
+     "/System/Volumes/Preboot/Cryptexes",
+     "/private/var/db/timezone",
+     "/private/etc/localtime",
+     "/dev/null",
+     "/dev/urandom",
+     "/dev/random"
+    ]
+   },
+   "format": "lamp.confinement-inventory/v0",
+   "handles": [
+    "assigned disk images",
+    "state files",
+    "private API socket",
+    "private vsock socket"
+   ],
+   "mach_services": [
+    "com.apple.Virtualization.VirtualMachine",
+    "com.apple.Virtualization.LinuxRosetta",
+    "com.apple.xpc.launchd.domain.system",
+    "com.apple.logd",
+    "com.apple.diagnosticd",
+    "com.apple.system.notification_center",
+    "com.apple.system.opendirectoryd.libinfo",
+    "com.apple.trustd",
+    "com.apple.trustd.agent",
+    "com.apple.SecurityServer",
+    "com.apple.CoreServices.coreservicesd",
+    "com.apple.lsd.mapdb",
+    "com.apple.cfprefsd.daemon",
+    "com.apple.cfprefsd.agent",
+    "com.apple.mobileasset.autoasset"
+   ],
+   "network": {
+    "inet": "denied",
+    "unix_sockets": "bind/connect only inside read_write_subpaths"
+   },
+   "process": {
+    "exec": "denied",
+    "fork": "denied",
+    "signal": "self only"
+   },
+   "profile": "seatbelt deny-default"
+  },
+  "profile": "(version 1)\n(deny default)\n(allow file-read* file-map-executable\n  (subpath \"/System\") (subpath \"/usr/lib\") (subpath \"/usr/share\")\n  (subpath \"/Library/Apple\") (subpath \"/private/var/db/dyld\") (subpath \"/System/Volumes/Preboot/Cryptexes\")\n  (subpath \"/private/var/db/timezone\") (literal \"/private/etc/localtime\")\n  (literal \"/dev/null\") (literal \"/dev/urandom\") (literal \"/dev/random\") (literal \"/dev/dtracehelper\"))\n(allow file-read-metadata)\n(allow file-write-data (literal \"/dev/null\") (literal \"/dev/dtracehelper\"))\n(allow file-ioctl (literal \"/dev/dtracehelper\"))\n(allow file-read* file-map-executable (literal \"/usr/local/lib/lamp/lamp-vz\"))\n(allow file-read* (literal \"/private/var/lamp/store/templates/tp_5dd73c6ac44460732257ea8303/state.vzvmsave\"))\n(allow file-read* (literal \"/private/var/lamp/store/templates/tp_5dd73c6ac44460732257ea8303/Image\"))\n(allow file-read* file-write* (subpath \"/private/var/lamp/store/sb/sb_e5_6704df8b84b\"))\n(allow network-bind network-inbound network-outbound (local unix-socket (subpath \"/private/var/lamp/store/sb/sb_e5_6704df8b84b\")))\n(allow file-read* file-write* (subpath \"/private/var/lamp/ram/sb_e5_6704df8b84b\"))\n(allow network-bind network-inbound network-outbound (local unix-socket (subpath \"/private/var/lamp/ram/sb_e5_6704df8b84b\")))\n(allow file-read* file-write* (literal \"/private/var/lamp/store/sb/sb_e5_6704df8b84b/disk.img\"))\n(allow mach-lookup\n  (global-name \"com.apple.Virtualization.VirtualMachine\")\n  (global-name \"com.apple.Virtualization.LinuxRosetta\")\n  (global-name \"com.apple.xpc.launchd.domain.system\")\n  (global-name \"com.apple.logd\")\n  (global-name \"com.apple.diagnosticd\")\n  (global-name \"com.apple.system.notification_center\")\n  (global-name \"com.apple.system.opendirectoryd.libinfo\")\n  (global-name \"com.apple.trustd\")\n  (global-name \"com.apple.trustd.agent\")\n  (global-name \"com.apple.SecurityServer\")\n  (global-name \"com.apple.CoreServices.coreservicesd\")\n  (global-name \"com.apple.lsd.mapdb\")\n  (global-name \"com.apple.cfprefsd.daemon\")\n  (global-name \"com.apple.cfprefsd.agent\")\n  (global-name \"com.apple.mobileasset.autoasset\")\n)\n(allow mach-register (local-name-prefix \"\"))\n(allow ipc-posix-shm-read-data ipc-posix-shm-read-metadata (ipc-posix-name \"apple.shm.notification_center\"))\n(allow process-info* (target self))\n(allow process-info-pidinfo process-info-setcontrol)\n(allow signal (target self))\n(allow sysctl-read)\n(allow iokit-open (iokit-user-client-class \"RootDomainUserClient\"))\n(allow system-fsctl)\n"
+ },
+ "controls": {
+  "confine": true,
+  "identity_per_sandbox": true,
+  "cow": "apfs-clonefile"
+ }
+}

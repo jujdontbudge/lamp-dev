@@ -1,0 +1,7 @@
+{"connection":"grant","outcome":"issued","sandbox":"sb_456e2f3ad448593aca47a76eb65b691c","time":"2026-11-10T22:29:01.803704446Z"}
+{"connection":"model","outcome":"completed","sandbox":"sb_456e2f3ad448593aca47a76eb65b691c","time":"2026-11-10T22:29:02.004551547Z"}
+{"connection":"mcp","outcome":"completed","sandbox":"sb_456e2f3ad448593aca47a76eb65b691c","time":"2026-11-10T22:29:02.194933038Z"}
+{"connection":"settings","outcome":"proposed","sandbox":"sb_456e2f3ad448593aca47a76eb65b691c","time":"2026-11-10T22:29:02.347630392Z"}
+{"connection":"settings","outcome":"applied","sandbox":"sb_456e2f3ad448593aca47a76eb65b691c","time":"2026-11-10T22:29:02.392198913Z"}
+{"connection":"notes","outcome":"access_changed","sandbox":"owner","time":"2026-11-10T22:29:02.395197623Z"}
+{"connection":"notes","outcome":"completed","sandbox":"sb_456e2f3ad448593aca47a76eb65b691c","time":"2026-11-10T22:29:02.53927599Z"}

@@ -1,0 +1,11 @@
+{"step": "artifacts", "value": {"broker_sha256": "c68a44935b6ae43fcf2ffea0208e228cd452786c6efbfbf363ee13de26d6c433", "machine": "Darwin", "vendor_boundary": "authenticated TLS fixtures; GitHub is real when available"}}
+{"step": "model fixture useful code", "value": {"result": "55", "status": 200}}
+{"step": "authenticated MCP gateway", "value": {"data": {"content": [{"text": "[\"initial\"]", "type": "text"}]}}}
+{"step": "selected settings return", "value": {"no_write_before_approval": true, "selected_applied": true, "unselected_unchanged": true}}
+{"step": "stale settings refused", "value": {"error": {"code": "REVISION_CONFLICT"}}}
+{"step": "four service modes", "value": {"ask_first_changed_and_replay_denied": true, "database_rows": ["initial", "approved", "full"], "off_denied": true, "read_only_write_denied": true}}
+{"step": "split secret response blocked", "value": {"error": {"code": "OUTPUT_BLOCKED"}}}
+{"step": "host-only approved git signing", "value": {"private_key_not_copied": true, "verified": true}}
+{"step": "real signed-in gh", "value": {"result": {"data": {"description": "GitHub\u2019s official command line tool", "full_name": "cli/cli", "html_url": "https://github.com/cli/cli", "stargazers_count": 46955}}, "status": 200}}
+{"step": "canary scan", "value": {"guest_and_capture": "not demonstrated by this host-only journey", "provider_key_occurrences_in_output_and_logs": 0}}
+{"step": "remaining account evidence", "value": {"AWS": "scoped test-resource sign-in not available", "OpenRouter": "credential access blocked", "Stripe": "test-account sign-in not available", "external_MCP": "not demonstrated"}}
