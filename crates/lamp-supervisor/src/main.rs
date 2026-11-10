@@ -975,7 +975,7 @@ fn e05(c: &mut Ctl, args: &[String], durability: &str) {
         .first()
         .unwrap_or_else(|| die("e05 TEMPLATE DIRTY_MIB COUNT [WARMUP]"));
     let dirty: u64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(768);
-    let count: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1000);
+    let count: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100);
     let warmup: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(5);
     let source = format!("sb_e5_{}", c.tag);
     let created = c.create(template, &source);

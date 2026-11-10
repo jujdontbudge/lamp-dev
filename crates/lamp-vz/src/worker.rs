@@ -29,6 +29,7 @@ pub struct Options {
 
 fn grants(spec: &WorkerSpec, restore: Option<&Path>) -> confine::Grants {
     let mut g = confine::Grants {
+        macos_guest: matches!(spec.machine, Machine::Macos { .. }),
         read_subpaths: vec![],
         read_literals: spec.read_paths.clone(),
         write_subpaths: std::iter::once(spec.dir.clone())
@@ -54,6 +55,26 @@ fn grants(spec: &WorkerSpec, restore: Option<&Path>) -> confine::Grants {
     }
     g.read_literals.extend(restore.map(Path::to_path_buf));
     g
+}
+
+/// `confstr(_CS_DARWIN_USER_CACHE_DIR)` for the calling account, creating
+/// it when absent.
+fn darwin_user_cache_dir() -> Option<PathBuf> {
+    let mut buf = vec![0u8; 1024];
+    // SAFETY: the buffer is valid for its length; confstr writes a
+    // NUL-terminated string of at most that length.
+    let n = unsafe {
+        libc::confstr(
+            libc::_CS_DARWIN_USER_CACHE_DIR,
+            buf.as_mut_ptr().cast(),
+            buf.len(),
+        )
+    };
+    if n == 0 || n > buf.len() {
+        return None;
+    }
+    buf.truncate(n - 1);
+    Some(PathBuf::from(String::from_utf8(buf).ok()?))
 }
 
 pub fn grants_for(spec: &WorkerSpec, restore: Option<&Path>) -> confine::Grants {
@@ -280,7 +301,14 @@ pub fn run(opts: Options) -> Result<(), String> {
     let t0 = Instant::now();
     let text = std::fs::read_to_string(&opts.spec).map_err(|e| format!("spec: {e}"))?;
     let spec: WorkerSpec = serde_json::from_str(&text).map_err(|e| format!("spec: {e}"))?;
-    let g = grants(&spec, opts.restore.as_deref());
+    let mut g = grants(&spec, opts.restore.as_deref());
+    if matches!(spec.machine, Machine::Macos { .. }) {
+        // VZ needs this account's Darwin cache directory for a macOS guest.
+        // It is resolved here, before confinement (the lookup goes through
+        // dirhelper/opendirectoryd, which the profile does not admit, and
+        // libSystem keeps the answer), and only that directory is granted.
+        g.write_subpaths.extend(darwin_user_cache_dir());
+    }
     if opts.confine {
         confine::apply(&confine::profile(&g)).map_err(|e| format!("confinement: {e}"))?;
     }

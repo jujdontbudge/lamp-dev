@@ -8,6 +8,18 @@
 //! ambient network (TCP/UDP/raw) and unrelated Mach/XPC services.
 use std::path::{Path, PathBuf};
 
+/// Sandbox extensions VZ issues to its VM service for a macOS guest
+/// (observed on macOS 26.5 with a reporting profile). Only these classes.
+pub const MACOS_GUEST_EXTENSIONS: &[&str] = &[
+    "com.apple.virtualization.extension.usb-hci",
+    "com.apple.virtualization.extension.strong-identity",
+    "com.apple.virtualization.extension.paravirtualized-graphics",
+    "com.apple.virtualization.extension.io-surface",
+    "com.apple.virtualization.extension.videotoolbox",
+    "com.apple.virtualization.extension.fp",
+    "com.apple.virtualization.extension.avp.rtc",
+];
+
 /// Mach services the client side of Virtualization.framework needs. Any
 /// other global name is refused.
 pub const MACH_SERVICES: &[&str] = &[
@@ -53,6 +65,9 @@ pub fn real(p: &Path) -> PathBuf {
 }
 
 pub struct Grants {
+    /// A macOS guest: VZ hands its VM service sandbox extensions for the
+    /// paravirtualized devices, and needs IOSurface for the guest display.
+    pub macos_guest: bool,
     pub read_subpaths: Vec<PathBuf>,
     pub read_literals: Vec<PathBuf>,
     pub write_subpaths: Vec<PathBuf>,
@@ -79,19 +94,21 @@ pub fn profile(g: &Grants) -> String {
     }
     for r in &g.read_subpaths {
         p.push_str(&format!(
-            "(allow file-read* (subpath {}))\n",
+            "(allow file-read* file-issue-extension (subpath {}))\n",
             quote(&real(r).to_string_lossy())
         ));
     }
     for r in &g.read_literals {
         p.push_str(&format!(
-            "(allow file-read* (literal {}))\n",
+            "(allow file-read* file-issue-extension (literal {}))\n",
             quote(&real(r).to_string_lossy())
         ));
     }
     for w in &g.write_subpaths {
         let w = quote(&real(w).to_string_lossy());
-        p.push_str(&format!("(allow file-read* file-write* (subpath {w}))\n"));
+        p.push_str(&format!(
+            "(allow file-read* file-write* file-issue-extension (subpath {w}))\n"
+        ));
         // Only Unix sockets inside the private directory.
         p.push_str(&format!(
             "(allow network-bind network-inbound network-outbound (local unix-socket (subpath {w})))\n"
@@ -99,7 +116,7 @@ pub fn profile(g: &Grants) -> String {
     }
     for w in &g.write_literals {
         p.push_str(&format!(
-            "(allow file-read* file-write* (literal {}))\n",
+            "(allow file-read* file-write* file-issue-extension (literal {}))\n",
             quote(&real(w).to_string_lossy())
         ));
     }
@@ -116,6 +133,14 @@ pub fn profile(g: &Grants) -> String {
     p.push_str("(allow sysctl-read)\n");
     p.push_str("(allow iokit-open (iokit-user-client-class \"RootDomainUserClient\"))\n");
     p.push_str("(allow system-fsctl)\n");
+    if g.macos_guest {
+        p.push_str("(allow generic-issue-extension\n");
+        for e in MACOS_GUEST_EXTENSIONS {
+            p.push_str(&format!("  (extension-class {})\n", quote(e)));
+        }
+        p.push_str(")\n");
+        p.push_str("(allow iokit-open (iokit-user-client-class \"IOSurfaceRootUserClient\"))\n");
+    }
     // No process-fork / process-exec: the worker spawns nothing.
     p
 }
@@ -139,9 +164,14 @@ pub fn inventory(g: &Grants) -> serde_json::Value {
             "read_files": s(&g.read_literals),
             "read_write_subpaths": s(&g.write_subpaths),
             "read_write_files": s(&g.write_literals),
+            "macos_guest_extra": "the worker account's own confstr(_CS_DARWIN_USER_CACHE_DIR), read-write, macOS guests only",
+            "issue_extension": "file extensions only for the paths above",
         },
         "network": {"inet": "denied", "unix_sockets": "bind/connect only inside read_write_subpaths"},
         "mach_services": MACH_SERVICES,
+        "macos_guest": g.macos_guest,
+        "generic_extensions": if g.macos_guest { MACOS_GUEST_EXTENSIONS } else { &[] },
+        "iokit_user_clients": if g.macos_guest { &["RootDomainUserClient", "IOSurfaceRootUserClient"][..] } else { &["RootDomainUserClient"][..] },
         "process": {"fork": "denied", "exec": "denied", "signal": "self only"},
         "entitlements": ["com.apple.security.virtualization"],
         "handles": ["assigned disk images", "state files", "private API socket", "private vsock socket"],
@@ -191,6 +221,7 @@ mod tests {
     #[test]
     fn profile_denies_by_default_and_quotes_paths() {
         let g = Grants {
+            macos_guest: false,
             read_subpaths: vec![],
             read_literals: vec![PathBuf::from("/nonexistent/a\"b")],
             write_subpaths: vec![PathBuf::from("/nonexistent/dir")],
@@ -201,5 +232,28 @@ mod tests {
         assert!(p.contains("(literal \"/nonexistent/a\\\"b\")"));
         assert!(!p.contains("process-exec"));
         assert!(!p.contains("network-outbound (remote"));
+    }
+
+    #[test]
+    fn macos_guest_extensions_are_exact_and_only_for_macos() {
+        let mut g = Grants {
+            macos_guest: false,
+            read_subpaths: vec![],
+            read_literals: vec![],
+            write_subpaths: vec![PathBuf::from("/nonexistent/dir")],
+            write_literals: vec![],
+        };
+        let linux = profile(&g);
+        assert!(!linux.contains("generic-issue-extension"));
+        assert!(!linux.contains("IOSurfaceRootUserClient"));
+        g.macos_guest = true;
+        let mac = profile(&g);
+        for e in MACOS_GUEST_EXTENSIONS {
+            assert!(mac.contains(&format!("(extension-class \"{e}\")")));
+        }
+        // No unrestricted extension issue anywhere.
+        assert!(!mac.contains("(allow generic-issue-extension)"));
+        assert!(!mac.contains("(allow file-issue-extension)"));
+        assert!(mac.contains("file-issue-extension (subpath \"/nonexistent/dir\")"));
     }
 }
