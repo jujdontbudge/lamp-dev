@@ -4,7 +4,7 @@
 'use strict';
 
 const LISTS = {
-  fleets: '/v1/fleets', hosts: '/v1/hosts', sandboxes: '/v1/sandboxes', sessions: '/v1/sessions',
+  fleets: '/v1/fleets', principals: '/v1/principals', hosts: '/v1/hosts', sandboxes: '/v1/sandboxes', sessions: '/v1/sessions',
   tasks: '/v1/tasks', budgets: '/v1/budgets', approvals: '/v1/approvals', shares: '/v1/shares',
   leases: '/v1/leases', browsers: '/v1/browsers', kits: '/v1/kits', operations: '/v1/operations',
   audit: '/v1/audit-records', sinks: '/v1/notification-sinks', notifications: '/v1/notifications',
@@ -86,6 +86,11 @@ async function load() {
     }
   }));
   state.loadedAt = new Date();
+  const f = items('fleets')[0];
+  const ps = items('principals');
+  // Members see only their own principal; the owner sees everyone.
+  state.me = ps.length === 1 ? ps[0].id : (f && f.owner_id) || '';
+  $('#who').textContent = state.me ? 'signed in as ' + state.me : '';
   render();
 }
 
@@ -114,7 +119,7 @@ async function watch() {
   let refresh = null;
   while (state.live) {
     try {
-      const out = await api('GET', '/v1/events?limit=200&wait_ms=20000' + (state.cursor ? '&cursor=' + encodeURIComponent(state.cursor) : ''));
+      const out = await api('GET', '/v1/events?limit=200&wait_ms=' + (state.liveOk ? 20000 : 0) + (state.cursor ? '&cursor=' + encodeURIComponent(state.cursor) : ''));
       state.cursor = out.next_cursor || state.cursor;
       state.liveOk = true; setLive();
       if ((out.items || []).length) {
@@ -176,8 +181,9 @@ const ACTIONS = {
     const selector = card.querySelector('[name=selector]').value, text = card.querySelector('[name=text]').value;
     await api('POST', `/v1/browsers/${id}:action`, { action: 'type', arguments: { selector, text }, wait_ms: 30000 }, b.revision);
   },
-  'note-retry': (id) => { const n = byId('notifications', id); return api('POST', `/v1/notifications/${id}:retry`, {}, n.revision); },
-  'note-ack': (id) => { const n = byId('notifications', id); return api('POST', `/v1/notifications/${id}:acknowledge`, {}, n.revision); },
+  // Delivery attempts advance the revision every few seconds; act on the current one.
+  'note-retry': async (id) => { const n = (await api('GET', `/v1/notifications/${id}`)).data; return api('POST', `/v1/notifications/${id}:retry`, {}, n.revision); },
+  'note-ack': async (id) => { const n = (await api('GET', `/v1/notifications/${id}`)).data; return api('POST', `/v1/notifications/${id}:acknowledge`, {}, n.revision); },
   'sink-test': (id) => { const s = byId('sinks', id); return api('POST', `/v1/notification-sinks/${id}:test`, {}, s.revision); },
   'sink-delete': (id) => { const s = byId('sinks', id); return api('DELETE', `/v1/notification-sinks/${id}`, {}, s.revision); },
   'sink-create': (_, el) => {
@@ -185,11 +191,16 @@ const ACTIONS = {
     const types = [...f.querySelectorAll('[name=etype]:checked')].map((x) => x.value);
     return api('POST', '/v1/notification-sinks', { plugin_id: 'webhook', destination_ref: f.querySelector('[name=dest]').value, event_types: types, enabled: true });
   },
+  share: (id, el) => {
+    const card = el.closest('.card'), subject = card.querySelector('[name=subject]').value.trim();
+    const actions = ['session.get', 'session.watch'].concat(card.querySelector('[name=cantype]').checked ? ['session.input'] : []);
+    return api('POST', '/v1/shares', { resource_kind: 'session', resource_id: id, subject_id: subject, actions, expires_at: new Date(Date.now() + 8 * 3600000).toISOString() });
+  },
   answer: async (id, el) => {
     const s = byId('sessions', id), text = el.closest('.card').querySelector('[name=answer]').value + '\n';
     let lease = state.leases[id];
     if (!lease) {
-      const out = await api('POST', '/v1/leases', { type: 'input', resource_id: id, wait_ms: 10000 });
+      const out = await api('POST', '/v1/leases', { type: 'input', resource_id: id, expires_at: new Date(Date.now() + 30 * 60000).toISOString(), wait_ms: 10000 });
       lease = state.leases[id] = { id: out.result && out.result.lease_id, seq: 0 };
     }
     const data = btoa(String.fromCharCode(...new TextEncoder().encode(text)));
@@ -272,8 +283,9 @@ function sessionCard(s) {
   const blocked = s.status === 'blocked';
   const shares = items('shares').filter((x) => x.session_id === s.id || x.resource_id === s.id);
   return `<div class="card ${blocked ? 'decision' : ''}" id="sessions-${esc(s.id)}"><div class="row"><h2>${esc(s.labels && s.labels.name || s.id)}</h2>${pill(s.state)}${s.status ? pill(s.status) : ''}<span class="sp"></span><span class="muted">${esc(s.harness_id || '')}</span></div>
-    <div class="kv"><b>id</b>${short(s.id)}<b>sandbox</b><span>${s.sandbox_id ? `<a href="#/sandboxes/${esc(s.sandbox_id)}">${esc(s.sandbox_id)}</a>` : '—'}</span><b>task</b><span>${s.task_id ? `<a href="#/tasks/${esc(s.task_id)}">${esc(s.task_id)}</a>` : '—'}</span><b>observed</b>${when(s.observed_at)}<b>location</b><span>${esc(s.location ? (s.location.host_id || '') + ' ' + (s.location.sandbox_id || '') : '—')}</span><b>shared with</b><span>${shares.length ? shares.map((x) => esc(x.subject_id) + ' (' + esc(x.permission || x.mode || '') + ')').join(', ') : 'nobody'}</span></div>
+    <div class="kv"><b>id</b>${short(s.id)}<b>sandbox</b><span>${s.sandbox_id ? `<a href="#/sandboxes/${esc(s.sandbox_id)}">${esc(s.sandbox_id)}</a>` : '—'}</span><b>task</b><span>${s.task_id ? `<a href="#/tasks/${esc(s.task_id)}">${esc(s.task_id)}</a>` : '—'}</span><b>observed</b>${when(s.observed_at)}<b>location</b><span>${esc(s.location ? (s.location.host_id || '') + ' ' + (s.location.sandbox_id || '') : '—')}</span><b>shared with</b><span>${shares.length ? shares.map((x) => esc(x.subject_id) + ' (' + esc((x.actions || []).includes('session.input') ? 'watch + type' : 'watch only') + ')').join(', ') : 'nobody'}</span></div>
     ${s.status_reason ? `<p class="${blocked ? 'warn' : 'muted'}">${esc(s.status_reason)}</p>` : ''}
+    ${s.state === 'active' && s.owner_id === state.me ? `<div class="row" style="margin:6px 0"><input name="subject" placeholder="share with principal id"><label><input type="checkbox" name="cantype"> can type</label>${btn('share', s.id, 'Share')}</div>` : ''}
     ${s.state === 'active' ? `<div class="row"><input name="answer" class="sp" placeholder="${blocked ? 'Answer the agent…' : 'Send input…'}"><button data-act="answer" data-id="${esc(s.id)}" class="${blocked ? 'primary' : ''}">Send</button></div>` : ''}</div>`;
 }
 
@@ -372,7 +384,7 @@ function operationsView() {
 
 function sharingView() {
   const shares = items('shares'), leases = items('leases');
-  return `<div class="card"><h2>Shares</h2><table><tr><th>share</th><th>with</th><th>can</th><th>state</th><th>expires</th><th></th></tr>${shares.map((s) => `<tr><td>${short(s.id)}<br><span class="muted">${esc(s.session_id || s.resource_id || s.sandbox_id || '')}</span></td><td>${esc(s.subject_id || '')}</td><td>${esc(s.permission || s.mode || (s.scopes || []).join(', '))}</td><td>${pill(s.state)}</td><td>${s.expires_at ? countdown(s.expires_at, 'ends') : ''}</td><td>${s.state === 'active' ? btn('share-revoke', s.id, 'Revoke', 'class="danger"') : ''}</td></tr>`).join('')}</table>${shares.length ? '' : '<p class="muted">Nothing is shared.</p>'}</div>
+  return `<div class="card"><h2>Shares</h2><table><tr><th>share</th><th>with</th><th>can</th><th>state</th><th>expires</th><th></th></tr>${shares.map((s) => `<tr><td>${short(s.id)}<br><span class="muted">${esc(s.session_id || s.resource_id || s.sandbox_id || '')}</span></td><td>${esc(s.subject_id || '')}</td><td>${esc((s.actions || []).join(', '))}</td><td>${pill(s.state)}</td><td>${s.expires_at ? countdown(s.expires_at, 'ends') : ''}</td><td>${s.state === 'active' ? btn('share-revoke', s.id, 'Revoke', 'class="danger"') : ''}</td></tr>`).join('')}</table>${shares.length ? '' : '<p class="muted">Nothing is shared.</p>'}</div>
     <div class="card"><h2>Input leases (who may type)</h2><table>${leases.map((l) => `<tr><td>${short(l.id)}</td><td>${esc(l.resource_id || '')}</td><td>${esc(l.holder_id || '')}</td><td>${pill(l.state)}</td><td>${l.expires_at ? countdown(l.expires_at, 'ends') : ''}</td></tr>`).join('')}</table></div>`;
 }
 

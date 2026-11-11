@@ -21,3 +21,4 @@ table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:3px 6px;
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px}.kv>b{font-weight:500;color:var(--muted)}
 img.view{max-width:100%;border:1px solid var(--line);border-radius:6px}
 footer{padding:16px;color:var(--muted);font-size:12px;text-align:center}
+.kv>span,.kv>code,.card p,.card h2{overflow-wrap:anywhere;min-width:0}.kv{grid-template-columns:max-content minmax(0,1fr)}

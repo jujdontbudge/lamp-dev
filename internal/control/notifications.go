@@ -79,6 +79,14 @@ type notifyAttempt struct {
 
 func (s *Service) initNotifications(config *NotificationConfig) {
 	s.notifyConfig = config
+	s.notifyState()
+	s.wg.Add(1)
+	go s.notifyLoop()
+}
+
+// notifyState returns the accountability record with notification maps
+// present; journal replay can replace the record after Open. Under mu.
+func (s *Service) notifyState() *accountability {
 	c := s.journal.Accountability
 	if c.Sinks == nil {
 		c.Sinks = map[string]api.NotificationSink{}
@@ -88,8 +96,7 @@ func (s *Service) initNotifications(config *NotificationConfig) {
 		// History before notifications existed is not replayed.
 		c.NotifySequence = s.journal.EventSequence
 	}
-	s.wg.Add(1)
-	go s.notifyLoop()
+	return c
 }
 
 // notificationView is the API projection: the canonical resource plus the
@@ -106,7 +113,7 @@ func notificationView(r *notificationRecord) map[string]any {
 
 func (s *Service) notifyResources(a caller, kind string) []map[string]any {
 	items := []map[string]any{}
-	c := s.journal.Accountability
+	c := s.notifyState()
 	switch kind {
 	case "notification_sink":
 		for _, v := range c.Sinks {
@@ -125,7 +132,7 @@ func (s *Service) notifyResources(a caller, kind string) []map[string]any {
 }
 
 func (s *Service) notifyMutation(a caller, op api.OperationDescriptor, in map[string]any) (api.ResourceRef, map[string]any, *string, []string, error) {
-	c := s.journal.Accountability
+	c := s.notifyState()
 	kind, verb, _ := strings.Cut(op.Scope, ".")
 	ref := api.ResourceRef{Kind: api.ResourceKind(kind)}
 	fail := func(code, msg string) (api.ResourceRef, map[string]any, *string, []string, error) {
@@ -258,7 +265,7 @@ func (s *Service) queueNotification(sink api.NotificationSink, eventType string,
 	}
 	var n api.Notification
 	assign(m, &n)
-	s.journal.Accountability.Notifications[n.Id] = &notificationRecord{Notification: n, EventType: eventType, ResourceRef: ref, Summary: summary, Link: link, Attempts: []notifyAttempt{}}
+	s.notifyState().Notifications[n.Id] = &notificationRecord{Notification: n, EventType: eventType, ResourceRef: ref, Summary: summary, Link: link, Attempts: []notifyAttempt{}}
 	return n.Id
 }
 
@@ -331,7 +338,7 @@ func (s *Service) notifyLoop() {
 			s.mu.Unlock()
 			continue
 		}
-		c := s.journal.Accountability
+		c := s.notifyState()
 		changed := false
 		for _, se := range s.journal.Events {
 			e := se.Event
@@ -394,7 +401,7 @@ func (s *Service) notifyLoop() {
 			status, errText := s.deliver(client, d)
 			s.readLock()
 			delete(s.notifyInflight, d.id)
-			if r := c.Notifications[d.id]; r != nil && r.Notification.State == "pending" && !s.broken {
+			if r := s.notifyState().Notifications[d.id]; r != nil && r.Notification.State == "pending" && !s.broken {
 				s.recordAttempt(r, status, errText)
 				if err := s.save("$accountability"); err != nil {
 					s.broken = true
