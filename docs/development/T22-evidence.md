@@ -267,13 +267,33 @@ need a collector-integrated, constrained task launch interface, not unrestricted
 Docker socket delegation. This is the exact current restriction, not an invented
 rootless-only ticket requirement.
 
+## Actual nested-namespace Docker run — 2026-11-11
+
+The coordinator requested one real run of the collector-contained correction.
+`PYTHONPATH=. python3 tools/kits_docker_demo.py --fixture /home/johan/lamp-t22/host-20261111-nested-docker-1 --root /home/johan/lamp-t22/nested-docker-1`
+ran and exited **1**. It was **not** refused at capacity: admission observed
+**0 Firecrackers, 27,450 MiB available**, and allocated a fresh 4 GiB VM.
+
+The [actual transcript](evidence/t22/docker-nested-actual.jsonl) records guest
+`/run/containerd` mode `1777`, UID map `0 -> 65537`, no `/var/run/docker.sock`,
+and a successful namespace bootstrap reaching the Docker phase. Containerd's
+private socket became ready. Docker 29.1.3 then panicked during plugin-manager
+initialization at `daemon.NewDaemon:1057`, with its deferred `Events.Close`
+nil-pointer dereference again obscuring the original error. The job returned
+`KIT_INSTALL_FAILED`, phase `docker`, rather than a namespace/capacity failure.
+**No BusyBox container ran.** This is a concrete remaining daemon-startup blocker,
+not evidence that nested namespaces or a guest-root bypass are forbidden.
+
+Public deletion returned `released: true`, the fixture reported
+`controller_stopped: true`, and physical Firecracker count returned to **0**.
+No host daemon/socket/Docker resource or guard policy was used or changed.
+This failed run is retained without relabeling or rerunning a passed demo.
+
 ## Remaining work
 
-- With one LX slot available, start a **fresh** owned fixture using the prepared
-  template above, then run `tools/kits_docker_demo.py` once against it. The script
-  performs admission immediately before create, imports public BusyBox, attempts
-  a real isolated container, and releases/stops its fixture on exit. Do not reuse
-  an existing output directory or stop another ticket to obtain the slot.
+- Docker's corrected nested-namespace path has now been run once on a fresh
+  admitted VM. Its daemon-startup panic, not host capacity, still blocks the
+  container. Do not substitute host Docker, widen the guard or report a pass.
 - Complete per-vault approval and real form fill using the now-proven native
   Vaultwarden/Bitwarden reader, then the password-specific private-typing path.
   Do not substitute owner profiles/items or mock a provider. Proton is awaiting
