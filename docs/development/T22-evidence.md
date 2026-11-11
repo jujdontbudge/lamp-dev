@@ -1,6 +1,6 @@
 # T22 — kits evidence
 
-Status: **partial; do not mark the whole ticket done.** The browser/KeePassXC
+Status: **partial: only 1Password and Proton Pass remain (waiting on owner).** The browser/KeePassXC
 journey is real. Containerd's guest runtime-directory fix is demonstrated.
 Docker container execution and three native vault providers remain unproven.
 No benchmark, trial-count, soak or attack gate was used as a completion target.
@@ -27,7 +27,7 @@ screenshot is included in the committed evidence.
 | KIT-005/B3 password-field private typing | Agent typing refused; owner types privately, real login, safe `about:blank` handback | [private typing](evidence/t22/password-private-typing.jsonl) |
 | KIT-005 Bitwarden (Vaultwarden) | Per-vault approval, native Bitwarden CLI read, sealed fill and real login on the public test site | [Bitwarden fill](evidence/t22/bitwarden-fill.jsonl) |
 | KIT-005 1Password / Proton Pass | Not demonstrated | **Not done, waiting on owner** |
-| KIT-004 Docker container | Four daemon-startup causes fixed; install job still killed (exit 70) when host audit ACKs exceed the guard's 5 s deadline; no container ran | **Not done**; [investigation](#docker-container--investigation-through-run-5-2026-11-11) |
+| KIT-004 Docker container | `docker run` in the guest prints `lamp-kit-docker-working`; no host daemon or socket | [Docker pass](evidence/t22/docker-container-pass.jsonl) |
 
 The full browser journey exited **1 at its later Docker step**. The successful
 browser sections are not a passing claim for the whole script/ticket. The
@@ -431,3 +431,70 @@ Transcripts: [run 3](evidence/t22/docker-run3.jsonl), [run 4](evidence/t22/docke
 [run 5](evidence/t22/docker-run5.jsonl). Every VM was released and Firecracker count
 returned to 0. For run 5, I had stopped its lampd too early, so I released the VM by
 stopping my T22 supervisor ("stopped 1 sandbox").
+
+## Docker container passes — 2026-11-11
+
+**PASS (KIT-004 Docker).** [Run 10 transcript](evidence/t22/docker-container-pass.jsonl):
+a fresh LX VM (admission 0 Firecrackers) installed the Docker kit and then ran
+`docker run --rm --network=none t22-disposable-busybox /bin/busybox printf lamp-kit-docker-working`
+**inside the guest**. Output: `lamp-kit-docker-working`. Docker 29.1.3 with data root
+`/tmp/lamp-kit-docker/data` and socket `unix:///tmp/lamp-kit-docker/docker.sock`; guest
+UID map `0 65537 1`; no `/var/run/docker.sock`; security options
+`seccomp (builtin)` and `cgroupns`. The image was built from the guest's own BusyBox
+binary. No host daemon, socket or Docker resource was used. The VM was released and
+Firecracker count returned to 0.
+
+### Correction: the exit 70 was not a slow audit ACK
+
+My earlier section blamed the guard's 5 s ACK deadline. That was wrong. The host
+receiver (`lamp-guard receive`, `crates/lamp-guard/src/audit.rs`) already does
+group commit: one `sync_data` covers every frame read so far, then the ACKs go out
+in order. The dying job's audit spool also closed about a second after it started,
+far less than 5 s. The real cause was in the guest process collector
+(`crates/lamp-guard/src/process.rs`): any error in the trace loop exits 70 (stderr
+goes to `/dev/null`), and the collector treated a thread or process that vanished
+before its `/proc` entry or ptrace call as an error. Go programs (dockerd,
+containerd, the docker CLI) retire threads constantly, and an `execve` in one
+thread kills every sibling, so `ENOENT`/`ESRCH` hit during dockerd's startup and
+`EXITKILL` took the whole job down.
+
+**Guard fix:** `ENOENT`/`ESRCH` on `/proc` reads and on `SETOPTIONS`, `GETEVENTMSG`,
+`LISTEN`, `GET_SYSCALL_INFO` and syscall-resume for a vanished tracee is no longer
+fatal. Its start is still recorded, with `{"pid":…,"vanished":true}` in place of
+the full identity, **before** anything resumes. Nothing about durability, ACK order,
+fail-closed loss handling or any deadline changed.
+
+### The other fixes on the path to the container
+
+| Blocker seen in Docker's own log | Fix |
+| --- | --- |
+| Plugin manager can't create `/run/docker/plugins` | Private tmpfs `/run` in the job's own namespace |
+| Job killed once its launcher exec finished | Job runs as its own long-lived exec and keeps serving after "ready" |
+| `$ROOTLESSKIT_STATE_DIR needs to be set` | No `--rootless` (the job is already root in its own user namespace) |
+| `mkdir /sys/fs/cgroup/docker: permission denied` | Guest init delegates `/sys/fs/cgroup/tasks` to the task UID (directory, `cgroup.procs`, `cgroup.threads`, `cgroup.subtree_control`, as systemd's `Delegate=` does); dockerd uses `--cgroup-parent=/tasks/lamp-docker` |
+| `devpts … gid=5: invalid argument` | Runtime wrapper runs `runc --rootless=true` and drops only the devpts `gid=` option, as runc's `specconv.ToRootless` does |
+
+Delegation does not cover the `tasks` subtree's own limit files or any ancestor,
+so a task can't raise its limits or leave the subtree, and capture's freeze
+still covers it. Guest images: seed v3 (new `lamp-guard`,
+`87df39a5…`) and seed v4 (plus new `lamp-init`, `d759bce7…`, rootfs
+`sha256-c4m de24d98b…`), template `tp_b6523d4197444b04935bdcf543`. Failed runs 6–9 are
+kept: [6](evidence/t22/docker-run6.jsonl) (cgroup), [7](evidence/t22/docker-run7.jsonl)
+(RootlessKit API), [8](evidence/t22/docker-run8.jsonl) (cgroup with rootless runc),
+[9](evidence/t22/docker-run9.jsonl) (devpts).
+
+### Network guard misses (bw6, bw7)
+
+The collector fix is guest-side, so it does **not** touch the host network guard's
+1 s liveness check that cut `bw6`/`bw7`. The `guard.log` for each VM in Docker runs
+6–10 is empty, so no host network guard miss was observed after the fix. The
+passing typing run `bw8` came before it. I did not chase this further, since it
+didn't block a run.
+
+### lampd SIGTERM
+
+lampd stopped its managed kits backend with SIGINT and waited forever. A backend
+started from a background shell inherits SIGINT as ignored, so lampd never
+finished its SIGTERM drain. `kits/runtime.go` now sends SIGTERM (the backend
+installs a handler for it) and kills after 10 s. Checked on LX: on SIGTERM, lampd
+and its kits backend both exited (lampd was left a zombie for its parent to reap).

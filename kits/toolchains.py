@@ -29,7 +29,7 @@ def start_install(control, sandbox, names):
     packages = sorted({p for n in names if n in PACKAGES for p in PACKAGES[n]})
     # Public exec maps namespace root to a subordinate guest UID. Install into a
     # user prefix without bypassing the audit collector or adding setuid helpers.
-    script = '''import json,subprocess,os,pathlib,shutil,glob,time
+    script = '''import json,subprocess,os,pathlib,shutil,glob,time,sys
 root=pathlib.Path('/tmp/lamp-toolchains');root.mkdir(mode=0o700,exist_ok=True)
 cache=root/'cache'/JOB;cache.mkdir(parents=True,exist_ok=True)
 archives=cache/'archives';archives.mkdir(exist_ok=True)
@@ -99,10 +99,12 @@ mark('start')
 sock='unix:///tmp/lamp-kit-docker/docker.sock'
 docker_env={'PATH':str(bindir)+':/usr/sbin:/usr/bin:/sbin:/bin','HOME':str(state),
  'XDG_RUNTIME_DIR':str(state)}
-# An unprivileged user namespace cannot create cgroups. runc's rootless cgroup
-# manager ignores that permission error when no limits are requested; every
-# other namespace and the seccomp profile still apply.
-(state/'runc-rootless').write_text('#!/bin/sh\\nexec '+str(bindir/'runc')+' --rootless=true "$@"\\n')
+# Guest init delegates /sys/fs/cgroup/tasks to the task UID; containers get
+# child cgroups under it (--cgroup-parent). runc runs in rootless mode because
+# it is inside an unprivileged user namespace.
+# Only namespace root is mapped, so drop the devpts gid= option exactly as
+# runc's rootless spec conversion (specconv.ToRootless) does.
+(state/'runc-rootless').write_text('#!'+sys.executable+'\\nimport json,os,sys\\na=sys.argv[1:]\\nif "--bundle" in a and a and ("create" in a or "run" in a):\\n p=os.path.join(a[a.index("--bundle")+1],"config.json");c=json.load(open(p))\\n for m in c.get("mounts",[]):\\n  if m.get("type")=="devpts":m["options"]=[o for o in m.get("options",[]) if not o.startswith("gid=")]\\n json.dump(c,open(p,"w"))\\nos.execv('+repr(str(bindir/'runc'))+',["runc","--rootless=true"]+a)\\n')
 (state/'runc-rootless').chmod(0o700)
 # Guest init prepares the hard-coded shim directory /run/containerd. Keep
 # containerd's data, state and socket in our private guest prefix; no root
@@ -136,7 +138,7 @@ mark('containerd ready')
 phase='docker'
 daemon=None
 if not (state/'docker.sock').exists():
- daemon=subprocess.Popen([str(bindir/'dockerd'),'--group=0','--add-runtime=lamp-runc='+str(state/'runc-rootless'),'--default-runtime=lamp-runc','--host='+sock,'--data-root='+str(state/'data'),
+ daemon=subprocess.Popen([str(bindir/'dockerd'),'--group=0','--add-runtime=lamp-runc='+str(state/'runc-rootless'),'--default-runtime=lamp-runc','--exec-opt=native.cgroupdriver=cgroupfs','--cgroup-parent=/tasks/lamp-docker','--host='+sock,'--data-root='+str(state/'data'),
   '--containerd='+str(containerd_socket),'--exec-root='+str(state/'exec'),'--pidfile='+str(state/'daemon.pid'),
   '--bridge=none','--iptables=false','--ip6tables=false','--storage-driver=vfs','--debug'],
   stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=runtime_log,start_new_session=True,env=docker_env)

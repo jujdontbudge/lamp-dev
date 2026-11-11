@@ -140,6 +140,22 @@ mod linux {
         if let Err(e) = std::fs::create_dir_all(lamp_init::TASKS_CGROUP) {
             eprintln!("lamp-init: create tasks cgroup: {e}");
         }
+        // Delegate the tasks subtree to the task UID, as systemd's Delegate=
+        // does, so a confined container runtime can create child cgroups for
+        // its own processes. Delegation never covers the subtree's own
+        // limit files or any ancestor, so tasks cannot raise their limits or
+        // leave the subtree, and capture's freeze still covers it.
+        let tasks = std::path::Path::new(lamp_init::TASKS_CGROUP);
+        let uid = Some(lamp_init::TASK_UID);
+        for path in std::iter::once(tasks.to_path_buf()).chain(
+            lamp_init::DELEGATED_CGROUP_FILES
+                .iter()
+                .map(|f| tasks.join(f)),
+        ) {
+            if let Err(e) = std::os::unix::fs::chown(&path, uid, uid) {
+                eprintln!("lamp-init: delegate tasks cgroup: {e}");
+            }
+        }
         let _ = std::fs::create_dir_all("/run/lamp");
         // Containerd uses /run/containerd for shim sockets/FIFOs even with a
         // custom state directory. Prepare only this guest runtime directory;
