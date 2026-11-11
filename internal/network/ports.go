@@ -67,16 +67,19 @@ type PortManager struct {
 	domain     string
 	listenPort uint16
 	auth       IngressAuth
-	audit      Audit
-	viewers    map[string]bool
-	ports      map[string]*portEntry
-	ids        map[string]*portEntry
-	grants     map[string]*shareEntry
-	tokens     map[[32]byte]*shareEntry
-	sessions   map[[32]byte]portSession
-	replays    map[string]shareReplay
-	used       map[string]bool
-	ledger     *os.File
+	// wake resumes a suspended sandbox before an allowed request is
+	// forwarded to it (LIF-001). Nil when no control API is configured.
+	wake     func(context.Context, string) error
+	audit    Audit
+	viewers  map[string]bool
+	ports    map[string]*portEntry
+	ids      map[string]*portEntry
+	grants   map[string]*shareEntry
+	tokens   map[[32]byte]*shareEntry
+	sessions map[[32]byte]portSession
+	replays  map[string]shareReplay
+	used     map[string]bool
+	ledger   *os.File
 }
 
 func NewPortManager(directory, domain string, listenPort uint16, authority *Authority, auth IngressAuth, audit Audit, privateViewers []string) (*PortManager, error) {
@@ -143,6 +146,14 @@ func NewPortManager(directory, domain string, listenPort uint16, authority *Auth
 	}
 	return manager, nil
 }
+
+// SetWake installs the activity wake used for allowed dev requests.
+func (m *PortManager) SetWake(wake func(context.Context, string) error) {
+	m.mu.Lock()
+	m.wake = wake
+	m.mu.Unlock()
+}
+
 func randomToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -384,6 +395,19 @@ func (m *PortManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	stop := context.AfterFunc(r.Context(), cancel)
 	defer stop()
+	m.mu.Lock()
+	wake := m.wake
+	m.mu.Unlock()
+	if wake != nil {
+		// Only an authorized, audited request wakes the sandbox.
+		wakeCtx, done := context.WithTimeout(ctx, 2*time.Minute)
+		err := wake(wakeCtx, p.Subject.SandboxID)
+		done()
+		if err != nil {
+			http.Error(w, "app unavailable", http.StatusServiceUnavailable)
+			return
+		}
+	}
 	transport := &http.Transport{Proxy: nil, DisableKeepAlives: true, MaxResponseHeaderBytes: 16 << 10, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		connect, done := context.WithTimeout(ctx, DialTimeout)
 		defer done()

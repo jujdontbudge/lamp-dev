@@ -442,6 +442,9 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.lifeHTTP(w, r, id, op, selectors)
 		return
 	}
+	if op.Name == "sandbox_delete" && !s.deleteKeepsWrites(w, id, textField(selectors, "sandbox_id")) {
+		return
+	}
 	if op.Name == "exec_create" && !s.wakeForExec(w, r, id) {
 		return
 	}

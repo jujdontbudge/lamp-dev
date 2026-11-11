@@ -101,8 +101,9 @@ func (s *Service) planBackupCreate(a caller, in map[string]any) (lifePlan, error
 	case "cache":
 		h.Tree = s.life.Caches[resID].generation(textField(res, "generation_digest")).Tree
 	case "artifact":
-		for _, k := range []string{"download_blob_id", "manifest_blob_id"} {
-			if b := s.life.Blobs[textField(res, k)]; b != nil && textField(b.R, "state") == "ready" {
+		// The manifest and every output it lists.
+		for _, blob := range s.artifactBlobIDs(res) {
+			if b := s.life.Blobs[blob]; b != nil && textField(b.R, "state") == "ready" {
 				h.Blobs = append(h.Blobs, b.R)
 				h.Objects = append(h.Objects, textField(b.R, "sha256"))
 			}
@@ -410,16 +411,49 @@ func (s *Service) restoreResource(a caller, h backupHeader, backupID string, epo
 		s.life.Caches[id] = &lifeCache{R: m, Generations: []cacheGeneration{{Digest: d, Tree: h.Tree, Bytes: treeBytes(h.Tree), Created: now}}}
 	case "artifact":
 		ids := map[string]string{}
+		manifest := textField(m, "manifest_blob_id")
 		for _, b := range h.Blobs {
+			if textField(b, "id") == manifest {
+				continue
+			}
 			nb := s.newReadyBlob(a.Principal, textField(b, "sha256"), int64(uintField(b, "size_bytes")), textField(b, "media_type"), "")
 			ids[textField(b, "id")] = textField(nb, "id")
+		}
+		// The manifest names its outputs by blob id; republish it with the
+		// restored blobs' ids.
+		rewritten := false
+		for _, b := range h.Blobs {
+			if textField(b, "id") != manifest {
+				continue
+			}
+			raw, err := s.readObject(textField(b, "sha256"))
+			var man map[string]any
+			if err != nil || decodeNumbers(raw, &man) != nil {
+				break
+			}
+			entries, _ := man["entries"].([]any)
+			for _, e := range entries {
+				if em, ok := e.(map[string]any); ok {
+					if n, ok := ids[textField(em, "blob_id")]; ok {
+						em["blob_id"] = n
+					}
+				}
+			}
+			out, _ := json.Marshal(man)
+			if sum, err := s.putObject(out); err == nil {
+				nb := s.newReadyBlob(a.Principal, sum, int64(len(out)), "application/json", "")
+				ids[manifest] = textField(nb, "id")
+				rewritten = true
+			}
 		}
 		for _, k := range []string{"download_blob_id", "manifest_blob_id"} {
 			if n, ok := ids[textField(m, k)]; ok {
 				m[k] = n
 			}
 		}
-		if textField(m, "state") == "deleted" {
+		if !rewritten && manifest != "" {
+			m["state"] = "incomplete"
+		} else if textField(m, "state") == "deleted" {
 			m["state"] = "complete"
 		}
 		m["expires_at"] = s.lifeNow().Add(defaultArtifactRetain).Format(time.RFC3339Nano)

@@ -138,6 +138,9 @@ type lifeSandbox struct {
 	Trust       string   `json:"trust,omitempty"`
 	Pool        string   `json:"pool,omitempty"`
 	Used        bool     `json:"used,omitempty"`
+	// Resumed is the generation a resume last brought up. Its guest has no
+	// create command, so restart reconciliation probes it instead.
+	Resumed uint64 `json:"resumed_generation,omitempty"`
 	// Activity is the last task session activity Lamp itself mediated
 	// (an exec admission or completion). It is in-memory only.
 	activity time.Time

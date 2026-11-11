@@ -1,10 +1,12 @@
 """T19 end-to-end demonstration on lane LX, through Lamp's public HTTP API.
 
-    python3 demo.py <part> <new run directory>     part: A | B | C | D
+    python3 demo.py <part> <new run directory>     part: A | B | C | D | E
 
 A lifecycle (LIF-001/002/003), B forks and change sets (LIF-006),
 C saved templates, recipes and warm pools (TPL-002/003, LIF-005),
-D lasting storage (STO-001..005). Each part keeps at most two live sandboxes
+D lasting storage (STO-001..005), E the review fixes (write-back from a
+suspended sandbox, restart after resume, SSH attach wake, expiry of a busy
+sandbox, shared artifact blobs, two-output backups, warm-pool entries). Each part keeps at most two live sandboxes
 and checks the LX budget before every create. Nothing here measures time.
 """
 import base64, hashlib, json, os, re, secrets, sys, time
@@ -456,6 +458,132 @@ def part_d():
     delete(b)
 
 
+def part_e():
+    """Review fixes, each shown once."""
+    global api
+    import subprocess, tempfile
+    # Write-back from a suspended sandbox, and no delete that drops files.
+    sb = create(template_id=TEMPLATE, lifecycle=dict(idle_action='keep'))
+    vol = api.op('volume_create', dict(name='work', mode='shared_files'))['resource_ids'][0]['id']
+    at = attach(sb, 'volume', vol, '/var/tmp/vol')
+    ok(sb, 'echo written-before-suspend > /var/tmp/vol/notes.txt')
+    expect_error('RESOURCE_IN_USE', api.op, 'sandbox_delete', dict(sandbox_id=sb, expected_revision=rev('sandbox', sb)))
+    api.op('sandbox_suspend', dict(sandbox_id=sb, expected_revision=rev('sandbox', sb)))
+    before = api.get('sandbox', sb)
+    detach(at)
+    after = api.get('sandbox', sb)
+    note('detach from a suspended sandbox wakes it and writes back', before=dict(state=before['state'], generation=before.get('generation')),
+         after=dict(state=after['state'], generation=after.get('generation')), volume=api.get('volume', vol))
+
+    # Restart of lampd alone after that resume: the generation-2 guest
+    # comes back ready (no create command of its own to inspect).
+    env.stop_daemon(); env.start_daemon()
+    api = env.api
+    first = api.get('sandbox', sb)['state']
+    s = wait_state(sb, ['ready'], 120)
+    ro = attach(sb, 'volume', vol, '/var/tmp/check', mode='read_only')
+    out = ok(sb, 'cat /var/tmp/check/notes.txt')
+    detach(ro)
+    note('ready again after a lampd restart', state_at_start=first, state=s['state'], generation=s.get('generation'), volume_file=out)
+
+    # SSH attach wakes a suspended sandbox (T18's console front). The nonce
+    # lives only in guest RAM (tmpfs), so reading it back shows a memory restore.
+    nonce = ok(sb, 'head -c16 /dev/urandom | od -An -tx1 | tr -d " \\n" > /dev/shm/nonce; cat /dev/shm/nonce').strip()
+    api.op('sandbox_suspend', dict(sandbox_id=sb, expected_revision=rev('sandbox', sb)))
+    suspended = api.get('sandbox', sb)
+    work = env.private.resolve() / 'access'
+    work.mkdir(mode=0o700)
+    (work / 'state').mkdir(mode=0o700)
+    tok = work / 'owner.token'; tok.write_text(env.owner); tok.chmod(0o600)
+    for ca in ('host-ca', 'user-ca'):
+        sh(str(BASE / 'lamp-access'), 'init-ca', '--out', str(work / ca))
+    sh('ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(work / 'key'))
+    port = 20000 + secrets.randbelow(20000)
+    cfg = dict(state_dir=str(work / 'state'), api_socket=os.path.abspath(env.sock), ssh_listen=f'127.0.0.1:{port}', host_ca_file=str(work / 'host-ca'),
+               user_ca_file=str(work / 'user-ca'), hostnames=['lamp-t19.invalid'],
+               users=[dict(name='owner', token_file=str(tok), authorized_keys=[(work / 'key.pub').read_text().strip()])])
+    (work / 'access.json').write_text(json.dumps(cfg)); (work / 'access.json').chmod(0o600)
+    front = subprocess.Popen([str(BASE / 'lamp-access'), 'serve', '--config', str(work / 'access.json')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    try:
+        line = front.stdout.readline().decode()
+        if 'listening' not in line:
+            front.wait(5)
+            raise AssertionError(line + front.stdout.read().decode())
+        r = subprocess.run(['ssh', '-i', str(work / 'key'), '-p', str(port), '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null',
+                            '-o', 'LogLevel=ERROR', 'owner@127.0.0.1', 'shell', sb], input=b'cat /dev/shm/nonce; echo\n',
+                           capture_output=True, timeout=600)
+    finally:
+        front.terminate(); front.wait()
+    s = api.get('sandbox', sb)
+    note('ssh shell woke the suspended sandbox', nonce_before=nonce, before=dict(state=suspended['state'], generation=suspended.get('generation')),
+         after=dict(state=s['state'], generation=s.get('generation')), ssh_exit=r.returncode, ssh_stdout=r.stdout.decode(), ssh_stderr=r.stderr.decode()[-300:])
+    assert r.returncode == 0 and s['state'] == 'ready' and r.stdout.decode().strip() == nonce
+    delete(sb)
+    api.op('volume_delete', dict(volume_id=vol, expected_revision=rev('volume', vol)))
+
+    # Hard expiry takes effect while a task command never ends.
+    expires = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() + 40))
+    sb2 = create(template_id=TEMPLATE, lifecycle=dict(idle_action='keep', expires_at=expires))
+    r = api.op('exec_create', dict(sandbox_id=sb2, argv=['sh', '-c', 'while :; do sleep 1; done']), quiet=True)
+    ex = (r.get('result') or {}).get('exec_id') or r['resource_ids'][0]['id']
+    running = api.get('exec', ex)['state']
+    s = wait_state(sb2, ['suspended'], 180)
+    note('busy sandbox suspended at its deadline', expires_at=expires, state=s['state'], updated_at=s['updated_at'], exec_before=running,
+         exec_after=api.get('exec', ex)['state'])
+    expect_error('TASK_AUTHORITY_EXPIRED', api.op, 'sandbox_resume', dict(sandbox_id=sb2, expected_revision=s['revision']))
+    delete(sb2)
+
+    # Two artifacts share a download blob; deleting one keeps the other whole.
+    one, two = os.urandom(4096), os.urandom(2048)
+    b1, b2 = upload(one), upload(two)
+    first = api.op('artifact_create', dict(job_id='job_a', download_blob_id=b1))['resource_ids'][0]['id']
+    man = upload(json.dumps(dict(format='lamp.artifact-manifest/v1', entries=[
+        dict(blob_id=b1, sha256=hashlib.sha256(one).hexdigest(), size_bytes=len(one), path='out/one.bin'),
+        dict(blob_id=b2, sha256=hashlib.sha256(two).hexdigest(), size_bytes=len(two), path='out/two.bin')])).encode(), 'application/json')
+    second = api.op('artifact_create', dict(job_id='job_b', manifest_blob_id=man))['resource_ids'][0]['id']
+    api.op('artifact_delete', dict(artifact_id=first, expected_revision=rev('artifact', first)))
+    got = download('artifact', second)
+    note('shared blob survives the other artifact', deleted=api.get('artifact', first)['state'], survivor=api.get('artifact', second),
+         shared_blob=api.get('blob', b1)['state'], download_ok=got == one)
+    assert got == one
+
+    # A two-output artifact backs up and restores both outputs.
+    bk = api.op('backup_create', dict(resource_kind='artifact', resource_id=second))['resource_ids'][0]['id']
+    api.op('artifact_delete', dict(artifact_id=second, expected_revision=rev('artifact', second)))
+    r = api.op('backup_restore', dict(backup_id=bk, new_authority_epoch=2, expected_revision=rev('backup', bk)))
+    ar = api.get('artifact', second)
+    entries = json.loads(download('blob', ar['manifest_blob_id']))['entries']
+    outs = {e['path']: hashlib.sha256(download('blob', e['blob_id'])).hexdigest() for e in entries}
+    note('two-output artifact restored from backup', artifact=ar, outputs=outs,
+         expected={'out/one.bin': hashlib.sha256(one).hexdigest(), 'out/two.bin': hashlib.sha256(two).hexdigest()})
+    assert outs == {'out/one.bin': hashlib.sha256(one).hexdigest(), 'out/two.bin': hashlib.sha256(two).hexdigest()}
+
+    # A warm-pool entry refuses an upload, so a claim is never-used.
+    wait_budget(0)
+    rc = api.op('recipe_create', dict(name='plain', template_id=TEMPLATE, auth_mode='none'))['resource_ids'][0]['id']
+    wp = api.op('warm_pool_create', dict(recipe_id=rc, target_size=1, max_size=1, match_digest=api.get('recipe', rc)['digest']))['resource_ids'][0]['id']
+    deadline = time.monotonic() + 300
+    while api.get('warm_pool', wp).get('ready_count', 0) < 1:
+        assert time.monotonic() < deadline
+        time.sleep(2)
+    entry = [x['id'] for x in api.op('sandbox_list', {}, quiet=True)['items'] if x.get('warm_pool_id') == wp and x['state'] == 'ready'][0]
+    secret_blob = upload(b'TOKEN=not-a-real-credential\n')
+    expect_error('RESOURCE_IN_USE', api.op, 'sandbox_file_transfer', dict(sandbox_id=entry, path='/var/tmp/creds', direction='upload',
+                                                                           blob_id=secret_blob, expected_revision=rev('sandbox', entry)))
+    claimed = sandbox_of(api.op('sandbox_create', dict(recipe_id=rc))); live.append(claimed)
+    out = ok(claimed, 'test -e /var/tmp/creds && echo present || echo absent')
+    note('claimed pool entry holds no upload', entry=entry, claimed=claimed, creds=out.strip())
+    assert claimed == entry and out.strip() == 'absent'
+    delete(claimed)
+    api.op('warm_pool_delete', dict(warm_pool_id=wp, expected_revision=rev('warm_pool', wp)))
+    deadline = time.monotonic() + 120
+    while api.get('recipe', rc)['state'] != 'deleted' and time.monotonic() < deadline:
+        try:
+            api.op('recipe_delete', dict(recipe_id=rc, expected_revision=rev('recipe', rc)), quiet=True)
+        except APIError:
+            time.sleep(3)
+
+
 env.install(); env.start_worker(); env.start_daemon()
 api = env.api
 try:
@@ -467,6 +595,8 @@ try:
         part_c()
     elif PART == 'D':
         part_d()
+    elif PART == 'E':
+        part_e()
     note('part complete', part=PART)
 finally:
     for sb in list(live):

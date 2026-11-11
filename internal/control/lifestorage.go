@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -796,7 +797,13 @@ func (s *Service) planAttachmentDelete(a caller, in map[string]any) (lifePlan, e
 		res = s.life.Caches[resID].R
 	}
 	sb := s.journal.Sandboxes[sbID]
-	writeBack := kind == "volume" && textField(m, "mode") == "read_write" && textField(m, "state") == "ready" && sb.State == "ready"
+	writable := kind == "volume" && textField(m, "mode") == "read_write" && textField(m, "state") == "ready"
+	if writable && sb.State != "ready" && sb.State != "suspended" {
+		// The guest that held this attachment's files is gone; never
+		// pretend a write-back happened.
+		return lifePlan{}, reject("DATA_UNAVAILABLE", "sandbox "+sbID+" is "+string(sb.State)+"; files written through this attachment cannot be written back, so it stays attached")
+	}
+	writeBack := writable
 	if !writeBack {
 		m["state"] = "detached"
 		editResource(m)
@@ -811,6 +818,11 @@ func (s *Service) planAttachmentDelete(a caller, in map[string]any) (lifePlan, e
 	var collected tree
 	return lifePlan{ref: lifeRef("attachment", atID), timeout: 10 * time.Minute,
 		run: func(ctx context.Context) (map[string]any, error) {
+			// A suspended sandbox's files are in its saved state: wake it
+			// so they are written back, never skipped.
+			if err := s.Wake(ctx, a, sbID); err != nil {
+				return nil, err
+			}
 			t, err := s.collectTree(ctx, sbID, mount, quota)
 			collected = t
 			return map[string]any{}, err
@@ -848,6 +860,52 @@ func (s *Service) planAttachmentDelete(a caller, in map[string]any) (lifePlan, e
 			s.detachFrom(res, atID)
 			return nil
 		}}, nil
+}
+
+// writableAttachments lists a sandbox's attached read-write volume
+// attachments (id → revision). Under mu.
+func (s *Service) writableAttachments(sbID string) map[string]uint64 {
+	out := map[string]uint64{}
+	for id, at := range s.life.Attachments {
+		m := at.R
+		if textField(m, "sandbox_id") == sbID && textField(m, "resource_kind") == "volume" && textField(m, "mode") == "read_write" && textField(m, "state") == "ready" {
+			out[id] = uintField(m, "revision")
+		}
+	}
+	return out
+}
+
+// deleteKeepsWrites refuses sandbox_delete while a read-write volume is
+// attached: deleting would drop its files. Detach first to write them back.
+func (s *Service) deleteKeepsWrites(w http.ResponseWriter, requestID, sbID string) bool {
+	s.mu.Lock()
+	open := s.writableAttachments(sbID)
+	s.mu.Unlock()
+	for id := range open {
+		writeError(w, requestID, "RESOURCE_IN_USE", "read-write volume attachment "+id+" is still attached; detach it first so its files are written back", nil)
+		return false
+	}
+	return true
+}
+
+// detachForDelete writes back every read-write volume attachment before Lamp
+// itself deletes a sandbox (retention or idle delete). It reports false when
+// any write-back did not complete; the sandbox is then kept.
+func (s *Service) detachForDelete(ctx context.Context, owner, sbID string) bool {
+	s.mu.Lock()
+	open := s.writableAttachments(sbID)
+	s.mu.Unlock()
+	for id, rev := range open {
+		in := map[string]any{"attachment_id": id, "expected_revision": jsonNumber(rev), "idempotency_key": "lamp-delete-detach:" + id + ":" + strconv.FormatUint(rev, 10)}
+		opID, _, err := s.lifeStart(caller{Principal: owner}, "attachment_delete", in)
+		if err == nil {
+			err = s.lifeWait(ctx, opID)
+		}
+		if err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // pruneVolumeHistory keeps only the current tree and attached writers' bases.
@@ -1004,15 +1062,52 @@ func (s *Service) planArtifactDelete(a caller, in map[string]any) (lifePlan, err
 	return lifePlan{ref: lifeRef("artifact", textField(m, "id")), result: map[string]any{}}, nil
 }
 
+// deleteArtifact deletes an artifact and the blobs only it holds; a blob that
+// another live artifact also references stays ready. Under mu.
 func (s *Service) deleteArtifact(m map[string]any) {
 	m["state"] = "deleted"
-	for _, k := range []string{"download_blob_id", "manifest_blob_id"} {
-		if b := s.life.Blobs[textField(m, k)]; b != nil {
+	inUse := map[string]bool{}
+	for id, other := range s.life.Artifacts {
+		if id == textField(m, "id") || textField(other.R, "state") == "deleted" {
+			continue
+		}
+		for _, blob := range s.artifactBlobIDs(other.R) {
+			inUse[blob] = true
+		}
+	}
+	for _, blob := range s.artifactBlobIDs(m) {
+		if b := s.life.Blobs[blob]; b != nil && !inUse[blob] && textField(b.R, "state") != "deleted" {
 			b.R["state"] = "deleted"
 			editResource(b.R)
 		}
 	}
 	editResource(m)
+}
+
+// artifactBlobIDs lists every blob an artifact holds: its manifest, its
+// download blob and each manifest entry. Under mu.
+func (s *Service) artifactBlobIDs(m map[string]any) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(id string) {
+		if id != "" && !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	add(textField(m, "manifest_blob_id"))
+	add(textField(m, "download_blob_id"))
+	if b := s.life.Blobs[textField(m, "manifest_blob_id")]; b != nil {
+		if raw, err := s.readObject(textField(b.R, "sha256")); err == nil {
+			var man artifactManifest
+			if json.Unmarshal(raw, &man) == nil {
+				for _, e := range man.Entries {
+					add(e.BlobID)
+				}
+			}
+		}
+	}
+	return out
 }
 
 // sweepStorage applies collection deadlines and retention. Under mu.

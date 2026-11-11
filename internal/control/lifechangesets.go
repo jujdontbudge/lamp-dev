@@ -2,9 +2,11 @@ package control
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -237,6 +239,10 @@ func (s *Service) planChangeSetApply(a caller, in map[string]any) (lifePlan, err
 			if err := s.Wake(ctx, a, target); err != nil {
 				return nil, err
 			}
+			// One apply at a time per target repository: the second sees the
+			// first's commit and stops before it touches anything.
+			unlock := lockApply(s, target, repo)
+			defer unlock()
 			head, err := s.git(ctx, target, repo, "rev-parse", "HEAD")
 			if err != nil {
 				return nil, err
@@ -265,8 +271,9 @@ func (s *Service) planChangeSetApply(a caller, in map[string]any) (lifePlan, err
 			if _, err := s.git(ctx, target, repo, append(args, file)...); err != nil {
 				out, _ := s.git(ctx, target, repo, "diff", "--name-only", "--diff-filter=U")
 				conflicts = strings.Fields(out)
-				// Restore exactly the target's committed state; it was clean.
-				if _, rerr := s.git(ctx, target, repo, "reset", "--hard", "--quiet", head); rerr != nil {
+				// Restore the target's committed state; it was clean. HEAD,
+				// not the head read earlier, so no commit is ever unwound.
+				if _, rerr := s.git(ctx, target, repo, "reset", "--hard", "--quiet", "HEAD"); rerr != nil {
 					return nil, rerr
 				}
 				if len(conflicts) == 0 {
@@ -310,6 +317,16 @@ func (s *Service) planChangeSetApply(a caller, in map[string]any) (lifePlan, err
 			editResource(m)
 			return nil
 		}}, nil
+}
+
+var applyLocks sync.Map
+
+// lockApply serializes change-set applies into one target repository.
+func lockApply(s *Service, target, repo string) func() {
+	v, _ := applyLocks.LoadOrStore(fmt.Sprintf("%p\n%s\n%s", s, target, repo), &sync.Mutex{})
+	mu := v.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
 }
 
 func (s *Service) planChangeSetReject(a caller, in map[string]any) (lifePlan, error) {

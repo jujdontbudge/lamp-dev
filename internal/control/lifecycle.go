@@ -72,6 +72,17 @@ func init() {
 // --- suspend / resume ------------------------------------------------------
 
 func (s *Service) planSuspend(a caller, in map[string]any) (lifePlan, error) {
+	return s.planSuspendWith(a, in, false)
+}
+
+// planDeadlineSuspend is the hard-expiry suspension: a running task command
+// does not hold the sandbox past its deadline. The command is captured with
+// the guest and its outcome becomes unknown; resuming needs new authority.
+func (s *Service) planDeadlineSuspend(a caller, in map[string]any) (lifePlan, error) {
+	return s.planSuspendWith(a, in, true)
+}
+
+func (s *Service) planSuspendWith(a caller, in map[string]any, deadline bool) (lifePlan, error) {
 	id := textField(in, "sandbox_id")
 	sb, err := s.lifeSandboxFor(a, id)
 	if err != nil {
@@ -90,7 +101,7 @@ func (s *Service) planSuspend(a caller, in map[string]any) (lifePlan, error) {
 		return lifePlan{}, reject("RESOURCE_IN_USE", "sandbox is not ready or has an in-flight operation")
 	}
 	for _, ex := range s.journal.Execs {
-		if value(ex.SandboxId) == id && (ex.State == "accepted" || ex.State == "running") {
+		if !deadline && value(ex.SandboxId) == id && (ex.State == "accepted" || ex.State == "running") {
 			return lifePlan{}, reject("RESOURCE_IN_USE", "a task command is still running")
 		}
 	}
@@ -242,6 +253,7 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 				s.retireSnapshot(sb.SnapshotId)
 				sb.SnapshotId = nil
 				s.life.Discards[capture] = "resumed"
+				l.Resumed = value(sb.Generation)
 				l.Capture = ""
 				l.SuspendedAt = ""
 				l.idleFrom = time.Time{}
@@ -256,6 +268,35 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 			}
 			return err
 		}}, nil
+}
+
+// resumedGeneration reports whether generation was brought up by a resume
+// (so the create command reconciliation inspects does not exist). Under mu.
+func (s *Service) resumedGeneration(id string, generation uint64) bool {
+	l := s.life.Sandboxes[id]
+	return l != nil && generation != 0 && l.Resumed == generation
+}
+
+// reconcileResumed marks a resumed sandbox ready again after a daemon restart
+// once its guest, at the same generation, answers a readiness probe.
+func (s *Service) reconcileResumed(ctx context.Context, id string, revision uint64) {
+	res, err := s.guestRun(ctx, id, "/bin/true")
+	if err != nil || res.Exit != 0 {
+		return
+	}
+	s.readLock()
+	defer s.mu.Unlock()
+	current := s.journal.Sandboxes[id]
+	if s.broken || current.Revision != revision || current.State != "unavailable" {
+		return
+	}
+	current.State = "ready"
+	current.Revision++
+	current.UpdatedAt = timestamp()
+	s.journal.Sandboxes[id] = current
+	if err := s.save(id); err != nil {
+		s.broken = true
+	}
 }
 
 // Wake resumes a suspended sandbox for authorized activity (exec, message,
@@ -795,7 +836,11 @@ func appendOnce(xs []string, v string) []string {
 
 func (s *Service) internalSuspend(c idleCandidate, why string) {
 	in := map[string]any{"sandbox_id": c.id, "expected_revision": jsonNumber(c.revision), "durability": "local", "idempotency_key": "lamp-" + why + "-suspend:" + c.id + ":" + strconv.FormatUint(c.revision, 10)}
-	s.lifeStart(caller{Principal: c.owner}, "sandbox_suspend", in)
+	handler := (*Service).planSuspend
+	if why == "deadline" {
+		handler = (*Service).planDeadlineSuspend
+	}
+	s.lifeStartWith(caller{Principal: c.owner}, "sandbox_suspend", in, handler)
 }
 
 // internalHTTP drives an existing public handler on behalf of a principal.
@@ -818,6 +863,14 @@ func (s *Service) internalHTTP(a caller, method, path string, headers map[string
 }
 
 func (s *Service) internalDelete(sb api.Sandbox, why string) {
+	ctx, cancel := context.WithTimeout(s.context(), 15*time.Minute)
+	defer cancel()
+	if !s.detachForDelete(ctx, sb.OwnerId, sb.Id) {
+		return // kept until its files are written back
+	}
+	s.mu.Lock()
+	sb = s.journal.Sandboxes[sb.Id]
+	s.mu.Unlock()
 	s.internalHTTP(caller{Principal: sb.OwnerId}, "DELETE", "/v1/sandboxes/"+sb.Id, map[string]string{
 		"Idempotency-Key": "lamp-" + why + "-delete:" + sb.Id, "If-Match": strconv.FormatUint(sb.Revision, 10)}, nil)
 }

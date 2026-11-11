@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -175,10 +176,7 @@ func (s *Service) lifeStartWith(a caller, name string, in map[string]any, handle
 	plan, err := handler(s, a, in)
 	if err != nil {
 		// A rejected plan leaves no trace: restore the staged state.
-		restored := newLifeState()
-		decodeNumbers(before, restored)
-		s.keepEphemeral(restored)
-		s.life = restored
+		s.restoreLife(before)
 		s.mu.Unlock()
 		return "", false, err
 	}
@@ -217,6 +215,61 @@ func (s *Service) lifeStartWith(a caller, name string, in map[string]any, handle
 	}
 	s.mu.Unlock()
 	return opID, false, nil
+}
+
+// restoreLife puts back the state encoded in before. Running operations hold
+// pointers to lifecycle objects and to their resource maps, so every object
+// that survives is restored in place; only objects the rejected plan added
+// or removed come and go. Under mu.
+func (s *Service) restoreLife(before []byte) {
+	restored := newLifeState()
+	decodeNumbers(before, restored)
+	s.keepEphemeral(restored)
+	cur, next := reflect.ValueOf(s.life).Elem(), reflect.ValueOf(restored).Elem()
+	for i := 0; i < cur.NumField(); i++ {
+		cf, nf := cur.Field(i), next.Field(i)
+		switch {
+		case cf.Kind() == reflect.Map && cf.Type().Elem().Kind() == reflect.Pointer:
+			for _, k := range cf.MapKeys() {
+				if v := nf.MapIndex(k); v.IsValid() {
+					restoreInPlace(cf.MapIndex(k).Elem(), v.Elem())
+				} else {
+					cf.SetMapIndex(k, reflect.Value{})
+				}
+			}
+			for _, k := range nf.MapKeys() {
+				if !cf.MapIndex(k).IsValid() {
+					cf.SetMapIndex(k, nf.MapIndex(k))
+				}
+			}
+		case cf.Kind() == reflect.Map && !cf.IsNil() && !nf.IsNil():
+			cf.Clear()
+			for _, k := range nf.MapKeys() {
+				cf.SetMapIndex(k, nf.MapIndex(k))
+			}
+		default:
+			cf.Set(nf)
+		}
+	}
+}
+
+// restoreInPlace copies src's fields into dst, keeping dst's top-level maps
+// (resource documents that a running plan's closures still edit).
+func restoreInPlace(dst, src reflect.Value) {
+	for i := 0; i < dst.NumField(); i++ {
+		df, sf := dst.Field(i), src.Field(i)
+		if !df.CanSet() {
+			continue // in-memory fields; keepEphemeral already carried them
+		}
+		if df.Kind() == reflect.Map && !df.IsNil() && !sf.IsNil() {
+			df.Clear()
+			for _, k := range sf.MapKeys() {
+				df.SetMapIndex(k, sf.MapIndex(k))
+			}
+			continue
+		}
+		df.Set(sf)
+	}
 }
 
 // keepEphemeral carries in-memory activity fields across a state restore.
@@ -556,6 +609,11 @@ func (s *Service) lifeSandboxFor(a caller, id string) (api.Sandbox, error) {
 	sb, ok := s.journal.Sandboxes[id]
 	if !ok || !s.sandboxAllowed(a, sb) {
 		return sb, reject("NOT_FOUND", "sandbox not found")
+	}
+	// A warm-pool entry stays never-used and signed out until it is
+	// claimed: no uploads, attachments, saves or edits reach it.
+	if l := s.life.Sandboxes[id]; l != nil && l.Pool != "" {
+		return sb, reject("RESOURCE_IN_USE", "unclaimed warm-pool sandbox; claim it with sandbox_create {recipe_id}")
 	}
 	return sb, nil
 }

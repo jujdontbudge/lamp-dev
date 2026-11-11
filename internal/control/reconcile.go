@@ -17,6 +17,12 @@ func (s *Service) reconcileSandbox(id, operationID string) {
 	defer cancel()
 	s.readLock()
 	sb, ok := s.journal.Sandboxes[id]
+	if ok && sb.State == "unavailable" && s.resumedGeneration(id, value(sb.Generation)) {
+		revision := sb.Revision
+		s.mu.Unlock()
+		s.reconcileResumed(ctx, id, revision)
+		return
+	}
 	if !ok || sb.State != "unavailable" || sb.Readiness == nil || sb.Readiness.CommandStartedAt == nil {
 		s.mu.Unlock()
 		return
