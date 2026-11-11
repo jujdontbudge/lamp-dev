@@ -114,3 +114,32 @@ func (s *Service) ciRevokeModel(ctx context.Context, id string, r ci.Repository)
 	}
 	return s.ciUpdate(id, func(j *ciJob) { j.BrokerGrant = "" })
 }
+
+// ciKeepModelGrant renews the job's broker grant while the job runs, so a long
+// job keeps model access for its whole lifetime. The broker still caps each
+// extension at one TTL, so a stopped or crashed controller lets the grant lapse.
+// Cleanup revokes the grant when the job ends; stop must run before that.
+func (s *Service) ciKeepModelGrant(ctx context.Context, id string, r ci.Repository) (stop func()) {
+	grant := s.ciSnapshot(id).BrokerGrant
+	if grant == "" || r.ModelBroker == nil {
+		return func() {}
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		tick := time.NewTicker(60 * time.Second)
+		defer tick.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+				call, end := context.WithTimeout(ctx, 10*time.Second)
+				ciBrokerCall(call, r.ModelBroker.OwnerSocket, "/owner/renew", map[string]any{"grant_id": grant, "ttl_seconds": 300}, nil)
+				end()
+			}
+		}
+	}()
+	return func() { cancel(); <-done }
+}

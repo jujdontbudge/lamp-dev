@@ -453,6 +453,8 @@ os.chmod(dst,0o700)
 	if err != nil {
 		return err
 	}
+	stopRenew := s.ciKeepModelGrant(ctx, id, r)
+	defer stopRenew()
 	req := s.workerRequest(ctx, "ci-runner", sandbox, s.sandboxGeneration(sandbox))
 	command := req.Context.OperationId
 	if err = s.ciUpdate(id, func(j *ciJob) { j.Command = command }); err != nil {

@@ -198,6 +198,28 @@ func (b *Broker) owner(w http.ResponseWriter, r *http.Request) {
 		}
 		b.log(id, "owner", "access_changed")
 		send(w, 200, map[string]string{"access": in.Access})
+	case r.Method == "POST" && r.URL.Path == "/owner/renew":
+		// Extends a live grant by at most one TTL from now, so a holder (such as
+		// a CI job) keeps one token for its whole lifetime only while its owner
+		// keeps renewing. An expired or revoked grant is never revived.
+		var in struct {
+			GrantID string `json:"grant_id"`
+			TTL     int    `json:"ttl_seconds"`
+		}
+		if decode(r, &in) != nil || in.TTL < 1 || in.TTL > 300 {
+			fail(w, "INVALID_ARGUMENT")
+			return
+		}
+		for k, g := range b.grants {
+			if g.id == in.GrantID {
+				g.expires = time.Now().Add(time.Duration(in.TTL) * time.Second)
+				b.grants[k] = g
+				b.log("renew", g.Sandbox, "renewed")
+				send(w, 200, map[string]any{"grant_id": g.id, "expires_at": g.expires})
+				return
+			}
+		}
+		fail(w, "NOT_FOUND")
 	case r.Method == "POST" && r.URL.Path == "/owner/revoke":
 		var in struct {
 			GrantID string `json:"grant_id"`
