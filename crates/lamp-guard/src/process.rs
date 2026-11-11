@@ -97,8 +97,10 @@ fn process_error(pid: i32, observation: &str, error: io::Error) -> io::Error {
 }
 
 fn status(pid: i32) -> io::Result<Value> {
-    let s = fs::read_to_string(format!("/proc/{pid}/status"))
-        .map_err(|error| process_error(pid, "status", error))?;
+    let s = match fs::read_to_string(format!("/proc/{pid}/status")) {
+        Err(e) if vanished(&e) => return Ok(json!({"pid":pid,"vanished":true})),
+        other => other?,
+    };
     let field = |name: &str| {
         s.lines()
             .find_map(|l| l.strip_prefix(name))
@@ -111,14 +113,22 @@ fn status(pid: i32) -> io::Result<Value> {
         "gid":field("Gid:"),"namespace_pids":field("NSpid:")}),
     )
 }
+/// A traced thread/process can disappear before its /proc entry is read: Go
+/// programs create and retire threads constantly, and an `execve` in one thread
+/// kills every sibling. That is not a collector fault.
+fn vanished(e: &io::Error) -> bool {
+    matches!(e.raw_os_error(), Some(libc::ENOENT) | Some(libc::ESRCH))
+}
+/// Still recorded before anything resumes; only the identity is unavailable.
 fn identity(pid: i32) -> io::Result<Value> {
-    match observe_identity(pid) {
+    match full_identity(pid) {
         Err(error) if error.kind() == io::ErrorKind::NotFound && exited_child(pid) => Ok(json!({
             "pid":pid,
             "state":"exited",
             "executable_unavailable":"exited_before_observation"
         })),
-        outcome => outcome,
+        Err(e) if vanished(&e) => Ok(json!({"pid":pid,"vanished":true})),
+        other => other,
     }
 }
 
@@ -135,7 +145,7 @@ fn exited_child(pid: i32) -> bool {
     }
 }
 
-fn observe_identity(pid: i32) -> io::Result<Value> {
+fn full_identity(pid: i32) -> io::Result<Value> {
     let mut s = status(pid)?;
     s["pid"] = json!(pid);
     s["start_ticks"] = json!(start_ticks(pid)?);
@@ -670,7 +680,11 @@ fn run_inner(
             early_exits.remove(&pid);
         }
         if !known.contains_key(&pid) {
-            trace(libc::PTRACE_SETOPTIONS, pid, 0, options as usize)?;
+            if let Err(e) = trace(libc::PTRACE_SETOPTIONS, pid, 0, options as usize) {
+                if !vanished(&e) {
+                    return Err(e);
+                }
+            }
             register(&mut known, &emitter, pid)?;
             if seccomp_filtered(pid) {
                 filtered.insert(pid);
@@ -684,8 +698,15 @@ fn run_inner(
                     libc::SIGSTOP | libc::SIGTSTP | libc::SIGTTIN | libc::SIGTTOU
                 )
             {
-                trace(libc::PTRACE_LISTEN, pid, 0, 0)?;
-                let (path, ticks) = stop_marker(pid)?;
+                match trace(libc::PTRACE_LISTEN, pid, 0, 0) {
+                    Err(e) if vanished(&e) => continue,
+                    other => other?,
+                };
+                let (path, ticks) = match stop_marker(pid) {
+                    Ok(marker) => marker,
+                    Err(e) if vanished(&e) => continue,
+                    Err(e) => return Err(e),
+                };
                 fs::write(&path, ticks)?;
                 fs::set_permissions(&path, fs::Permissions::from_mode(0o444))?;
                 stop_markers.insert(pid, path);
@@ -696,12 +717,19 @@ fn run_inner(
             || event == libc::PTRACE_EVENT_CLONE
         {
             let mut child = 0_usize;
-            trace(
+            if let Err(e) = trace(
                 libc::PTRACE_GETEVENTMSG,
                 pid,
                 0,
                 ptr::from_mut(&mut child) as usize,
-            )?;
+            ) {
+                // The parent died at its fork stop; its child (if any) reports
+                // its own first stop and is registered there.
+                if vanished(&e) {
+                    continue;
+                }
+                return Err(e);
+            }
             if pid == root && task_pid.is_none() {
                 task_pid = Some(child as i32);
             } else if Some(pid) == task_pid && command_pid.is_none() {
@@ -723,16 +751,21 @@ fn run_inner(
             // A filtered task entered a credential/namespace syscall: observe
             // its result at the syscall exit.
             known.insert(pid, true);
-            trace(libc::PTRACE_SYSCALL, pid, 0, 0)?;
+            resume_or_await_exit(libc::PTRACE_SYSCALL, pid, 0)?;
             continue;
         } else if event == libc::PTRACE_EVENT_EXEC {
             let mut old = 0_usize;
-            trace(
+            if let Err(e) = trace(
                 libc::PTRACE_GETEVENTMSG,
                 pid,
                 0,
                 ptr::from_mut(&mut old) as usize,
-            )?;
+            ) {
+                if vanished(&e) {
+                    continue;
+                }
+                return Err(e);
+            }
             if old as i32 != pid {
                 known.remove(&(old as i32));
                 filtered.remove(&(old as i32));
@@ -741,7 +774,11 @@ fn run_inner(
                     clear_stop_marker(&path)?;
                 }
             }
-            clear_stop_marker(&stop_marker(pid)?.0)?;
+            match stop_marker(pid) {
+                Ok((path, _)) => clear_stop_marker(&path)?,
+                Err(e) if vanished(&e) => {}
+                Err(e) => return Err(e),
+            }
             if pid != root {
                 // Every task exec happens after the task seccomp filter.
                 filtered.insert(pid);
@@ -756,12 +793,15 @@ fn run_inner(
             }
         } else if signal == libc::SIGTRAP | 0x80 {
             let mut info = [0_u8; 88];
-            let size = trace(
+            let size = match trace(
                 crate::PTRACE_GET_SYSCALL_INFO,
                 pid,
                 info.len(),
                 info.as_mut_ptr() as usize,
-            )?;
+            ) {
+                Err(e) if vanished(&e) => continue,
+                other => other?,
+            };
             if size < 24 {
                 return Err(io::Error::other("missing ptrace syscall information"));
             }

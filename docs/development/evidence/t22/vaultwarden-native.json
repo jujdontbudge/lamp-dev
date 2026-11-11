@@ -1,0 +1,1 @@
+{"credential_source_id": "disposable-vaultwarden", "disposable_registration": true, "native_adapter_read_matches_public_fixture": true, "native_cli_login": true, "native_no_host_docker": true, "secret_ref": "69869125-3020-4977-8c34-32cd1a3196a8", "server": "Vaultwarden", "server_version": "1.37.5"}

@@ -1,0 +1,10 @@
+{"step": "allocation admission", "value": {"available_mib": 26525, "live_firecracker": 1}}
+{"step": "real agent VM", "value": {"id": "sb_8a7f960a413b20e28ec9d496a666a292", "state": "ready"}}
+{"step": "copied login consent", "value": {"error": "COPIED_LOGINS_REQUIRE_EXPLICIT_CONSENT"}}
+{"step": "real opt-in browser", "value": {"browser_id": "br_f8b38e8c9dc2d04ea58dd5aaaabbea55", "mode": "copied", "private": false, "warning": "AGENT_CAN_READ_COPIED_LOGINS"}}
+{"step": "agent can inspect opted-in copied login", "value": {"copied_login_cookie_readable": true}}
+{"step": "real task browser work", "value": {"public_page_visible": true, "title": "The Internet"}}
+{"step": "no false privacy in copied mode", "value": {"error": "PRIVATE_TAKEOVER_REQUIRES_EXTERNAL_BROWSER"}}
+{"step": "toolchain install", "value": {"result": {"error": "GUEST_OUTPUT_BLOCKED"}, "status": 403}}
+{"step": "rootless Docker installation", "value": {"result": {"error": "GUEST_OUTPUT_BLOCKED"}, "status": 403}}
+{"step": "agent released", "value": {"state": "deleted"}}
