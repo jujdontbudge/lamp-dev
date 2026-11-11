@@ -165,8 +165,7 @@ The M5's existing Claude Code and Codex credentials have not been copied or
 used for these sign-ins. No browser profile or visible screen was accessed.
 Update, 2026-11-11 23:36 UTC: the Claude Code subscription turn has now
 completed; see "Completed Claude Code subscription turn in a real guest" below.
-The Codex subscription turn is still outstanding while the owner's ChatGPT plan
-is at its usage limit.
+The Codex subscription turn was dropped by the owner (see below).
 
 Cleanup was requested for the completed API sessions, and their disposable
 sandbox was deleted. The ticket's expired worker grant was renewed with the same one-hour
@@ -436,5 +435,15 @@ Deployment fixes made during this run, with no product behaviour changed:
 
 Before creation, Ubuntu had no live Firecracker process and 22,941 MiB available.
 
-The Codex subscription turn inside the guest remains pending. The owner's
-ChatGPT plan is at its usage limit until about 2026-11-12 19:10 UTC.
+### Codex subscription turn dropped by the owner
+
+At about 23:50 UTC on 2026-11-11, the owner decided: "Skip Codex subscription."
+The Codex ChatGPT-subscription turn inside a guest was therefore not run, and
+no claim is made that it ran. The route remains as built: Codex device-code
+sign-in in Lamp custody, then credential delivery over the guest's vsock auth
+channel. Codex inside Firecracker was shown earlier with a real API turn.
+
+No Codex credential was ever stored by these sign-in attempts. The
+`login --device-auth` process was stopped, and the leftover sign-in files
+(device-code prompts, logs, PID files) were removed from Ubuntu and from the M5
+without printing them.
