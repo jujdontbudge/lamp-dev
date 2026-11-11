@@ -892,6 +892,19 @@ func (s *Service) releaseWorkSandbox(ctx context.Context, id, sandbox string) er
 	why := "work-end-" + strconv.FormatUint(sb.Revision, 10)
 	s.internalDelete(sb, why)
 	s.readLock()
+	op := s.keys[sb.OwnerId+"\nsandbox_delete\nlamp-"+why+"-delete:"+sb.Id]
+	var done chan struct{}
+	if op != "" {
+		done = s.done[op]
+	}
+	s.mu.Unlock()
+	if done != nil {
+		select {
+		case <-done:
+		case <-ctx.Done():
+		}
+	}
+	s.readLock()
 	sb = s.journal.Sandboxes[sandbox]
 	s.mu.Unlock()
 	if sb.State != "deleted" {
@@ -904,7 +917,12 @@ func (s *Service) cleanupWork(ctx context.Context, id string) error {
 	s.ciState(id, "collecting")
 	j := s.ciSnapshot(id)
 	if err := s.releaseWorkSandbox(ctx, id, textField(j.R, "sandbox_id")); err != nil {
-		s.ciState(id, "cleanup_failed")
+		s.ciUpdate(id, func(j *ciJob) {
+			labels := object(j.R["labels"])
+			labels["lamp.cleanup_error"] = err.Error()
+			j.R["labels"] = labels
+			j.R["state"] = "cleanup_failed"
+		})
 		return err
 	}
 	state := map[string]string{"success": "completed", "cancelled": "canceled"}[textField(j.R, "result")]
