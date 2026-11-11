@@ -8,6 +8,7 @@ here because Lamp spawns sub-agents as separately visible sessions.
 """
 
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -233,9 +234,13 @@ class Pi:
         # into a new session (new ID, parentSession link) at the new directory.
         here = os.getcwd()
         if state.get("session_id") and state.get("directory") not in (None, here):
-            found = list((Path(env["PI_CODING_AGENT_DIR"]) / "sessions").glob("*/*_" + state["session_id"] + ".jsonl"))
+            sessions = (Path(env["PI_CODING_AGENT_DIR"]) / "sessions").resolve()
+            found = [f for f in sessions.glob("*/*_" + state["session_id"] + ".jsonl") if not f.is_symlink() and f.resolve().is_relative_to(sessions)]
             if found:
-                state["fork_from"], state["forked_from_id"] = str(found[0]), state["session_id"]
+                # Held only for this turn, never persisted: restored state can
+                # never name the file pi forks.
+                self.fork_from = str(found[0].resolve())
+                state["forked_from_id"] = state["session_id"]
                 state["session_id"] = str(uuid.uuid4())
         state["directory"] = here
 
@@ -244,7 +249,8 @@ class Pi:
         # before the first turn and the same native session is reopened later.
         state.setdefault("session_id", str(uuid.uuid4()))
         argv = [c["binary"], "-p", "--mode", "json", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes", "--session-id", state["session_id"]]
-        if fork := state.pop("fork_from", None):
+        if fork := getattr(self, "fork_from", None):
+            self.fork_from = None
             argv += ["--fork", fork]
         if c["auth"] == "api_key":
             argv += ["--provider", "lamp"]
@@ -473,6 +479,33 @@ class Amp:
 ADAPTERS = {"claude": Claude, "codex": Codex, "opencode": OpenCode, "pi": Pi, "goose": Goose, "copilot": Copilot, "cursor": Cursor, "gemini": Gemini, "droid": Droid, "devin": Devin, "amp": Amp}
 
 
+RESUME_KEY = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}")
+
+
+def load_state(path):
+    """lamp-native.json may arrive in a continuation archive from a sandbox,
+    so it is untrusted. Keep only resume keys that can select a session (never
+    a path or an option) and the working directory; fork fields are set only
+    by the adapter during a turn."""
+    try:
+        raw = json.loads(path.read_text()) if path.exists() else {}
+    except ValueError:
+        raw = {}
+    state = {}
+    for key in ("session_id", "session_name"):
+        value = raw.get(key)
+        if isinstance(value, str) and RESUME_KEY.fullmatch(value):
+            state[key] = value
+    if isinstance(raw.get("directory"), str):
+        state["directory"] = raw["directory"]
+    if isinstance(raw.get("turns"), int) and raw["turns"] >= 0:
+        state["turns"] = raw["turns"]
+    dropped = sorted(set(raw) - set(state))
+    if dropped:
+        print("lamp: ignored untrusted native state fields: " + ", ".join(dropped), file=sys.stderr, flush=True)
+    return state
+
+
 def main():
     config = json.loads(Path(sys.argv[1]).read_text())
     adapter = ADAPTERS[config["kind"]]()
@@ -481,7 +514,7 @@ def main():
     for name in adapter.homes:
         (home / name).mkdir(mode=0o700, exist_ok=True)
     state_path = home / "lamp-native.json"
-    state = json.loads(state_path.read_text()) if state_path.exists() else {}
+    state = load_state(state_path)
     environment = dict(os.environ)
     if config.get("ca_file"):
         environment.update({"NODE_EXTRA_CA_CERTS": config["ca_file"], "SSL_CERT_FILE": config["ca_file"], "CODEX_CA_CERTIFICATE": config["ca_file"], "REQUESTS_CA_BUNDLE": config["ca_file"]})

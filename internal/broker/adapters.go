@@ -261,9 +261,7 @@ func leaks(data, secret []byte) bool {
 	if len(secret) == 0 {
 		return false
 	}
-	forms := []string{string(secret), base64.StdEncoding.EncodeToString(secret), base64.RawStdEncoding.EncodeToString(secret), base64.URLEncoding.EncodeToString(secret), hex.EncodeToString(secret), url.QueryEscape(string(secret))}
-	quoted, _ := json.Marshal(string(secret))
-	forms = append(forms, string(quoted[1:len(quoted)-1]))
+	forms := secretForms(secret)
 	// Also decode JSON escapes before scanning: a vendor may return \uXXXX.
 	var decoded any
 	d := json.NewDecoder(bytes.NewReader(data))
@@ -402,4 +400,11 @@ func rpcData(data []byte) []byte {
 		}
 	}
 	return nil
+}
+
+// secretForms are the encodings of a credential scanned for in any output.
+func secretForms(secret []byte) []string {
+	forms := []string{string(secret), base64.StdEncoding.EncodeToString(secret), base64.RawStdEncoding.EncodeToString(secret), base64.URLEncoding.EncodeToString(secret), hex.EncodeToString(secret), url.QueryEscape(string(secret))}
+	quoted, _ := json.Marshal(string(secret))
+	return append(forms, string(quoted[1:len(quoted)-1]))
 }

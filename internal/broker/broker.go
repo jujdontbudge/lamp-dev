@@ -57,6 +57,7 @@ type Broker struct {
 	proposals map[string]*proposal
 	changes   map[string]*settingsChange
 	client    *http.Client
+	stream    *http.Client // native streams: no wall clock, only a stall watchdog
 	audit     *os.File
 }
 
@@ -77,7 +78,7 @@ func New(c Config, audit *os.File) (*Broker, error) {
 		}
 	}
 	tr := &http.Transport{Proxy: nil, DisableKeepAlives: true, MaxResponseHeaderBytes: 16384, TLSHandshakeTimeout: 10 * time.Second, TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}
-	return &Broker{flights: map[string]flight{}, slots: make(chan struct{}, 32), config: c, grants: map[string]Grant{}, proposals: map[string]*proposal{}, changes: map[string]*settingsChange{}, audit: audit, client: &http.Client{Transport: tr, Timeout: 40 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect denied") }}}, nil
+	return &Broker{flights: map[string]flight{}, slots: make(chan struct{}, 32), config: c, grants: map[string]Grant{}, proposals: map[string]*proposal{}, changes: map[string]*settingsChange{}, audit: audit, client: &http.Client{Transport: tr, Timeout: 40 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect denied") }}, stream: &http.Client{Transport: tr, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect denied") }}}, nil
 }
 func randomID() string {
 	var b [32]byte
@@ -418,9 +419,22 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	started := time.Now()
+	// The grant admits a call; once a native stream is admitted only its
+	// budget deadline (if any) bounds it, never the grant's own expiry.
+	if nativeRoute && expires.Equal(g.expires) {
+		expires = time.Now().Add(24 * time.Hour)
+	}
 	ctx, cancel := context.WithDeadline(r.Context(), expires)
 	defer cancel()
-	ctx, stop := context.WithTimeout(ctx, 40*time.Second)
+	// Ordinary calls keep their 40 s bound. Native model streams instead end
+	// only when the upstream stalls (see nativeStream), the grant or budget
+	// deadline passes, or the budget check stops them.
+	var stop context.CancelFunc
+	if nativeRoute {
+		ctx, stop = context.WithCancel(ctx)
+	} else {
+		ctx, stop = context.WithTimeout(ctx, 40*time.Second)
+	}
 	defer stop()
 	flightID := randomID()
 	b.flights[flightID] = flight{g.id, in.Connection, stop}
@@ -446,9 +460,11 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 	var result json.RawMessage
-	var nativeContent string
+	var nativeUsage []byte
+	streamed := false
 	if nativeRoute {
-		result, nativeContent, err = b.nativeModel(ctx, c, in)
+		nativeUsage, streamed, err = b.nativeStream(ctx, c, in, w, stop)
+		result = nativeUsage
 	} else {
 		result, err = b.execute(ctx, c, in)
 	}
@@ -467,9 +483,22 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 		_, settleErr := b.accounting(settleCtx, "settle", map[string]any{"sandbox_id": g.Sandbox, "reservation_id": reservationID, "actual_tokens": actual, "duration_ms": time.Since(started).Milliseconds()})
 		settleCancel()
 		if settleErr != nil {
+			if streamed {
+				// Bytes already reached the harness; record, cannot retract.
+				b.log(in.Connection, g.Sandbox, "ACCOUNTING_UNAVAILABLE")
+				return
+			}
 			fail(w, "ACCOUNTING_UNAVAILABLE")
 			return
 		}
+	}
+	if streamed {
+		outcome := "completed"
+		if err != nil {
+			outcome = err.Error()
+		}
+		b.log(in.Connection, g.Sandbox, outcome)
+		return
 	}
 	if err != nil {
 		b.log(in.Connection, g.Sandbox, err.Error())
@@ -477,13 +506,6 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b.log(in.Connection, g.Sandbox, "completed")
-	if nativeRoute {
-		w.Header().Set("Content-Type", nativeContent)
-		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(200)
-		_, _ = w.Write(result)
-		return
-	}
 	if modelRoute {
 		send(w, 200, result)
 		return

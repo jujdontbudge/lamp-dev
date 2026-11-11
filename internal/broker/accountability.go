@@ -50,6 +50,9 @@ func reserveTokens(ctx context.Context, c Connection, in Invocation) (uint64, er
 	if in.Operation == "responses" {
 		key = "max_output_tokens"
 	}
+	if _, ok := in.Arguments["max_completion_tokens"]; ok && in.Operation == "chat_completions" {
+		key = "max_completion_tokens"
+	}
 	output, err := modelOutputLimit(in.Arguments[key])
 	if err != nil {
 		return 0, err
