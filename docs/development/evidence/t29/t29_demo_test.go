@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -467,7 +468,13 @@ func t29GitLab(t *testing.T, s *Service, live t29Live) {
 	cmd := exec.Command("python3", os.Getenv("LAMP_T29_GITLAB_DRIVER"))
 	cmd.Env = append(os.Environ(), "LAMP_SOCKET="+sock, "LAMP_GITLAB_RECIPE="+recipe)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	err = cmd.Run()
+	// The driver's runner and its Fleeting plugin must not outlive this stage:
+	// a graceful quit lets the plugin delete its instances, then force.
+	syscall.Kill(-cmd.Process.Pid, syscall.SIGQUIT)
+	time.Sleep(30 * time.Second)
+	syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	live2 := 0
 	s.readLock()
 	for _, sb := range s.journal.Sandboxes {
