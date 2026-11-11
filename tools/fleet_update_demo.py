@@ -9,7 +9,7 @@ runs a real Linux VM sandbox with a live guest process.
 
 Shown: automatic updates off by default; `lamp fleet update --update-policy-json`
 turning them on; Lamp creating the Update itself and rolling 3.1.0 through
-hs_lx -> hs_m5 -> hs_air with update_get observed throughout; the sandbox and
+hs_air -> hs_lx -> hs_m5 with update_get observed throughout; the sandbox and
 its guest process surviving the M5 update; a tampered release refused with
 INVALID_ARGUMENT; a signed but broken 3.2.0 failing its check on the first host,
 rolling back and stopping the rollout; LaunchAgent restart and removal.
@@ -120,7 +120,7 @@ def brief(u):
     return {k: u.get(k) for k in ['id', 'state', 'current_host_id', 'host_ids', 'release_digest', 'metadata_versions', 'security_revocations', 'migration', 'rollback_ref', 'labels', 'revision']}
 
 
-def watch_update(want_terminal, label, timeout=900):
+def watch_update(want_terminal, label, timeout=900, skip=()):
     """Poll update_get and record each state change of the newest Update."""
     seen, deadline = None, time.time() + timeout
     while time.time() < deadline:
@@ -128,6 +128,7 @@ def watch_update(want_terminal, label, timeout=900):
             us = updates(host)
             if us:
                 break
+        us = [x for x in us if x['id'] not in skip]
         if us:
             u = us[-1]
             key = (u['id'], u['state'], u.get('current_host_id'))
@@ -142,7 +143,13 @@ def watch_update(want_terminal, label, timeout=900):
 
 def guest(sb, script):
     """Run a shell script in the sandbox through Lamp and return its stdout."""
-    _, b = lamp(f"exec create --sandbox-id {sb} --argv-json {shlex.quote(json.dumps(['sh', '-c', script]))} --wait-ms 60000")
+    for attempt in range(20):
+        rc, b = lamp(f"exec create --sandbox-id {sb} --argv-json {shlex.quote(json.dumps(['sh', '-c', script]))} --wait-ms 60000", check=False)
+        if rc == 0:
+            break
+        time.sleep(3)
+    else:
+        raise SystemExit(f'exec create: {b}')
     ex = b['result']['exec_id'] if 'result' in b else b['resource_ids'][0]['id']
     deadline = time.time() + 90
     while time.time() < deadline:
@@ -159,6 +166,10 @@ def guest(sb, script):
 
 def build_releases():
     inst = WORK / 'bin-host' / 'lamp-installer'
+    rels = WORK / 'fleet-releases'
+    if (rels / '3.2.0' / 'index.json').exists() and not os.environ.get('REBUILD'):
+        record('reusing signed releases built earlier', versions=sorted(os.listdir(rels)))
+        return rels
     sh(['go', 'build', '-o', str(WORK / 'bin-host') + '/', './cmd/lamp-installer'], cwd=ROOT)
     for goos, goarch in [('linux', 'amd64'), ('darwin', 'arm64')]:
         env = {**os.environ, 'GOOS': goos, 'GOARCH': goarch, 'CGO_ENABLED': '0'}
@@ -215,11 +226,18 @@ def main():
     # Ship kits: installer, CLI, releases, fleet files, shared owner enrollment.
     for h in ORDER:
         c = H[h]
-        on(h, f'rm -rf {c["base"]} && mkdir -p {c["kit"]} {c["prefix"]} && chmod 700 {c["base"]} {c["kit"]}')
+        # Keep a host's copy of the releases when its index hashes match.
+        on(h, f'mkdir -p {c["kit"]} && cd {c["kit"]} && ls -A | grep -v "^releases$" | xargs rm -rf; rm -rf {c["prefix"]}; mkdir -p {c["prefix"]} && chmod 700 {c["base"]} {c["kit"]}')
         b = WORK / f'bin-{c["goos"]}-{c["goarch"]}'
         for f in [b / 'lamp-installer', b / 'lamp', WORK / 'keys' / 'release-trust.pub', ca / 'ca.crt', ca / f'{h}.crt', ca / f'{h}.key']:
             copy(h, f, c['kit'] + '/')
-        copy(h, rels, c['kit'] + '/releases')
+        lines = [hashlib.sha256((rels / v / 'index.json').read_bytes()).hexdigest() + '  releases/' + v + '/index.json' for v in sorted(os.listdir(rels))]
+        tool_sum = 'sha256sum' if c['goos'] == 'linux' else 'shasum -a 256'
+        rc, _ = on(h, f"cd {c['kit']} && printf '%s\\n' {' '.join(shlex.quote(l) for l in lines)} | {tool_sum} -c --status", check=False)
+        if rc:
+            on(h, f'rm -rf {c["kit"]}/releases')
+            copy(h, rels, c['kit'] + '/releases')
+        record('releases on host', host=h, reused=rc == 0)
         put(h, c['kit'] + '/identity.json', identity)
         put(h, c['kit'] + '/owner.token', TOKEN + '\n')
         cfg = dict(host_id=h, bootstrap=h == 'hs_lx', hosts=manifest, ca_file=c['kit'] + '/ca.crt', cert_file=c['kit'] + f'/{h}.crt', key_file=c['kit'] + f'/{h}.key',
@@ -296,8 +314,8 @@ def main():
             break
         time.sleep(3)
     record('sandbox on hs_m5', sandbox={k: g['data'].get(k) for k in ['id', 'state', 'host_id', 'engine_id', 'template_id']})
-    start = ("setsid sh -c 'while :; do date +%s >> /dev/shm/beat; sleep 1; done' >/dev/null 2>&1 < /dev/null & "
-             "sleep 2; echo boot=$(cat /proc/sys/kernel/random/boot_id) pid=$(pgrep -f 'date +%s' | head -1) beats=$(wc -l < /dev/shm/beat)")
+    start = ("setsid sh -c 'echo $$ > /dev/shm/beat.pid; while :; do date +%s >> /dev/shm/beat; sleep 1; done' >/dev/null 2>&1 < /dev/null & "
+             "sleep 2; echo boot=$(cat /proc/sys/kernel/random/boot_id) pid=$(cat /dev/shm/beat.pid) beats=$(wc -l < /dev/shm/beat)")
     out, e, _ = guest(sb, start)
     record('guest process started (tmpfs, memory only)', stdout=out, exec_state=e['state'])
     before = dict(x.split('=', 1) for x in out.split())
@@ -319,29 +337,33 @@ def main():
     # The owner turns automatic updates on through Lamp itself.
     pol = '{"automatic":true,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000}'
     rc, body = lamp(f"fleet update fl_local --update-policy-json '{pol}' --expected-revision {f['data']['revision']}")
-    _, f = lamp('fleet get fl_local')
+    for _ in range(20):  # the local host may be a follower that has not applied the commit yet
+        _, f = lamp('fleet get fl_local')
+        if (f['data'].get('update_policy') or {}).get('automatic'):
+            break
+        time.sleep(0.5)
     record('lamp fleet update --update-policy-json', command=f"lamp fleet update fl_local --update-policy-json '{pol}'", rc=rc, update_policy=f['data'].get('update_policy'))
     u = watch_update({'completed', 'failed', 'rolled_back'}, 'rollout 3.1.0')
     for h in ORDER:
         record('host after 3.1.0', host=h, status=json.loads(on(h, f'{tool(h)} status --prefix {H[h]["prefix"]}')[1].splitlines()[-1]))
-    out, e, _ = guest(sb, "echo boot=$(cat /proc/sys/kernel/random/boot_id) pid=$(pgrep -f 'date +%s' | head -1) beats=$(wc -l < /dev/shm/beat) "
+    out, e, _ = guest(sb, "echo boot=$(cat /proc/sys/kernel/random/boot_id) pid=$(cat /dev/shm/beat.pid) alive=$(kill -0 $(cat /dev/shm/beat.pid) && echo yes) beats=$(wc -l < /dev/shm/beat) "
                           "maxgap=$(awk 'NR>1&&$1-p>m{m=$1-p}{p=$1}END{print m+0}' /dev/shm/beat)")
     after = dict(x.split('=', 1) for x in out.split())
     _, g = lamp(f'sandbox get {sb}')
     record('active work after the M5 update', sandbox_state=g['data']['state'], before=before, after=after,
            same_vm_boot=before['boot'] == after['boot'], same_process=before['pid'] == after['pid'])
-    if u['state'] != 'completed' or before['boot'] != after['boot'] or before['pid'] != after['pid']:
+    if u['state'] != 'completed' or before['boot'] != after['boot'] or before['pid'] != after['pid'] or after.get('alive') != 'yes':
         raise SystemExit('3.1.0 rollout did not preserve active work')
 
     # A signed but broken release: the first host fails, rolls back, rollout stops.
     for h in ORDER:
         on(h, f'{tool(h)} publish --prefix {H[h]["prefix"]} --release {H[h]["kit"]}/releases/3.2.0')
-    u = watch_update({'completed', 'failed', 'rolled_back'}, 'rollout 3.2.0 (broken)')
+    u = watch_update({'completed', 'failed', 'rolled_back'}, 'rollout 3.2.0 (broken)', skip={u['id']})
     for h in ORDER:
         record('host after broken 3.2.0', host=h, status=json.loads(on(h, f'{tool(h)} status --prefix {H[h]["prefix"]}')[1].splitlines()[-1]))
     time.sleep(10)
     record('no new Update for the rolled-back release', updates=[{k: x[k] for k in ['id', 'state']} for x in updates()])
-    out, _, _ = guest(sb, "echo pid=$(pgrep -f 'date +%s' | head -1) beats=$(wc -l < /dev/shm/beat)")
+    out, _, _ = guest(sb, "echo pid=$(cat /dev/shm/beat.pid) alive=$(kill -0 $(cat /dev/shm/beat.pid) && echo yes) beats=$(wc -l < /dev/shm/beat) maxgap=$(awk 'NR>1&&$1-p>m{m=$1-p}{p=$1}END{print m+0}' /dev/shm/beat)")
     record('guest still running at the end', stdout=out)
 
 
@@ -349,7 +371,8 @@ def cleanup():
     for item in CLEAN:
         try:
             if item[0] == 'sandbox':
-                rc, b = lamp(f'sandbox delete {item[1]} --wait-ms 60000', check=False)
+                _, g = lamp(f'sandbox get {item[1]}', check=False)
+                rc, b = lamp(f'sandbox delete {item[1]} --expected-revision {g["data"]["revision"]} --wait-ms 60000', check=False)
                 record('sandbox deleted', rc=rc)
         except SystemExit:
             pass
@@ -368,7 +391,9 @@ def cleanup():
         if item[0] == 'grant':
             sh(['sudo', '-n', SUP, 'grant-revoke', '--store', STORE, item[1]], check=False)
     for h in ORDER:
-        on(h, f'rm -rf {H[h]["base"]}', check=False)
+        # Releases stay for a quick retry; FINAL=1 removes everything.
+        keep = '' if os.environ.get('FINAL') else f' -not -path "{H[h]["kit"]}/releases*"'
+        on(h, f'find {H[h]["base"]} -mindepth 1 -maxdepth 2{keep} -exec rm -rf {{}} + ; [ -n "{os.environ.get("FINAL", "")}" ] && rm -rf {H[h]["base"]}', check=False)
     record('cleanup complete')
 
 
