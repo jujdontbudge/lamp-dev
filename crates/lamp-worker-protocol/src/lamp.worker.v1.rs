@@ -86,6 +86,17 @@ pub struct Compatibility {
     #[prost(string, tag = "6")]
     pub host_os_build: ::prost::alloc::string::String,
 }
+/// Devices the caller requested at create. An engine refuses any it cannot
+/// attach (DEVICE_UNAVAILABLE) before allocating anything.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeviceRequest {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "3")]
+    pub size_mib: u64,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Allocate {
     #[prost(message, optional, tag = "1")]
@@ -94,6 +105,8 @@ pub struct Allocate {
     pub engine_id: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "3")]
     pub handles: ::prost::alloc::vec::Vec<HandleGrant>,
+    #[prost(message, repeated, tag = "4")]
+    pub devices: ::prost::alloc::vec::Vec<DeviceRequest>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Start {

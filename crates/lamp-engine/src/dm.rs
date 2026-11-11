@@ -111,7 +111,8 @@ impl Control {
             }
             buf[HEADER..HEADER + payload.len()].copy_from_slice(payload);
             // SAFETY: buf is a valid, writable dm_ioctl of `size` bytes.
-            let rc = unsafe { libc::ioctl(self.file.as_raw_fd(), request(nr), buf.as_mut_ptr()) };
+            let rc =
+                unsafe { libc::ioctl(self.file.as_raw_fd(), request(nr) as _, buf.as_mut_ptr()) };
             if rc != 0 {
                 let e = std::io::Error::last_os_error();
                 return Err(EngineError {

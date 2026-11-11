@@ -13,22 +13,27 @@ STORE_GIB=${1:-300}; shift || true
 ALLOW=""
 for uid in "$@"; do ALLOW+=" --allow-uid $uid"; done
 FC_VERSION=v1.17.0
-FC_SHA256=06094a1108ae9e82aa4c23a775aa92758f53f1175d422270d9d6162cb9ade558
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64) FC_SHA256=06094a1108ae9e82aa4c23a775aa92758f53f1175d422270d9d6162cb9ade558 ;;
+  aarch64) FC_SHA256=e351ebe4f7a16b5873bbd51005d2e6767103cff4d5ebc829df2d3f95a93e2256 ;;
+  *) echo "unsupported architecture $ARCH"; exit 1 ;;
+esac
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-test -w /dev/kvm || { echo "need read/write /dev/kvm"; exit 1; }
+test -w /dev/kvm || { echo "need read/write /dev/kvm (hosts without virtualization: infra/linux/install-gvisor.sh)"; exit 1; }
 for tool in nft nsenter setpriv fallocate pasta; do
   command -v "$tool" >/dev/null || { echo "need $tool on the host (pasta: package passt)"; exit 1; }
 done
 cd "$WORK"
-curl -fsSLO "https://github.com/firecracker-microvm/firecracker/releases/download/$FC_VERSION/firecracker-$FC_VERSION-x86_64.tgz"
-echo "$FC_SHA256  firecracker-$FC_VERSION-x86_64.tgz" | sha256sum -c -
-tar xzf "firecracker-$FC_VERSION-x86_64.tgz"
-R="release-$FC_VERSION-x86_64"
+curl -fsSLO "https://github.com/firecracker-microvm/firecracker/releases/download/$FC_VERSION/firecracker-$FC_VERSION-$ARCH.tgz"
+echo "$FC_SHA256  firecracker-$FC_VERSION-$ARCH.tgz" | sha256sum -c -
+tar xzf "firecracker-$FC_VERSION-$ARCH.tgz"
+R="release-$FC_VERSION-$ARCH"
 sudo -n install -d /usr/local/lib/lamp
-sudo -n install -m 0755 "$R/firecracker-$FC_VERSION-x86_64" /usr/local/lib/lamp/firecracker
-sudo -n install -m 0755 "$R/jailer-$FC_VERSION-x86_64" /usr/local/lib/lamp/jailer
+sudo -n install -m 0755 "$R/firecracker-$FC_VERSION-$ARCH" /usr/local/lib/lamp/firecracker
+sudo -n install -m 0755 "$R/jailer-$FC_VERSION-$ARCH" /usr/local/lib/lamp/jailer
 
 (cd "$ROOT" && cargo build --release --locked -p lamp-supervisor -p lamp-guard)
 sudo -n install -m 0755 "${CARGO_TARGET_DIR:-$ROOT/target}/release/lamp-supervisor" /usr/local/lib/lamp/lamp-supervisor

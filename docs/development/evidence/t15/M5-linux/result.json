@@ -1,0 +1,36 @@
+{
+  "guest": "linux",
+  "runtime": "/private/var/tmp/lamp-t15-6yqqeqe0",
+  "devices": {
+    "display": {
+      "width": 640,
+      "height": 480
+    },
+    "gpu": false,
+    "keyboard": true,
+    "mouse": true,
+    "extra_disks": [
+      {
+        "id": "demo",
+        "size_mib": 64
+      }
+    ]
+  },
+  "oversized": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: NO_CAPACITY: NO_CAPACITY: requested 32768 MiB plus 256 MiB VMM allowance; physical=24576 MiB, available=4740 MiB, host reserve=2048 MiB, reservations=0 MiB, pending=0 MiB\n"
+  },
+  "oversized_directory_created": false,
+  "create": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: HOST_UNAVAILABLE: worker did not start: lamp-vz: start: VZErrorDomain 1: Internal Virtualization error. Failed to issue IOSurface sandbox extension. (Failed to issue IOSurface sandbox extension.)\n"
+  },
+  "release": {
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "worker_directory_released": true
+}

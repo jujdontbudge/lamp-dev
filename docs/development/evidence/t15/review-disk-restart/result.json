@@ -1,0 +1,16 @@
+{
+  "huge-refused": {
+    "ready": null,
+    "exit": 1
+  },
+  "huge_created_disk": false,
+  "quota-refused": {
+    "ready": null,
+    "exit": 1
+  },
+  "quota_created_disk": false,
+  "first-start": {
+    "ready": null,
+    "exit": 1
+  }
+}

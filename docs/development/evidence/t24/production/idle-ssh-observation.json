@@ -1,0 +1,18 @@
+{
+  "event": "authenticated-relay-ssh-idle-survives",
+  "idle_seconds": 125.01,
+  "same_master_connection": true,
+  "fresh_connection_fallback_disabled": true,
+  "openssh_server_alive_interval": 0,
+  "tcp_keepalive": false,
+  "post_idle_ssh_exec_reply_received": true,
+  "remote_reply": "control session_list: NOT_FOUND",
+  "remote_command_exit": 1,
+  "session_listing_success_claimed": false,
+  "reply_unchanged": true,
+  "account_provider": "disposable local signer, not Clerk",
+  "real_endpoints": ["lamp-relay", "OpenSSH", "lamp-access", "lampd"],
+  "relay_binary_sha256": "c697998cfdb62ca675f562e490eb20b2d7c94baf6d078e88cac7c6873a2005b7",
+  "vms_allocated": 0,
+  "ticket_processes_stopped": true
+}

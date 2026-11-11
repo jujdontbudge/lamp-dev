@@ -1,0 +1,1 @@
+lamp-vz: INVALID_ARGUMENT: extra disks need unique alphanumeric/underscore ids (1..=40 bytes) and size_mib 1..=1048576

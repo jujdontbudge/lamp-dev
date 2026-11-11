@@ -56,6 +56,89 @@ pub const STANDARD: Resources = Resources {
     disk_gib: 20,
 };
 pub const DEFAULT_PIDS_MAX: u64 = 4096;
+/// Host memory left to the owner's own work and never admitted to guests.
+const HOST_RESERVE_MIB: u64 = 4096;
+/// Charged per sandbox on top of its guest RAM (VMM, guard, page tables).
+const VMM_ALLOWANCE_MIB: u64 = 256;
+/// Most extra disks one sandbox may request.
+const MAX_EXTRA_DISKS: usize = 8;
+
+/// One device a caller asked for at create. Firecracker exposes block
+/// devices only; every other kind is refused before any work starts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceRequest {
+    pub id: String,
+    pub kind: String,
+    pub size_mib: u64,
+}
+
+/// Device kinds this engine can attach, and why the others are refused.
+pub fn device_support(kind: &str) -> std::result::Result<(), &'static str> {
+    match kind {
+        "disk" => Ok(()),
+        "gpu" => Err(
+            "Firecracker has no GPU passthrough or virtio-gpu device; GPU acceleration is unavailable on this Linux engine",
+        ),
+        "display" | "keyboard" | "mouse" => Err("Firecracker has no display or input devices"),
+        "audio_input" | "audio_output" => Err("Firecracker has no audio devices"),
+        _ => Err("unknown device type"),
+    }
+}
+
+/// Host capacity, read at admission. Nothing is overcommitted: guest RAM
+/// plus allowance must fit both physical RAM less the host reserve and what
+/// the host has available now; vCPUs must fit the host's online CPUs; disks
+/// must fit the store's free space.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct HostCapacity {
+    pub cpus: u32,
+    pub physical_mib: u64,
+    pub available_mib: u64,
+    pub reserve_mib: u64,
+    pub store_free_gib: u64,
+}
+
+impl HostCapacity {
+    pub fn detect(store: &Path) -> Result<HostCapacity> {
+        let meminfo = std::fs::read_to_string("/proc/meminfo").ctx("read meminfo")?;
+        let field = |name: &str| {
+            meminfo
+                .lines()
+                .find_map(|l| l.strip_prefix(name))
+                .and_then(|v| v.trim().trim_end_matches("kB").trim().parse::<u64>().ok())
+                .map(|kib| kib >> 10)
+                .ok_or_else(|| EngineError::host(format!("meminfo has no {name}")))
+        };
+        let physical_mib = field("MemTotal:")?;
+        let available_mib = field("MemAvailable:")?;
+        let cpus = std::thread::available_parallelism()
+            .map(|n| n.get() as u32)
+            .unwrap_or(1);
+        let st = nix_statvfs(store)?;
+        Ok(HostCapacity {
+            cpus,
+            physical_mib,
+            available_mib,
+            reserve_mib: HOST_RESERVE_MIB.min(physical_mib / 4),
+            store_free_gib: st >> 30,
+        })
+    }
+}
+
+fn nix_statvfs(path: &Path) -> Result<u64> {
+    use std::os::unix::ffi::OsStrExt;
+    let c = std::ffi::CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| EngineError::invalid("store path has NUL"))?;
+    let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+    if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
+        return Err(EngineError::host(format!(
+            "statvfs {}: {}",
+            path.display(),
+            std::io::Error::last_os_error()
+        )));
+    }
+    Ok((st.f_bavail as u64).saturating_mul(st.f_frsize as u64))
+}
 /// Completed commands remembered per sandbox for completion lookups. Running
 /// commands are never forgotten; at most `MAX_RUNNING` run at once.
 const COMMAND_MEMORY: usize = 256;
@@ -178,6 +261,8 @@ enum Source {
         vmstate: PathBuf,
         disk: DiskRef,
         template_id: String,
+        /// Cold boot (kernel, cmdline) instead of the prepared image.
+        cold: Option<(PathBuf, String)>,
     },
     Capture(Arc<CaptureRec>),
     Durable(Box<durable::Entry>),
@@ -251,6 +336,13 @@ pub struct Sandbox {
     /// UID so a failed or abandoned attachment frees it.
     pub pending_net: Option<PendingNet>,
     pub network_policy: Option<crate::net::Policy>,
+    /// Guest process limit (pids.max of the guest's tasks cgroup).
+    pub pids_max: u64,
+    /// Extra block devices requested at create (cold boot only).
+    pub disks: Vec<DeviceRequest>,
+    /// Booted from the template's kernel and disk at caller-chosen size
+    /// rather than restored from its prepared memory image.
+    pub cold: bool,
 }
 
 pub type PendingNet = std::thread::JoinHandle<(u32, Result<crate::net::Attachment>)>;
@@ -439,6 +531,74 @@ fn pending(started: &ExecStarted) -> ExecDone {
 
 fn us(d: Duration) -> String {
     d.as_micros().to_string()
+}
+
+/// Sets the guest's process limit (pids.max of the tasks cgroup every
+/// command runs in) and hands extra disks (/dev/vdb onward, in request
+/// order) to the task user. Runs as the guest helper's own direct command.
+fn apply_guest_limits(
+    vsock: &Path,
+    sandbox_id: &str,
+    generation: u64,
+    n: u64,
+    extra_disks: usize,
+) -> Result<()> {
+    let disks: String = (0..extra_disks)
+        .map(|i| {
+            format!(
+                " chown {} /dev/vd{};",
+                crate::net::TASK_UID,
+                (b'b' + i as u8) as char
+            )
+        })
+        .collect();
+    let op = format!("op_limits_{}", lamp_init::hex_encode(&random_bytes::<8>()));
+    let req = GuestRequest::Exec(Exec {
+        sandbox_id: sandbox_id.into(),
+        generation,
+        exec_id: op.clone(),
+        argv: vec![
+            "/bin/sh".into(),
+            "-c".into(),
+            format!(
+                "grep -qw pids /sys/fs/cgroup/cgroup.subtree_control || echo +pids > /sys/fs/cgroup/cgroup.subtree_control; echo {n} > {}/pids.max;{disks}",
+                lamp_init::TASKS_CGROUP
+            ),
+        ],
+        env: BTreeMap::new(),
+        cwd: String::new(),
+        timeout_ms: 10_000,
+        output_limit: 4096,
+        audit: None,
+    });
+    let mut conn = guest::send(vsock, &req)?;
+    match conn.next(Some(Duration::from_secs(10)))? {
+        GuestResponse::ExecStarted(_) => {}
+        other => return Err(EngineError::host(format!("{other:?}"))),
+    }
+    let done = guest::wait_exec(
+        vsock,
+        sandbox_id,
+        generation,
+        &op,
+        Some(Instant::now() + Duration::from_secs(15)),
+        || true,
+    )?;
+    if done.exit_code != 0 {
+        return Err(EngineError::host(format!(
+            "exit {}: {}",
+            done.exit_code, done.stderr_b64
+        )));
+    }
+    Ok(())
+}
+
+fn valid_device_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 32
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
 }
 
 pub fn valid_id(id: &str, prefix: &str) -> bool {
@@ -1016,6 +1176,18 @@ impl Engine {
 
     /// Reserves identity and a jail. No guest state is touched yet.
     pub fn allocate(&self, auth: Authority<'_>, requested: Option<Resources>) -> Result<Outcome> {
+        self.allocate_with(auth, requested, None, &[])
+    }
+
+    /// Allocate with the caller's process limit and devices. Capacity is
+    /// admitted here, before any jail, disk or VMM exists.
+    pub fn allocate_with(
+        &self,
+        auth: Authority<'_>,
+        requested: Option<Resources>,
+        pids_max: Option<u64>,
+        devices: &[DeviceRequest],
+    ) -> Result<Outcome> {
         if !valid_id(auth.sandbox_id, "sb_") {
             return Err(EngineError::invalid(
                 "sandbox_id must match sb_[a-z0-9_]+ (≤60)",
@@ -1033,10 +1205,38 @@ impl Engine {
                 "vcpus must be 1 or an even number ≤ 32",
             ));
         }
-        if resources.memory_mib < 128 || resources.disk_gib == 0 {
+        if resources.memory_mib < 128 || resources.disk_gib == 0 || resources.disk_gib > 65536 {
             return Err(EngineError::invalid(
-                "memory_mib must be ≥128 and disk_gib ≥1",
+                "memory_mib must be ≥128 and disk_gib 1..=65536",
             ));
+        }
+        let pids_max = pids_max.unwrap_or(DEFAULT_PIDS_MAX);
+        if !(16..=1_048_576).contains(&pids_max) {
+            return Err(EngineError::invalid("pids_max must be 16..=1048576"));
+        }
+        if devices.len() > MAX_EXTRA_DISKS {
+            return Err(EngineError::invalid(format!(
+                "at most {MAX_EXTRA_DISKS} devices"
+            )));
+        }
+        let mut ids = BTreeSet::new();
+        let mut extra_mib = 0u64;
+        for d in devices {
+            if let Err(why) = device_support(&d.kind) {
+                return Err(EngineError::new(
+                    "DEVICE_UNAVAILABLE",
+                    format!("device {} ({}): {why}", d.id, d.kind),
+                ));
+            }
+            if !valid_device_id(&d.id) || !ids.insert(d.id.clone()) {
+                return Err(EngineError::invalid(
+                    "device ids must be unique [a-z0-9_]{1,32}",
+                ));
+            }
+            if !(1..=1_048_576).contains(&d.size_mib) {
+                return Err(EngineError::invalid("disk size_mib must be 1..=1048576"));
+            }
+            extra_mib += d.size_mib;
         }
         let mut all = self.sandboxes.lock().unwrap();
         if all.contains_key(auth.sandbox_id) {
@@ -1045,6 +1245,7 @@ impl Engine {
                 auth.sandbox_id
             )));
         }
+        self.admit(&all, &resources, extra_mib)?;
         // A released id that is allocated again (a resumed sandbox) keeps its
         // custody record: its lineage and exposures carry over, never reset.
         self.custody
@@ -1121,12 +1322,95 @@ impl Engine {
                 net: None,
                 pending_net,
                 network_policy: self.cfg.network.clone(),
+                pids_max,
+                disks: devices.to_vec(),
+                cold: false,
             })),
         );
         Ok(Outcome {
             state: "allocated".into(),
             ..Default::default()
         })
+    }
+
+    /// Refuses a sandbox the host cannot hold without overcommitting RAM,
+    /// CPUs or store space, counting every sandbox this engine still holds.
+    fn admit(
+        &self,
+        all: &HashMap<String, Arc<Mutex<Sandbox>>>,
+        r: &Resources,
+        extra_mib: u64,
+    ) -> Result<()> {
+        let host = HostCapacity::detect(&self.cfg.store)?;
+        let (mut mem, mut pending, mut cpus, mut disk) = (0u64, 0u64, 0u32, 0u64);
+        for sb in all.values() {
+            let sb = sb.lock().unwrap();
+            if sb.state == State::Stopped {
+                continue;
+            }
+            let charge = sb.resources.memory_mib + VMM_ALLOWANCE_MIB;
+            mem += charge;
+            if sb.state == State::Allocated {
+                // Not yet resident, so not yet visible in MemAvailable.
+                pending += charge;
+            }
+            cpus += sb.resources.vcpus;
+            disk += sb.resources.disk_gib
+                + sb.disks
+                    .iter()
+                    .map(|d| d.size_mib)
+                    .sum::<u64>()
+                    .div_ceil(1024);
+        }
+        let charge = r.memory_mib + VMM_ALLOWANCE_MIB;
+        let want_disk = r.disk_gib + extra_mib.div_ceil(1024);
+        let refuse = |what: String| {
+            Err(EngineError::new(
+                "NO_CAPACITY",
+                format!(
+                    "{what}; host: {} CPUs, {} MiB physical, {} MiB available, {} MiB reserved for the host, {} GiB store free; held: {cpus} vCPUs, {mem} MiB, {disk} GiB",
+                    host.cpus,
+                    host.physical_mib,
+                    host.available_mib,
+                    host.reserve_mib,
+                    host.store_free_gib
+                ),
+            ))
+        };
+        if charge
+            > host
+                .physical_mib
+                .saturating_sub(host.reserve_mib)
+                .saturating_sub(mem)
+        {
+            return refuse(format!(
+                "{} MiB guest + {VMM_ALLOWANCE_MIB} MiB allowance exceeds unreserved physical memory",
+                r.memory_mib
+            ));
+        }
+        if charge
+            > host
+                .available_mib
+                .saturating_sub(host.reserve_mib)
+                .saturating_sub(pending)
+        {
+            return refuse(format!(
+                "{} MiB guest + {VMM_ALLOWANCE_MIB} MiB allowance exceeds memory available now",
+                r.memory_mib
+            ));
+        }
+        if cpus + r.vcpus > host.cpus {
+            return refuse(format!(
+                "{} vCPUs would overcommit the host's CPUs",
+                r.vcpus
+            ));
+        }
+        if want_disk > host.store_free_gib.saturating_sub(disk) {
+            return refuse(format!(
+                "{want_disk} GiB of disk exceeds the store's free space"
+            ));
+        }
+        Ok(())
     }
 
     /// Restores a template variant, a memory capture or a durable capture
@@ -1235,14 +1519,36 @@ impl Engine {
                 None => {
                     let t = self.template(capture_id)?;
                     let disk = self.template_disk(&t)?;
+                    // The prepared image fixes CPUs, RAM and devices. Any
+                    // other shape the caller chose boots the same kernel
+                    // and disk cold, at exactly that shape.
+                    let prepared = t.variant.resources.clone();
+                    let cold = (sb.resources.vcpus != prepared.vcpus
+                        || sb.resources.memory_mib != prepared.memory_mib
+                        || sb.resources.disk_gib < prepared.disk_gib
+                        || sb.resources.disk_gib > prepared.disk_gib
+                        || !sb.disks.is_empty())
+                    .then(|| (t.dir.join(fc::KERNEL), t.manifest.kernel_cmdline.clone()));
+                    if sb.resources.disk_gib < prepared.disk_gib {
+                        return Err(EngineError::invalid(format!(
+                            "template {} needs a disk of at least {} GiB",
+                            t.id, prepared.disk_gib
+                        )));
+                    }
+                    let shape = if cold.is_some() {
+                        sb.resources.clone()
+                    } else {
+                        prepared
+                    };
                     (
                         Source::Template {
                             mem: t.dir.join(fc::MEM),
                             vmstate: t.dir.join(fc::VMSTATE),
                             disk,
                             template_id: t.id.clone(),
+                            cold,
                         },
-                        t.variant.resources.clone(),
+                        shape,
                     )
                 }
             },
@@ -1342,6 +1648,25 @@ impl Engine {
         depth
     }
 
+    /// The image a template-based delta is encoded against: the template's
+    /// prepared memory when the sizes match, otherwise (a cold-booted
+    /// sandbox of another size) an all-zero sparse image of that size.
+    fn template_base(&self, t: &Template, bytes: u64) -> Result<PathBuf> {
+        let mem = t.dir.join(fc::MEM);
+        if std::fs::metadata(&mem).ctx("stat template memory")?.len() == bytes {
+            return Ok(mem);
+        }
+        let zero = self.cfg.mem_dir.join(format!("zero-{bytes}.mem"));
+        if std::fs::metadata(&zero).ok().map(|m| m.len()) != Some(bytes) {
+            let tmp = zero.with_extension("tmp");
+            let f = File::create(&tmp).ctx("create zero base")?;
+            f.set_len(bytes).ctx("size zero base")?;
+            fsutil::chmod(&tmp, 0o400)?;
+            std::fs::rename(&tmp, &zero).ctx("publish zero base")?;
+        }
+        Ok(zero)
+    }
+
     /// Writes the full memory image of durable capture `cid` to `out`.
     fn materialize(&self, cid: &str, out: &Path, scratch: &Path, depth: usize) -> Result<()> {
         if depth > MAX_CHAIN {
@@ -1359,7 +1684,8 @@ impl Engine {
         match &m.memory.base {
             None => {
                 let t = self.template(&m.template_id)?;
-                memimg::materialize(&delta, &t.dir.join(fc::MEM), out)
+                let h = memimg::read_header(&File::open(&delta).ctx("open memory object")?)?;
+                memimg::materialize(&delta, &self.template_base(&t, h.image_bytes)?, out)
             }
             Some(b) => {
                 let tmp = scratch.join(format!("base-{b}.mem"));
@@ -1377,6 +1703,10 @@ impl Engine {
             vcpus: sb.resources.vcpus,
             memory_mib: sb.resources.memory_mib,
             pids_max: DEFAULT_PIDS_MAX,
+        };
+        let cold = match &source {
+            Source::Template { cold, .. } => cold.clone(),
+            _ => None,
         };
         let mut detail = BTreeMap::new();
         let (disk_src, template_id, base, parent) = match &source {
@@ -1416,6 +1746,7 @@ impl Engine {
             .ok_or_else(|| EngineError::in_use("sandbox has no jail"))?;
         let uid = jail.uid;
         let mem_path = match &source {
+            Source::Template { .. } if cold.is_some() => String::new(),
             Source::Template { mem, vmstate, .. } => {
                 // Prepared-template create: the kernel maps the immutable,
                 // public template image privately.
@@ -1459,7 +1790,45 @@ impl Engine {
             }
         };
         let t = Instant::now();
+        if let Some((kernel, _)) = &cold {
+            // Extra disks are raw, sparse and private to this sandbox's UID.
+            for d in &sb.disks {
+                let path = jail.path(&format!("disk-{}.img", d.id));
+                let f = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(&path)
+                    .ctx("create extra disk")?;
+                f.set_len(d.size_mib << 20).ctx("size extra disk")?;
+                fsutil::chown(&path, uid, uid)?;
+                fsutil::chmod(&path, 0o600)?;
+            }
+            std::fs::hard_link(kernel, jail.path(fc::KERNEL))
+                .or_else(|_| std::fs::copy(kernel, jail.path(fc::KERNEL)).map(|_| ()))
+                .ctx("place kernel")?;
+        }
         let working = self.attach_disk(&disk_src, jail, disk_bytes)?;
+        if cold.is_some() {
+            // Reflinked disks keep the template's size; grow the file to the
+            // caller's disk_gib (the guest sees a larger /dev/vda). Thin
+            // volumes were activated at that size already.
+            let grown = (|| -> Result<()> {
+                let path = jail.path(fc::ROOTFS);
+                let meta = std::fs::metadata(&path).ctx("stat working disk")?;
+                if meta.is_file() && meta.len() < disk_bytes {
+                    std::fs::OpenOptions::new()
+                        .write(true)
+                        .open(&path)
+                        .and_then(|f| f.set_len(disk_bytes))
+                        .ctx("grow working disk")?;
+                }
+                Ok(())
+            })();
+            if let Err(e) = grown {
+                self.release_disk(Some(working));
+                return Err(e);
+            }
+        }
         detail.insert("disk_attach_us".into(), us(t.elapsed()));
         sb.working = Some(working);
         sb.template_id = template_id;
@@ -1520,7 +1889,15 @@ impl Engine {
             fc::VMSTATE,
             fc::js(&mem_path)
         );
-        jail.api("PUT", "/snapshot/load", &body)?;
+        match &cold {
+            None => {
+                jail.api("PUT", "/snapshot/load", &body)?;
+            }
+            Some((_, cmdline)) => {
+                self.cold_boot(jail, cmdline, &sb.resources, &sb.disks)?;
+                detail.insert("boot".into(), "cold".into());
+            }
+        }
         detail.insert("load_us".into(), us(t.elapsed()));
         let t = Instant::now();
         let vsock = jail.path(fc::VSOCK);
@@ -1535,9 +1912,19 @@ impl Engine {
             .into(),
         );
         detail.insert("barrier_us".into(), us(t.elapsed()));
+        if let Err(e) =
+            apply_guest_limits(&vsock, &sb.id, sb.generation, sb.pids_max, sb.disks.len())
+        {
+            return Err(EngineError::host(format!(
+                "apply guest process limit: {}",
+                e.message
+            )));
+        }
+        detail.insert("pids_max".into(), sb.pids_max.to_string());
         detail.insert("rng_sample".into(), ack.rng_sample_hex.clone());
         detail.insert("machine_id".into(), ack.machine_id.clone());
         sb.barrier = Some(ack);
+        sb.cold = cold.is_some();
         sb.state = State::Running;
         detail.insert("capture_trust".into(), self.capture_trust(&sb.id)?.into());
         detail.insert(
@@ -1553,6 +1940,65 @@ impl Engine {
             detail,
             ..Default::default()
         })
+    }
+
+    /// Boots the template's kernel and working disk at the sandbox's own
+    /// CPU, memory and device shape, then waits for the guest helper.
+    fn cold_boot(
+        &self,
+        jail: &Jail,
+        cmdline: &str,
+        r: &Resources,
+        disks: &[DeviceRequest],
+    ) -> Result<()> {
+        jail.api(
+            "PUT",
+            "/boot-source",
+            &format!(
+                r#"{{"kernel_image_path":"/{}","boot_args":{}}}"#,
+                fc::KERNEL,
+                fc::js(cmdline)
+            ),
+        )?;
+        jail.api(
+            "PUT",
+            "/drives/rootfs",
+            &format!(r#"{{"drive_id":"rootfs","path_on_host":"/{}","is_root_device":true,"is_read_only":false}}"#, fc::ROOTFS),
+        )?;
+        for d in disks {
+            jail.api(
+                "PUT",
+                &format!("/drives/x_{}", d.id),
+                &format!(
+                    r#"{{"drive_id":"x_{}","path_on_host":"/disk-{}.img","is_root_device":false,"is_read_only":false}}"#,
+                    d.id, d.id
+                ),
+            )?;
+        }
+        jail.api(
+            "PUT",
+            "/machine-config",
+            &format!(
+                r#"{{"vcpu_count":{},"mem_size_mib":{},"track_dirty_pages":false}}"#,
+                r.vcpus, r.memory_mib
+            ),
+        )?;
+        jail.api(
+            "PUT",
+            "/vsock",
+            &format!(r#"{{"guest_cid":3,"uds_path":"/{}"}}"#, fc::VSOCK),
+        )?;
+        jail.api(
+            "PUT",
+            "/network-interfaces/eth0",
+            &format!(
+                r#"{{"iface_id":"eth0","guest_mac":"{}","host_dev_name":"{}"}}"#,
+                lamp_init::GUEST_MAC,
+                crate::net::TAP
+            ),
+        )?;
+        jail.api("PUT", "/actions", r#"{"action_type":"InstanceStart"}"#)?;
+        guest::wait_ready(&jail.path(fc::VSOCK), Duration::from_secs(60)).map(|_| ())
     }
 
     /// New identity, entropy and clock; refuses old identities afterwards.
@@ -1863,6 +2309,12 @@ impl Engine {
                 sb.state.name()
             )));
         }
+        if !sb.disks.is_empty() {
+            return Err(EngineError::new(
+                "DEVICE_UNAVAILABLE",
+                "captures do not carry extra disks; fork, suspend or save a sandbox without them",
+            ));
+        }
         self.custody
             .as_ref()
             .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
@@ -2142,7 +2594,10 @@ impl Engine {
                 Some(c.clone()),
                 sb.jail.as_ref().unwrap().memdir.join(SRC_MEM),
             ),
-            _ => (None, template.dir.join(fc::MEM)),
+            _ => (
+                None,
+                self.template_base(&template, std::fs::metadata(mem).ctx("stat capture")?.len())?,
+            ),
         };
         let t = Instant::now();
         let mem_tmp = self.state.object(&format!("{mem_name}.tmp"));
@@ -2624,6 +3079,19 @@ impl Engine {
         detail.insert("vcpus".into(), sb.resources.vcpus.to_string());
         detail.insert("memory_mib".into(), sb.resources.memory_mib.to_string());
         detail.insert("disk_gib".into(), sb.resources.disk_gib.to_string());
+        detail.insert("pids_max".into(), sb.pids_max.to_string());
+        detail.insert(
+            "boot".into(),
+            if sb.cold { "cold" } else { "prepared_image" }.into(),
+        );
+        detail.insert(
+            "devices".into(),
+            sb.disks
+                .iter()
+                .map(|d| format!("{}:disk:{}MiB", d.id, d.size_mib))
+                .collect::<Vec<_>>()
+                .join(","),
+        );
         if let State::Failed(why) = &sb.state {
             detail.insert("failure".into(), why.clone());
         }

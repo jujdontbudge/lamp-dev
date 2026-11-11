@@ -1,0 +1,131 @@
+mkdir -p bin
+cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
+go build ./...
+cargo build --workspace --locked
+   Compiling unicode-ident v1.0.27
+   Compiling libc v0.2.191
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde v1.0.229
+   Compiling bitflags v2.13.2
+   Compiling serde_json v1.0.154
+   Compiling objc2 v0.6.5
+   Compiling itoa v1.0.19
+   Compiling memchr v2.8.3
+   Compiling objc2-encode v4.1.0
+   Compiling typenum v1.20.1
+   Compiling anyhow v1.0.104
+   Compiling hybrid-array v0.4.15
+   Compiling either v1.19.0
+   Compiling semver v1.0.28
+   Compiling block2 v0.6.2
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling objc2-core-foundation v0.3.2
+   Compiling rustc_version v0.4.1
+   Compiling itertools v0.14.0
+   Compiling const-oid v0.10.2
+   Compiling digest v0.11.3
+   Compiling curve25519-dalek v5.0.0
+   Compiling cfg-if v1.0.5
+   Compiling bytes v1.12.1
+   Compiling subtle v2.6.1
+   Compiling signature v3.0.0
+   Compiling zeroize v1.9.1
+   Compiling ed25519 v3.0.0
+   Compiling syn v3.0.10
+   Compiling syn v2.0.119
+   Compiling rustix v1.1.6
+   Compiling winnow v1.0.5
+   Compiling toml_parser v1.1.5+spec-1.1.0
+   Compiling equivalent v1.0.3
+   Compiling objc2-foundation v0.3.2
+   Compiling dispatch2 v0.3.1
+   Compiling cpufeatures v0.3.1
+   Compiling sha2 v0.11.1
+   Compiling errno v0.3.14
+   Compiling foldhash v0.1.5
+   Compiling serde_derive v1.0.229
+   Compiling serde_spanned v1.1.3
+   Compiling toml_datetime v1.1.3+spec-1.1.0
+   Compiling prost-derive v0.14.4
+   Compiling toml_writer v1.2.0+spec-1.1.0
+   Compiling regex-syntax v0.8.11
+   Compiling prettyplease v0.2.37
+   Compiling hashbrown v0.17.1
+   Compiling ed25519-dalek v3.0.0
+   Compiling indexmap v2.14.2
+   Compiling toml v1.2.1+spec-1.1.0
+   Compiling hashbrown v0.15.5
+   Compiling prost v0.14.4
+   Compiling regex-automata v0.4.18
+   Compiling fastrand v2.5.0
+   Compiling once_cell v1.21.4
+   Compiling fixedbitset v0.5.9
+   Compiling petgraph v0.8.3
+   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/crates/lamp-worker-protocol)
+   Compiling prost-types v0.14.4
+   Compiling tempfile v3.27.0
+   Compiling multimap v0.10.1
+   Compiling regex v1.13.1
+   Compiling heck v0.5.0
+   Compiling log v0.4.35
+   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/crates/lamp-guard)
+   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/crates/lamp-contracts)
+   Compiling prost-build v0.14.4
+   Compiling lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/tools/protogen)
+   Compiling objc2-app-kit v0.3.2
+   Compiling objc2-virtualization v0.3.2
+   Compiling lamp-vz v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/crates/lamp-vz)
+   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/crates/lamp-supervisor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.60s
+go test -count=1 ./cmd/lamp -run '^TestCLIUsesCanonicalMutationHeaders$'
+ok  	github.com/JohanSardar/lamp/cmd/lamp	0.330s
+go test -count=1 ./internal/control -run '^(TestJournalReplaySnapshotBeforeLogTruncation|TestControlCoreInterfacesAndAuthority)$'
+ok  	github.com/JohanSardar/lamp/internal/control	2.626s
+go test -count=1 ./pkg/plugin -run '^TestNativeSandboxDeniesAmbientAuthority$'
+ok  	github.com/JohanSardar/lamp/pkg/plugin	1.387s
+.venv/bin/python tests/contracts/test_schema.py Contracts.test_all_schemas_well_formed -v
+test_all_schemas_well_formed (__main__.Contracts.test_all_schemas_well_formed) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.263s
+
+OK
+.venv/bin/python tests/ci/test_guard.py Guard.test_private_owner_push Guard.test_public_and_stranger_jobs_denied -v
+test_private_owner_push (__main__.Guard.test_private_owner_push) ... ok
+test_public_and_stranger_jobs_denied (__main__.Guard.test_public_and_stranger_jobs_denied) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+OK
+python3 tools/check_contracts.py
+56 resources, 328 operations/scopes, 31 errors, 200 events: match architecture §§11–12
+python3 tools/interop.py
+   Compiling unicode-ident v1.0.27
+   Compiling serde_core v1.0.229
+   Compiling digest v0.11.3
+   Compiling proc-macro2 v1.0.107
+   Compiling curve25519-dalek v5.0.0
+   Compiling sha2 v0.11.1
+   Compiling quote v1.0.47
+   Compiling syn v3.0.10
+   Compiling syn v2.0.119
+   Compiling ed25519-dalek v3.0.0
+   Compiling serde_derive v1.0.229
+   Compiling prost-derive v0.14.4
+   Compiling serde_json v1.0.154
+   Compiling prost v0.14.4
+   Compiling serde v1.0.229
+   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/crates/lamp-worker-protocol)
+   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f2892e46-c3a49f9ef1a8fa65/crates/lamp-contracts)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.65s
+PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
+PASS: Go request → Unix socket → Rust typed Protobuf → Go response
+python3 tools/generate.py --check
+public codegen: clean

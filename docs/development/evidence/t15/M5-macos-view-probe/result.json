@@ -1,0 +1,101 @@
+{
+  "guest": "macos",
+  "runtime": "/private/var/tmp/lamp-t15-0hi76b_7",
+  "devices": {
+    "display": {
+      "width": 640,
+      "height": 480
+    },
+    "gpu": true,
+    "keyboard": true,
+    "mouse": true,
+    "extra_disks": [
+      {
+        "id": "demo",
+        "size_mib": 64
+      }
+    ]
+  },
+  "oversized": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: NO_CAPACITY: requested 32768 MiB plus 256 MiB VMM allowance; physical=24576 MiB, available=5235 MiB, host reserve=2048 MiB, reservations=0 MiB, pending=0 MiB\n"
+  },
+  "oversized_directory_created": false,
+  "create": {
+    "exit": 0,
+    "stdout": "{\"create_to_command_ms\":23160.200791000003,\"detail\":{\"audit\":\"none\",\"barrier_us\":\"831597\",\"confined\":\"true\",\"create_mode\":\"fresh_boot\",\"devices\":\"{\\\"display\\\":{\\\"width\\\":640,\\\"height\\\":480},\\\"keyboard\\\":true,\\\"mouse\\\":true,\\\"gpu\\\":true,\\\"audio_input\\\":false,\\\"audio_output\\\":false,\\\"extra_disks\\\":[{\\\"id\\\":\\\"demo\\\",\\\"size_mib\\\":64}]}\",\"helper_ready_us\":\"21604496\",\"machine_id\":\"11442bbad84c7e7b26ec6ecf12006346\",\"prepare_us\":\"285723\",\"rng_sample\":\"b8ed4627a672bbd343a5856ef9b4bed1\",\"spawn_us\":\"341007\",\"total_us\":\"23063234\",\"vz_start_us\":\"223232\",\"worker_identity\":\"_lampvm13\",\"worker_pid\":\"2864\"},\"probe_exit\":0,\"sandbox_id\":\"sb_t15_demo\",\"state\":\"restored\"}\n",
+    "stderr": ""
+  },
+  "worker_spec": {
+    "sandbox_id": "sb_t15_demo",
+    "machine": {
+      "guest": "macos",
+      "hardware_model_b64": "YnBsaXN0MDDTAQIDBAQFXxAZRGF0YVJlcHJlc2VudGF0aW9uVmVyc2lvbl8QD1BsYXRmb3JtVmVyc2lvbl8QEk1pbmltdW1TdXBwb3J0ZWRPUxACowYHBxANEAAIDys9UlRYWgAAAAAAAAEBAAAAAAAAAAgAAAAAAAAAAAAAAAAAAABc",
+      "machine_identifier_b64": "YnBsaXN0MDDRAQJURUNJRBN73Cbx7zOZpwgLEAAAAAAAAAEBAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAZ",
+      "auxiliary_storage": "/private/var/tmp/lamp-t15-0hi76b_7/store/sb/sb_t15_demo/aux.img"
+    },
+    "cpus": 2,
+    "memory_mib": 4096,
+    "disks": [
+      {
+        "path": "/private/var/tmp/lamp-t15-0hi76b_7/store/sb/sb_t15_demo/disk.img",
+        "read_only": false,
+        "sync": "full"
+      }
+    ],
+    "devices": {
+      "display": {
+        "width": 640,
+        "height": 480
+      },
+      "keyboard": true,
+      "mouse": true,
+      "gpu": true,
+      "audio_input": false,
+      "audio_output": false,
+      "extra_disks": [
+        {
+          "id": "demo",
+          "size_mib": 64
+        }
+      ]
+    },
+    "dir": "/private/var/tmp/lamp-t15-0hi76b_7/store/sb/sb_t15_demo",
+    "nat_network": false,
+    "read_paths": [],
+    "write_paths": [],
+    "write_dirs": []
+  },
+  "display_frame": {
+    "ok": true,
+    "state": "running",
+    "error": "",
+    "elapsed_us": 23334,
+    "detail": {
+      "bytes": 7478,
+      "path": "/private/var/tmp/lamp-t15-0hi76b_7/store/sb/sb_t15_demo/display.png"
+    }
+  },
+  "unrequested_devices": {
+    "exit": 0,
+    "stdout": "{\"audio\":0,\"devices\":{\"audio_input\":false,\"audio_output\":false,\"display\":null,\"extra_disks\":[],\"gpu\":false,\"keyboard\":false,\"mouse\":false},\"disks\":1,\"graphics\":0,\"keyboards\":0,\"memory\":{\"available_mib\":4153,\"host_reserve_mib\":2048,\"physical_mib\":24576},\"pointing\":0,\"valid\":true}\n",
+    "stderr": ""
+  },
+  "guest_io": {
+    "exit": 0,
+    "stdout": "/dev/disk0 (internal, physical):\n   #:                       TYPE NAME                    SIZE       IDENTIFIER\n   0:                                                   *67.1 MB    disk0\n\n/dev/disk1 (internal, physical):\n   #:                       TYPE NAME                    SIZE       IDENTIFIER\n   0:      GUID_partition_scheme                        *51.5 GB    disk1\n   1:             Apple_APFS_ISC Container disk2         524.3 MB   disk1s1\n   2:                 Apple_APFS Container disk4         45.6 GB    disk1s2\n   3:        Apple_APFS_Recovery Container disk3         5.4 GB     disk1s3\n\n/dev/disk4 (synthesized):\n   #:                       TYPE NAME                    SIZE       IDENTIFIER\n   0:      APFS Container Scheme -                      +45.6 GB    disk4\n                                 Physical Store disk1s2\n   1:                APFS Volume Macintosh HD            12.6 GB    disk4s1\n   2:              APFS Snapshot com.apple.os.update-... 12.6 GB    disk4s1s1\n   3:                APFS Volume Preboot                 7.2 GB     disk4s2\n   4:                APFS Volume Recovery                1.3 GB     disk4s3\n   5:                APFS Volume Data                    610.3 MB   disk4s5\n   6:                APFS Volume VM                      20.5 KB    disk4s6\n\n{\"metal_device\":\"Apple Paravirtual device\",\"metal_verified_values\":64,\"extra_disk_roundtrip_bytes\":4096,\"metal_last_value\":196}\n{\n  \"SPDisplaysDataType\" : [\n\n  ]\n}",
+    "stderr": ""
+  },
+  "capture_refusal": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: DEVICE_NOT_FORKABLE: capture/suspend with optional devices is not implemented; no device or extra disk will be silently dropped\n"
+  },
+  "release": {
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "worker_directory_released": true
+}

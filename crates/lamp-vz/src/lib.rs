@@ -2,7 +2,11 @@
 //!
 //! `spec` and the confinement profile text are portable; the framework
 //! binding, macOS installer and worker build only on macOS.
+#[cfg(target_os = "macos")]
+pub mod admission;
 pub mod confine;
+#[cfg(target_os = "macos")]
+pub mod native;
 pub mod spec;
 
 #[cfg(target_os = "macos")]

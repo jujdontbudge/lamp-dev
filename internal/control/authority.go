@@ -402,6 +402,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	id := newID("req")
 	w.Header().Set("X-Request-ID", id)
+	if r.Method == "POST" && r.URL.Path == "/internal/native-tasks" {
+		s.nativeHTTP(w, r, id)
+		return
+	}
 	op, selectors, ok := surface.Match(r.Method, r.URL.Path)
 	if !ok {
 		writeError(w, id, "NOT_FOUND", "unknown route", nil)
@@ -432,6 +436,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if !allowed {
 		writeError(w, id, "SCOPE_DENIED", "action not permitted", nil)
+		return
+	}
+	if s.native != nil && op.Mutation && (strings.HasPrefix(op.Name, "login_") || op.Name == "connection_invoke") {
+		writeError(w, id, "VM_REQUIRED", "logins and protected connections require VM isolation", nil)
 		return
 	}
 	if !surface.CoreNames[op.Name] {

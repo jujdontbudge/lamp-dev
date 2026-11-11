@@ -1,0 +1,50 @@
+{
+  "event": "final-private-provisioning",
+  "observed_at": "2026-11-11T03:56:34.301066+00:00",
+  "original_dns_records": 19,
+  "original_records_identical": true,
+  "added_caa_records": 8,
+  "added_address_records": [
+    {
+      "name": "account.eilmer.si",
+      "address": "10.195.194.205",
+      "proxied": false
+    },
+    {
+      "name": "api.f24demo.fleet.eilmer.si",
+      "address": "10.195.187.74",
+      "proxied": false
+    },
+    {
+      "name": "p-25901313c0fbb969.f24demo.fleet.eilmer.si",
+      "address": "10.195.187.74",
+      "proxied": false
+    },
+    {
+      "name": "relay.eilmer.si",
+      "address": "10.195.187.74",
+      "proxied": false
+    }
+  ],
+  "public_listener_added": false,
+  "third_party_tunnel_used": false,
+  "clerk_original_production_instance_reused": true,
+  "clerk_production_keys_created": 1,
+  "disposable_clerk_users_created": 2,
+  "clerk_access_mode": "invite-only",
+  "managed_account_portal": "disabled",
+  "canonical_account_origin": "https://account.eilmer.si",
+  "account_frontend": "server-side Clerk client jars; no Clerk cookies issued to product browser",
+  "m5_bridge_confinement": {
+    "sandbox_exec": true,
+    "private_bind": "10.195.187.74",
+    "allowed_listening_ports": [
+      7835,
+      37443
+    ],
+    "dns_credential_open_denied": true,
+    "matcher_note": "Seatbelt constrains ports; verified bore CLI explicitly binds owner LAN IPv4"
+  },
+  "requested_make_verify_invocations": 1,
+  "make_verify_exit": 0
+}

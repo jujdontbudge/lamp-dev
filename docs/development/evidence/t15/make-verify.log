@@ -1,0 +1,90 @@
+mkdir -p bin
+cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
+go build ./...
+cargo build --workspace --locked
+   Compiling unicode-ident v1.0.27
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling rustix v1.1.6
+   Compiling errno v0.3.14
+   Compiling prettyplease v0.2.37
+   Compiling hashbrown v0.17.1
+   Compiling regex-syntax v0.8.11
+   Compiling equivalent v1.0.3
+   Compiling foldhash v0.1.5
+   Compiling once_cell v1.21.4
+   Compiling hashbrown v0.15.5
+   Compiling fixedbitset v0.5.9
+   Compiling either v1.19.0
+   Compiling fastrand v2.5.0
+   Compiling itertools v0.14.0
+   Compiling indexmap v2.14.2
+   Compiling heck v0.5.0
+   Compiling syn v3.0.10
+   Compiling syn v2.0.119
+   Compiling log v0.4.35
+   Compiling multimap v0.10.1
+   Compiling petgraph v0.8.3
+   Compiling regex-automata v0.4.18
+   Compiling serde_derive v1.0.229
+   Compiling prost-derive v0.14.4
+   Compiling regex v1.13.1
+   Compiling tempfile v3.27.0
+   Compiling prost v0.14.4
+   Compiling serde v1.0.229
+   Compiling prost-types v0.14.4
+   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-worker-protocol)
+   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-init)
+   Compiling lamp-vz v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-vz)
+   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-guard)
+   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-contracts)
+   Compiling prost-build v0.14.4
+   Compiling lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/tools/protogen)
+   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-supervisor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.60s
+go test -count=1 ./cmd/lamp -run '^TestCLIUsesCanonicalMutationHeaders$'
+ok  	github.com/JohanSardar/lamp/cmd/lamp	0.236s
+go test -count=1 ./internal/control -run '^(TestJournalReplaySnapshotBeforeLogTruncation|TestControlCoreInterfacesAndAuthority)$'
+ok  	github.com/JohanSardar/lamp/internal/control	2.470s
+go test -count=1 ./pkg/plugin -run '^TestNativeSandboxDeniesAmbientAuthority$'
+ok  	github.com/JohanSardar/lamp/pkg/plugin	0.931s
+.venv/bin/python tests/contracts/test_schema.py Contracts.test_all_schemas_well_formed -v
+test_all_schemas_well_formed (__main__.Contracts.test_all_schemas_well_formed) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.338s
+
+OK
+.venv/bin/python tests/ci/test_guard.py Guard.test_private_owner_push Guard.test_public_and_stranger_jobs_denied -v
+test_private_owner_push (__main__.Guard.test_private_owner_push) ... ok
+test_public_and_stranger_jobs_denied (__main__.Guard.test_public_and_stranger_jobs_denied) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+OK
+python3 tools/check_contracts.py
+56 resources, 328 operations/scopes, 31 errors, 200 events: match architecture §§11–12
+python3 tools/interop.py
+   Compiling serde_core v1.0.229
+   Compiling digest v0.11.3
+   Compiling curve25519-dalek v5.0.0
+   Compiling sha2 v0.11.1
+   Compiling ed25519-dalek v3.0.0
+   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-worker-protocol)
+   Compiling serde_json v1.0.154
+   Compiling serde v1.0.229
+   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-contracts)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.90s
+/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/reflectlite/type.go:10:2: package internal/abi is not in std (/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/abi)
+Traceback (most recent call last):
+  File "/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/tools/interop.py", line 43, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/tools/interop.py", line 16, in main
+    subprocess.run(['go','build','-o',go,'./tools/contractprobe'],cwd=ROOT,check=True)
+  File "/Users/johansardar/anaconda3/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['go', 'build', '-o', '/var/folders/rx/w6wxv0p97bv7hpvzqlv9jy7r0000gn/T/tmp4__4hakx/probe', './tools/contractprobe']' returned non-zero exit status 1.
+make: *** [interop] Error 1

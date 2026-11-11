@@ -1,0 +1,92 @@
+{
+  "guest": "linux",
+  "runtime": "/private/var/tmp/lamp-t15-j4t4ktkf",
+  "devices": {
+    "display": {
+      "width": 640,
+      "height": 480
+    },
+    "gpu": false,
+    "keyboard": true,
+    "mouse": true,
+    "extra_disks": [
+      {
+        "id": "demo",
+        "size_mib": 64
+      }
+    ]
+  },
+  "oversized": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: NO_CAPACITY: NO_CAPACITY: requested 32768 MiB plus 256 MiB VMM allowance; physical=8192 MiB, available=1344 MiB, host reserve=2048 MiB, reservations=0 MiB, pending=0 MiB\n"
+  },
+  "oversized_directory_created": false,
+  "create": {
+    "exit": 0,
+    "stdout": "{\"create_to_command_ms\":589.212958,\"detail\":{\"audit\":\"none\",\"barrier_us\":\"1448\",\"confined\":\"true\",\"create_mode\":\"fresh_boot\",\"devices\":\"{\\\"display\\\":{\\\"width\\\":640,\\\"height\\\":480},\\\"keyboard\\\":true,\\\"mouse\\\":true,\\\"gpu\\\":false,\\\"audio_input\\\":false,\\\"audio_output\\\":false,\\\"extra_disks\\\":[{\\\"id\\\":\\\"demo\\\",\\\"size_mib\\\":64}]}\",\"helper_ready_us\":\"351360\",\"machine_id\":\"b63c833c91f76a9d0585e9307813bc2d\",\"prepare_us\":\"3931\",\"rng_sample\":\"6b176b276124751bbc73430de4f15035\",\"spawn_us\":\"219137\",\"total_us\":\"576284\",\"vz_start_us\":\"147183\",\"worker_identity\":\"_lampvm13\",\"worker_pid\":\"42771\"},\"probe_exit\":0,\"sandbox_id\":\"sb_t15_demo\",\"state\":\"restored\"}\n",
+    "stderr": ""
+  },
+  "worker_spec": {
+    "sandbox_id": "sb_t15_demo",
+    "machine": {
+      "guest": "linux",
+      "kernel": "/private/var/tmp/lamp-t15-j4t4ktkf/store/templates/tp_361556d22670667baef619264a/Image",
+      "initrd": null,
+      "cmdline": "console=hvc0 root=/dev/vda rw init=/sbin/lamp-init quiet",
+      "machine_identifier_b64": "YnBsaXN0MDDRAQJUVVVJRE8QEALTMyDK60lEizd/5I4dejkICxAAAAAAAAABAQAAAAAAAAADAAAAAAAAAAAAAAAAAAAAIw=="
+    },
+    "cpus": 2,
+    "memory_mib": 512,
+    "disks": [
+      {
+        "path": "/private/var/tmp/lamp-t15-j4t4ktkf/store/sb/sb_t15_demo/disk.img",
+        "read_only": false,
+        "sync": "full"
+      }
+    ],
+    "devices": {
+      "display": {
+        "width": 640,
+        "height": 480
+      },
+      "keyboard": true,
+      "mouse": true,
+      "gpu": false,
+      "audio_input": false,
+      "audio_output": false,
+      "extra_disks": [
+        {
+          "id": "demo",
+          "size_mib": 64
+        }
+      ]
+    },
+    "dir": "/private/var/tmp/lamp-t15-j4t4ktkf/store/sb/sb_t15_demo",
+    "nat_network": false,
+    "read_paths": [],
+    "write_paths": [],
+    "write_dirs": []
+  },
+  "unrequested_devices": {
+    "exit": 0,
+    "stdout": "{\"audio\":0,\"devices\":{\"audio_input\":false,\"audio_output\":false,\"display\":null,\"extra_disks\":[],\"gpu\":false,\"keyboard\":false,\"mouse\":false},\"disks\":1,\"graphics\":0,\"keyboards\":0,\"memory\":{\"available_mib\":1276,\"host_reserve_mib\":2048,\"physical_mib\":8192},\"pointing\":0,\"valid\":true}\n",
+    "stderr": ""
+  },
+  "guest_io": {
+    "exit": 0,
+    "stdout": "{\"disk_roundtrip_bytes\": 4096, \"disk_sha256\": \"335ffe8bc68e7f091a1962aba2e56ec26575de6f200febdefeabf4bbc7506f85\", \"inputs\": \"\", \"virtio_devices\": {\"virtio1\": \"0x0002\", \"virtio4\": \"0x0010\", \"virtio2\": \"0x0002\", \"virtio0\": \"0x0003\", \"virtio5\": \"0x0004\", \"virtio3\": \"0x0013\"}, \"framebuffer\": {\"width\": 640, \"height\": 480, \"bpp\": 32, \"roundtrip_bytes\": 1228800, \"sha256\": \"179802e518ee806d1ca49ba430f8b796e26266a2cc9fb72ebbc41a056b17c8fb\"}}\n",
+    "stderr": ""
+  },
+  "capture_refusal": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: DEVICE_NOT_FORKABLE: capture/suspend with optional devices is not implemented; no device or extra disk will be silently dropped\n"
+  },
+  "release": {
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "worker_directory_released": true
+}

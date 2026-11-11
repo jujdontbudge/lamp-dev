@@ -95,6 +95,9 @@ fn main() {
         | "template-prepare"
         | "template-import-macos" => host(&cmd, args),
         "ctl" => ctl(args),
+        "engines" => engines(args),
+        #[cfg(target_os = "linux")]
+        "gvisor-task" => gvisor_task(args),
         #[cfg(target_os = "linux")]
         "state" => {
             let socket = take_flag(&mut args, "--admin-socket")
@@ -397,6 +400,10 @@ fn host(cmd: &str, mut args: Vec<String>) {
     if let Some(w) = take_flag(&mut args, "--worker") {
         cfg.worker = w.into();
     }
+    if let Some(d) = take_flag(&mut args, "--devices") {
+        cfg.devices =
+            serde_json::from_str(&d).unwrap_or_else(|e| die(format!("--devices JSON: {e}")));
+    }
     if let Some(r) = take_flag(&mut args, "--ram-dir") {
         cfg.ram_dir = if r.is_empty() { None } else { Some(r.into()) };
     }
@@ -542,6 +549,7 @@ struct Ctl {
     /// Store whose grant directory `grant()` installs into (root only).
     store: Option<PathBuf>,
     deadline_ms: u64,
+    command_timeout_ms: u64,
     /// Generation used for sandboxes not in `gens` (`--generation`).
     default_gen: u64,
     /// `--memory-mib`: allocate sandboxes of this guest size (a template
@@ -641,6 +649,7 @@ impl Ctl {
                 })),
                 engine_id: String::new(),
                 handles: vec![],
+                devices: vec![],
             }),
         )?;
         self.try_restore(sandbox, template)
@@ -663,7 +672,9 @@ impl Ctl {
         self.op += 1;
         let op = format!("op_{}_{}", self.tag, self.op);
         let g = self.generation(sandbox);
-        let ctx = self.client.context(&op, sandbox, g, 30_000);
+        let ctx = self
+            .client
+            .context(&op, sandbox, g, self.command_timeout_ms);
         let r = self
             .client
             .receipt(
@@ -762,6 +773,15 @@ fn ctl(mut args: Vec<String>) {
         .unwrap_or(1);
     let memory_mib = take_flag(&mut args, "--memory-mib")
         .map(|m| m.parse().unwrap_or_else(|_| die("bad --memory-mib")));
+    let command_timeout_ms = take_flag(&mut args, "--command-timeout-ms")
+        .map(|v| {
+            v.parse::<u64>()
+                .unwrap_or_else(|_| die("bad --command-timeout-ms"))
+        })
+        .unwrap_or(30_000);
+    if command_timeout_ms == 0 || command_timeout_ms > 900_000 {
+        die("--command-timeout-ms must be 1..=900000");
+    }
     if args.is_empty() {
         die("ctl needs a subcommand");
     }
@@ -777,6 +797,7 @@ fn ctl(mut args: Vec<String>) {
         grants: Default::default(),
         store,
         deadline_ms: 120_000,
+        command_timeout_ms,
         default_gen,
         memory_mib,
     };
@@ -1541,6 +1562,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
                     grants: Default::default(),
                     store: None,
                     deadline_ms: 900_000,
+                    command_timeout_ms: 30_000,
                     default_gen: 1,
                     memory_mib: None,
                 };
@@ -1797,4 +1819,123 @@ fn lock_related(e: &str) -> bool {
                 false
             }
         })
+}
+
+/// Prints this host's engines and which one a request with the given needs
+/// would get: `engines [--guest-os OS] [--device TYPE]... [--capture]
+/// [--secrets] [--public-ci] [--engine ID]`.
+fn engines(mut args: Vec<String>) {
+    let firecracker = take_flag(&mut args, "--firecracker")
+        .unwrap_or_else(|| "/usr/local/lib/lamp/firecracker".into());
+    let runsc =
+        take_flag(&mut args, "--runsc").unwrap_or_else(|| "/usr/local/lib/lamp/runsc".into());
+    let mut needs = lamp_engine::select::Needs {
+        guest_os: take_flag(&mut args, "--guest-os").unwrap_or_default(),
+        engine: take_flag(&mut args, "--engine"),
+        ..Default::default()
+    };
+    while let Some(d) = take_flag(&mut args, "--device") {
+        needs.devices.push(d);
+    }
+    for (flag, field) in [
+        ("--capture", &mut needs.capture),
+        ("--secrets", &mut needs.secrets),
+        ("--public-ci", &mut needs.public_ci),
+    ] {
+        if let Some(i) = args.iter().position(|a| a == flag) {
+            args.remove(i);
+            *field = true;
+        }
+    }
+    if !args.is_empty() {
+        die(format!("unexpected arguments {args:?}"));
+    }
+    let host = lamp_engine::select::detect(
+        std::path::Path::new(&firecracker),
+        std::path::Path::new(&runsc),
+    );
+    let choice = lamp_engine::select::choose(&host, &needs);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&json!({"host": host, "needs": needs, "choice": choice}))
+            .unwrap()
+    );
+    if choice.engine.is_none() {
+        std::process::exit(2);
+    }
+}
+
+/// The weaker Linux fallback launcher: one task JSON on stdin, the labeled
+/// outcome on stdout. Refuses when this host has usable virtualization
+/// unless `--allow-with-vm` (the custodian's explicit choice) is given.
+#[cfg(target_os = "linux")]
+fn gvisor_task(mut args: Vec<String>) {
+    let runsc =
+        take_flag(&mut args, "--runsc").unwrap_or_else(|| "/usr/local/lib/lamp/runsc".into());
+    let rootfs = take_flag(&mut args, "--rootfs").unwrap_or_else(|| die("--rootfs DIR"));
+    let state = take_flag(&mut args, "--state").unwrap_or_else(|| "/run/lamp-gvisor".into());
+    let with_vm = take_bool(&mut args, "--allow-with-vm");
+    let firecracker = take_flag(&mut args, "--firecracker")
+        .unwrap_or_else(|| "/usr/local/lib/lamp/firecracker".into());
+    let mut input = String::new();
+    std::io::Read::read_to_string(
+        &mut std::io::Read::take(std::io::stdin(), 65536),
+        &mut input,
+    )
+    .unwrap_or_else(|e| die(e.to_string()));
+    let task: lamp_engine::gvisor::Task =
+        serde_json::from_str(&input).unwrap_or_else(|e| die(format!("task: {e}")));
+    let host = lamp_engine::select::detect(
+        std::path::Path::new(&firecracker),
+        std::path::Path::new(&runsc),
+    );
+    let choice = lamp_engine::select::choose(
+        &host,
+        &lamp_engine::select::Needs {
+            secrets: task.login || task.protected_connection,
+            ..Default::default()
+        },
+    );
+    let refuse = |code: &str, message: String| -> ! {
+        println!(
+            "{}",
+            json!({"error": {"code": code, "message": message}, "boundary": lamp_engine::gvisor::BOUNDARY, "isolation": lamp_engine::gvisor::ISOLATION, "choice": choice})
+        );
+        std::process::exit(3)
+    };
+    match choice.engine {
+        Some("gvisor") => {}
+        Some(vm) if with_vm => {
+            eprintln!(
+                "note: {vm} is available; running the weaker fallback by explicit custodian choice"
+            );
+        }
+        Some(vm) => refuse(
+            "ENGINE_UNQUALIFIED",
+            format!(
+                "{vm} (a VM) is available on this host; the weaker fallback is only for hosts without virtualization"
+            ),
+        ),
+        None => {
+            let why = choice
+                .considered
+                .iter()
+                .find(|c| c.engine == "gvisor")
+                .and_then(|c| c.refused.clone())
+                .unwrap_or_else(|| "no engine qualifies".into());
+            refuse(choice.code.unwrap_or("ENGINE_UNQUALIFIED"), why)
+        }
+    }
+    let rt = lamp_engine::gvisor::Runtime {
+        runsc: runsc.into(),
+        rootfs: rootfs.into(),
+        state: state.into(),
+    };
+    match rt.run(&task) {
+        Ok(o) => {
+            println!("{}", serde_json::to_string(&o).unwrap());
+            std::process::exit(if o.exit_code == 0 { 0 } else { 1 });
+        }
+        Err(e) => refuse(e.code, e.message),
+    }
 }
