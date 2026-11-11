@@ -168,7 +168,7 @@ def main():
             # The source location's private root no longer holds this session.
             source_dirs = [p.name for p in (root / "hs_a").iterdir()] if (root / "hs_a").exists() else []
             second, out2 = say(created, "What was the codeword I gave you earlier? Do not use any tools. Reply with only the codeword.")
-            record("teleported-continuation", kind=kind, session_id=created, epoch_before=before["location_epoch"], epoch_after=moved["location_epoch"], location_before=before["location"], location_after=moved["location"], turn1=out1.strip()[-300:], turn1_success=first.get("success"), turn2=out2.strip()[-300:], turn2_success=second.get("success"), continuation_before=first.get("continuation_ref"), continuation_after=second.get("continuation_ref"), codeword_recalled=codeword in out2, source_root_entries=source_dirs)
+            record("teleported-continuation", kind=kind, session_id=created, epoch_before=before["location_epoch"], epoch_after=moved["location_epoch"], location_before=before["location"], location_after=moved["location"], turn1=out1.strip()[-300:], turn1_success=first.get("success"), turn2=out2.strip()[-300:], turn2_success=second.get("success"), continuation_before=first.get("continuation_ref"), continuation_after=second.get("continuation_ref"), native_fork_of=second.get("forked_from"), codeword_recalled=codeword in out2, source_root_entries=source_dirs)
             current = session(created)
             call("POST", "/v1/sessions/" + created + ":end", {}, revision=current["revision"])
         if "claude" in binaries:

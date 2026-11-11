@@ -1,0 +1,31 @@
+[
+  {
+    "kind": "pi",
+    "official_binary": "/Users/johansardar/.local/bin/pi",
+    "version": [
+      "1.5.0"
+    ],
+    "route": "official API route via Lamp broker (chat)",
+    "model": "openrouter/free",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "Warning: No project session found with id '0bc46b61-52b9-4667-9ef3-21af89696a44'; creating a new session with that id.\nREADY\n",
+      "continuation_ref": "0bc46b61-52b9-4667-9ef3-21af89696a44"
+    },
+    "turn2": {
+      "success": true,
+      "observed": "LAMP10454D\n",
+      "continuation_ref": "0eec8af5-ca0b-42f5-8431-a1db950b720e"
+    },
+    "codeword_recalled": true,
+    "moved": {
+      "from": "/private/var/tmp/l25/final-move-pi/pi/work",
+      "to": "/private/var/tmp/l25/final-move-pi/pi-moved/work",
+      "artifact_bytes": 4607,
+      "original_deleted": true
+    },
+    "same_native_session": false,
+    "continued": false
+  }
+]

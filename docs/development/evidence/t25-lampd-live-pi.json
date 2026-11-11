@@ -1,0 +1,167 @@
+[
+  {
+    "step": "harness-catalogue",
+    "at": "2026-11-11T16:33:31.691782+00:00",
+    "count": 11,
+    "harnesses": [
+      {
+        "id": "amp",
+        "catalogue_id": "amp",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "",
+        "continuation": "amp threads continue <thread_id> --execute"
+      },
+      {
+        "id": "claude_code",
+        "catalogue_id": "claude_code",
+        "state": "disabled",
+        "auth_modes": [
+          "subscription",
+          "api_key"
+        ],
+        "binary_digest": "",
+        "continuation": "claude -p --resume <session_id>; session_id from stream-json"
+      },
+      {
+        "id": "codex",
+        "catalogue_id": "codex",
+        "state": "disabled",
+        "auth_modes": [
+          "subscription",
+          "api_key"
+        ],
+        "binary_digest": "",
+        "continuation": "codex exec resume <thread_id>; thread_id from thread.started"
+      },
+      {
+        "id": "copilot_cli",
+        "catalogue_id": "copilot_cli",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key",
+          "subscription"
+        ],
+        "binary_digest": "",
+        "continuation": "copilot -p --resume <sessionId>"
+      },
+      {
+        "id": "cursor_cli",
+        "catalogue_id": "cursor_cli",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key",
+          "subscription"
+        ],
+        "binary_digest": "",
+        "continuation": "cursor-agent --print --resume <chatId>"
+      },
+      {
+        "id": "devin",
+        "catalogue_id": "devin",
+        "state": "disabled",
+        "auth_modes": [
+          "subscription",
+          "api_key"
+        ],
+        "binary_digest": "",
+        "continuation": "devin -p --resume <session_id>; ID read from 'devin list --format json'"
+      },
+      {
+        "id": "droid",
+        "catalogue_id": "droid",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key",
+          "subscription"
+        ],
+        "binary_digest": "",
+        "continuation": "droid exec -s <session_id>"
+      },
+      {
+        "id": "gemini_cli",
+        "catalogue_id": "gemini_cli",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key",
+          "subscription"
+        ],
+        "binary_digest": "",
+        "continuation": "gemini -p --resume <session_id>"
+      },
+      {
+        "id": "goose",
+        "catalogue_id": "goose",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key",
+          "delegated"
+        ],
+        "binary_digest": "",
+        "continuation": "goose run --name <name> --resume"
+      },
+      {
+        "id": "hr_pi",
+        "catalogue_id": "pi",
+        "state": "active",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "sha256:e79626f2dd6f94aa45d30f3fa63cd84319a6eefcd150b353cfaf274366926774",
+        "continuation": "pi -p --session-id <uuid> (Lamp chooses the ID before the first turn)"
+      },
+      {
+        "id": "opencode",
+        "catalogue_id": "opencode",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "",
+        "continuation": "opencode run -s <sessionID>"
+      }
+    ]
+  },
+  {
+    "step": "teleported-continuation",
+    "at": "2026-11-11T16:33:38.233967+00:00",
+    "kind": "pi",
+    "session_id": "se_bb43cf63327e0c7356c866ea7364a0ee",
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "location_before": {
+      "host_id": "hs_a",
+      "kind": "host"
+    },
+    "location_after": {
+      "host_id": "hs_b",
+      "kind": "host"
+    },
+    "turn1": "Warning: No project session found with id '56a0eae9-b24f-4fcf-85fe-4004e9110b48'; creating a new session with that id.\nREADY",
+    "turn1_success": true,
+    "turn2": "LAMP300D54",
+    "turn2_success": true,
+    "continuation_before": "56a0eae9-b24f-4fcf-85fe-4004e9110b48",
+    "continuation_after": "c8916f63-e459-49d2-9685-aea1db6c8d26",
+    "native_fork_of": "56a0eae9-b24f-4fcf-85fe-4004e9110b48",
+    "codeword_recalled": true,
+    "source_root_entries": [
+      "se_bb43cf63327e0c7356c866ea7364a0ee.e1"
+    ]
+  },
+  {
+    "step": "sessions-listed",
+    "at": "2026-11-11T16:33:38.244344+00:00",
+    "sessions": [
+      {
+        "id": "se_bb43cf63327e0c7356c866ea7364a0ee",
+        "harness_id": "hr_pi",
+        "parent_session_id": null,
+        "state": "active",
+        "location": "hs_b"
+      }
+    ]
+  }
+]

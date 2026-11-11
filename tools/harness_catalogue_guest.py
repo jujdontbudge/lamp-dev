@@ -206,7 +206,7 @@ def main():
         for kind in kinds:
             inside = {"binary": "/opt/lamp/bin/" + kind, "credential_file": "/tmp/lamp-model.token", "ca_file": "/tmp/lamp-model-ca.pem"}
             host = {"binary": str(binaries / kind), "credential_file": str(model / "host.token"), "ca_file": str(model / "ca.pem")}
-            harnesses["hr_" + kind] = {"owner_id": "pr_local", "argv": ["python3"], "cwd": "{session_dir}/work", "env": {"HOME": "{session_dir}/home", "PATH": "/opt/lamp/bin:/usr/local/bin:/usr/bin:/bin", "LANG": "C.UTF-8"}, "auth_modes": ["api_key"], "repository": "bundle:" + base64.b64encode(bundle.read_bytes()).decode(), "native": {"kind": kind, "binary": "/opt/lamp/bin/" + kind, "model": "openrouter/free", "endpoint": endpoint, "profiles": {"sandbox:" + HOST_ID: inside, "host:hs_lx": host}}}
+            harnesses["hr_" + kind] = {"owner_id": "pr_local", "argv": ["python3"], "cwd": "{session_dir}/work", "env": {"HOME": "{session_dir}/home", "PATH": "/opt/lamp/bin:/usr/local/bin:/usr/bin:/bin", "LANG": "C.UTF-8"}, "auth_modes": ["api_key"], "repository": "bundle:" + base64.b64encode(bundle.read_bytes()).decode(), "native": {"kind": kind, "binary": "/opt/lamp/bin/" + kind, "model": "openrouter/free", "endpoint": endpoint, "profiles": {"sandbox:" + HOST_ID: inside, "sandbox:hs_local": inside, "host:hs_lx": host}}}
         (root / "sessions.json").write_text(json.dumps({"harnesses": harnesses, "hosts": {"hs_lx": {"owner_id": "pr_local", "command": ["/usr/bin/python3"], "root": str(root / "host-sessions")}}}))
         start([str(binaries / "lampd"), "--state-dir", str(root / "control"), "--socket", str(api), "--sessions-config", str(root / "sessions.json"), "--worker-socket", str(runtime / "w.sock"), "--worker-id", "lamp-supervisor@" + HOST_ID, "--worker-boot-id", Path("/proc/sys/kernel/random/boot_id").read_text().strip(), "--worker-uid", "0", "--worker-pid", str(worker.pid), "--grant-id", worker_grant, "--worker-timeout", "1m"], "lampd")
         wait(lambda: api.exists(), 60)
@@ -219,7 +219,8 @@ def main():
         sandbox = call("POST", "/v1/sandboxes", {"template_id": template, "wait_ms": 60000})["result"]["sandbox_id"]
         wait(lambda: call("GET", "/v1/sandboxes/" + sandbox)["data"]["state"] == "ready", 120)
         record("sandbox", sandbox_id=sandbox, boundary=call("GET", "/v1/sandboxes/" + sandbox)["data"].get("boundary"))
-        hops = [{"kind": "sandbox", "host_id": HOST_ID, "sandbox_id": sandbox}, {"kind": "host", "host_id": "hs_lx"}]
+        placed = call("GET", "/v1/sandboxes/" + sandbox)["data"].get("host_id") or "hs_local"
+        hops = [{"kind": "sandbox", "host_id": placed, "sandbox_id": sandbox}, {"kind": "host", "host_id": "hs_lx"}]
         for kind in kinds:
             refresh()
             identity = call("POST", "/v1/sessions", {"sandbox_id": "", "harness_id": "hr_" + kind, "auth_mode": "api_key", "location": {"kind": "host", "host_id": "hs_lx"}})["result"]["session_id"]

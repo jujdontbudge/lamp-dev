@@ -1,0 +1,205 @@
+[
+  {
+    "kind": "pi",
+    "official_binary": "/Users/johansardar/.local/bin/pi",
+    "version": [
+      "1.5.0"
+    ],
+    "route": "official API route via Lamp broker (chat)",
+    "model": "openrouter/free",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "Warning: No project session found with id '2349bb08-67d0-4e93-9c49-09b289526774'; creating a new session with that id.\nREADY\n",
+      "continuation_ref": "2349bb08-67d0-4e93-9c49-09b289526774"
+    },
+    "turn2": {
+      "success": false,
+      "observed": "Stored session working directory does not exist: /private/var/tmp/l25/final-move/pi/work\nSession file: /private/var/tmp/l25/final-move/pi-moved/home/pi/sessions/--private-var-tmp-l25-final-move-pi-moved-work--/2026-11-11T16-23-20-128Z_2349bb08-67d0-4e93-9c49-09b289526774.jsonl\nCurrent working directory: /private/var/tmp/l25/final-move/pi-moved/work\n",
+      "continuation_ref": "2349bb08-67d0-4e93-9c49-09b289526774"
+    },
+    "codeword_recalled": false,
+    "moved": {
+      "from": "/private/var/tmp/l25/final-move/pi/work",
+      "to": "/private/var/tmp/l25/final-move/pi-moved/work",
+      "artifact_bytes": 4518,
+      "original_deleted": true
+    },
+    "same_native_session": true,
+    "continued": false
+  },
+  {
+    "kind": "droid",
+    "official_binary": "/Users/johansardar/.local/bin/droid",
+    "version": [
+      "1.6.0"
+    ],
+    "route": "official API route via Lamp broker (chat)",
+    "model": "openrouter/free",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "README\n",
+      "continuation_ref": "69ee8690-dce6-4c1b-a258-cc3cebaa52f7"
+    },
+    "turn2": {
+      "success": true,
+      "observed": "LAMP8458B8\n",
+      "continuation_ref": "69ee8690-dce6-4c1b-a258-cc3cebaa52f7"
+    },
+    "codeword_recalled": true,
+    "moved": {
+      "from": "/private/var/tmp/l25/final-move/droid/work",
+      "to": "/private/var/tmp/l25/final-move/droid-moved/work",
+      "artifact_bytes": 5701,
+      "original_deleted": true
+    },
+    "same_native_session": true,
+    "continued": true
+  },
+  {
+    "kind": "opencode",
+    "official_binary": "/Users/johansardar/.opencode/bin/opencode",
+    "version": [
+      "1.19.5"
+    ],
+    "route": "official API route via Lamp broker (chat)",
+    "model": "openrouter/free",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "READY\n",
+      "continuation_ref": "ses_e3493d417ffeL6WyC0gSUt5f5z"
+    },
+    "turn2": {
+      "success": true,
+      "observed": "LAMPDB3A51\n",
+      "continuation_ref": "ses_e3493d417ffeL6WyC0gSUt5f5z"
+    },
+    "codeword_recalled": true,
+    "moved": {
+      "from": "/private/var/tmp/l25/final-move/opencode/work",
+      "to": "/private/var/tmp/l25/final-move/opencode-moved/work",
+      "artifact_bytes": 2916,
+      "original_deleted": true
+    },
+    "same_native_session": true,
+    "continued": true
+  },
+  {
+    "kind": "copilot",
+    "official_binary": "/var/tmp/l25/tools/node_modules/.bin/copilot",
+    "version": [
+      "GitHub Copilot CLI 1.0.109."
+    ],
+    "route": "official API route via Lamp broker (chat)",
+    "model": "openrouter/free",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "",
+      "continuation_ref": "7fafdfd8-691e-47cd-84ed-987547fc31f9"
+    },
+    "turn2": {
+      "success": true,
+      "observed": "warning: resume-auto-cd: ignoring persisted cwd '/private/var/tmp/l25/final-move/copilot/work': missing or not a directory\n\n\nLAMP032920\n",
+      "continuation_ref": "7fafdfd8-691e-47cd-84ed-987547fc31f9"
+    },
+    "codeword_recalled": true,
+    "moved": {
+      "from": "/private/var/tmp/l25/final-move/copilot/work",
+      "to": "/private/var/tmp/l25/final-move/copilot-moved/work",
+      "artifact_bytes": 23701,
+      "original_deleted": true
+    },
+    "same_native_session": true,
+    "continued": true
+  },
+  {
+    "kind": "goose",
+    "official_binary": "/var/tmp/l25/tools/goose",
+    "version": [
+      "1.59.0"
+    ],
+    "route": "official API route via Lamp broker (chat)",
+    "model": "openrouter/free",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "    __( O)>  \u25cf new session \u00b7 openai openrouter/free\n   \\____)    20261111_1 \u00b7 /private/var/tmp/l25/final-move/goose/work\n     L L     goose is ready\n\n\nREADY\n",
+      "continuation_ref": "lamp-se_t25_goose"
+    },
+    "turn2": {
+      "success": true,
+      "observed": "Warning: Working directory differs from session (current: /private/var/tmp/l25/final-move/goose-moved/work, session: /private/var/tmp/l25/final-move/goose/work). Staying in current directory.\n    __( O)>  \u25cf resuming \u00b7 openai openrouter/free\n   \\____)    20261111_1 \u00b7 /private/var/tmp/l25/final-move/goose-moved/work\n     L L     goose is ready\nLAMP51E385\n",
+      "continuation_ref": "lamp-se_t25_goose"
+    },
+    "codeword_recalled": true,
+    "moved": {
+      "from": "/private/var/tmp/l25/final-move/goose/work",
+      "to": "/private/var/tmp/l25/final-move/goose-moved/work",
+      "artifact_bytes": 10090,
+      "original_deleted": true
+    },
+    "same_native_session": true,
+    "continued": true
+  },
+  {
+    "kind": "claude",
+    "official_binary": "/Users/johansardar/.local/bin/claude",
+    "version": [
+      "2.1.322 (Claude Code)"
+    ],
+    "route": "official API route via Lamp broker (anthropic)",
+    "model": "openrouter/free",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "[claude-code:unrecognized_model] {\"model\":\"openrouter/free\",\"query_source\":\"sdk\"}\n\n\nREADY\n",
+      "continuation_ref": "0a26b48a-a9a2-4854-a81d-11995b34c13c"
+    },
+    "turn2": {
+      "success": true,
+      "observed": "[claude-code:unrecognized_model] {\"model\":\"openrouter/free\",\"query_source\":\"sdk\"}\nLAMP364EAF\n",
+      "continuation_ref": "0a26b48a-a9a2-4854-a81d-11995b34c13c"
+    },
+    "codeword_recalled": true,
+    "moved": {
+      "from": "/private/var/tmp/l25/final-move/claude/work",
+      "to": "/private/var/tmp/l25/final-move/claude-moved/work",
+      "artifact_bytes": 35245,
+      "original_deleted": true
+    },
+    "same_native_session": true,
+    "continued": true
+  },
+  {
+    "kind": "codex",
+    "official_binary": "/Users/johansardar/.local/bin/codex",
+    "version": [
+      "codex-cli 0.167.0"
+    ],
+    "route": "official API route via Lamp broker (responses)",
+    "model": "openrouter/free",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "READY\n",
+      "continuation_ref": "01a1cb6d-4536-7d91-a5df-9f9b3bcb58fb"
+    },
+    "turn2": {
+      "success": true,
+      "observed": "\n\nLAMP4D7C85\n",
+      "continuation_ref": "01a1cb6d-4536-7d91-a5df-9f9b3bcb58fb"
+    },
+    "codeword_recalled": true,
+    "moved": {
+      "from": "/private/var/tmp/l25/final-move/codex/work",
+      "to": "/private/var/tmp/l25/final-move/codex-moved/work",
+      "artifact_bytes": 14138,
+      "original_deleted": true
+    },
+    "same_native_session": true,
+    "continued": true
+  }
+]
