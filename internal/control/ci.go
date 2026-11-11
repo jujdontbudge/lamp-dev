@@ -391,6 +391,9 @@ func (s *Service) runCIJob(ctx context.Context, id string) (err error) {
 	}
 	if err = s.ciUpdate(id, func(j *ciJob) {
 		j.Run = demand.Run.ID
+		labels := object(j.R["labels"])
+		labels["route"] = demand.Route
+		j.R["labels"] = labels
 		j.R["repository_visibility"] = map[bool]string{true: "public", false: "private"}[!demand.Run.Repository.Private]
 		j.R["trust_class"] = map[bool]string{true: "public_pr", false: "trusted"}[demand.Public]
 		j.Retain = r.RetainStopped && !demand.Public
@@ -434,7 +437,11 @@ os.chmod(dst,0o700)
 	if err = s.ciUpdate(id, func(j *ciJob) {
 		j.Runner = runner
 		j.R["runner_ref"] = strconv.FormatInt(runner, 10)
-		j.R["job_token"] = map[string]any{"issuer": "https://github.com", "audience": r.Name, "actions": []string{"one-job-runner"}, "resource_ids": []string{fmt.Sprint(j.External)}}
+		actions := []string{"one-job-runner"}
+		if demand.Route == "copilot_cloud_agent" {
+			actions = append(actions, "coding-agent-session")
+		}
+		j.R["job_token"] = map[string]any{"issuer": "https://github.com", "audience": r.Name, "actions": actions, "resource_ids": []string{fmt.Sprint(j.External)}}
 	}); err != nil {
 		s.github.Deregister(ctx, r, runner)
 		return err
@@ -447,10 +454,12 @@ os.chmod(dst,0o700)
 	req.Command = &pb.Request_Start{Start: &pb.Start{Cwd: "/var/tmp/lamp-ci-runner", Argv: []string{"python3", "-c", `import os
 jit=os.environ.pop('LAMP_JIT_CONFIG')
 os.environ['HOME']='/tmp'
-os.execv('./run.sh',['./run.sh','--jitconfig',jit])`}, Env: map[string]string{"LAMP_JIT_CONFIG": jit, "PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp", "RUNNER_ALLOW_RUNASROOT": "1"}}}
+os.execv('./run.sh',['./run.sh','--jitconfig',jit])`}, Env: map[string]string{"LAMP_JIT_CONFIG": jit, "PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp", "RUNNER_ALLOW_RUNASROOT": "1", "TAR_OPTIONS": "--no-same-owner"}}}
 	// The protected collector presents UID 0 inside its task user namespace,
 	// mapped to an unprivileged guest UID. This skips only the runner's cosmetic
-	// UID check; it grants no host, supervisor or outer-guest authority.
+	// UID check; it grants no host, supervisor or outer-guest authority. GNU
+	// tar must likewise keep extracted files owned by this one mapped task UID,
+	// rather than trying to chown archives to unmapped build-machine accounts.
 	err = s.worker.perform(ctx, req, "command_started")
 	jit = ""
 	req = nil

@@ -66,19 +66,19 @@ impl Connections {
             last_batch: Instant::now(),
         }
     }
-    fn live(&self) -> io::Result<()> {
+    fn live(&mut self, spool: &mut Spool) -> io::Result<()> {
         if self.last_audit.elapsed() > AUDIT_DEADLINE {
-            return Err(io::Error::other("audit liveness deadline exceeded"));
+            self.flush(spool, None)?;
         }
         Ok(())
     }
     fn durable(&mut self, spool: &mut Spool, events: Vec<serde_json::Value>) -> io::Result<()> {
-        self.live()?;
+        // This is the sole verdict thread: a blocked storage barrier blocks
+        // both directions of every flow, including established connections.
+        // A slow successful fsync is not lost audit. Resume only after it is
+        // durable, rather than permanently killing networking for a disk pause.
+        // Actual I/O failure still propagates and closes the entire path.
         spool.record_batch("host_guard", events)?;
-        // A late successful barrier cannot rescue a missed audit deadline.
-        if self.last_audit.elapsed() > AUDIT_DEADLINE {
-            return Err(io::Error::other("audit storage deadline exceeded"));
-        }
         self.last_audit = Instant::now();
         Ok(())
     }
@@ -115,7 +115,7 @@ impl Connections {
         Ok(())
     }
     fn tick(&mut self, spool: &mut Spool) -> io::Result<()> {
-        self.live()?;
+        self.live(spool)?;
         if self.last_batch.elapsed() >= AUDIT_BATCH {
             self.flush(spool, None)?;
         }
@@ -212,7 +212,7 @@ impl Connections {
         spool: &mut Spool,
         p: &crate::netlink::Packet,
     ) -> io::Result<bool> {
-        self.live()?;
+        self.live(spool)?;
         let Some(t) = packet(&p.bytes) else {
             return self.deny(spool, None, "unsupported_packet", &p.bytes);
         };
@@ -368,7 +368,7 @@ pub fn run_with_control(mut config: Config, mut control: Option<Control>) -> io:
     crate::confinement::enter(config.guard_uid, true, &keep)?;
     spool.record("host_guard",json!({"type":"lifecycle","state":"ready","filter_mode":"transport","policy_sha256":config.policy_digest()?,
         "ipv6":"deny","policy_layers":config.policy_layers.len(),"policy_ceiling_layers":config.policy_ceiling.len(),"require_allowlist":config.require_allowlist,"live_revisions":control.is_some(),"max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis(),
-        "audit_batch_ms":AUDIT_BATCH.as_millis(),"exceptions":config.exceptions,"proxy":config.proxy,"audit_deadline_ms":AUDIT_DEADLINE.as_millis(),"max_pending_denials":MAX_DENIALS}))?;
+        "audit_batch_ms":AUDIT_BATCH.as_millis(),"exceptions":config.exceptions,"proxy":config.proxy,"audit_flush_due_ms":AUDIT_DEADLINE.as_millis(),"audit_wait_mode":"block_verdict_until_durable","max_pending_denials":MAX_DENIALS}))?;
     println!(
         "{}",
         json!({"state":"ready","policy_revision":config.attribution.policy_revision})

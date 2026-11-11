@@ -38,6 +38,7 @@ type Repository struct {
 	// Nil preserves reviewed-private-workflow trust. An explicit empty list
 	// trusts no actor; PR events remain untrusted even for an enrolled actor.
 	TrustedActorIDs []int64 `json:"trusted_actor_ids"`
+	EnableCopilot   bool    `json:"enable_copilot"`
 }
 type Config struct {
 	TokenFile      string       `json:"token_file"`
@@ -166,6 +167,7 @@ type Demand struct {
 	Public      bool
 	Workflow    []byte
 	RunnerLabel string
+	Route       string
 }
 
 func (g *GitHub) GetJob(ctx context.Context, r Repository, id int64) (Job, error) {
@@ -213,14 +215,26 @@ func (g *GitHub) Verify(ctx context.Context, r Repository, id int64) (Demand, er
 		}
 		d.Public = d.Public || !trusted
 	}
-	if strings.ContainsAny(d.Run.Path, "@?#%\\") || strings.Contains(d.Run.Path, "..") || !strings.HasPrefix(d.Run.Path, ".github/workflows/") || len(d.Run.HeadSHA) != 40 {
+	sourcePath := d.Run.Path
+	d.Route = "workflow"
+	if d.Run.Path == "dynamic/copilot-swe-agent/copilot" {
+		// This reserved path is synthesized by GitHub, not supplied by repository
+		// YAML. Opt in only for the immutable GitHub Copilot bot in a trusted private
+		// repository; review the setup file it actually inherits at this head SHA.
+		if !r.EnableCopilot || d.Public || d.Run.Actor.ID != 198982749 || d.Run.Event != "dynamic" {
+			return d, errors.New("Copilot source/auth route is not enrolled")
+		}
+		sourcePath = ".github/workflows/copilot-setup-steps.yml"
+		d.Route = "copilot_cloud_agent"
+	}
+	if strings.ContainsAny(sourcePath, "@?#%\\") || strings.Contains(sourcePath, "..") || !strings.HasPrefix(sourcePath, ".github/workflows/") || len(d.Run.HeadSHA) != 40 {
 		return d, errors.New("unsupported workflow source")
 	}
 	var file struct {
 		Content  string `json:"content"`
 		Encoding string `json:"encoding"`
 	}
-	if err = g.API(ctx, "GET", "/repos/"+r.Name+"/contents/"+d.Run.Path+"?ref="+url.QueryEscape(d.Run.HeadSHA), nil, &file); err != nil {
+	if err = g.API(ctx, "GET", "/repos/"+r.Name+"/contents/"+sourcePath+"?ref="+url.QueryEscape(d.Run.HeadSHA), nil, &file); err != nil {
 		return d, err
 	}
 	if file.Encoding != "base64" {
@@ -231,7 +245,7 @@ func (g *GitHub) Verify(ctx context.Context, r Repository, id int64) (Demand, er
 		return d, errors.New("workflow content unavailable")
 	}
 	digest := sha256.Sum256(d.Workflow)
-	if r.WorkflowSHA256[d.Run.Path] != hex.EncodeToString(digest[:]) {
+	if r.WorkflowSHA256[sourcePath] != hex.EncodeToString(digest[:]) {
 		return d, errors.New("workflow has not been reviewed at this exact digest")
 	}
 	prefix := RunLabel(r, d.Run)

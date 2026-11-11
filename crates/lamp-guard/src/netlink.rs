@@ -50,9 +50,17 @@ impl Queue {
         // unexpected socket errors continue to fail closed, never fail open.
         let receive_bytes: libc::c_int = 4 << 20;
         if unsafe {
-            libc::setsockopt(raw, libc::SOL_SOCKET, libc::SO_RCVBUFFORCE,
-                ptr::from_ref(&receive_bytes).cast(), mem::size_of_val(&receive_bytes) as _)
-        } < 0 { return Err(io::Error::last_os_error()); }
+            libc::setsockopt(
+                raw,
+                libc::SOL_SOCKET,
+                libc::SO_RCVBUFFORCE,
+                ptr::from_ref(&receive_bytes).cast(),
+                mem::size_of_val(&receive_bytes) as _,
+            )
+        } < 0
+        {
+            return Err(io::Error::last_os_error());
+        }
         let mut addr: libc::sockaddr_nl = unsafe { mem::zeroed() };
         addr.nl_family = libc::AF_NETLINK as u16;
         if unsafe {
