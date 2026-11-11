@@ -319,7 +319,21 @@ Command Line Tools shim could prompt to install developer tools) and no sudo.
 M5 check, 2026-11-11: a darwin release built without the tool, installed to the
 disposable prefix `~/lt26m` (process service). The running lampd had
 `--audit-release ["/usr/bin/true"]`, and that command exits 0 with no output.
-The prefix was then uninstalled. A real deleted Mac sandbox was **not** shown:
-VZ sandboxes need the supervisor running as root through sudo, and this
-project's rules forbid sudo on the Macs. The empty-capture release path on Mac
-is therefore not shown end to end.
+The prefix was then uninstalled.
+
+A real Mac sandbox, 2026-11-11, on the M5 with `sudo -n` (no prompts):
+* The template `tp_82d973625c2006e52cd86841b4` was prepared in a disposable store,
+  `/private/var/lamp-t26`, from the shared Ubuntu 26.04 arm64 seed (only read).
+  The supervisor and `lamp-vz` were built from this branch, with `lamp-vz`
+  ad-hoc signed with its virtualization entitlement. The supervisor had its own
+  VM identities 15–16 and no shared RAM directory.
+* The release `9.1.0`, signed with a throwaway key, shipped them and was installed
+  to `~/lt26m` (process service). The installer ran the supervisor as root from
+  `/usr/local/lib/lamp-t26mac/9.1.0`. lampd ran with
+  `--audit-release ["/usr/bin/true"]`.
+* Sandbox `sb_613d7d66c8f902cda3b1e6b7773aa4bf` became ready at 09:38:58Z with no
+  release marker. It was deleted at 09:39:00Z, and lampd's sweep wrote its
+  `.released` marker at 09:39:45Z with a 0-byte capture. No Python ran.
+* Then: uninstalled with `--data delete`, the grant revoked, and the disposable
+  store, `/usr/local/lib/lamp-t26mac` and the kit removed. No other ticket's
+  supervisor or store was used.
