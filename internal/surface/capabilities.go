@@ -8,6 +8,7 @@ var CoreNames = map[string]bool{}
 func init() {
 	for _, name := range []string{
 		"api_describe", "docs_read", "event_list",
+		"job_create", "job_get", "job_list", "job_cancel", "job_reconcile", "plugin_get", "auth_flow_bootstrap", "auth_flow_exchange",
 		"sandbox_create", "sandbox_get", "sandbox_list", "sandbox_fork", "sandbox_delete",
 		"sandbox_suspend", "sandbox_resume", "snapshot_create", "snapshot_get",
 		"share_create", "share_get", "template_get", "blob_get", "blob_download",

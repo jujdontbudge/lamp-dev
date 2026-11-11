@@ -408,7 +408,9 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 					}
 				}
 			}
-			if name == "sandbox_create" || name == "sandbox_fork" {
+			oldTask := s.journal.Accountability.Tasks[value(s.journal.Sandboxes[sb.Id].TaskId)]
+			rebind := name == "sandbox_resume" && value(oldTask.BudgetId) != b.Id
+			if name == "sandbox_create" || name == "sandbox_fork" || rebind {
 				count++
 				m += sb.Resources.MemoryMib
 				d += sb.Resources.DiskGib
@@ -474,6 +476,12 @@ func (s *Service) operationBudget(r *record) string {
 	return ""
 }
 func (s *Service) sandboxStopRequired(sb api.Sandbox, checkAuthority bool) bool {
+	// Suspended captures are inert encrypted state, not task execution. Ending
+	// the old Task must not erase an explicitly retained CI inspection capture.
+	// Resume separately requires current (and, for ended jobs, new) Task authority.
+	if sb.State == "suspended" {
+		return false
+	}
 	if sb.TaskId != nil {
 		t, ok := s.journal.Accountability.Tasks[*sb.TaskId]
 		if !ok || s.taskStopRequired(t, checkAuthority) {

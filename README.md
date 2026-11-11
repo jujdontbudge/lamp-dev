@@ -18,3 +18,5 @@ See [development and ownership](docs/development/README.md), the
 and [lamp.worker/1](contracts/worker/README.md). The engine and control service
 arrive in subsequent [tickets](docs/tickets/README.md). Template and saved-state
 formats remain unfrozen until T14.
+
+[GitHub CI setup and current limitations](docs/ci.md) · [T26 implementation evidence](docs/development/T26-evidence.md).

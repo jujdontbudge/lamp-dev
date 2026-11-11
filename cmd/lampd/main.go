@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JohanSardar/lamp/internal/ci"
 	"github.com/JohanSardar/lamp/internal/control"
 )
 
@@ -29,6 +30,7 @@ func main() {
 }
 func run() error {
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
+	ciFile := flags.String("ci-config", "", "private host-enrolled GitHub CI policy JSON")
 	auditReader := flags.String("audit-reader", "", "trusted absolute executable reading guard audit for sandbox ID and generation")
 	quotaFile := flags.String("quota-file", "", "host admission quota JSON")
 	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
@@ -143,7 +145,18 @@ func run() error {
 			return e
 		}
 	}
-	service, err := control.Open(control.Config{Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin})
+	var ciConfig *ci.Config
+	if *ciFile != "" {
+		raw, e := os.ReadFile(*ciFile)
+		if e != nil {
+			return e
+		}
+		ciConfig = &ci.Config{}
+		if e = json.Unmarshal(raw, ciConfig); e != nil {
+			return e
+		}
+	}
+	service, err := control.Open(control.Config{CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin})
 	if err != nil {
 		return err
 	}

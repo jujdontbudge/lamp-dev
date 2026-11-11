@@ -411,6 +411,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if (op.Name == "auth_flow_bootstrap" || op.Name == "auth_flow_exchange") && s.github != nil {
+		s.ciAuthHTTP(w, r, id, op.Name, selectors)
+		return
+	}
 	s.readLock()
 	a, authenticated := s.authenticate(r)
 	allowed := authenticated && s.can(a, op.Scope)
@@ -433,6 +437,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
+	if op.Name == "plugin_get" && textField(selectors, "plugin_id") == "pg_github" {
+		s.ciPluginHTTP(w, r, id)
+		return
+	}
 	if s.cleanExportRead(op.Name, selectors) {
 		// T9's clean-export templates and blobs keep their own read path.
 		s.engineHTTP(w, r)

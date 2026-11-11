@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JohanSardar/lamp/internal/ci"
 	"github.com/JohanSardar/lamp/pkg/api"
 	"golang.org/x/sys/unix"
 )
@@ -51,6 +52,7 @@ type journal struct {
 	Templates     map[string]cleanExport   `json:"templates,omitempty"`
 }
 type Config struct {
+	CI               *ci.Config
 	Fleet            *FleetConfig
 	StateDir         string
 	Worker           WorkerConfig
@@ -67,6 +69,7 @@ type Config struct {
 	AuditReader string
 }
 type Service struct {
+	github         *ci.GitHub
 	clockWall      time.Time
 	clockTicks     int64
 	quotas         Quotas
@@ -402,6 +405,10 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	if err := s.initCI(config.CI); err != nil {
+		s.Close()
+		return nil, err
+	}
 	s.wg.Add(1)
 	go s.watchAccountability()
 	for _, rec := range s.journal.Operations {
@@ -409,6 +416,16 @@ func Open(config Config) (*Service, error) {
 			s.wg.Add(1)
 			go s.reconcileSandbox(rec.Resource.Id, rec.Operation.Id)
 		}
+	}
+	if s.github != nil {
+		var pending []string
+		for id, j := range s.life.Jobs {
+			if !ciTerminal(textField(j.R, "state")) {
+				pending = append(pending, id)
+			}
+		}
+		s.wg.Add(1)
+		go s.ciController(pending)
 	}
 	return s, nil
 }

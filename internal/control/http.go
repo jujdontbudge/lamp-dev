@@ -721,17 +721,18 @@ func (s *Service) execute(id, source string) {
 		r := request("stop", sb.Id, generation)
 		r.Command = &pb.Request_Stop{Stop: &pb.Stop{Force: true}}
 		stage("cleanup")
-		err = s.worker.perform(ctx, r, "stopped")
+		stopErr := s.worker.perform(ctx, r, "stopped")
+		// Release also tears down the jail, namespace and allocation. A failed
+		// boot can have no stoppable VMM while still holding allocated resources;
+		// it must not prevent the generation-bound release from being attempted.
+		r = request("release", sb.Id, generation)
+		r.Command = &pb.Request_Release{Release: &pb.Release{}}
+		err = s.worker.perform(ctx, r, "released")
 		if workerNotFound(err) {
 			err = nil
 		}
-		if err == nil {
-			r = request("release", sb.Id, generation)
-			r.Command = &pb.Request_Release{Release: &pb.Release{}}
-			err = s.worker.perform(ctx, r, "released")
-			if workerNotFound(err) {
-				err = nil
-			}
+		if err != nil {
+			err = errors.Join(stopErr, err)
 		}
 	case "exec_create":
 		var env map[string]string

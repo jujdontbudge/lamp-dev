@@ -12,6 +12,7 @@ require (
 	golang.org/x/net v0.55.0
 	golang.org/x/sys v0.48.0
 	google.golang.org/protobuf v1.36.11
+	gopkg.in/yaml.v3 v3.0.1
 	gvisor.dev/gvisor v0.0.0-20260224225140-573d5e7127a8
 	tailscale.com v1.96.5
 )
