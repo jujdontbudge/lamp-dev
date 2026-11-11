@@ -12,6 +12,7 @@ import socket
 import struct
 import subprocess
 import sys
+import tempfile
 import termios
 import time
 import tty
@@ -247,6 +248,16 @@ def serve(directory, endpoint, request):
 
 
 def main(request):
+    if request["action"] == "exec":
+        with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as error:
+            try:
+                process = subprocess.run(request["argv"], stdin=subprocess.DEVNULL, stdout=output, stderr=error, cwd="/", timeout=request["timeout_ms"] / 1000)
+            except subprocess.TimeoutExpired:
+                return {"error": "OUTCOME_UNKNOWN"}
+            output.seek(0)
+            error.seek(0)
+            stdout, stderr = output.read(65537), error.read(65537)
+            return {"exit_code": process.returncode, "stdout_base64": base64.b64encode(stdout).decode(), "stderr_base64": base64.b64encode(stderr).decode(), "truncated": len(stdout) > 65536 or len(stderr) > 65536}
     root = Path(request["root"])
     private(root)
     identity = request["id"]

@@ -212,7 +212,8 @@ the file or commit from being applied.
 
 ## 5. Bidirectional handoff
 
-No completed laptop/sandbox handoff demonstration is recorded yet.
+Both fenced moves completed in the corrected real run below. The earlier
+failed run remains recorded separately.
 
 The first real queued-input-before-move run used native Claude session
 `se_53bf7898998c623df51fb17d69f6330e`, continuation
@@ -230,10 +231,50 @@ recorded in that guest.
 Replies and transport failures are now checked against their runner location
 and effective epoch, and the moving state is read again after the RPC.
 Terminal resources cannot be revived by a stale reply. Focused Go vet and the
-Linux daemon build pass; the corrected real handoff remains to be demonstrated.
+Linux daemon build pass.
 The failed observation and accepted-input receipt remain in
 `/var/lib/lamp/t21a/handoff-epoch-race.json`. Only that disposable sandbox was
 deleted afterward.
+
+### Corrected real run: sandbox → M5 → sandbox
+
+Session `se_80cf9ddfb22d0bc5a39257b29a2504ec` began in sandbox
+`sb_e5e250084c52234dd4cf26813edb8105` at epoch 1, with native Claude
+continuation `4c67f2b3-62ba-4bf5-ac85-6392ea0d0346`.
+
+- The initial real guest turn printed `T21_CLAUDE_REAL_GUEST`.
+- Input `op_a2a2d5a9f658d8662995c1c23cc784c3` was acknowledged immediately
+  before move `op_9a8cbd2fd642ed5589995bc8fc1fc989`.
+- The input completed as `T21_ACK_BEFORE_LAPTOP`, and the session became active
+  on `hs_m5` at epoch 2. The original input lease was revoked; a stale writer
+  request was rejected.
+- A laptop input asking about the first conversation marker was acknowledged
+  and delivered. Its model request failed: the broker recorded
+  `UPSTREAM_UNAVAILABLE`, and Claude reported `ECONNRESET`. This was **not** a
+  successful model response or an outside-driving demonstration.
+- Return move `op_0050d26f3510b15a01a6ca95f3ba3474` made the same session active
+  in the sandbox at epoch 3 with the same native continuation ID.
+- The laptop input lease `le_a330b4c310069b57c4c81eba050c3f38` was revoked.
+  Typing with that lease and epoch 2 returned `SCOPE_DENIED`.
+- The actual laptop source runner recorded `fenced`, epoch 2, and no
+  outstanding input. Its exported native archive contains the initial turn,
+  the acknowledged pre-move input, and the acknowledged laptop input. All
+  three were found in the same native conversation JSONL file; no input was
+  replayed to establish this.
+
+The exported archive SHA-256 is
+`96a3080fe6a90b57517afc70c643763f1a03007fa45a96ff42f3083d9a57c1aa`.
+The transfer verifies archive integrity before restoring and starts the
+destination only after the source fence and output drain.
+
+Raw public observations remain in `/var/lib/lamp/t21a/handoff-evidence.json`.
+The inspected source archive remains in the disposable M5 runner directory
+`/tmp/l21-m5-f/i/se_80cf9ddfb22d0bc5a39257b29a2504ec.e2/`.
+
+Subsequent guest metadata/file helpers reached the unchanged 64-segment audit
+bound and prevented the pending Codex setup. Short idle/stat/read/append
+helpers now use the protected relay instead of allocating a new collector
+each time. The already completed moves were not rerun.
 
 ## 6. T19: a session message wakes its suspended sandbox
 

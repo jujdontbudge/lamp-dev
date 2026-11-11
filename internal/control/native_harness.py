@@ -36,7 +36,7 @@ def main():
     environment = dict(os.environ)
     environment.update({"DISABLE_AUTOUPDATER": "1", "DISABLE_TELEMETRY": "1", "DISABLE_ERROR_REPORTING": "1", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1", "CLAUDE_CONFIG_DIR": str(home / "claude"), "CODEX_HOME": str(home / "codex")})
     if config.get("ca_file"):
-        environment.update({"NODE_EXTRA_CA_CERTS": config["ca_file"], "SSL_CERT_FILE": config["ca_file"]})
+        environment.update({"NODE_EXTRA_CA_CERTS": config["ca_file"], "SSL_CERT_FILE": config["ca_file"], "CODEX_CA_CERTIFICATE": config["ca_file"]})
     mcp = None
     if command := config.get("mcp_command"):
         values = {"{session_id}": config.get("session_id", ""), "{sandbox_id}": config.get("sandbox_id", "")}

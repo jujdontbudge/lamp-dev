@@ -82,7 +82,14 @@ func (s *Service) guestRun(ctx context.Context, sandbox string, argv ...string) 
 
 // guestPython runs a short Python program in the guest; nonzero exit fails.
 func (s *Service) guestPython(ctx context.Context, sandbox, program string, args ...string) ([]byte, error) {
-	res, err := s.guestRun(ctx, sandbox, append([]string{"python3", "-c", program}, args...)...)
+	argv := append([]string{"python3", "-c", program}, args...)
+	var res guestResult
+	var err error
+	if len(s.sessions.Harnesses) > 0 && (program == pyIdle || program == pyStat || program == pyRead || program == pyAppend) {
+		res, err = s.guestInfrastructure(ctx, sandbox, argv)
+	} else {
+		res, err = s.guestRun(ctx, sandbox, argv...)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +104,44 @@ func (s *Service) guestPython(ctx context.Context, sandbox, program string, args
 		return res.Stdout, fmt.Errorf("guest command failed (exit %d): %s", res.Exit, msg)
 	}
 	return res.Stdout, nil
+}
+
+func (s *Service) guestInfrastructure(ctx context.Context, sandbox string, argv []string) (guestResult, error) {
+	timeout := 7 * time.Second
+	if deadline, exists := ctx.Deadline(); exists && time.Until(deadline) < timeout {
+		timeout = time.Until(deadline)
+	}
+	if timeout <= 0 {
+		return guestResult{}, context.DeadlineExceeded
+	}
+	data, err := json.Marshal(map[string]any{"action": "exec", "argv": argv, "timeout_ms": timeout.Milliseconds()})
+	if err != nil {
+		return guestResult{}, err
+	}
+	request := s.workerRequest(ctx, "infrastructure", sandbox, s.sandboxGeneration(sandbox))
+	request.Command = &pb.Request_SessionCall{SessionCall: &pb.SessionCall{RequestJson: data, BridgeSource: sessionRunner}}
+	receipt, err := s.worker.call(ctx, request)
+	if err != nil {
+		return guestResult{}, err
+	}
+	var result struct {
+		Exit      *int32 `json:"exit_code"`
+		Stdout    string `json:"stdout_base64"`
+		Stderr    string `json:"stderr_base64"`
+		Truncated bool   `json:"truncated"`
+	}
+	if receipt.State != "session_reply" || json.Unmarshal([]byte(receipt.Detail["response_json"]), &result) != nil || result.Exit == nil {
+		return guestResult{}, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest infrastructure completion unavailable", unknown: true}
+	}
+	if result.Truncated {
+		return guestResult{}, reject("DATA_UNAVAILABLE", "guest output exceeded the control channel tail")
+	}
+	stdout, err := base64.StdEncoding.DecodeString(result.Stdout)
+	if err != nil {
+		return guestResult{}, err
+	}
+	stderr, err := base64.StdEncoding.DecodeString(result.Stderr)
+	return guestResult{Exit: *result.Exit, Stdout: stdout, Stderr: stderr}, err
 }
 
 const pyStat = `import os,sys,json
