@@ -4,6 +4,9 @@
 authorized **private** disposable `JohanSardar/lamp-t26-fixture`, seeded with
 public zlib v1.3.1. No GitHub-hosted or persistent LX/M5/LA runner was attached.
 The earlier controlled-forge results below remain historical, not native proof.
+Latest `origin/main` was merged after these observations; the merged Linux
+`lampd` build succeeded. Passed VM goals were deliberately not rerun or relabeled
+as measurements of the later merged binary.
 
 ## Native goals passed
 
