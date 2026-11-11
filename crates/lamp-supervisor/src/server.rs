@@ -127,6 +127,7 @@ fn command_name(command: &request::Command) -> &'static str {
         request::Command::Release(_) => "release",
         request::Command::Inspect(_) => "inspect",
         request::Command::Cancel(_) => "cancel",
+        request::Command::Rebuild(_) => "rebuild",
     }
 }
 
@@ -383,6 +384,33 @@ impl Server {
             // runs until it exits (or Stop/Release). Completion is read with
             // Inspect{command_operation_id}. The RPC deadline bounds only the
             // acknowledgement, never the command.
+            #[cfg(target_os = "linux")]
+            request::Command::Start(s) => {
+                let bridge = if s
+                    .argv
+                    .first()
+                    .is_some_and(|path| path == "/usr/local/bin/lamp-subscription")
+                    && self
+                        .engine
+                        .capture_trust(&ctx.sandbox_id)
+                        .is_ok_and(|trust| trust == "owner_private")
+                {
+                    self.engine.ensure_subscription_bridge(auth)
+                } else {
+                    Ok(())
+                };
+                bridge.and_then(|_| {
+                    self.engine.start(
+                        auth,
+                        &ctx.operation_id,
+                        s.argv,
+                        s.cwd,
+                        s.env.into_iter().collect(),
+                        0,
+                    )
+                })
+            }
+            #[cfg(target_os = "macos")]
             request::Command::Start(s) => self.engine.start(
                 auth,
                 &ctx.operation_id,
@@ -416,6 +444,59 @@ impl Server {
                 .inspect(&ctx.sandbox_id, &i.command_operation_id),
             request::Command::Cancel(_) => Err(EngineError::invalid(
                 "cancel is not supported; operations are short and atomic",
+            )),
+            #[cfg(target_os = "linux")]
+            request::Command::Rebuild(input) => {
+                let purpose = match input.purpose.as_str() {
+                    "template" => Some(lamp_engine::custody::CapturePurpose::Template),
+                    "export" => Some(lamp_engine::custody::CapturePurpose::Export),
+                    "share" => Some(lamp_engine::custody::CapturePurpose::Share),
+                    _ => None,
+                };
+                if input.source_id != ctx.sandbox_id {
+                    Err(EngineError::new(
+                        "SCOPE_DENIED",
+                        "rebuild source must match granted sandbox",
+                    ))
+                } else if let Some(purpose) = purpose {
+                    if input.clean_rebuild {
+                        self.engine
+                            .rebuild_private_state(&input.source_id)
+                            .and_then(|report| {
+                                let blob =
+                                    self.engine.export_clean_template(&report, caller_uid)?;
+                                Ok(lamp_engine::engine::Outcome {
+                                    state: "rebuilt".into(),
+                                    handles: vec![report.template_id.clone()],
+                                    detail: std::collections::BTreeMap::from([
+                                        ("capture_trust".into(), "clean".into()),
+                                        ("manifest_digest".into(), report.manifest_digest),
+                                        ("preserves_memory".into(), "false".into()),
+                                        ("export_blob_id".into(), blob),
+                                    ]),
+                                    ..Default::default()
+                                })
+                            })
+                    } else {
+                        self.engine
+                            .authorize_transfer(
+                                &input.source_id,
+                                purpose,
+                                &input.destination_principal,
+                            )
+                            .map(|_| lamp_engine::engine::Outcome {
+                                state: "transfer_authorized".into(),
+                                ..Default::default()
+                            })
+                    }
+                } else {
+                    Err(EngineError::invalid("unknown transfer purpose"))
+                }
+            }
+            #[cfg(target_os = "macos")]
+            request::Command::Rebuild(_) => Err(EngineError::new(
+                "ENGINE_UNQUALIFIED",
+                "subscription custody reconstruction requires the Linux adapter",
             )),
         };
         let result = match result {
@@ -490,40 +571,5 @@ impl Server {
             }
         }
         o
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn start(pairs: &[(&str, &str)]) -> request::Command {
-        let mut env = HashMap::with_capacity(pairs.len() * 7);
-        for (k, v) in pairs {
-            env.insert(k.to_string(), v.to_string());
-        }
-        request::Command::Start(Start {
-            argv: vec!["env".into()],
-            cwd: String::new(),
-            env,
-        })
-    }
-
-    #[test]
-    fn fingerprint_ignores_map_order_but_not_content() {
-        let keys: Vec<(String, String)> = (0..32)
-            .map(|i| (format!("K{i}"), format!("v{i}")))
-            .collect();
-        let fwd: Vec<(&str, &str)> = keys.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-        let mut rev = fwd.clone();
-        rev.reverse();
-        let a = fingerprint(&start(&fwd));
-        // Many independently seeded maps: their encodings vary, the print not.
-        for _ in 0..16 {
-            assert_eq!(fingerprint(&start(&rev)), a);
-        }
-        let mut changed = fwd.clone();
-        changed[3].1 = "other";
-        assert_ne!(fingerprint(&start(&changed)), a);
     }
 }

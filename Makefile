@@ -10,7 +10,7 @@ build:
 	go build ./...
 	cargo build --workspace --locked
 
-# Select existing smokes until the later test-file cleanup. Keep stress suites manual.
+# Selected smoke tests for ordinary verification.
 test:
 	go test -count=1 ./cmd/lamp -run '^TestCLIUsesCanonicalMutationHeaders$$'
 	go test -count=1 ./internal/control -run '^(TestJournalReplaySnapshotBeforeLogTruncation|TestControlCoreInterfacesAndAuthority)$$'
@@ -22,14 +22,8 @@ ifeq ($(shell uname -s),Linux)
 	cargo test --locked -p lamp-init --bin lamp-guest-helper task_report_wins_even_when_collector_exit_arrives_first
 endif
 
-# Full suites remain available on explicit request; bootstrap supplies jsonschema.
-test-all:
-	go test ./...
-	cargo test --workspace --locked
-	$(PYTHON) -m unittest discover -s tests/benchmarks -v
-	$(PYTHON) -m unittest discover -s tests/infra -v
-	$(VENV_PYTHON) -m unittest discover -s tests/contracts -v
-	$(VENV_PYTHON) -m unittest discover -s tests/ci -v
+# The remaining automated suite; live VM and root guard smokes stay explicit.
+test-all: test
 
 bootstrap:
 	$(PYTHON) -m venv .venv

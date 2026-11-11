@@ -110,6 +110,22 @@ MiB. T22 had no live VM/controller. No other ticket's process, owner Chrome,
 Beeper, T3 Code, or existing host Docker resource was stopped or managed. Failed
 run directories and the original failed control record were retained.
 
+## Main merge — 2026-11-11
+
+Merged `origin/main` at `f0b7fca` (including T15 PR #26). The only conflict was
+`lamp-init.rs`'s Unix trait import: the resolution retains both `MetadataExt`
+and `PermissionsExt`, preserving main's subscription relay and T22's containerd
+runtime-directory initialization. No initialization behavior was changed by the
+conflict resolution.
+
+Focused checks both passed, exit 0:
+
+- `cargo fmt -p lamp-init -- --check`
+- `cargo check --locked --target x86_64-unknown-linux-gnu -p lamp-init --bin lamp-init`
+
+No VM, full-suite or benchmark run was added for this import-only resolution.
+The source hash manifest was refreshed; the feature limitations below remain.
+
 ## Remaining work
 
 - With one LX slot available, start a **fresh** owned fixture using the prepared

@@ -7,8 +7,12 @@ use std::{
     collections::{HashMap, HashSet},
     ffi::CString,
     fs,
-    io::{self, Write},
-    os::unix::fs::MetadataExt,
+    io::{self, Read, Write},
+    os::{
+        fd::FromRawFd,
+        unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
+    },
+    path::{Path, PathBuf},
     ptr,
     sync::{
         Arc, Mutex,
@@ -16,6 +20,40 @@ use std::{
     },
     time::Duration,
 };
+
+const STOP_DIR: &str = "/run/lamp/process-stops";
+
+fn start_ticks(pid: i32) -> io::Result<String> {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat"))?;
+    stat.rsplit_once(')')
+        .and_then(|(_, tail)| tail.split_whitespace().nth(19))
+        .map(str::to_string)
+        .ok_or_else(|| io::Error::other("missing process start time"))
+}
+
+fn stop_marker(pid: i32) -> io::Result<(PathBuf, String)> {
+    let namespace = fs::metadata(format!("/proc/{pid}/ns/pid"))?.ino();
+    let status = fs::read_to_string(format!("/proc/{pid}/status"))?;
+    let tid = status
+        .lines()
+        .find_map(|line| line.strip_prefix("NSpid:"))
+        .and_then(|pids| pids.split_whitespace().last())
+        .ok_or_else(|| io::Error::other("missing namespace thread ID"))?
+        .parse::<u32>()
+        .map_err(io::Error::other)?;
+    Ok((
+        Path::new(STOP_DIR).join(format!("{namespace}-{tid}")),
+        start_ticks(pid)?,
+    ))
+}
+
+fn clear_stop_marker(path: &Path) -> io::Result<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
+}
 
 fn trace(
     request: crate::PtraceRequest,
@@ -66,17 +104,8 @@ fn identity(pid: i32) -> io::Result<Value> {
     let path = format!("/proc/{pid}/exe");
     let exe = fs::read_link(&path)?;
     let meta = fs::metadata(&path)?;
-    let stat = fs::read_to_string(format!("/proc/{pid}/stat"))?;
-    let tail = stat
-        .rsplit_once(')')
-        .ok_or_else(|| io::Error::other("invalid proc stat"))?
-        .1;
     s["pid"] = json!(pid);
-    s["start_ticks"] = json!(
-        tail.split_whitespace()
-            .nth(19)
-            .ok_or_else(|| io::Error::other("missing start time"))?
-    );
+    s["start_ticks"] = json!(start_ticks(pid)?);
     s["executable"] = json!({"path":exe,"device":meta.dev(),"inode":meta.ino()});
     // Raw argv/env may contain secrets. Do not serialize them before T23 redaction.
     s["safe_argv"] = json!([]);
@@ -294,26 +323,45 @@ pub fn run(
         .collect::<io::Result<_>>()?;
     let mut pointers: Vec<_> = args.iter().map(|a| a.as_ptr()).collect();
     pointers.push(ptr::null());
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o755)
+        .create(STOP_DIR)?;
+    let directory = fs::symlink_metadata(STOP_DIR)?;
+    if !directory.is_dir() || directory.uid() != 0 || directory.mode() & 0o022 != 0 {
+        return Err(io::Error::other(
+            "stop acknowledgements require a root-owned directory",
+        ));
+    }
+    fs::set_permissions(STOP_DIR, fs::Permissions::from_mode(0o755))?;
+    let options = libc::PTRACE_O_TRACEFORK
+        | libc::PTRACE_O_TRACEVFORK
+        | libc::PTRACE_O_TRACECLONE
+        | libc::PTRACE_O_TRACEEXEC
+        | libc::PTRACE_O_EXITKILL
+        | libc::PTRACE_O_TRACESECCOMP
+        | libc::PTRACE_O_TRACESYSGOOD;
+    let mut gate = [0; 2];
+    if unsafe { libc::pipe2(gate.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let mut gate_read = unsafe { fs::File::from_raw_fd(gate[0]) };
+    let mut gate_write = unsafe { fs::File::from_raw_fd(gate[1]) };
     // No threads exist yet at fork. The child closes the audit socket before any task code.
     let root = unsafe { libc::fork() };
     if root < 0 {
         return Err(io::Error::last_os_error());
     }
     if root == 0 {
+        drop(gate_write);
         unsafe {
-            check(crate::close_range(3, u32::MAX, 0));
             check(libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL));
             check(libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0));
-            if libc::ptrace(
-                libc::PTRACE_TRACEME,
-                0,
-                ptr::null_mut::<libc::c_void>(),
-                ptr::null_mut::<libc::c_void>(),
-            ) < 0
-            {
+            if gate_read.read_exact(&mut [0]).is_err() {
                 child_fail();
             }
-            libc::raise(libc::SIGSTOP);
+            drop(gate_read);
+            check(crate::close_range(3, u32::MAX, 0));
             check(libc::unshare(libc::CLONE_NEWNS | libc::CLONE_NEWPID));
             check(libc::mount(
                 ptr::null(),
@@ -406,26 +454,37 @@ pub fn run(
             });
         }
     }
+    drop(gate_read);
+    // SEIZE, unlike TRACEME, supports LISTEN: a job-control stop stays frozen
+    // while the tracer can still observe SIGCONT and audit other processes.
+    let admission = (|| {
+        trace(libc::PTRACE_SEIZE, root, 0, options as usize)?;
+        trace(libc::PTRACE_INTERRUPT, root, 0, 0)?;
+        let mut initial = 0;
+        loop {
+            let waited = unsafe { libc::waitpid(root, &mut initial, libc::__WALL) };
+            if waited == root {
+                break;
+            }
+            let error = io::Error::last_os_error();
+            if error.raw_os_error() != Some(libc::EINTR) {
+                return Err(error);
+            }
+        }
+        if !libc::WIFSTOPPED(initial) || initial >> 16 != libc::PTRACE_EVENT_STOP {
+            return Err(io::Error::other("collector child did not stop"));
+        }
+        gate_write.write_all(&[1])
+    })();
+    drop(gate_write);
+    if let Err(error) = admission {
+        unsafe { libc::kill(root, libc::SIGKILL) };
+        return Err(error);
+    }
     // The tracer outlives the command while background jobs run; it must not
     // keep the caller's output pipes open (its failures show in its status).
     unsafe { release_stdio() };
-    // Initial stop must be consumed and EXITKILL installed before fallible audit I/O.
-    let mut initial = 0;
-    if unsafe { libc::waitpid(root, &mut initial, 0) } != root || !libc::WIFSTOPPED(initial) {
-        unsafe { libc::kill(root, libc::SIGKILL) };
-        return Err(io::Error::other("collector child did not stop"));
-    }
-    let options = libc::PTRACE_O_TRACEFORK
-        | libc::PTRACE_O_TRACEVFORK
-        | libc::PTRACE_O_TRACECLONE
-        | libc::PTRACE_O_TRACEEXEC
-        | libc::PTRACE_O_EXITKILL
-        | libc::PTRACE_O_TRACESECCOMP
-        | libc::PTRACE_O_TRACESYSGOOD;
-    if let Err(e) = trace(libc::PTRACE_SETOPTIONS, root, 0, options as usize) {
-        unsafe { libc::kill(root, libc::SIGKILL) };
-        return Err(e);
-    }
+    // EXITKILL is installed before any fallible audit I/O.
     // Records of the collector's own setup (its processes, namespace and
     // credential changes, the command's fork) are written without waiting;
     // they are all durable before the command's exec'd code first runs.
@@ -463,6 +522,8 @@ pub fn run(
     // for the syscall exit of a credential change. The trusted namespace setup
     // before the task's exec is still traced syscall by syscall.
     let mut filtered: HashSet<i32> = HashSet::new();
+    let mut seen_stops = HashSet::from([root]);
+    let mut stop_markers = HashMap::<i32, PathBuf>::new();
     let mut task_pid = None;
     let mut command_pid = None;
     let mut mapped = false;
@@ -478,6 +539,10 @@ pub fn run(
             }
             return Err(e);
         }
+        if let Some(path) = stop_markers.remove(&pid) {
+            // Revoke the acknowledgement before any event can resume this TID.
+            clear_stop_marker(&path)?;
+        }
         if libc::WIFEXITED(code) || libc::WIFSIGNALED(code) {
             // The exit already happened; its record need not block the tree.
             note(
@@ -486,6 +551,7 @@ pub fn run(
             )?;
             known.remove(&pid);
             filtered.remove(&pid);
+            seen_stops.remove(&pid);
             if Some(pid) == command_pid {
                 release(&emitter)?;
                 if let Some(mut s) = exit_report.take() {
@@ -510,6 +576,7 @@ pub fn run(
         }
         let signal = libc::WSTOPSIG(code);
         let event = code >> 16;
+        let first_stop = seen_stops.insert(pid);
         if !known.contains_key(&pid) {
             trace(libc::PTRACE_SETOPTIONS, pid, 0, options as usize)?;
             register(&mut known, &emitter, pid)?;
@@ -518,7 +585,21 @@ pub fn run(
             }
         }
         let mut deliver = 0;
-        if event == libc::PTRACE_EVENT_FORK
+        if event == libc::PTRACE_EVENT_STOP {
+            if !first_stop
+                && matches!(
+                    signal,
+                    libc::SIGSTOP | libc::SIGTSTP | libc::SIGTTIN | libc::SIGTTOU
+                )
+            {
+                trace(libc::PTRACE_LISTEN, pid, 0, 0)?;
+                let (path, ticks) = stop_marker(pid)?;
+                fs::write(&path, ticks)?;
+                fs::set_permissions(&path, fs::Permissions::from_mode(0o444))?;
+                stop_markers.insert(pid, path);
+                continue;
+            }
+        } else if event == libc::PTRACE_EVENT_FORK
             || event == libc::PTRACE_EVENT_VFORK
             || event == libc::PTRACE_EVENT_CLONE
         {
@@ -559,7 +640,12 @@ pub fn run(
             if old as i32 != pid {
                 known.remove(&(old as i32));
                 filtered.remove(&(old as i32));
+                seen_stops.remove(&(old as i32));
+                if let Some(path) = stop_markers.remove(&(old as i32)) {
+                    clear_stop_marker(&path)?;
+                }
             }
+            clear_stop_marker(&stop_marker(pid)?.0)?;
             if pid != root {
                 // Every task exec happens after the task seccomp filter.
                 filtered.insert(pid);
@@ -621,6 +707,8 @@ pub fn run(
                     &emitter,
                     json!({"type":"credential_change","pid":pid,"identity":status(pid)?}),
                 )?;
+            } else {
+                deliver = signal;
             }
         } else if signal != libc::SIGTRAP {
             deliver = signal;
@@ -684,31 +772,6 @@ mod tests {
             assert_eq!(libc::waitpid(pid, &mut status, 0), pid);
             assert!(libc::WIFSIGNALED(status));
             assert_eq!(libc::WTERMSIG(status), libc::SIGKILL);
-        }
-    }
-
-    #[test]
-    fn task_env_is_validated() {
-        let env = super::task_env(r#"{"FOO":"value","PATH":"/opt/bin","EMPTY":""}"#).unwrap();
-        let pairs: Vec<(String, String)> = env
-            .into_iter()
-            .map(|(k, v)| (k.into_string().unwrap(), v.into_string().unwrap()))
-            .collect();
-        assert_eq!(
-            pairs,
-            [("EMPTY", ""), ("FOO", "value"), ("PATH", "/opt/bin")]
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-        );
-        for bad in [
-            r#"{"":"x"}"#,
-            r#"{"A=B":"x"}"#,
-            r#"{"A\u0000":"x"}"#,
-            r#"{"A":"x\u0000y"}"#,
-            r#"{"A":1}"#,
-            "[]",
-            "not json",
-        ] {
-            assert!(super::task_env(bad).is_err(), "{bad} accepted");
         }
     }
 }

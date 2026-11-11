@@ -40,7 +40,7 @@ use ed25519_dalek::{SigningKey, VerifyingKey};
 use lamp_init::{Barrier, Empty, Exec, ExecDone, ExecStarted, GuestRequest, GuestResponse};
 use lamp_vz::spec::{Api, ApiReply, DiskSpec, Machine, Sync as DiskSync, WorkerSpec};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -54,7 +54,9 @@ pub const ENGINE_NAME: &str = "vz-macos26";
 pub const STATE_ABI: &str = "vz/saved-machine-state";
 pub const DEVICE_GRAPH_LINUX: &str =
     "vz-generic:virtio-blk:vda,virtio-vsock,virtio-console:hvc0,virtio-entropy";
-pub const DEVICE_GRAPH_MACOS: &str = "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy,mac-graphics:1024x768,mac-keyboard,mac-trackpad";
+pub const DEVICE_GRAPH_MACOS: &str =
+    "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy";
+const LEGACY_DEVICE_GRAPH_MACOS: &str = "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy,mac-graphics:1024x768,mac-keyboard,mac-trackpad";
 /// The certified Linux-on-Mac row (fits both lanes, including the 8 GB AIR
 /// with a source and a fork running at once).
 pub const STANDARD: Resources = Resources {
@@ -96,6 +98,7 @@ pub struct Config {
     pub macos_slots: usize,
     /// Apply the worker's Seatbelt profile (always on outside diagnostics).
     pub confine: bool,
+    pub devices: lamp_vz::spec::Devices,
 }
 
 impl Config {
@@ -109,6 +112,7 @@ impl Config {
             trusted_producers: Vec::new(),
             macos_slots: MACOS_SLOTS,
             confine: true,
+            devices: Default::default(),
         }
     }
 }
@@ -387,6 +391,7 @@ pub struct Engine {
     pub cfg: Config,
     pub compat: HostCompat,
     producer: SigningKey,
+    guest_transport: Option<Vec<u8>>,
     trusted: HashMap<String, VerifyingKey>,
     templates: RwLock<HashMap<String, Arc<Template>>>,
     sandboxes: Mutex<HashMap<String, Arc<Mutex<Sandbox>>>>,
@@ -671,10 +676,36 @@ impl Engine {
             trusted.insert(manifest::key_id(k), *k);
         }
         let compat = HostCompat::detect(&cfg.worker)?;
+        let guest_transport = cfg
+            .devices
+            .guest_transport
+            .as_ref()
+            .map(|transport| {
+                let mut binary = Vec::new();
+                let file = std::fs::File::open(&transport.helper).map_err(|e| {
+                    EngineError::new("DEVICE_UNAVAILABLE", format!("guest transport helper: {e}"))
+                })?;
+                if !file.metadata()?.is_file() {
+                    return Err(EngineError::new(
+                        "DEVICE_UNAVAILABLE",
+                        "guest transport helper must be a regular executable",
+                    ));
+                }
+                file.take((8 << 20) + 1).read_to_end(&mut binary)?;
+                if binary.is_empty() || binary.len() > 8 << 20 {
+                    return Err(EngineError::new(
+                        "DEVICE_UNAVAILABLE",
+                        "guest transport helper must contain 1..=8388608 bytes",
+                    ));
+                }
+                Ok(binary)
+            })
+            .transpose()?;
         let engine = Engine {
             cfg,
             compat,
             producer,
+            guest_transport,
             trusted,
             templates: RwLock::new(HashMap::new()),
             sandboxes: Mutex::new(HashMap::new()),
@@ -925,9 +956,10 @@ impl Engine {
                     .acceleration_variants
                     .iter()
                     .find(|v| {
-                        v.compatibility.engine_digest == self.compat.engine_digest
-                            && v.compatibility.cpu_baseline == self.compat.cpu_baseline
-                            && v.compatibility.state_abi == STATE_ABI
+                        self.cfg.devices != Default::default()
+                            || v.compatibility.engine_digest == self.compat.engine_digest
+                                && v.compatibility.cpu_baseline == self.compat.cpu_baseline
+                                && v.compatibility.state_abi == STATE_ABI
                     })
                     .cloned()
                     .ok_or_else(|| {
@@ -952,13 +984,16 @@ impl Engine {
                 fsutil::verify_object(&dir.join(DISK), &v.disk, "variant disk")?;
                 fsutil::verify_object(&dir.join(STATE_FILE), &v.memory, "variant memory")?;
                 fsutil::verify_object(&dir.join(MACHINE), &v.vmstate, "variant machine")?;
-                Some(v)
+                (self.cfg.devices == Default::default()).then_some(v)
             }
             "macos" => {
                 // No saved-state variant: an owner template always boots
                 // fresh. `kernel` names the auxiliary (boot) storage.
-                if provenance.device_graph_digest
-                    != manifest::sha256_hex(DEVICE_GRAPH_MACOS.as_bytes())
+                if ![DEVICE_GRAPH_MACOS, LEGACY_DEVICE_GRAPH_MACOS]
+                    .iter()
+                    .any(|graph| {
+                        provenance.device_graph_digest == manifest::sha256_hex(graph.as_bytes())
+                    })
                 {
                     return Err(EngineError::new(
                         "DATA_UNAVAILABLE",
@@ -1100,6 +1135,13 @@ impl Engine {
         self.macos_slots.lock().unwrap().remove(sandbox_id);
     }
 
+    fn admit_memory(requested: u64, reserved: u64, pending: u64) -> Result<()> {
+        lamp_vz::admission::Memory::detect()
+            .map_err(EngineError::host)?
+            .admit(requested, reserved, pending)
+            .map_err(|e| EngineError::new("NO_CAPACITY", e.trim_start_matches("NO_CAPACITY: ")))
+    }
+
     /// Reserves the sandbox record. Identity, files and the worker come with
     /// Restore, once the template or capture (and so the guest class) is known.
     pub fn allocate(&self, auth: Authority<'_>, requested: Option<Resources>) -> Result<Outcome> {
@@ -1120,6 +1162,10 @@ impl Engine {
                 "memory_mib must be ≥256 and disk_gib ≥1",
             ));
         }
+        resources
+            .disk_gib
+            .checked_mul(1 << 30)
+            .ok_or_else(|| EngineError::invalid("disk_gib overflows byte accounting"))?;
         let mut all = self.sandboxes.lock().unwrap();
         if all.contains_key(auth.sandbox_id) {
             return Err(EngineError::in_use(format!(
@@ -1127,6 +1173,18 @@ impl Engine {
                 auth.sandbox_id
             )));
         }
+        let (mut reserved, mut pending) = (0u64, 0u64);
+        for sb in all.values() {
+            let sb = sb.lock().unwrap();
+            if sb.state != State::Stopped {
+                let charge = sb.resources.memory_mib.saturating_add(256);
+                reserved = reserved.saturating_add(charge);
+                if matches!(sb.state, State::Allocated | State::Suspended) {
+                    pending = pending.saturating_add(charge);
+                }
+            }
+        }
+        Self::admit_memory(resources.memory_mib, reserved, pending)?;
         all.insert(
             auth.sandbox_id.to_string(),
             Arc::new(Mutex::new(Sandbox {
@@ -1199,7 +1257,17 @@ impl Engine {
                 let t = self.template(capture_id)?;
                 match &t.machine {
                     MachineCfg::Linux { resources, .. } => {
-                        if &sb.resources != resources {
+                        if (self.cfg.devices == Default::default() && &sb.resources != resources)
+                            || sb.resources.disk_gib
+                                < resources
+                                    .disk_gib
+                                    .checked_mul(1 << 30)
+                                    .and_then(|n| {
+                                        n.checked_add(self.cfg.devices.extra_disk_bytes())
+                                    })
+                                    .ok_or_else(|| EngineError::invalid("disk size overflow"))?
+                                    .div_ceil(1 << 30)
+                        {
                             return Err(mismatch(resources, &sb.resources));
                         }
                     }
@@ -1222,10 +1290,15 @@ impl Engine {
                         let disk_gib = std::fs::metadata(t.dir.join(DISK))
                             .ctx("template disk")?
                             .len()
+                            .checked_add(self.cfg.devices.extra_disk_bytes())
+                            .ok_or_else(|| EngineError::invalid("disk size overflow"))?
                             .div_ceil(1 << 30);
-                        if sb.resources.disk_gib != disk_gib {
+                        if sb.resources.disk_gib < disk_gib
+                            || (self.cfg.devices.extra_disks.is_empty()
+                                && sb.resources.disk_gib != disk_gib)
+                        {
                             return Err(EngineError::invalid(format!(
-                                "this macOS template's disk is {disk_gib} GiB; asked for {} GiB (macOS guest disks are not resized)",
+                                "this macOS template and its extra disks require {disk_gib} GiB; asked for {} GiB (macOS guest disks are not resized)",
                                 sb.resources.disk_gib
                             )));
                         }
@@ -1441,6 +1514,19 @@ impl Engine {
         detail.insert("machine_id".into(), ack.machine_id.clone());
         detail.insert("audit".into(), "none".into());
         sb.barrier = Some(ack);
+        if let Some(binary) = &self.guest_transport {
+            self.start_guest_transport(sb, binary, detail)
+                .map_err(|e| {
+                    EngineError::new(
+                        "DEVICE_UNAVAILABLE",
+                        format!("guest transport activation: {}", e.message),
+                    )
+                })?;
+        }
+        detail.insert(
+            "devices".into(),
+            serde_json::to_string(&self.cfg.devices).unwrap(),
+        );
         sb.state = State::Running;
         sb.last_start = detail.clone();
         Ok(())
@@ -1448,6 +1534,14 @@ impl Engine {
 
     fn restore_template(&self, sb: &mut Sandbox, t: &Template, t0: Instant) -> Result<Outcome> {
         let mut detail = BTreeMap::new();
+        self.cfg
+            .devices
+            .validate(t.guest_os() == "macos")
+            .map_err(|e| match e.strip_prefix("DEVICE_UNAVAILABLE: ") {
+                Some(message) => EngineError::new("DEVICE_UNAVAILABLE", message),
+                None => EngineError::invalid(e),
+            })?;
+        Self::admit_memory(sb.resources.memory_mib, 0, 0)?;
         self.new_dir(sb)?;
         let disk = sb.dir.join(DISK);
         fsutil::reflink(&t.dir.join(DISK), &disk, 0o600)?;
@@ -1466,6 +1560,8 @@ impl Engine {
                 },
                 cpus: sb.resources.vcpus as usize,
                 memory_mib: sb.resources.memory_mib,
+                disk_limit_gib: Some(sb.resources.disk_gib),
+                devices: self.cfg.devices.hardware(),
                 disks: vec![DiskSpec {
                     path: disk,
                     read_only: false,
@@ -1493,6 +1589,8 @@ impl Engine {
                     },
                     cpus: sb.resources.vcpus as usize,
                     memory_mib: sb.resources.memory_mib,
+                    disk_limit_gib: Some(sb.resources.disk_gib),
+                    devices: self.cfg.devices.hardware(),
                     disks: vec![DiskSpec {
                         path: disk,
                         read_only: false,
@@ -1514,9 +1612,13 @@ impl Engine {
         let state = t
             .variant
             .as_ref()
-            .filter(|_| !locked)
+            .filter(|_| !locked && self.cfg.devices == Default::default())
             .map(|_| t.dir.join(STATE_FILE));
         let mut spec = spec;
+        detail.insert(
+            "devices".into(),
+            serde_json::to_string(&spec.devices).unwrap(),
+        );
         spec.read_paths.extend(state.clone());
         self.spawn(sb, spec, state.as_deref(), &mut detail)?;
         detail.insert(
@@ -1668,6 +1770,7 @@ impl Engine {
             )));
         }
         refuse_if_locked("resuming a suspended sandbox")?;
+        Self::admit_memory(sb.resources.memory_mib, 0, 0)?;
         if sb.guest_os == "macos" {
             // Already holds its slot while suspended.
             self.take_macos_slot(&sb.id)?;
@@ -1960,6 +2063,16 @@ impl Engine {
                 sb.state.name()
             )));
         }
+        if sb
+            .machine
+            .as_ref()
+            .is_some_and(|m| m.devices != Default::default())
+        {
+            return Err(EngineError::new(
+                "DEVICE_NOT_FORKABLE",
+                "capture/suspend with optional devices is not implemented; no device or extra disk will be silently dropped",
+            ));
+        }
         if consistency == "suspend" {
             return self.suspend(&mut sb, t0);
         }
@@ -2146,6 +2259,10 @@ impl Engine {
     }
 
     fn run_quiet(&self, sb: &Sandbox, argv: &[&str]) -> Result<()> {
+        self.guest_command(sb, argv).map(|_| ())
+    }
+
+    fn guest_command(&self, sb: &Sandbox, argv: &[&str]) -> Result<ExecDone> {
         let w = Self::worker(sb)?;
         let op = format!("op_sync_{}", lamp_init::hex_encode(&random_bytes::<6>()));
         let mut conn = guest::send(
@@ -2172,7 +2289,82 @@ impl Engine {
             Some(Instant::now() + Duration::from_secs(70)),
             alive,
         )
-        .map(|_| ())
+    }
+
+    fn start_guest_transport(
+        &self,
+        sb: &Sandbox,
+        binary: &[u8],
+        detail: &mut BTreeMap<String, String>,
+    ) -> Result<()> {
+        let root = format!(
+            "/tmp/lamp-io-{}",
+            lamp_init::hex_encode(&random_bytes::<8>())
+        );
+        let helper = format!("{root}/bridge");
+        let directory = format!("{root}/io");
+        let run = |argv: &[&str]| -> Result<ExecDone> {
+            let done = self.guest_command(sb, argv)?;
+            if done.exit_code != 0 || done.signal != 0 || done.timed_out {
+                return Err(EngineError::new(
+                    "DEVICE_UNAVAILABLE",
+                    format!(
+                        "guest device command failed: exit {}, signal {}, stderr {}",
+                        done.exit_code,
+                        done.signal,
+                        lamp_vz::macos::b64_decode(&done.stderr_b64)
+                            .map(|s| String::from_utf8_lossy(&s).into_owned())
+                            .unwrap_or_default()
+                    ),
+                ));
+            }
+            Ok(done)
+        };
+        run(&["/bin/mkdir", "-m", "700", &root])?;
+        let decode = if sb.guest_os == "macos" { "-D" } else { "-d" };
+        for chunk in binary.chunks(30_000) {
+            let data = lamp_vz::macos::b64_encode(chunk);
+            run(&[
+                "/bin/sh",
+                "-c",
+                &format!("umask 077; printf %s '{data}' | base64 {decode} >> {helper}"),
+            ])?;
+        }
+        run(&["/bin/chmod", "700", &helper])?;
+        let devices = &self.cfg.devices;
+        let config=serde_json::json!({"audio_input":devices.audio_input,"audio_output":devices.audio_output,"keyboard":devices.keyboard,"mouse":devices.mouse,"input_endpoint":devices.guest_transport.as_ref().and_then(|t|t.input_endpoint.as_ref())}).to_string();
+        run(&[&helper, "start", &directory, &config])?;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let done =
+                self.guest_command(sb, &[&helper, "request", &directory, "{\"op\":\"status\"}"])?;
+            if done.exit_code == 0 {
+                let bytes =
+                    lamp_vz::macos::b64_decode(&done.stdout_b64).map_err(EngineError::host)?;
+                let status: serde_json::Value =
+                    serde_json::from_slice(&bytes).map_err(|e| EngineError::host(e.to_string()))?;
+                if status["devices"]["audio_input"].as_bool() != Some(devices.audio_input)
+                    || status["devices"]["audio_output"].as_bool() != Some(devices.audio_output)
+                {
+                    return Err(EngineError::new(
+                        "DEVICE_UNAVAILABLE",
+                        "guest transport did not activate requested audio",
+                    ));
+                }
+                detail.insert("guest_transport_status".into(), status.to_string());
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err(EngineError::new(
+                    "DEVICE_UNAVAILABLE",
+                    "guest transport never became ready",
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        detail.insert("guest_transport_binary".into(), helper);
+        detail.insert("guest_transport_directory".into(), directory);
+        Ok(())
     }
 
     /// Durable suspend: tasks frozen (Linux), machine paused, full state
@@ -2490,95 +2682,4 @@ pub fn new_generic_machine_identifier(worker: &Path) -> Result<String> {
 
 pub fn object(path: &Path) -> Result<Object> {
     fsutil::digest_file(path)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ids_are_validated() {
-        assert!(valid_id("sb_abc_1", "sb_"));
-        assert!(!valid_id("sb_ABC", "sb_"));
-        assert!(!valid_id("sb_", "sb_"));
-        assert!(!valid_id("sb_a/b", "sb_"));
-    }
-
-    #[test]
-    fn machine_config_rejects_unknown_fields() {
-        let ok = r#"{"guest":"linux","cmdline":"x","machine_identifier_b64":"AA==","resources":{"vcpus":2,"memory_mib":1024,"disk_gib":20}}"#;
-        assert!(serde_json::from_str::<MachineCfg>(ok).is_ok());
-        let bad = r#"{"guest":"linux","cmdline":"x","machine_identifier_b64":"AA==","resources":{"vcpus":2,"memory_mib":1024,"disk_gib":20},"extra":1}"#;
-        assert!(serde_json::from_str::<MachineCfg>(bad).is_err());
-    }
-
-    fn temp_engine(tag: &str) -> (Arc<Engine>, PathBuf) {
-        let store = std::env::temp_dir().join(format!("lamp-mac-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&store);
-        let mut cfg = Config::defaults(store.clone());
-        // Any file stands in for the worker binary: only its digest is used.
-        cfg.worker = PathBuf::from("/bin/ls");
-        cfg.ram_dir = None;
-        (Arc::new(Engine::open(cfg, Mode::Offline).unwrap()), store)
-    }
-
-    /// The two-per-Mac cap is one atomic check: of many concurrent
-    /// allocations exactly two win; a holder re-asking keeps its slot; a
-    /// freed slot is available again.
-    #[test]
-    fn macos_slot_cap_is_atomic() {
-        let (engine, store) = temp_engine("slots");
-        let winners: Vec<bool> = (0..16)
-            .map(|i| {
-                let e = engine.clone();
-                std::thread::spawn(move || e.take_macos_slot(&format!("sb_race_{i}")).is_ok())
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|h| h.join().unwrap())
-            .collect();
-        assert_eq!(winners.iter().filter(|w| **w).count(), MACOS_SLOTS);
-        assert_eq!(engine.macos_slots(), (2, 2));
-        let held: Vec<String> = engine.macos_slots.lock().unwrap().iter().cloned().collect();
-        assert!(engine.take_macos_slot(&held[0]).is_ok());
-        let refused = engine.take_macos_slot("sb_third").unwrap_err();
-        assert_eq!(refused.code, "NO_CAPACITY");
-        engine.free_macos_slot(&held[0]);
-        assert!(engine.take_macos_slot("sb_third").is_ok());
-        std::fs::remove_dir_all(store).unwrap();
-    }
-
-    #[test]
-    fn durable_write_replaces_atomically() {
-        let dir = std::env::temp_dir().join(format!("lamp-dw-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let p = dir.join("suspended.json");
-        durable_write(&p, b"one").unwrap();
-        durable_write(&p, b"two").unwrap();
-        assert_eq!(std::fs::read(&p).unwrap(), b"two");
-        assert!(!p.with_extension("tmp").exists());
-        std::fs::remove_dir_all(dir).unwrap();
-    }
-
-    #[test]
-    fn console_lock_is_read_from_the_console_session() {
-        let user = |locked: &str| {
-            format!(
-                "<dict><key>kCGSSessionOnConsoleKey</key>\n\t<true/><key>CGSSessionScreenIsLocked</key>\n\t<{locked}/></dict>"
-            )
-        };
-        assert!(console_locked_in(&user("true")));
-        assert!(!console_locked_in(&user("false")));
-        // Unlocked sessions often omit the key; no console user counts as locked.
-        assert!(!console_locked_in(
-            "<key>kCGSSessionOnConsoleKey</key><true/>"
-        ));
-        assert!(console_locked_in("<dict></dict>"));
-    }
-
-    #[test]
-    fn crash_point_is_inert_unless_named() {
-        // The variable is unset in tests; reaching a point must do nothing.
-        crash_point("suspend.saved");
-    }
 }

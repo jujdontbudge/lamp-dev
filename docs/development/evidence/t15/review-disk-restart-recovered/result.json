@@ -1,0 +1,49 @@
+{
+  "first_running": {
+    "ok": true,
+    "state": "running",
+    "error": "",
+    "elapsed_us": 1184,
+    "detail": null
+  },
+  "first_exit": {
+    "ok": true,
+    "state": "exited"
+  },
+  "second_ready": {
+    "confine_us": 7863,
+    "confined": true,
+    "devices": {
+      "audio_input": false,
+      "audio_output": false,
+      "display": {
+        "height": 480,
+        "width": 640
+      },
+      "extra_disks": [
+        {
+          "id": "demo",
+          "size_mib": 64
+        }
+      ],
+      "gpu": false,
+      "guest_transport": {
+        "helper": "/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/target/t15-linux-guest-devices",
+        "input_endpoint": null
+      },
+      "keyboard": true,
+      "mouse": true
+    },
+    "pid": 18711,
+    "ready": true,
+    "restored": false,
+    "state": "running",
+    "vm_start_us": 74875
+  },
+  "second_exit": {
+    "ok": true,
+    "state": "exited"
+  },
+  "marker_retained": true,
+  "extra_disk_bytes": 67108864
+}

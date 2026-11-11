@@ -1,5 +1,5 @@
-26ba116cd55783510ec5c943b0d4c7b29a09057b64d30bef8212445efc1e7639  crates/lamp-init/src/bin/lamp-init.rs
-39136d21ed6a4ad08f6109e3ed61b6036565de6ba7dccfe79fd0503e0f12c19c  docs/development/T22-evidence.md
+5d7718cb643c46931c20747bc016f0389f8ed43ef0adf3b9b7ead291c37020c0  crates/lamp-init/src/bin/lamp-init.rs
+86d7d3c3fcc3793d4eba1eef909d04a761cda68f21b5bb3b3a8aee4cb6ff4fa1  docs/development/T22-evidence.md
 c9fa13d25abf5e4ed35f47abc2c6244726ee0b77e0eaba7e36760e4be6d9af7b  docs/development/T22-kits.md
 b2faeae314d736d37efb6958300e8d4121e3fbbc4651018d5ed4a06f094bc345  kits/__init__.py
 67f3ba52fe8cfaec2358ad4f3afdb5ac9a5ddc919b4f6406cc653b92982a75f7  kits/__main__.py

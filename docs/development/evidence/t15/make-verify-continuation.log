@@ -1,0 +1,38 @@
+mkdir -p bin
+cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
+go build ./...
+cargo build --workspace --locked
+   Compiling lamp-vz v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-vz)
+   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-init)
+   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-supervisor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.90s
+go test -count=1 ./cmd/lamp -run '^TestCLIUsesCanonicalMutationHeaders$'
+ok  	github.com/JohanSardar/lamp/cmd/lamp	0.381s
+go test -count=1 ./internal/control -run '^(TestJournalReplaySnapshotBeforeLogTruncation|TestControlCoreInterfacesAndAuthority)$'
+ok  	github.com/JohanSardar/lamp/internal/control	2.410s
+go test -count=1 ./pkg/plugin -run '^TestNativeSandboxDeniesAmbientAuthority$'
+ok  	github.com/JohanSardar/lamp/pkg/plugin	1.353s
+.venv/bin/python tests/contracts/test_schema.py Contracts.test_all_schemas_well_formed -v
+test_all_schemas_well_formed (__main__.Contracts.test_all_schemas_well_formed) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.070s
+
+OK
+.venv/bin/python tests/ci/test_guard.py Guard.test_private_owner_push Guard.test_public_and_stranger_jobs_denied -v
+test_private_owner_push (__main__.Guard.test_private_owner_push) ... ok
+test_public_and_stranger_jobs_denied (__main__.Guard.test_public_and_stranger_jobs_denied) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+OK
+python3 tools/check_contracts.py
+56 resources, 328 operations/scopes, 31 errors, 200 events: match architecture §§11–12
+python3 tools/interop.py
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
+PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
+PASS: Go request → Unix socket → Rust typed Protobuf → Go response
+python3 tools/generate.py --check
+public codegen: clean

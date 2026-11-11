@@ -47,9 +47,7 @@ func validateInvocation(c Connection, in Invocation) error {
 				return invalid
 			}
 		}
-		encoded, ok := in.Arguments["max_tokens"].(json.Number)
-		n, err := encoded.Float64() // bounded model count only, never an ID
-		if !ok || err != nil || n < 1 || n > 4096 || n != float64(int(n)) {
+		if _, err := modelOutputLimit(in.Arguments["max_tokens"]); err != nil {
 			return invalid
 		}
 	case "cli":

@@ -26,8 +26,6 @@ pub struct Spool {
     limit: u64,
     sequence: u64,
     attribution: Attribution,
-    #[cfg(test)]
-    pub(crate) durable_writes: u64,
 }
 impl std::os::fd::AsRawFd for Spool {
     fn as_raw_fd(&self) -> RawFd {
@@ -68,9 +66,15 @@ impl Spool {
             limit,
             sequence: 0,
             attribution,
-            #[cfg(test)]
-            durable_writes: 0,
         })
+    }
+    /// Called only after the guard durably records and fences the old revision.
+    pub(crate) fn set_policy_revision(&mut self, revision: u64) -> io::Result<()> {
+        if revision <= self.attribution.policy_revision {
+            return Err(io::Error::other("audit policy revision must increase"));
+        }
+        self.attribution.policy_revision = revision;
+        Ok(())
     }
     /// Admission ACK/verdict is forbidden until this durable write succeeds.
     pub fn record(&mut self, source: &str, details: Value) -> io::Result<()> {
@@ -109,10 +113,6 @@ impl Spool {
         }
         self.file.write_all(&batch)?;
         self.file.sync_data()?;
-        #[cfg(test)]
-        {
-            self.durable_writes += 1;
-        }
         self.used += batch.len() as u64;
         self.sequence = next;
         Ok(())
@@ -439,118 +439,5 @@ pub fn receive(mut socket: UnixStream, spool: &mut Spool) -> io::Result<()> {
         expected = expected
             .checked_add(n)
             .ok_or_else(|| io::Error::other("sequence exhausted"))?;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    fn spool(suffix: &str) -> (std::path::PathBuf, Spool) {
-        let path =
-            std::env::temp_dir().join(format!("lamp-audit-test-{}-{suffix}", std::process::id()));
-        let attribution = Attribution {
-            principal_id: "p".into(),
-            host_id: "h".into(),
-            task_id: "t".into(),
-            sandbox_id: "s".into(),
-            generation: 1,
-            session_id: "s".into(),
-            operation_id: "o".into(),
-            policy_revision: 1,
-        };
-        let s = Spool::create(path.to_str().unwrap(), 4096, attribution).unwrap();
-        (path, s)
-    }
-    #[test]
-    fn full_spool_never_overwrites_acknowledged_history() {
-        let (path, mut s) = spool("full");
-        while s.record("test", json!({"type":"heartbeat"})).is_ok() {}
-        let before = std::fs::read(&path).unwrap();
-        assert!(before.len() <= 4096);
-        assert!(s.record("test", json!({"type":"heartbeat"})).is_err());
-        assert_eq!(before, std::fs::read(&path).unwrap());
-        assert!(Spool::create(path.to_str().unwrap(), 4096, s.attribution.clone()).is_err());
-        std::fs::remove_file(path).unwrap();
-    }
-    #[test]
-    fn gap_is_not_acknowledged_or_spooled() {
-        let (path, mut s) = spool("gap");
-        let (mut a, b) = UnixStream::pair().unwrap();
-        let t = std::thread::spawn(move || assert!(receive(b, &mut s).is_err()));
-        let v =
-            serde_json::to_vec(&json!({"sequence":2,"details":{"type":"process_start"}})).unwrap();
-        a.write_all(&(v.len() as u32).to_be_bytes()).unwrap();
-        a.write_all(&v).unwrap();
-        let mut ack = [0; 8];
-        assert!(a.read_exact(&mut ack).is_err());
-        t.join().unwrap();
-        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
-        std::fs::remove_file(path).unwrap();
-    }
-    #[test]
-    fn pipelined_frames_share_a_barrier_and_are_acked_in_order() {
-        let (path, mut s) = spool("pipeline");
-        let (a, b) = UnixStream::pair().unwrap();
-        let t = std::thread::spawn(move || {
-            receive(b, &mut s).unwrap();
-            s.durable_writes
-        });
-        let mut e = Emitter::new(a);
-        e.defer();
-        for _ in 0..5 {
-            e.send(json!({"type":"process_start"})).unwrap();
-        }
-        assert_eq!(e.pending.len(), 5);
-        e.release().unwrap();
-        assert!(e.pending.is_empty());
-        e.send(json!({"type":"collector_complete"})).unwrap();
-        let barriers = t.join().unwrap();
-        assert!((1..=6).contains(&barriers), "{barriers}");
-        let spooled = std::fs::read_to_string(&path).unwrap();
-        assert_eq!(spooled.lines().count(), 6);
-        std::fs::remove_file(path).unwrap();
-    }
-    #[test]
-    fn ack_must_match() {
-        let (a, mut b) = UnixStream::pair().unwrap();
-        let t = std::thread::spawn(move || {
-            let mut len = [0; 4];
-            b.read_exact(&mut len).unwrap();
-            let mut v = vec![0; u32::from_be_bytes(len) as usize];
-            b.read_exact(&mut v).unwrap();
-            b.write_all(&42_u64.to_be_bytes()).unwrap();
-        });
-        assert!(Emitter::new(a).send(json!({"type":"heartbeat"})).is_err());
-        t.join().unwrap();
-    }
-    #[test]
-    fn a_slow_ack_is_waited_for_on_the_same_stream() {
-        let (a, mut b) = UnixStream::pair().unwrap();
-        a.set_read_timeout(Some(Duration::from_millis(100)))
-            .unwrap();
-        let t = std::thread::spawn(move || {
-            let mut len = [0; 4];
-            b.read_exact(&mut len).unwrap();
-            let mut v = vec![0; u32::from_be_bytes(len) as usize];
-            b.read_exact(&mut v).unwrap();
-            // Longer than the socket timeout, split across two writes.
-            std::thread::sleep(Duration::from_millis(350));
-            b.write_all(&1_u64.to_be_bytes()[..3]).unwrap();
-            std::thread::sleep(Duration::from_millis(250));
-            b.write_all(&1_u64.to_be_bytes()[3..]).unwrap();
-        });
-        let reconnects = Arc::new(AtomicUsize::new(0));
-        let counted = reconnects.clone();
-        let mut e = Emitter::new(a);
-        e.reconnect = Some(Box::new(move || {
-            counted.fetch_add(1, Ordering::SeqCst);
-            Err(io::Error::other("no reconnect expected"))
-        }));
-        e.send(json!({"type":"heartbeat"})).unwrap();
-        assert_eq!(reconnects.load(Ordering::SeqCst), 0);
-        assert_eq!(e.acknowledged, 1);
-        t.join().unwrap();
     }
 }

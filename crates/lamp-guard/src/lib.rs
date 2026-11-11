@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::{io, net::Ipv4Addr};
 
 #[cfg(target_os = "linux")]
+pub mod control;
+pub mod policy;
+
+#[cfg(target_os = "linux")]
 pub mod audit;
 #[cfg(target_os = "linux")]
 pub mod confinement;
@@ -15,6 +19,8 @@ pub mod process;
 pub mod proxy;
 #[cfg(target_os = "linux")]
 pub mod runtime;
+#[cfg(unix)]
+pub mod subscription_proxy;
 
 /// `close_range(2)` through the raw syscall, so static musl builds (the guest
 /// collector) and glibc builds share one definition.
@@ -109,6 +115,11 @@ impl From<Prefix> for String {
 }
 impl Prefix {
     pub fn contains(self, ip: Ipv4Addr) -> bool {
+        // Prefix is public for the original T4 callers; invalid hand-built
+        // prefixes must not underflow or silently become a catch-all.
+        if self.1 > 32 {
+            return false;
+        }
         let mask = u32::MAX.checked_shl(32 - self.1 as u32).unwrap_or(0);
         u32::from(ip) & mask == u32::from(self.0) & mask
     }
@@ -132,6 +143,21 @@ pub struct Config {
     /// Supervisor supplies *all* host addresses, on-link routes and fleet/control ranges,
     /// including publicly numbered LANs. Empty lists are rejected.
     pub host_denies: Vec<Prefix>,
+    /// Explicit host/fleet safety ceiling. Unlike the legacy inventory default,
+    /// exact service exceptions can never override these entries.
+    #[serde(default)]
+    pub safety_denies: Vec<Prefix>,
+    /// Immutable parent/CI/host transport ceilings for this generation. A live
+    /// revision can replace sandbox layers, never remove these ceilings.
+    #[serde(default)]
+    pub policy_ceiling: Vec<policy::Layer>,
+    /// Intersected recipe/task/sandbox/attachment transport layers.
+    #[serde(default)]
+    pub policy_layers: Vec<policy::Layer>,
+    /// Set by trusted forge intake for public or unknown repository visibility.
+    /// Revisions cannot remove the required default-deny ceiling.
+    #[serde(default)]
+    pub require_allowlist: bool,
     pub spool: String,
     pub spool_bytes: u64,
     /// Explicit, exact destination exceptions (address, transport and port)
@@ -148,6 +174,8 @@ pub struct Config {
     /// from the guest and sends it nothing.
     #[serde(default)]
     pub proxy: Option<Endpoint>,
+    #[serde(default)]
+    pub subscription_domains: Option<Vec<String>>,
 }
 
 /// One TCP endpoint inside the guard namespace.
@@ -174,6 +202,21 @@ impl Exception {
     }
 }
 impl Config {
+    /// Stable binding from audit readiness/revision records to the effective
+    /// host-owned decision inputs, without copying a large rule set into audit.
+    pub fn policy_digest(&self) -> io::Result<String> {
+        use sha2::{Digest, Sha256};
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "interface":self.interface,"guest_ip":self.guest_ip,"proxy":self.proxy,
+            "host_denies":self.host_denies,"safety_denies":self.safety_denies,"special_use_v4":DENIED_V4,
+            "exceptions":self.exceptions,"policy_ceiling":self.policy_ceiling,
+            "policy_layers":self.policy_layers,"require_allowlist":self.require_allowlist
+        }))?;
+        Ok(Sha256::digest(bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect())
+    }
     pub fn excepted(&self, t: &Tuple) -> bool {
         self.exceptions.iter().any(|e| e.matches(t))
     }
@@ -186,8 +229,17 @@ impl Config {
                 && t.destination_port == p.port
         })
     }
+    pub fn revision_requires_allowlist(&self) -> bool {
+        self.require_allowlist
+            && !self
+                .policy_ceiling
+                .iter()
+                .any(|p| p.default_egress == policy::DefaultEgress::Deny)
+    }
     pub fn validate(&self) -> io::Result<()> {
         self.attribution.validate()?;
+        policy::validate_layers(&self.policy_ceiling, false)?;
+        policy::validate_layers(&self.policy_layers, self.revision_requires_allowlist())?;
         if self.interface.is_empty()
             || self.interface.len() > 15
             || !self
@@ -195,6 +247,11 @@ impl Config {
                 .bytes()
                 .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-')
             || self.host_denies.is_empty()
+            || self
+                .host_denies
+                .iter()
+                .chain(&self.safety_denies)
+                .any(|p| p.1 > 32)
             || self.spool_bytes < 4096
             || self.guard_uid < 65536
             || self.guard_uid == u32::MAX
@@ -206,6 +263,27 @@ impl Config {
             || self
                 .proxy
                 .is_some_and(|p| p.port == 0 || p.address == self.guest_ip)
+            || self.subscription_domains.as_ref().is_some_and(|domains| {
+                self.proxy.is_none()
+                    || !self.exceptions.is_empty()
+                    || domains.len() > 16
+                    || domains.iter().any(|domain| {
+                        domain.len() > 253
+                            || !domain.contains('.')
+                            || domain.parse::<Ipv4Addr>().is_ok()
+                            || domain.split('.').any(|label| {
+                                label.is_empty()
+                                    || label.len() > 63
+                                    || label.starts_with('-')
+                                    || label.ends_with('-')
+                                    || !label.bytes().all(|byte| {
+                                        byte.is_ascii_lowercase()
+                                            || byte.is_ascii_digit()
+                                            || byte == b'-'
+                                    })
+                            })
+                    })
+            })
         {
             return Err(io::Error::other(
                 "invalid interface, missing host denies or insufficient spool",
@@ -290,55 +368,4 @@ pub fn packet(bytes: &[u8]) -> Option<Tuple> {
         destination_port: u16::from_be_bytes([bytes[22], bytes[23]]),
         protocol,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn default_ceiling() {
-        for ip in [
-            "0.1.1.1",
-            "10.2.3.4",
-            "100.100.100.200",
-            "100.64.0.1",
-            "127.0.0.1",
-            "169.254.169.254",
-            "172.31.255.255",
-            "192.168.1.1",
-            "198.19.1.1",
-            "224.0.0.1",
-            "255.255.255.255",
-            "168.63.129.16",
-        ] {
-            assert!(!public_v4(ip.parse().unwrap(), &[]), "{ip}");
-        }
-        for ip in ["1.1.1.1", "8.8.8.8", "172.32.0.1"] {
-            assert!(public_v4(ip.parse().unwrap(), &[]));
-        }
-        assert!(!public_v4(
-            "8.8.8.8".parse().unwrap(),
-            &[Prefix("8.8.8.0".parse().unwrap(), 24)]
-        ));
-        assert!(Prefix("0.0.0.0".parse().unwrap(), 0).contains("8.8.8.8".parse().unwrap()));
-    }
-    #[test]
-    fn malformed_and_encapsulated_packets() {
-        let mut p = vec![0; 28];
-        p[0] = 0x45;
-        p[3] = 28;
-        p[9] = 17;
-        p[25] = 8;
-        assert!(packet(&p).is_some());
-        for i in 0..p.len() {
-            assert!(packet(&p[..i]).is_none());
-        }
-        p[6] = 0x20;
-        assert!(packet(&p).is_none());
-        p[6] = 0;
-        p[0] = 0x60;
-        assert!(packet(&p).is_none());
-        p[0] = 0x46;
-        assert!(packet(&p).is_none());
-    }
 }

@@ -1,0 +1,202 @@
+python3 -m venv .venv
+.venv/bin/pip install --disable-pip-version-check -r tools/requirements.txt
+Collecting jsonschema==4.25.1 (from -r tools/requirements.txt (line 1))
+  Using cached jsonschema-4.25.1-py3-none-any.whl.metadata (7.6 kB)
+Collecting attrs==25.4.0 (from -r tools/requirements.txt (line 2))
+  Using cached attrs-25.4.0-py3-none-any.whl.metadata (10 kB)
+Collecting jsonschema-specifications==2025.9.1 (from -r tools/requirements.txt (line 3))
+  Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting referencing==0.37.0 (from -r tools/requirements.txt (line 4))
+  Using cached referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting rpds-py==0.30.0 (from -r tools/requirements.txt (line 5))
+  Using cached rpds_py-0.30.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (4.1 kB)
+Collecting typing-extensions>=4.4.0 (from referencing==0.37.0->-r tools/requirements.txt (line 4))
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Using cached jsonschema-4.25.1-py3-none-any.whl (90 kB)
+Using cached attrs-25.4.0-py3-none-any.whl (67 kB)
+Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Using cached referencing-0.37.0-py3-none-any.whl (26 kB)
+Using cached rpds_py-0.30.0-cp312-cp312-macosx_11_0_arm64.whl (359 kB)
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Installing collected packages: typing-extensions, rpds-py, attrs, referencing, jsonschema-specifications, jsonschema
+Successfully installed attrs-25.4.0 jsonschema-4.25.1 jsonschema-specifications-2025.9.1 referencing-0.37.0 rpds-py-0.30.0 typing-extensions-4.16.0
+go build ./...
+cargo build --workspace --locked
+   Compiling unicode-ident v1.0.27
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling anyhow v1.0.104
+   Compiling either v1.19.0
+   Compiling bytes v1.12.1
+   Compiling rustix v1.1.6
+   Compiling bitflags v2.13.2
+   Compiling itertools v0.14.0
+   Compiling prettyplease v0.2.37
+   Compiling regex-syntax v0.8.11
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.3
+   Compiling foldhash v0.1.5
+   Compiling hashbrown v0.15.5
+   Compiling syn v2.0.119
+   Compiling indexmap v2.14.2
+   Compiling once_cell v1.21.4
+   Compiling fastrand v2.5.0
+   Compiling regex-automata v0.4.18
+   Compiling fixedbitset v0.5.9
+   Compiling multimap v0.10.1
+   Compiling syn v3.0.10
+   Compiling petgraph v0.8.3
+   Compiling log v0.4.35
+   Compiling heck v0.5.0
+   Compiling cpufeatures v0.3.1
+   Compiling errno v0.3.14
+   Compiling sha2 v0.11.1
+   Compiling regex v1.13.1
+   Compiling ed25519-dalek v3.0.0
+   Compiling serde_derive v1.0.229
+   Compiling prost-derive v0.14.4
+   Compiling tempfile v3.27.0
+   Compiling prost v0.14.4
+   Compiling serde v1.0.229
+   Compiling prost-types v0.14.4
+   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-worker-protocol)
+   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-guard)
+   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-contracts)
+   Compiling prost-build v0.14.4
+   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-engine)
+   Compiling lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/tools/protogen)
+   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-supervisor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.95s
+go test ./...
+ok  	github.com/JohanSardar/lamp/cmd/lamp	0.274s
+?   	github.com/JohanSardar/lamp/cmd/lampd	[no test files]
+panic: test timed out after 10m0s
+	running tests:
+		TestDurabilityRejectionHasNoEffect (1s)
+
+goroutine 150 [running]:
+testing.(*M).startAlarm.func1()
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2802 +0x2c4
+created by time.goFunc
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/time/sleep.go:215 +0x38
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0x2eebf2ca6008, {0x1011055b4?, 0x2eebf2c27988?}, 0x1015ea528)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2109 +0x3bc
+testing.runTests.func1(0x2eebf2ca6008)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2585 +0x38
+testing.tRunner(0x2eebf2ca6008, 0x2eebf2c27ab8)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
+testing.runTests({0x1010ffd13, 0x1b}, {0x10110c50e, 0x2c}, 0x2eebf2c9e000, {0x101665ca0, 0x2a, 0x2a}, {0x10375b4f8?, 0x2eebf2b5a00a?, ...})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2583 +0x3f0
+testing.(*M).Run(0x2eebf2b66320)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0x578
+github.com/JohanSardar/lamp/internal/control_test.TestMain(0x2eebf2b66320)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:45 +0x2f8
+main.main()
+	_testmain.go:132 +0x88
+
+goroutine 127 [sleep]:
+time.Sleep(0x4c4b40)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/time.go:363 +0x150
+github.com/JohanSardar/lamp/internal/control_test.startDaemonFor(0x2eebf2ca7448, {0x2eebf2aeb4a0, 0x44}, 0x2eebf2b5b1f0, {0x2eebf2aeb590, 0x50}, 0x15ccd)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:225 +0x4c4
+github.com/JohanSardar/lamp/internal/control_test.startDaemon(0x2eebf2ca7448, {0x2eebf2aeb4a0, 0x44}, 0x2eebf2b5b1f0)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:180 +0x78
+github.com/JohanSardar/lamp/internal/control_test.startDemo(0x2eebf2ca7448)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:176 +0xe0
+github.com/JohanSardar/lamp/internal/control_test.TestDurabilityRejectionHasNoEffect(0x2eebf2ca7448)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/benchmark_e2e_test.go:17 +0x28
+testing.tRunner(0x2eebf2ca7448, 0x1015ea528)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
+created by testing.(*T).Run in goroutine 1
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2101 +0x3a8
+
+goroutine 162 [syscall]:
+syscall.syscalln(0x100d70920, {0x2eebf2b345c8, 0x6, 0x6})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/sys_darwin.go:38 +0x20
+syscall.syscall6(0x1f2b34648?, 0x103750b00?, 0x10375b4f8?, 0x90?, 0x2eebf2fa0808?, 0x2eebf2af87e0?, 0x2eebf2b34668?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/syscall/syscall_darwin.go:388 +0x28
+syscall.wait4(0x2eebf2b34698?, 0x100d957ac?, 0x90?, 0x1015d5b80?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/syscall/zsyscall_darwin_arm64.go:44 +0x4c
+syscall.Wait4(0x2eebf2b3460d?, 0x2eebf2b346d4, 0x2eebf2b346e8?, 0x100d38984?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/syscall/syscall_bsd.go:144 +0x28
+os.(*Process).pidWait.func1(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec_unix.go:64
+os.ignoringEINTR2[...](...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file_posix.go:266
+os.(*Process).pidWait(0x2eebf2ae5c00)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec_unix.go:63 +0x9c
+os.(*Process).wait(0x8ca75aeeb266?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec_unix.go:28 +0x24
+os.(*Process).Wait(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec.go:346
+os/exec.(*Cmd).Wait(0x2eebf2b70680)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:930 +0x38
+github.com/JohanSardar/lamp/internal/control_test.startDaemonFor.func1()
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:194 +0x24
+created by github.com/JohanSardar/lamp/internal/control_test.startDaemonFor in goroutine 127
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:194 +0x2a4
+
+goroutine 128 [IO wait]:
+internal/poll.runtime_pollWait(0x1039e6c00, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x2eebf2ba6f00?, 0x101387960?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0x2eebf2ba6f00)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:613 +0x214
+net.(*netFD).accept(0x2eebf2ba6f00)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_unix.go:150 +0x28
+net.(*UnixListener).accept(0x0?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/unixsock_posix.go:172 +0x20
+net.(*UnixListener).Accept(0x2eebf340e960)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/unixsock.go:267 +0x2c
+github.com/JohanSardar/lamp/internal/control_test.newWorker.func2()
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:73 +0x50
+created by github.com/JohanSardar/lamp/internal/control_test.newWorker in goroutine 127
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:71 +0x1c0
+
+goroutine 161 [IO wait]:
+internal/poll.runtime_pollWait(0x1039e6800, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x2eebf2c94f60?, 0x2eebf2bf2000?, 0x1)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x2eebf2c94f60, {0x2eebf2bf2000, 0x200, 0x200})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:165 +0x234
+os.(*File).read(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file_posix.go:29
+os.(*File).Read(0x2eebf2ac43b8, {0x2eebf2bf2000?, 0x12?, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file.go:144 +0x68
+bytes.(*Buffer).ReadFrom(0x2eebf340e9f0, {0x1015f0368, 0x2eebf2ac43b8})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bytes/buffer.go:229 +0x90
+io.copyBuffer({0x1015f07a0, 0x2eebf340e9f0}, {0x1015f0368, 0x2eebf2ac43b8}, {0x0, 0x0, 0x0})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/io/io.go:415 +0x14c
+io.Copy(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/io/io.go:388
+os.genericWriteTo(0x2eebf2b34c01?, {0x1015f07a0?, 0x2eebf340e9f0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file.go:295 +0x44
+os.(*File).WriteTo(0x101655ff0?, {0x1015f07a0?, 0x2eebf340e9f0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file.go:273 +0x5c
+io.copyBuffer({0x1015f07a0, 0x2eebf340e9f0}, {0x1015f0460, 0x2eebf2ac43b8}, {0x0, 0x0, 0x0})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/io/io.go:411 +0x98
+io.Copy(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/io/io.go:388
+os/exec.(*Cmd).writerDescriptor.func1()
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:602 +0x40
+os/exec.(*Cmd).Start.func2(0x2eebf2f59e30?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:757 +0x30
+created by os/exec.(*Cmd).Start in goroutine 127
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:756 +0x6c8
+FAIL	github.com/JohanSardar/lamp/internal/control	601.025s
+?   	github.com/JohanSardar/lamp/internal/guard	[no test files]
+?   	github.com/JohanSardar/lamp/pkg/api	[no test files]
+ok  	github.com/JohanSardar/lamp/pkg/workerpb	0.632s
+?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
+FAIL
+make: *** [test] Error 1

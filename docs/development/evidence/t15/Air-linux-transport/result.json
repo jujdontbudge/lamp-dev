@@ -1,0 +1,47 @@
+{
+  "guest": "linux",
+  "runtime": "/private/var/tmp/lamp-t15-ax0oebkb",
+  "devices": {
+    "display": {
+      "width": 640,
+      "height": 480
+    },
+    "gpu": false,
+    "keyboard": true,
+    "mouse": true,
+    "extra_disks": [
+      {
+        "id": "demo",
+        "size_mib": 64
+      }
+    ],
+    "audio_input": true,
+    "audio_output": true
+  },
+  "oversized": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: NO_CAPACITY: requested 32768 MiB plus 256 MiB VMM allowance; physical=8192 MiB, available=1758 MiB, host reserve=2048 MiB, reservations=0 MiB, pending=0 MiB\n",
+    "host_started_unix": 1794366001.6210508,
+    "host_finished_unix": 1794366001.6306932,
+    "elapsed_s": 0.009646083000000027
+  },
+  "oversized_directory_created": false,
+  "create": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: NOT_FOUND: template tp_c3b43f845457a98727b496713c\n",
+    "host_started_unix": 1794366001.631159,
+    "host_finished_unix": 1794366001.6393,
+    "elapsed_s": 0.008142333000000002
+  },
+  "release": {
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "host_started_unix": 1794366001.639575,
+    "host_finished_unix": 1794366001.644566,
+    "elapsed_s": 0.004992083999999952
+  },
+  "worker_directory_released": true
+}

@@ -1,0 +1,3 @@
+{"kind":"fixture_exit","monotonic_ns":429518121230309,"previous":"0000000000000000000000000000000000000000000000000000000000000000","sha256":"e02c278beba5e4db8677e44ee4054d489362ab1933757853ef2ffe698185c97c","value":{"returncode":1}}
+{"kind":"fixture_phase","monotonic_ns":429518163825801,"previous":"e02c278beba5e4db8677e44ee4054d489362ab1933757853ef2ffe698185c97c","sha256":"725e0e02be5541d81c650398379ae6acad19132d09a9b59be0c71a176ff6e0c9","value":{"phase":"restore_clean"}}
+{"kind":"fixture_cleanup","monotonic_ns":429518168481974,"previous":"725e0e02be5541d81c650398379ae6acad19132d09a9b59be0c71a176ff6e0c9","sha256":"9a0f5c032327c233bf62c29370b83c3b6f55a1cff020e56a97f0b78802594bbf","value":{"memory_unmounted":true}}

@@ -1,0 +1,41 @@
+{
+  "caller_after": {
+    "cpu_count": 8,
+    "disk": "Filesystem                        1K-blocks      Used Available Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv 980211368 454151768 476193872  49% /",
+    "load": [
+      15.390625,
+      5.1103515625,
+      2.4140625
+    ],
+    "machine": "x86_64",
+    "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+    "power": "powersave",
+    "pressure": {
+      "cpu": "some avg10=24.22 avg60=8.33 avg300=2.42 total=7114360547\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+      "io": "some avg10=17.83 avg60=33.04 avg300=13.18 total=7993556864\nfull avg10=10.07 avg60=29.20 avg300=11.97 total=7005429397\n",
+      "memory": "some avg10=2.22 avg60=7.49 avg300=2.77 total=486352859\nfull avg10=1.49 avg60=7.02 avg300=2.62 total=333761945\n"
+    }
+  },
+  "completed_at": "2026-11-10T17:49:44.421894+00:00",
+  "diagnostic": true,
+  "last_observation_hash": "6616afbca49e0b67c22f811922db7887af61794959668878983dc3ae8f7073b6",
+  "results": {
+    "E07": {
+      "blockers": [
+        "official subscription sign-in and useful inference not exercised",
+        "same-person live memory fork and suspend/resume subscription continuation not exercised",
+        "vendor-approved refresh and account eligibility not qualified",
+        "per-sandbox vendor-only guard policy not integrated",
+        "bounded native harness task bridge and independent exfiltration sinks not qualified",
+        "public template/export/share fresh-harness handoff not integrated",
+        "custody graph is not yet persisted or enforced by the public control/session path"
+      ],
+      "status": "incomplete"
+    },
+    "clean_builder_control": {
+      "error": "ValueError",
+      "status": "fail"
+    }
+  },
+  "status": "fail"
+}

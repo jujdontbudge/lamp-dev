@@ -146,11 +146,25 @@ pub struct Cancel {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Release {}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Rebuild {
+    #[prost(string, tag = "1")]
+    pub source_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub destination_principal: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub purpose: ::prost::alloc::string::String,
+    #[prost(bool, tag = "4")]
+    pub clean_rebuild: bool,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Request {
     #[prost(message, optional, tag = "1")]
     pub context: ::core::option::Option<Context>,
-    #[prost(oneof = "request::Command", tags = "10, 11, 12, 13, 14, 15, 16, 17")]
+    #[prost(
+        oneof = "request::Command",
+        tags = "10, 11, 12, 13, 14, 15, 16, 17, 18"
+    )]
     pub command: ::core::option::Option<request::Command>,
 }
 /// Nested message and enum types in `Request`.
@@ -173,6 +187,8 @@ pub mod request {
         Cancel(super::Cancel),
         #[prost(message, tag = "17")]
         Release(super::Release),
+        #[prost(message, tag = "18")]
+        Rebuild(super::Rebuild),
     }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

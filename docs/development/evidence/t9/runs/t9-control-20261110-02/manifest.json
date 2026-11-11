@@ -1,0 +1,144 @@
+{
+  "caller": {
+    "cpu_count": 8,
+    "disk": "Filesystem                        1K-blocks      Used Available Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv 980211368 454358532 475987108  49% /",
+    "load": [
+      0.86767578125,
+      2.58642578125,
+      1.94873046875
+    ],
+    "machine": "x86_64",
+    "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+    "power": "powersave",
+    "pressure": {
+      "cpu": "some avg10=1.19 avg60=0.76 avg300=1.38 total=7116126049\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+      "io": "some avg10=0.98 avg60=1.89 avg300=6.89 total=7997407139\nfull avg10=0.82 avg60=1.71 avg300=6.26 total=7008986708\n",
+      "memory": "some avg10=0.00 avg60=0.19 avg300=1.30 total=486370758\nfull avg10=0.00 avg60=0.18 avg300=1.23 total=333779411\n"
+    }
+  },
+  "configuration": {
+    "fixture": "target/debug/examples/custody_rebuild",
+    "seed": "/var/lib/lamp/seeds/28641d76cd0ef4f6a33053042e548239116062f4a32658b156b97a9736eceba3",
+    "suite": "E07-clean-builder-diagnostic"
+  },
+  "harness_sources": {
+    "._custody_probe.py": "8cfde4f32729ad449e8133b2355c54415301c58bb42b67314733d11babe84a13",
+    "block_fixture.py": "0581cc103d180058e8a44d1ff0aaf07fab6881ebbb4a4fbe9258572a8d4f887e",
+    "custody_probe.py": "8e3d6fd398671d953e7ccfac88ab639cd9cf3c405f5f29cb29c735df9d6b65f9",
+    "engine.py": "a5112217f7d326ff0519d405e0c23bd485ea6a16abcf4a3da74e43d9b210c5c5",
+    "evidence.py": "17a2a718f9d254bb937e5573fb04a251a5d0a127fd452e21e46333f6a37979ed",
+    "oracles.py": "dc4095c7b7a4b225802c756b6ac8e07a7d08c6f8fb5ed1f7392cb75dbe575320",
+    "protocol.py": "3661a5fd6f2076ffd14cbdf0c027f623d1a583e27f1e0d7c271351e9a11b2395",
+    "public.py": "c07e57475260c74838b190654e1dd760beb88bbb3a5a1c3c64e43c2f3c1253f9",
+    "run.py": "ffb4cbbec1c08b912096249af41360030bea2e582a2db0b762a7fab6ca36788e",
+    "storage.py": "2d4ea7a5a44970b9b86801ad304eb49feec6624a136743d9fc87b8ccae1136bc",
+    "workload.py": "7ef80949f5b68a839135d6ffb1ec5f246d3a67662b027280bb072dbff26a5cff"
+  },
+  "metadata": {
+    "access_route": "local disposable engine API fixture, not public subscription/session path",
+    "artifacts": {
+      "firecracker": "99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5",
+      "fixture": "1fe5e7c6e85c92e4cec84f92e525d08c2040fd7e77c453e31da124fc823232cc",
+      "jailer": "65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f"
+    },
+    "collected_at": "2026-11-10T17:53:20Z",
+    "compiled_features": [
+      "lamp-engine default (no optional features)"
+    ],
+    "controls": {
+      "audit": false,
+      "capture_tracking": false,
+      "cow": true,
+      "guard": false
+    },
+    "dependency_hashes": {
+      "Cargo.lock": "9fdac4661a1896e71817ff23a39ba948a48446d1922d63b272e6b054ddf2d2b3"
+    },
+    "durability": "local",
+    "filesystem": {
+      "block_size_bytes": 4096,
+      "mount": {
+        "fstype": "xfs",
+        "options": "rw,relatime,inode64,logbufs=8,logbsize=32k,noquota",
+        "source": "/dev/loop14",
+        "target": "/var/lib/lamp"
+      },
+      "type": "xfs"
+    },
+    "hardware": {
+      "cpu_model": "Intel(R) Core(TM) Ultra 9 288V",
+      "logical_cpus": 8,
+      "memory_bytes": 32653447168,
+      "scheduler_cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "lane": "LX",
+    "os": {
+      "kernel": "Linux",
+      "kernel_version": "7.0.0-42-generic",
+      "machine": "x86_64"
+    },
+    "policy": {
+      "mode": "diagnostic builder has no network attachment",
+      "revision": 1
+    },
+    "power": {
+      "ac_online": 1
+    },
+    "resources": {
+      "disk_gib": 20,
+      "memory_mib": 4096,
+      "pids_max": 4096,
+      "vcpus": 2
+    },
+    "source_hashes": {
+      "benchmarks/custody_probe.py": "8e3d6fd398671d953e7ccfac88ab639cd9cf3c405f5f29cb29c735df9d6b65f9",
+      "crates/lamp-engine/examples/custody_rebuild.rs": "e6cf9ca3bd71a451f99b51c5663ca27bbcf45e91ab497704b354281d63dfd180",
+      "crates/lamp-engine/src/custody.rs": "7d499b521aa73664b9cca11f2f045804950788871e6b3e5d809b05c771a409da"
+    },
+    "storage": {
+      "free_bytes": 309439520768,
+      "total_bytes": 321965260800
+    },
+    "thermal": {
+      "samples_c": [
+        44.05,
+        20.0,
+        61.0,
+        48.05,
+        48.05,
+        47.05,
+        57.0,
+        63.0,
+        35.05
+      ]
+    },
+    "topology": "native"
+  },
+  "metadata_errors": [
+    "guard is not enabled",
+    "audit is not enabled",
+    "capture_tracking is not enabled"
+  ],
+  "protocol": "lamp.benchmark/v1",
+  "started_at": "2026-11-10T17:53:20.697880+00:00",
+  "suite_digest": "693fecf02ec056dcaafa16cc7abaf1d35ca97a845d6201e70a0e6e24f95a1d46",
+  "thresholds": {
+    "create_p50_ms_exclusive": 500,
+    "creates": 200,
+    "fork_max_ms_exclusive": 1000,
+    "forks_per_row": 100,
+    "native_pairs_per_measure": 10,
+    "native_ratio_inclusive": 0.97,
+    "storage_forks": 1000,
+    "warmups": 20
+  }
+}

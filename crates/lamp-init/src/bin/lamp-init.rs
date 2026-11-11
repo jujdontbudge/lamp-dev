@@ -14,7 +14,7 @@ fn main() {
 #[cfg(target_os = "linux")]
 mod linux {
     use std::ffi::CString;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::process::Command;
     use std::time::{Duration, Instant};
 
@@ -61,6 +61,38 @@ mod linux {
                 Ok(s) if s.success() => {}
                 other => eprintln!("lamp-init: ip {args:?}: {other:?}"),
             }
+        }
+    }
+
+    fn start_subscription_relay() {
+        // This optional, recipe-installed service is trusted guest infrastructure;
+        // protected tasks retain the seccomp denial of direct AF_VSOCK access.
+        let trusted = [
+            "/opt",
+            "/opt/lamp",
+            "/opt/lamp/subscription.json",
+            "/opt/lamp/relay.py",
+        ]
+        .iter()
+        .all(|path| {
+            std::fs::symlink_metadata(path).is_ok_and(|metadata| {
+                !metadata.file_type().is_symlink()
+                    && metadata.uid() == 0
+                    && metadata.mode() & 0o022 == 0
+            })
+        });
+        if trusted
+            && let Err(error) = Command::new("/usr/bin/python3")
+                .arg("/opt/lamp/relay.py")
+                .env_clear()
+                .env("PATH", "/usr/bin:/bin")
+                .env("HOME", "/root")
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+        {
+            eprintln!("lamp-init: subscription relay could not start: {error}");
         }
     }
 
@@ -128,6 +160,7 @@ mod linux {
         // is available to tasks.
         let _ = std::fs::write("/proc/sys/kernel/unprivileged_bpf_disabled", "1");
         configure_network();
+        start_subscription_relay();
         let mut helper = None;
         let mut last_start = Instant::now() - Duration::from_secs(10);
         loop {

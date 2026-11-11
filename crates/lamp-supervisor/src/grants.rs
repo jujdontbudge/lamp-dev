@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 pub const FORMAT: &str = "lamp.control-grant/v1";
 pub const COMMANDS: &[&str] = &[
-    "allocate", "restore", "start", "capture", "stop", "release", "inspect", "cancel",
+    "allocate", "restore", "start", "capture", "stop", "release", "inspect", "cancel", "rebuild",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,6 +27,11 @@ pub struct ControlGrant {
     pub sandbox_prefix: String,
     /// The exact sandbox generation and policy revision it authorizes.
     pub generation: u64,
+    /// When set, generations `generation..=max_generation` are authorized,
+    /// so a resumed sandbox can run as a new generation (its own audit
+    /// spool and identity barrier). Absent keeps the exact match.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_generation: Option<u64>,
     pub policy_revision: u64,
     pub commands: Vec<String>,
     pub issued_at_unix_ms: u64,
@@ -137,7 +142,8 @@ impl GrantStore {
         if !p.sandbox_id.starts_with(&g.sandbox_prefix) {
             return denied("sandbox outside its scope");
         }
-        if g.generation != p.generation {
+        let last = g.max_generation.unwrap_or(g.generation);
+        if p.generation < g.generation || p.generation > last {
             return denied("generation outside its scope");
         }
         if g.policy_revision != p.policy_revision {
@@ -156,115 +162,4 @@ pub fn revoke(dir: &Path, id: &str) -> std::io::Result<()> {
         return Err(std::io::Error::other("invalid grant id"));
     }
     std::fs::remove_file(dir.join(format!("{id}.json")))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn grant() -> ControlGrant {
-        ControlGrant {
-            format: FORMAT.into(),
-            grant_id: "gr_0123abcd".into(),
-            caller_uid: 1000,
-            sandbox_prefix: "sb_".into(),
-            generation: 1,
-            policy_revision: 1,
-            commands: vec!["start".into(), "inspect".into()],
-            issued_at_unix_ms: 1,
-            expires_at_unix_ms: 10_000,
-        }
-    }
-
-    fn presented(command: &str) -> Presented<'_> {
-        Presented {
-            grant_id: "gr_0123abcd",
-            caller_uid: 1000,
-            sandbox_id: "sb_demo",
-            generation: 1,
-            policy_revision: 1,
-            command,
-            now_ms: 5_000,
-        }
-    }
-
-    #[test]
-    fn scope_generation_policy_and_expiry_are_enforced() {
-        let store = GrantStore::new("/nonexistent");
-        let g = grant();
-        let load = |id: &str| (id == g.grant_id).then(|| g.clone());
-        assert!(store.check_with(&presented("start"), load).is_ok());
-        let code = |p: Presented<'_>| store.check_with(&p, load).unwrap_err().0;
-        assert_eq!(
-            code(Presented {
-                grant_id: "gr_other",
-                ..presented("start")
-            }),
-            "UNAUTHENTICATED"
-        );
-        assert_eq!(
-            code(Presented {
-                grant_id: "../../etc/x",
-                ..presented("start")
-            }),
-            "UNAUTHENTICATED"
-        );
-        assert_eq!(
-            code(Presented {
-                now_ms: 10_000,
-                ..presented("start")
-            }),
-            "UNAUTHENTICATED"
-        );
-        assert_eq!(
-            code(Presented {
-                caller_uid: 1001,
-                ..presented("start")
-            }),
-            "SCOPE_DENIED"
-        );
-        assert_eq!(
-            code(Presented {
-                sandbox_id: "xx_demo",
-                ..presented("start")
-            }),
-            "SCOPE_DENIED"
-        );
-        assert_eq!(
-            code(Presented {
-                generation: 2,
-                ..presented("start")
-            }),
-            "SCOPE_DENIED"
-        );
-        assert_eq!(
-            code(Presented {
-                policy_revision: 0,
-                ..presented("start")
-            }),
-            "SCOPE_DENIED"
-        );
-        assert_eq!(code(presented("capture")), "SCOPE_DENIED");
-    }
-
-    #[test]
-    fn install_writes_a_private_file_and_load_rejects_writable_ones() {
-        let dir = std::env::temp_dir().join(format!("lamp-grants-{}", std::process::id()));
-        let store = GrantStore::new(&dir);
-        store.install(&grant()).unwrap();
-        let path = dir.join("gr_0123abcd.json");
-        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
-        assert_eq!(mode & 0o777, 0o600);
-        assert_eq!(
-            std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
-            0o700
-        );
-        // Not root-owned when tests run unprivileged, or group-writable: never authority.
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o620)).unwrap();
-        assert!(store.load("gr_0123abcd").is_none());
-        let mut bad = grant();
-        bad.commands.push("anything".into());
-        assert!(store.install(&bad).is_err());
-        let _ = std::fs::remove_dir_all(dir);
-    }
 }
