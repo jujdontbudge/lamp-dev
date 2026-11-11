@@ -1032,6 +1032,8 @@ export interface Browser {
   "durability"?: "volatile" | "local" | "replicated" | "backup";
   "custody_host_ids"?: Array<string>;
   "exposures"?: Array<string>;
+  "mode"?: "external" | "copied";
+  "warning"?: string;
 }
 export interface BrowserActionCompletion {
   "blob_id"?: string;
@@ -1060,7 +1062,7 @@ export interface BrowserCreateCompletion {
 export interface BrowserCreateInput {
   "owner_id"?: string;
   "task_id"?: string;
-  "sandbox_id"?: string;
+  "sandbox_id": string;
   "kit_id"?: string;
   "profile_ref"?: string;
   "adapter_id"?: string;
@@ -1076,6 +1078,10 @@ export interface BrowserCreateInput {
   "visibility"?: "private" | "shared";
   "idempotency_key": string;
   readonly "wait_ms"?: number;
+  "mode"?: "external" | "copied";
+  "source_browser_id"?: string;
+  "login_origin"?: string;
+  "acknowledge_agent_can_read_logins"?: boolean;
 }
 export interface BrowserCreateResult {
   "operation_id": string;
@@ -1102,6 +1108,11 @@ export interface BrowserDeleteResult {
   "result"?: BrowserDeleteCompletion;
 }
 export interface BrowserFillPasswordCompletion {
+  "approval_id"?: string;
+  "plan"?: AdapterDocument;
+  "state"?: string;
+  "filled"?: boolean;
+  "private"?: boolean;
 }
 export interface BrowserFillPasswordInput {
   "browser_id": string;
@@ -1112,6 +1123,9 @@ export interface BrowserFillPasswordInput {
   "idempotency_key": string;
   readonly "wait_ms"?: number;
   readonly "expected_revision": number;
+  "origin"?: string;
+  "submit"?: boolean;
+  "plan"?: AdapterDocument;
 }
 export interface BrowserFillPasswordResult {
   "operation_id": string;
@@ -3242,6 +3256,7 @@ export interface Kit {
   "install_plan_blob_id"?: string;
   "device_requirements"?: Array<Device>;
   "state_schema"?: JSONSchema;
+  "tools"?: Array<"git" | "docker" | "browser" | "python" | "node" | "go" | "rust" | "c">;
 }
 export interface KitCreateCompletion {
   "kit_id": string;
@@ -3257,6 +3272,7 @@ export interface KitCreateInput {
   "visibility"?: "private" | "shared";
   "idempotency_key": string;
   readonly "wait_ms"?: number;
+  "tools": Array<"git" | "docker" | "browser" | "python" | "node" | "go" | "rust" | "c">;
 }
 export interface KitCreateResult {
   "operation_id": string;
@@ -3288,6 +3304,36 @@ export interface KitGetInput {
 export interface KitGetResult {
   "data": Kit;
   "request_id": string;
+}
+export interface KitInstallCompletion {
+  "state": string;
+  "job_id": string;
+  "sandbox_id": string;
+  "generation": number;
+}
+export interface KitInstallInput {
+  "lease_id"?: string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  readonly "expected_revision": number;
+  "kit_id": string;
+  "sandbox_id": string;
+}
+export interface KitInstallResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: KitInstallCompletion;
+}
+export interface KitInstallStatusInput {
+  "kit_id": string;
+  "job_id": string;
+}
+export interface KitInstallStatusResult {
+  "request_id": string;
+  "data": AdapterDocument;
 }
 export interface KitListInput {
   "cursor"?: string;
@@ -4913,6 +4959,7 @@ export interface SandboxCreateInput {
   "durability"?: "volatile" | "local" | "replicated" | "backup";
   "idempotency_key": string;
   readonly "wait_ms"?: number;
+  "labels"?: StringMap;
 }
 export interface SandboxCreateResult {
   "operation_id": string;
@@ -7283,6 +7330,10 @@ export declare class LampClient {
   kitDelete(input: KitDeleteInput): Promise<KitDeleteResult>;
   /** `lamp kit get` — GET /v1/kits/{kit_id} (scope kit.get) */
   kitGet(input: KitGetInput): Promise<KitGetResult>;
+  /** `lamp kit install` — POST /v1/kits/{kit_id}:install (scope kit.install) */
+  kitInstall(input: KitInstallInput): Promise<KitInstallResult>;
+  /** `lamp kit install-status` — GET /v1/kits/{kit_id}/installations/{job_id} (scope kit.install_status) */
+  kitInstallStatus(input: KitInstallStatusInput): Promise<KitInstallStatusResult>;
   /** `lamp kit list` — GET /v1/kits (scope kit.list) */
   kitList(input: KitListInput): Promise<KitListResult>;
   /** `lamp kit update` — PATCH /v1/kits/{kit_id} (scope kit.update) */
