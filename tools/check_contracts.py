@@ -22,6 +22,7 @@ def check_extra_operations(table, resources, operations, defs):
         'sandbox_device_watch': ('get', '/sandboxes/{sandbox_id}/device-stream'),
         'blob_upload': ('put', '/blobs/{blob_id}/content'),
         'blob_download': ('get', '/blobs/{blob_id}/content'),
+        'kit_install_status': ('get', '/kits/{kit_id}/installations/{job_id}'),
         'artifact_download': ('get', '/artifacts/{artifact_id}/content'),
         'operation_wait': ('get', '/operations/{operation_id}/wait'),
         'audit_record_export': ('post', '/audit-records:export'),
@@ -64,12 +65,15 @@ def check_extra_operations(table, resources, operations, defs):
         'change_set_reject': 'change_set', 'settings_change_reject': 'settings_change',
         'port_share_link': 'grant_id url expires_at secret_available',
         'browser_action': 'blob_id observations',
+        'browser_fill_password': 'approval_id filled plan private state',
+        'kit_install': 'generation job_id sandbox_id state',
+        'kit_install_status': 'data request_id',
         'approval_approve': 'approval', 'approval_deny': 'approval', 'approval_revoke': 'approval',
         'notification_acknowledge': 'notification',
         'blob_download': 'blob_id offset_bytes data_base64 chunk_sha256 sha256 size_bytes eof request_id',
         'artifact_download': 'blob_id manifest_blob_id offset_bytes data_base64 chunk_sha256 sha256 size_bytes eof request_id',
     }
-    read_only = set('auth_flow_bootstrap sandbox_file_read sandbox_file_list sandbox_device_watch exec_watch session_watch blob_download artifact_download operation_wait api_describe docs_read metric_list'.split())
+    read_only = set('kit_install_status auth_flow_bootstrap sandbox_file_read sandbox_file_list sandbox_device_watch exec_watch session_watch blob_download artifact_download operation_wait api_describe docs_read metric_list'.split())
     for line in table.splitlines():
         if not line.startswith('| `'):
             continue

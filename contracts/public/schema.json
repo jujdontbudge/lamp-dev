@@ -393,6 +393,8 @@
               "kit.create",
               "kit.delete",
               "kit.get",
+              "kit.install",
+              "kit.install_status",
               "kit.list",
               "kit.update",
               "lease.create",
@@ -38110,7 +38112,7 @@
     "TOKEN_HOME_UNAVAILABLE": 503,
     "AUDIT_UNAVAILABLE": 503
   },
-  "x-lamp-spec-sha256": "eac0931282d28acd196c9ae56456ccc537fef5900eac330b0da7abfd68332595",
+  "x-lamp-spec-sha256": "69475703f0dc0b1cd1c8395519e8fef79874a710e6c78352687d64fd45970a2a",
   "x-lamp-limits": {
     "worker_control_bytes": 1048576,
     "stream_payload_bytes": 65536,
