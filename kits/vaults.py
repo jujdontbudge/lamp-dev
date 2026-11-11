@@ -53,6 +53,8 @@ def read_login(config, item):
             argv = [binary, 'item', 'get', item, '--vault', config['vault'], '--format', 'json']
         elif provider == 'bitwarden':
             env['BITWARDENCLI_APPDATA_DIR'] = config['home']
+            if config.get('ca_file'):
+                env['NODE_EXTRA_CA_CERTS'] = config['ca_file']
             if unlock:
                 env['BW_SESSION'] = unlock.decode()
             argv = [binary, 'get', 'item', item]

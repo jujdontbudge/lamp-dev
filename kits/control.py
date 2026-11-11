@@ -32,7 +32,15 @@ class Control:
             conn.request(method, path, None if body is None else json.dumps(body), headers)
             response = conn.getresponse()
             data = response.read(4 * 1024 * 1024 + 1)
-            if response.status >= 300 or len(data) > 4 * 1024 * 1024:
+            if response.status >= 300:
+                try:
+                    code = json.loads(data).get('error', {}).get('code', '')
+                except (ValueError, AttributeError):
+                    code = ''
+                if not isinstance(code, str) or len(code) > 64 or not code.isascii() or not code.replace('_', '').isalnum() or code != code.upper():
+                    code = 'UNKNOWN'
+                raise KitError('CONTROL_UNAVAILABLE:' + str(response.status) + ':' + code)
+            if len(data) > 4 * 1024 * 1024:
                 raise KitError("CONTROL_UNAVAILABLE")
             return json.loads(data)
         finally:
@@ -53,9 +61,10 @@ class Control:
             time.sleep(.1)  # completion observation, not a trial/benchmark
         raise KitError("CONTROL_OUTCOME_UNKNOWN")
 
-    def sandbox(self, identity):
+    def sandbox(self, identity, allow_suspended=False):
         value = self.call("GET", "/v1/sandboxes/" + identity)["data"]
-        if value.get("boundary") != "vm" or value.get("state") != "ready":
+        states = ('ready', 'suspended') if allow_suspended else ('ready',)
+        if value.get("boundary") != "vm" or value.get("state") not in states:
             raise KitError("READY_VM_REQUIRED")
         return value
 

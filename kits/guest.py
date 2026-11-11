@@ -281,6 +281,9 @@ def main(request):
         if finished:
             path.unlink()
         return {'data': base64.b64encode(data).decode()}
+    if op == 'sealed_type':
+        action = unseal(ROOT / 'private.pem', request['sealed'])
+        return main({'operation': 'type', 'selector': action['selector'], 'text': action['text']})
     if op == 'private_action':
         if not state['private']:
             raise ValueError('takeover required')

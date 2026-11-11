@@ -90,7 +90,7 @@ class Kits:
                 temporary.unlink()
 
     def checked(self, value):
-        agent = self.control.sandbox(value['agent'])
+        agent = self.control.sandbox(value['agent'], allow_suspended=value['mode'] == 'external')
         browser = self.control.sandbox(value['sandbox'])
         if agent.get('generation') != value['agent_generation'] or browser.get('generation') != value['browser_generation']:
             value['private'] = True
@@ -243,12 +243,16 @@ class Kits:
                     raise KitError('INVALID_ARGUMENT')
                 if owner and value['private']:
                     return self.control.browser(value['sandbox'], 'private_action', sealed=seal(value['public_key'], dict(operation=op, **args)))
+                if op == 'type':
+                    # Even a refused password-field attempt must not put its text
+                    # in the public exec argv/journal before the DOM check runs.
+                    return self.control.browser(value['sandbox'], 'sealed_type', sealed=seal(value['public_key'], args))
                 return self.control.browser(value['sandbox'], op, **args)
             raise KitError('SCOPE_DENIED')
 
     def create(self, request):
-        agent = self.control.sandbox(request['agent_sandbox_id'])
         mode = request.get('mode', 'external')
+        agent = self.control.sandbox(request['agent_sandbox_id'], allow_suspended=mode == 'external')
         if mode not in ('external', 'copied'):
             raise KitError('INVALID_ARGUMENT')
         if mode == 'copied' and request.get('acknowledge_agent_can_read_logins') is not True:

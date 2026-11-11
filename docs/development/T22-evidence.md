@@ -197,6 +197,76 @@ Focused checks on this checkpoint all passed, exit **0**:
 The native Vaultwarden is an owned temporary non-VM service; it remains running
 for the pending provisioning work. Failed account/fixture directories are retained.
 
+## Native Bitwarden/Vaultwarden checkpoint — 2026-11-11
+
+**PASS: native CLI login, item creation and native adapter read against
+Vaultwarden 1.37.5. Form fill is still pending, not claimed passing.**
+
+`tools/kits_vaultwarden_provision.py --root /home/johan/lamp-t22/vaultwarden-account-5 --binary /home/johan/lamp-t22/bitwarden-native-1/bw --ca-file /home/johan/lamp-t22/vaultwarden-tls-1/ca.pem`
+completed on LX with **exit 0**. The [redacted native result](evidence/t22/vaultwarden-native.json)
+records a fresh disposable registration, real Bitwarden CLI login, item creation
+and a real native reader result matching the public test site's advertised login.
+This is **Vaultwarden**, not Bitwarden cloud, and uses no host Docker resource.
+
+- Corrected the advertised origin. CLI 2026.10.1 also explicitly rejects HTTP,
+  including loopback, so the native fixture now uses `https://127.0.0.1:18225`
+  through `tools/kits_vaultwarden_tls.py`, forwarding to the owned loopback native
+  server at 18224. All client endpoints are pinned to that local origin.
+- A fresh private loopback certificate is trusted through per-process
+  `NODE_EXTRA_CA_CERTS` / Python CA configuration. No host trust store, keychain,
+  TLS-verification bypass or public listener is involved. Registration now
+  includes the account's asymmetric keys as well as its wrapped symmetric key.
+- Earlier incomplete registrations/CLI attempts are retained as failures. Resume
+  uses only an explicitly named disposable account file, never owner discovery.
+- The canonical journey created and suspended a real 4 GiB agent VM, releasing
+  its live slot before external-browser allocation. It then failed at key
+  creation because the public API requires `expires_at`; that missing fixture
+  input is fixed. Neither browser form fill nor password-specific typing ran.
+  The owned controller stopped and physical inspection showed no T22 Firecracker.
+- External browsers can remain controlled while their separate agent VM is
+  suspended; generation checks remain intact and guest execution still requires
+  a ready VM. Ordinary typing is now sealed **before** its guest DOM check, so a
+  refused password-field attempt does not put plaintext in public exec argv.
+  Those browser paths still await their real run.
+- Proton free signup was actually reached in a separate background incognito
+  tab, with a fresh disposable username/password. It offers **Email** verification
+  as well as CAPTCHA; email verification was selected. The owner's Gmail/approval
+  is pending; no verification email/code has been requested. No paid plan/trial
+  was selected. 1Password remains not demonstrated while the owner decides.
+
+Focused checks: `go build ./cmd/lamp ./cmd/lampd`,
+`python3 -m py_compile kits/control.py kits/guest.py kits/service.py kits/vaults.py tools/kits_vaultwarden_provision.py tools/kits_vaultwarden_tls.py tools/kits_lamp_demo.py`,
+and `git diff --check` passed, exit **0**. No new tests or passed-demo reruns.
+
+## Guest-root Docker decision — 2026-11-11
+
+The coordinator clarified that rootless Docker is **not** a KIT-004 requirement.
+Starting a trusted guest-root service is not inherently forbidden (guest init
+already starts the subscription relay). However, giving the task an unrestricted
+root Docker socket does not fit the current guard:
+
+- [T4 guard, lines 48–53](T4-guard.md#supervisor--engine-integration-t2-and-t6)
+  requires **all** Lamp/SSH/console/**nested** work to descend from the collector.
+  Containers forked by a separate boot daemon do not descend from its collected
+  client. `process.rs:602–624` observes children at their traced parent's creation
+  event; it does not adopt arbitrary boot-daemon descendants.
+- The same rules, lines **61–65**, forbid giving a task unrestricted guest-kernel
+  root or initial-user-namespace capabilities. An unrestricted guest-root Docker
+  socket delegates privileged containers and guest-root bind mounts. A Unix
+  socket is not a privilege restriction; `--network=none` does not fix either rule.
+- Actual task setup is `crates/lamp-guard/src/process.rs:358–393`: inherited
+  `no_new_privs`, separate PID/mount/user namespaces, and subordinate UID mapping.
+  This was not disabled or widened to obtain a container result.
+- An existing Linux-on-M5 VZ route was found, but its exec sends `audit: None`
+  (`crates/lamp-engine/src/mac.rs:1941–1950`); it is not a guard-preserving
+  replacement. T4's documented path has no unguarded fallback (line 93).
+
+**KIT-004 Docker remains blocked, not passed.** No further Docker run was made
+for this decision and no host Docker resource was used. A root service would
+need a collector-integrated, constrained task launch interface, not unrestricted
+Docker socket delegation. This is the exact current restriction, not an invented
+rootless-only ticket requirement.
+
 ## Remaining work
 
 - With one LX slot available, start a **fresh** owned fixture using the prepared
@@ -204,9 +274,10 @@ for the pending provisioning work. Failed account/fixture directories are retain
   performs admission immediately before create, imports public BusyBox, attempts
   a real isolated container, and releases/stops its fixture on exit. Do not reuse
   an existing output directory or stop another ticket to obtain the slot.
-- Finish the disposable native Vaultwarden/Bitwarden CLI login, native read and
-  real form fill. Do not substitute an owner's profiles/items or mock a provider.
-  1Password and Proton Pass remain explicitly not demonstrated as described above.
+- Complete per-vault approval and real form fill using the now-proven native
+  Vaultwarden/Bitwarden reader, then the password-specific private-typing path.
+  Do not substitute owner profiles/items or mock a provider. Proton is awaiting
+  the owner's email-verification approval/address; 1Password remains not shown.
 - Demonstrate the installed canonical Lamp API/CLI browser create, private
   takeover/handback, vault fill and kit installation. Prove agent credentials
   cannot exec/read/capture the external VM. Dashboard UI remains T27's work.
