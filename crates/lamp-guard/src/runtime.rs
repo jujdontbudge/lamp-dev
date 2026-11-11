@@ -30,6 +30,13 @@ struct Flow {
     dirty: bool,
 }
 impl Flow {
+    fn expired(&self, tuple: &Tuple, now: Instant) -> bool {
+        // An idle established TCP socket is still an admitted connection. HTTP
+        // clients reuse it after long local work; discarding it would drop data
+        // without a new SYN. Keep open TCP until FIN/RST, policy fencing or task
+        // teardown. The hard MAX_FLOWS cap still bounds memory/admissions.
+        (tuple.protocol != 6 || self.draining) && now.duration_since(self.last) >= IDLE
+    }
     fn record(&self, tuple: &Tuple, phase: &str, reason: &str) -> serde_json::Value {
         json!({"type":"connection","visibility":"opaque","phase":phase,"decision":"allow",
             "flow_id":self.id,"tuple":tuple,"reason":reason,"started_at_ms":self.start,
@@ -86,7 +93,7 @@ impl Connections {
         let now = Instant::now();
         let mut events = vec![json!({"type":"heartbeat","flow_count":self.flows.len()})];
         for (tuple, f) in &self.flows {
-            let expired = now.duration_since(f.last) >= IDLE;
+            let expired = f.expired(tuple, now);
             if f.dirty || expired {
                 events.push(f.record(
                     tuple,
@@ -106,7 +113,7 @@ impl Connections {
         }
         events.extend(fault);
         self.durable(spool, events)?;
-        self.flows.retain(|_, f| now.duration_since(f.last) < IDLE);
+        self.flows.retain(|tuple, f| !f.expired(tuple, now));
         for f in self.flows.values_mut() {
             f.dirty = false;
         }

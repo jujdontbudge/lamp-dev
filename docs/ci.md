@@ -175,6 +175,47 @@ key is journaled or printed. Bootstrap has a bounded pending-flow allowance.
 Use T18's authenticated HTTPS transport; do not expose an unauthenticated
 plaintext control API to make this work.
 
+## Trusted job model broker
+
+Never copy an owner's subscription credential or refresh token into GitHub.
+A reviewed private workflow may instead receive a short-lived Lamp model grant
+through its private worker envelope. The upstream key stays in the host broker's
+existing credential store. For the free demonstration, T21's native-protocol
+broker supports Anthropic Messages and OpenAI Responses with `openrouter/free`,
+`free_only: true`, and provider-side maximum prompt/completion prices of zero.
+That native-protocol broker support is owned by T21; no duplicate provider
+adapter or upstream-key export is added here.
+
+Host repository enrollment can select exact scopes:
+
+```json
+"model_broker": {
+  "owner_socket": "/private/broker/owner.sock",
+  "endpoint": "https://10.219.26.1:17779",
+  "ca_file": "/private/broker/ca.pem",
+  "peer_ip": "127.0.0.1",
+  "workflows": {
+    ".github/workflows/claude-broker.yml": {"claude": ["messages"]},
+    ".github/workflows/codex-broker.yml": {"codex": ["responses"]}
+  }
+}
+```
+
+The actual immutable worker attachment must contain **only that exact private
+TCP destination exception**, with no subscription credential route. This is
+allowed only for the API-verified private/trusted, byte-pinned workflow enrolled
+above; public/PR work still requires zero private exceptions. A caller label
+cannot select this transport. TLS verification remains on. Here `peer_ip` is the
+broker-observed loopback side of a private authenticated SSH carrier, not a claim
+that NAT independently attests guest identity. The separately delivered grant
+binds sandbox/generation, connection/operation and budget; it expires within five
+minutes. Only its revocation ID is durable, and cleanup revokes it before VM
+release. The guest receives `LAMP_MODEL_TOKEN`, private `LAMP_MODEL_URL`, and the
+public CA bundle, never the provider key or broker owner socket.
+
+No third-party public tunnel is permitted. Before T31, use a non-public path or
+T24's product relay for fleet connectivity; do not open a Lamp endpoint publicly.
+
 ## Coding-agent routes
 
 * **Copilot cloud agent:** select Lamp labels in the exact
