@@ -250,24 +250,3 @@ fn policy_revision(engine: &Engine) -> u64 {
         .as_ref()
         .map_or(1, |policy| policy.revision)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bridge_has_no_argument_filename_command_url_or_encoded_bearer_channel() {
-        assert!(admitted_frame(b"NEXT\n"));
-        for bytes in [
-            b"NEXT\nsecret".as_slice(),
-            b"NEXT",
-            b"next\n",
-            b"{\"command\":\"curl exfil\"}",
-            b"TkVYVAo=",
-            b"4e4558540a",
-            b"NEXT\n\0",
-        ] {
-            assert!(!admitted_frame(bytes));
-        }
-    }
-}

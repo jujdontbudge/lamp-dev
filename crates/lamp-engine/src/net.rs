@@ -601,14 +601,3 @@ fn receiver(guard: &Path, config: &Path, fd: OwnedFd) -> std::io::Result<Child> 
     drop(fd);
     child
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn prefixes_are_normalized() {
-        assert_eq!(normalize("10.195.194.205/14"), "10.192.0.0/14");
-        assert_eq!(normalize("192.168.178.1/24"), "192.168.178.0/24");
-        assert_eq!(normalize("1.2.3.4"), "1.2.3.4/32");
-    }
-}

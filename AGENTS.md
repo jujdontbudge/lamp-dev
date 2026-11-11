@@ -3,11 +3,11 @@
 Run `make bootstrap verify` for the workspace build and selected smoke tests,
 including contracts, generators and interoperability. CI runs this on LX, M5
 and LA; Linux also runs two selected Rust smokes. Run `make bootstrap test-all`
-for the full existing suites or `make lint` for vet, formatting and clippy, only
-when requested. For harness-only iteration use
-`python3 -m unittest discover -s tests/benchmarks -v`. The benchmark harness uses
-only Python's standard library; its workloads additionally need `cc` for the
-fixed build row.
+for the remaining automated smokes or `make lint` for vet, formatting and clippy,
+only when requested. The live VM smoke in `crates/lamp-supervisor/tests/e2e.rs`
+and root kernel smoke in `tests/guard/e2e.py` remain explicit manual runs. The
+benchmark harness uses only Python's standard library; its workloads additionally
+need `cc` for the fixed build row.
 
 # Owner implementation rule — 2026-11-10
 
