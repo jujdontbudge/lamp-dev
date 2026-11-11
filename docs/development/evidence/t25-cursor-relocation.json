@@ -1,0 +1,32 @@
+[
+  {
+    "kind": "cursor",
+    "official_binary": "~/lamp-t25/cursorhome/.local/share/cursor-agent/versions/2026.11.11-043ef28/cursor-agent",
+    "version": [
+      "2026.11.11-043ef28"
+    ],
+    "route": "official api_key route held on this custody host",
+    "model": "",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "READY\n",
+      "continuation_ref": "b319aee7-7000-4c4e-b1d8-e2c1d246d648"
+    },
+    "turn2": {
+      "success": true,
+      "observed": "LAMP77BF30\n",
+      "continuation_ref": "b319aee7-7000-4c4e-b1d8-e2c1d246d648"
+    },
+    "codeword_recalled": true,
+    "moved": {
+      "from": "/tmp/t25cur1/cursor/work",
+      "to": "/tmp/t25cur1/cursor-moved/work",
+      "artifact_bytes": 18741,
+      "original_deleted": true
+    },
+    "same_native_session": true,
+    "native_fork_of": null,
+    "continued": true
+  }
+]

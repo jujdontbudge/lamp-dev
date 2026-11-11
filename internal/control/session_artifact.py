@@ -21,11 +21,15 @@ NATIVE_STATE = {
     "goose": ["data/goose/sessions"],
     "copilot": ["copilot/session-state", "copilot/session-store.db", "copilot/session-store.db-wal", "copilot/session-store.db-shm"],
     "droid": [".factory/sessions"],
+    "cursor": ["config/chats"],
+    # Amp threads live on ampcode.com; only the thread ID (lamp-native.json) moves.
+    "amp": [],
 }
 CWD_KEYED = {
     "claude/projects/": lambda cwd: "".join(c if c.isalnum() else "-" for c in cwd),
     "pi/sessions/": lambda cwd: "--" + cwd.strip("/").replace("/", "-") + "--",
     ".factory/sessions/": lambda cwd: cwd.replace("/", "-"),
+    "config/chats/": lambda cwd: hashlib.md5(cwd.encode()).hexdigest(),
 }
 NATIVE_FILES = {path for paths in NATIVE_STATE.values() for path in paths}
 

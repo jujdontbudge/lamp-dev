@@ -178,6 +178,22 @@ is never persisted. A planted
 produced a pi argv with neither, and a fresh session ID. The ignored fields
 are reported on stderr.
 
+## 6. Cursor CLI on its own API-key route (Ubuntu)
+
+Cursor has no bring-your-own-endpoint route, so its API key stays on the
+custody host and is passed to the official `cursor-agent` (2026.11.11-043ef28)
+as `CURSOR_API_KEY`, re-read each turn. It never enters the session home or
+the evidence. `tools/harness_catalogue_demo.py --move`: turn one answered
+`READY`. The chat store (`config/chats/<md5 of cwd>/<chatId>`) was packed,
+restored under a new directory and re-keyed, and the original was deleted.
+`--resume` continued chat `b319aee7-7000-4c4e-b1d8-e2c1d246d648`, which
+recalled `LAMP77BF30`. Raw: `evidence/t25-cursor-relocation.json`.
+
+A first M5 run also passed, but the CLI tried to save the login to the macOS
+keychain and printed a warning when that failed. No prompt appeared. Keychain
+writes are not allowed on the owner's Macs, so the recorded run is on Ubuntu,
+which has no keychain. The catalogue lists this as a limitation.
+
 ## Routes not yet exercised, and why
 
 These adapters are built and their argv was accepted by the real binaries.
@@ -185,9 +201,8 @@ Each needs a vendor account sign-in that only the owner can complete:
 
 | Harness | What is needed |
 | --- | --- |
-| cursor_cli | A Cursor API key, or `agent login` approval. Cursor has no bring-your-own-endpoint route, so the broker cannot hold this credential. |
-| amp | An Amp access token (ampcode.com/settings), or approval of its device login. |
-| gemini_cli | An AI Studio `GEMINI_API_KEY`. Google rejects automated sign-in, and the broker does not speak the Gemini wire format. |
+| amp | An Amp access token. The supplied token file holds an SSH key, not an Amp token, so Amp rejected it (`Invalid or missing API key`). |
+| gemini_cli | Not run: the owner dropped it on 2026-11-11. The adapter and catalogue entry stay as built. |
 | devin | `devin auth login --force-manual-token-flow` approval. Cloud (`--cloud`) sessions are not relocated or presented as local. |
 | copilot_cli subscription, droid Factory models | Copilot device-login approval, or a Factory API key. The BYOK routes above already work without them. |
 

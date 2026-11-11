@@ -125,7 +125,8 @@
     ],
     "limitations": [
       "Cursor has no bring-your-own-endpoint route; model traffic always goes to Cursor, so the Lamp broker cannot hold the credential.",
-      "Needs a Cursor account; not yet signed in for Lamp tests."
+      "Needs a Cursor account; not yet signed in for Lamp tests.",
+      "On macOS the CLI tries to save the API-key login to the system keychain; Lamp runs it where no keychain is available (Linux hosts and sandboxes)."
     ]
   },
   {
