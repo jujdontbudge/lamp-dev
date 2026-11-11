@@ -9,6 +9,21 @@ private-only instruction; it is not evidence of an Internet deployment.
 Operational details: [hosted.md](hosted.md). Earlier failed results remain below,
 explicitly historical, rather than being relabelled by later successes.
 
+### Review follow-up after b8670bb
+
+The minor idle-stream admission issue is fixed: attach streams no longer use the
+API request pool, and upgraded carriers/connect streams release their API slots.
+The raw shared pool now ends at ClientHello parsing. Routing and attachments
+are capped separately at 32 streams per fleet, with control-origin ingress
+independent of fleet traffic. Splices have their own 30-second bidirectional
+inactivity deadline, refreshed by byte progress in either direction and applied
+to initial forwarding and blocked writes as well.
+
+Only `go build ./internal/relay ./cmd/lamp-relay` and `git diff --check` were used
+for this follow-up. No tests were added or run, and `make verify` was not repeated.
+The runtime observations below identify the earlier demonstrated binaries, not
+a fresh execution of this follow-up build.
+
 ### Real Clerk → private relay ingress → fleet browser journey
 
 - [Sign-in observation](evidence/t24/production/alice-signin-observation.jsonl)

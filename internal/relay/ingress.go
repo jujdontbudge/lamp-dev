@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -47,10 +48,15 @@ func (s *Server) raw(ctx context.Context, l net.Listener) error {
 			_ = conn.Close()
 			continue
 		}
-		go func() { defer func() { <-slots }(); defer conn.Close(); s.rawConnection(ctx, conn) }()
+		releaseHello := sync.OnceFunc(func() { <-slots })
+		go func() {
+			defer releaseHello()
+			defer conn.Close()
+			s.rawConnection(ctx, conn, releaseHello)
+		}()
 	}
 }
-func (s *Server) rawConnection(parent context.Context, conn net.Conn) {
+func (s *Server) rawConnection(parent context.Context, conn net.Conn, releaseHello func()) {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
@@ -63,15 +69,24 @@ func (s *Server) rawConnection(parent context.Context, conn net.Conn) {
 		return nil, errors.New("SNI routing only")
 	}})
 	_ = parser.HandshakeContext(ctx)
-	_ = conn.SetReadDeadline(time.Time{})
+	// The shared pool bounds only ClientHello parsing. A routed stream holds
+	// per-fleet capacity instead, including while waiting for its attachment.
+	releaseHello()
 	b := s.config.Browser
 	var target net.Conn
 	var e error
 	switch name {
-	case s.config.Hostname:
-		target, e = (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", s.config.Listen)
-	case "account.eilmer.si":
-		target, e = (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", b.AccountTarget)
+	case s.config.Hostname, "account.eilmer.si":
+		release, ok := s.acquireStream("ingress:"+name, 64)
+		if !ok {
+			return
+		}
+		defer release()
+		address := s.config.Listen
+		if name == "account.eilmer.si" {
+			address = b.AccountTarget
+		}
+		target, e = (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", address)
 	default:
 		fleet := b.Routes[name]
 		if fleet == "" {
@@ -83,18 +98,68 @@ func (s *Server) rawConnection(parent context.Context, conn net.Conn) {
 		return
 	}
 	defer target.Close()
-	if _, e = target.Write(probe.hello.Bytes()); e != nil {
-		return
+	splice(ctx, conn, target, probe.hello.Bytes())
+}
+
+// Successful traffic in either direction refreshes both endpoints. In
+// particular, an active one-way download must not look like an idle connection.
+// Deadlines also bound blocked writes and the initial ClientHello forwarding.
+type activeConn struct {
+	net.Conn
+	touch func()
+}
+
+func (c activeConn) Read(p []byte) (int, error) {
+	n, e := c.Conn.Read(p)
+	if n > 0 {
+		c.touch()
+	}
+	return n, e
+}
+func (c activeConn) Write(p []byte) (int, error) {
+	n, e := c.Conn.Write(p)
+	if n > 0 {
+		c.touch()
+	}
+	return n, e
+}
+func splice(ctx context.Context, left, right net.Conn, prefix []byte) {
+	var mu sync.Mutex
+	touch := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		deadline := time.Now().Add(30 * time.Second)
+		_ = left.SetDeadline(deadline)
+		_ = right.SetDeadline(deadline)
+	}
+	touch()
+	stop := context.AfterFunc(ctx, func() { _ = left.Close(); _ = right.Close() })
+	defer stop()
+	a, b := activeConn{left, touch}, activeConn{right, touch}
+	if len(prefix) != 0 {
+		if _, e := io.Copy(b, bytes.NewReader(prefix)); e != nil {
+			return
+		}
 	}
 	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(target, conn); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(conn, target); done <- struct{}{} }()
+	go func() { _, _ = io.Copy(b, a); done <- struct{}{} }()
+	go func() { _, _ = io.Copy(a, b); done <- struct{}{} }()
 	select {
 	case <-done:
 	case <-ctx.Done():
 	}
 }
 func (s *Server) open(parent context.Context, fleet, service string) (net.Conn, error) {
+	release, ok := s.acquireStream("route:"+fleet, 32)
+	if !ok {
+		return nil, errors.New("fleet routing capacity unavailable")
+	}
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			release()
+		}
+	}()
 	ctx, cancel := context.WithCancel(parent)
 	ticket := secret()
 	p := &pending{fleet: fleet, ctx: ctx, ready: make(chan net.Conn)}
@@ -110,7 +175,7 @@ func (s *Server) open(parent context.Context, fleet, service string) (net.Conn, 
 	}
 	defer func() { s.mu.Lock(); delete(s.pending, ticket); s.mu.Unlock() }()
 	stop := context.AfterFunc(p.host.ctx, cancel)
-	cleanup := func() { cancel(); stop() }
+	cleanup := func() { cancel(); stop(); release() }
 	setup, setupCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer setupCancel()
 	raw, _ := json.Marshal(map[string]string{"ticket": ticket, "service": service})
@@ -123,6 +188,7 @@ func (s *Server) open(parent context.Context, fleet, service string) (net.Conn, 
 	}
 	select {
 	case host := <-p.ready:
+		handedOff = true
 		return closingConn{host, cleanup}, nil
 	case <-setup.Done():
 		cleanup()

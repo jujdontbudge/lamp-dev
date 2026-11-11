@@ -42,7 +42,14 @@ The relay reads a bounded ClientHello to select an allocated SNI route, then
 forwards the original bytes without completing fleet TLS. Account SNI goes to
 the account process; relay SNI goes to the relay's separate leaf-TLS listener.
 The raw router itself does not authenticate encrypted HTTP cookies: the fleet
-endpoint gates work requests inside end-to-end TLS. Connection capacity is bounded.
+endpoint gates work requests inside end-to-end TLS. The shared 64-slot raw
+admission pool covers only bounded ClientHello parsing, not established streams.
+Routing (SSH and HTTPS combined) and attachments each have a separate 32-stream
+budget per fleet; account/relay ingress use independent control-origin budgets.
+Long-lived attachments bypass API slots, and upgraded carriers/connect streams
+release their API slots. Splices expire after 30 seconds without byte progress in
+either direction, including blocked writes; active one-way traffic refreshes both
+endpoints. These relay deadlines do not depend on a fleet's own TLS timeout.
 
 ## Account sign-in and origin isolation
 

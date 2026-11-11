@@ -46,6 +46,7 @@ type Server struct {
 	hosts        map[string]*carrier
 	pending      map[string]*pending
 	slots        chan struct{}
+	streamCounts map[string]int
 	browserLogin *hostedlogin.Client
 }
 
@@ -57,7 +58,7 @@ func New(c Config) (*Server, error) {
 	if e != nil {
 		return nil, e
 	}
-	s := &Server{config: c, verifier: &Verifier{Issuer: c.Issuer, Audience: c.Audience, Parties: c.Parties, JWKS: c.Issuer + "/.well-known/jwks.json"}, state: state, hosts: map[string]*carrier{}, pending: map[string]*pending{}, slots: make(chan struct{}, 64)}
+	s := &Server{config: c, verifier: &Verifier{Issuer: c.Issuer, Audience: c.Audience, Parties: c.Parties, JWKS: c.Issuer + "/.well-known/jwks.json"}, state: state, hosts: map[string]*carrier{}, pending: map[string]*pending{}, slots: make(chan struct{}, 64), streamCounts: map[string]int{}}
 	if b := c.Browser; b != nil {
 		s.browserLogin, e = hostedlogin.New(b.Origin, b.AccountOrigin)
 		if e != nil {
@@ -67,6 +68,27 @@ func New(c Config) (*Server, error) {
 	}
 	return s, nil
 }
+
+// Routing and attachment capacity is isolated by configured fleet, not shared
+// with short-lived API requests. Control-origin ingress uses separate keys.
+func (s *Server) acquireStream(key string, limit int) (func(), bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.streamCounts[key] >= limit {
+		return nil, false
+	}
+	s.streamCounts[key]++
+	return sync.OnceFunc(func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.streamCounts[key] == 1 {
+			delete(s.streamCounts, key)
+		} else {
+			s.streamCounts[key]--
+		}
+	}), true
+}
+
 func (s *Server) Close() {
 	s.mu.Lock()
 	for _, h := range s.hosts {
@@ -169,14 +191,20 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "origin, cookie and query credentials are not accepted", 403)
 		return
 	}
-	select {
-	case s.slots <- struct{}{}:
-		defer func() { <-s.slots }()
-	default:
-		http.Error(w, "relay capacity unavailable", 503)
-		return
-	}
 	path := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	releaseAPI := func() {}
+	// Attach has its own per-fleet budget; an established stream must never
+	// retain the API capacity needed to enroll, connect or replace a carrier.
+	if !(len(path) == 3 && path[0] == "v1" && path[1] == "attach" && r.Method == "GET") {
+		select {
+		case s.slots <- struct{}{}:
+			releaseAPI = sync.OnceFunc(func() { <-s.slots })
+			defer releaseAPI()
+		default:
+			http.Error(w, "relay capacity unavailable", 503)
+			return
+		}
+	}
 	if len(path) == 2 && path[0] == "v1" && path[1] == "enroll" && r.Method == "POST" {
 		s.enroll(w, r)
 		return
@@ -237,7 +265,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		s.carrier(w, r, f.ID)
+		s.carrier(w, r, f.ID, releaseAPI)
 	case "attach":
 		if r.Method != "GET" {
 			http.NotFound(w, r)
@@ -253,7 +281,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
-		s.connect(w, r, f.ID, expiry)
+		s.connect(w, r, f.ID, expiry, releaseAPI)
 	default:
 		http.NotFound(w, r)
 	}
@@ -286,7 +314,7 @@ func (s *Server) enroll(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(204)
 }
-func (s *Server) carrier(w http.ResponseWriter, r *http.Request, fleet string) {
+func (s *Server) carrier(w http.ResponseWriter, r *http.Request, fleet string, releaseAPI func()) {
 	credential := bearer(r)
 	if !s.state.host(fleet, credential) {
 		http.Error(w, "host credential required", 401)
@@ -309,6 +337,7 @@ func (s *Server) carrier(w http.ResponseWriter, r *http.Request, fleet string) {
 		s.mu.Unlock()
 		return
 	}
+	releaseAPI()
 	c.SetReadLimit(1024)
 	ctx, cancel := context.WithCancel(r.Context())
 	h := &carrier{conn: c, ctx: ctx, cancel: cancel}
@@ -348,6 +377,12 @@ func (s *Server) attach(w http.ResponseWriter, r *http.Request, fleet string) {
 		http.Error(w, "host credential required", 401)
 		return
 	}
+	release, ok := s.acquireStream("attach:"+fleet, 32)
+	if !ok {
+		http.Error(w, "fleet attachment capacity unavailable", 503)
+		return
+	}
+	defer release()
 	ticket := r.Header.Get("X-Lamp-Ticket")
 	s.mu.Lock()
 	p := s.pending[ticket]
@@ -376,7 +411,7 @@ func (s *Server) attach(w http.ResponseWriter, r *http.Request, fleet string) {
 	}
 	<-ctx.Done()
 }
-func (s *Server) connect(w http.ResponseWriter, r *http.Request, fleet string, expiry time.Time) {
+func (s *Server) connect(w http.ResponseWriter, r *http.Request, fleet string, expiry time.Time, releaseAPI func()) {
 	ctx, cancel := context.WithDeadline(r.Context(), expiry)
 	defer cancel()
 	host, e := s.open(ctx, fleet, "ssh")
@@ -390,16 +425,11 @@ func (s *Server) connect(w http.ResponseWriter, r *http.Request, fleet string, e
 		return
 	}
 	defer c.CloseNow()
+	releaseAPI()
 	c.SetReadLimit(1 << 20)
 	client := websocket.NetConn(ctx, c, websocket.MessageBinary)
 	defer client.Close()
-	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(host, client); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(client, host); done <- struct{}{} }()
-	select {
-	case <-done:
-	case <-ctx.Done():
-	}
+	splice(ctx, client, host, nil)
 }
 func (s *Server) browserAccount(r *http.Request) (hostedlogin.Grant, bool) {
 	if s.browserLogin == nil {
