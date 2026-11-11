@@ -39,6 +39,7 @@ import (
 	"time"
 
 	"github.com/JohanSardar/lamp/internal/ci"
+	"github.com/JohanSardar/lamp/pkg/api"
 	pb "github.com/JohanSardar/lamp/pkg/workerpb"
 )
 
@@ -644,6 +645,40 @@ func t29Extra(t *testing.T, s *Service, live t29Live, root string, base Config) 
 	c4, r4 := t29Hook(s, linear, stale, map[string]string{"Linear-Signature": sign(string(stale)), "Linear-Delivery": "lin-dlv-3"})
 	t.Logf("linear delivery HTTP %d replayed=%v; redelivery HTTP %d replayed=%v same-operation=%v; forged HTTP %d %v; stale HTTP %d %v",
 		c1, r1["replayed"], c2, r2["replayed"], r1["operation_id"] == r2["operation_id"], c3, r3["error"], c4, r4["error"])
+	if os.Getenv("LAMP_T29_REPLAY_ONLY") != "" {
+		// A captured signed delivery resent with a fresh, unsigned delivery-ID
+		// header must replay as the same operation, never start new work.
+		resend := func(name, trigger string, body []byte, first, again map[string]string) {
+			c1, r1 := t29Hook(s, trigger, body, first)
+			work(trigger)
+			c2, r2 := t29Hook(s, trigger, body, again)
+			time.Sleep(5 * time.Second)
+			n := 0
+			s.readLock()
+			for _, j := range s.life.Jobs {
+				if j.Trigger == trigger {
+					n++
+				}
+			}
+			s.mu.Unlock()
+			t.Logf("replay %s: first HTTP %d; resent with new delivery ID HTTP %d replayed=%v same-operation=%v; jobs=%d", name, c1, c2, r2["replayed"], r1["operation_id"] == r2["operation_id"], n)
+		}
+		resend("linear", linear, body, h, map[string]string{"Linear-Signature": h["Linear-Signature"], "Linear-Delivery": "lin-dlv-fresh"})
+		quick := `["sh","-c","echo agent-done"]`
+		lamp := mk("pg_webhook", "t29-replay-lamp", quick)
+		ts := strconv.FormatInt(time.Now().Unix(), 10)
+		lb := []byte(`{"ask":"replay lamp"}`)
+		lsig := "sha256=" + sign(ts+"."+string(lb))
+		resend("lamp-scheme", lamp, lb, map[string]string{"X-Lamp-Timestamp": ts, "X-Lamp-Delivery": "r-1", "X-Lamp-Signature": lsig},
+			map[string]string{"X-Lamp-Timestamp": ts, "X-Lamp-Delivery": "r-2-fresh", "X-Lamp-Signature": lsig})
+		hub := mk("pg_webhook", "t29-replay-hub", quick)
+		hb := []byte(`{"ref":"refs/heads/main","after":"replay"}`)
+		hsig := "sha256=" + sign(string(hb))
+		resend("forge-scheme", hub, hb, map[string]string{"X-Hub-Signature-256": hsig, "X-Gitea-Delivery": "g-1"},
+			map[string]string{"X-Hub-Signature-256": hsig, "X-Gitea-Delivery": "g-2-fresh"})
+		s.Close()
+		return
+	}
 	lj := work(linear)
 	t29WorkOutput(t, s, lj)
 	n := 0
@@ -737,7 +772,9 @@ func t29Fleet(t *testing.T, live t29Live, root string, base Config) {
 		kd, _ := x509.MarshalECPrivateKey(k)
 		os.WriteFile(filepath.Join(dir, id+".pem"), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0600)
 		os.WriteFile(filepath.Join(dir, id+".key"), pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kd}), 0600)
-		hosts = append(hosts, FleetHost{ID: id, API: fmt.Sprintf("https://127.0.0.1:%d", port()), Raft: fmt.Sprintf("127.0.0.1:%d", port()), OS: "linux", Arch: "amd64"})
+		// One VM's worth of capacity each: both hosts share this laptop's worker.
+		hosts = append(hosts, FleetHost{ID: id, API: fmt.Sprintf("https://127.0.0.1:%d", port()), Raft: fmt.Sprintf("127.0.0.1:%d", port()), OS: "linux", Arch: "amd64", Engines: []string{"firecracker"},
+			Capacity: api.Capacity{Vcpus: pointer(uint64(2)), MemoryMib: pointer(uint64(4096)), DiskGib: pointer(uint64(20)), PidsMax: pointer(uint64(4096))}})
 	}
 	sum := sha256.Sum256([]byte(newID("bootstrap")))
 	identity := &IdentityConfig{OwnerID: "pr_t29owner", BootstrapSHA256: hex.EncodeToString(sum[:])}
@@ -789,15 +826,20 @@ func t29Fleet(t *testing.T, live t29Live, root string, base Config) {
 		}
 		return rec.Resource.Id
 	}
-	agent := `["sh","-c","echo fleet occurrence on $(hostname); echo agent-done"]`
+	// Each occurrence runs 150 s, longer than the one-minute interval, under
+	// overlap_policy=skip: the next occurrences must not start on either host.
+	agent := `["sh","-c","echo fleet occurrence on $(hostname); sleep 150; echo agent-done"]`
 	var scheds []string
 	for _, svc := range svcs {
 		rc := startWait(svc, "recipe_create", map[string]any{"name": "t29-fleet", "template_id": live.Template, "resources": map[string]any{"vcpus": 2, "memory_mib": 4096, "disk_gib": 20, "pids_max": 4096}})
-		sc := startWait(svc, "schedule_create", map[string]any{"recipe_id": rc, "cron": "* * * * *", "timezone": "America/New_York", "fleet_key": "t29-nightly", "labels": map[string]any{entrypointLabel: agent}})
+		sc := startWait(svc, "schedule_create", map[string]any{"recipe_id": rc, "cron": "* * * * *", "timezone": "America/New_York", "fleet_key": "t29-nightly", "overlap_policy": "skip", "labels": map[string]any{entrypointLabel: agent}})
 		scheds = append(scheds, sc)
 	}
 	t.Logf("fleet: schedule fleet_key=t29-nightly enrolled as %s on %s and %s on %s", scheds[0], ids[0], scheds[1], ids[1])
-	// Let two occurrences come due, then stop enrolling more.
+	// Let four occurrences come due, then stop enrolling more. Midway, show
+	// the replicated active occurrence that blocks the other host.
+	time.Sleep(time.Until(time.Now().Truncate(time.Minute).Add(2*time.Minute + 30*time.Second)))
+	t.Logf("fleet: replicated active occurrence mid-run: %v", fleets[1].fsm.snapshot().Active)
 	time.Sleep(time.Until(time.Now().Truncate(time.Minute).Add(2*time.Minute + 20*time.Second)))
 	for i, svc := range svcs {
 		svc.readLock()
@@ -819,10 +861,10 @@ func t29Fleet(t *testing.T, live t29Live, root string, base Config) {
 		for id, j := range svc.life.Jobs {
 			if j.Trigger == scheds[i] {
 				at := strings.TrimPrefix(textField(j.R, "external_id"), scheds[i]+"/schedule:")
-				occ[at] = append(occ[at], fmt.Sprintf("%s:%s(%s/%s %v)", ids[i], id, textField(j.R, "state"), textField(j.R, "result"), object(j.R["labels"])["lamp.error"]))
+				occ[at] = append(occ[at], fmt.Sprintf("%s:%s(%s/%s created %s ended %s %v)", ids[i], id, textField(j.R, "state"), textField(j.R, "result"), textField(j.R, "created_at"), textField(j.R, "updated_at"), object(j.R["labels"])["lamp.error"]))
 			}
 		}
-		t.Logf("fleet: %s skipped %d occurrence(s) another host claimed", ids[i], svc.life.Schedules[scheds[i]].Skipped)
+		t.Logf("fleet: %s skipped %d occurrence(s) (claimed elsewhere or overlap)", ids[i], svc.life.Schedules[scheds[i]].Skipped)
 		svc.mu.Unlock()
 	}
 	keys := make([]string, 0, len(occ))

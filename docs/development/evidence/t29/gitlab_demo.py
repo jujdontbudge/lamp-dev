@@ -117,7 +117,16 @@ try:
         time.sleep(2)
     log('pipeline', pipeline['id'], 'for commit', commit['short_id'])
     deadline = time.time() + 40 * 60
+    seen = {}  # instance secrets and one-time boot nonces, never printed
     while True:
+        try:
+            for iid, it in json.loads((work / 'fleeting' / 'instances.json').read_text()).items():
+                if it.get('secret'):
+                    seen.setdefault('secret', set()).add(it['secret'])
+                if it.get('boot'):
+                    seen.setdefault('boot', set()).add(it['boot'])
+        except (OSError, ValueError):
+            pass
         jobs = call('GET', f"/projects/{pid}/pipelines/{pipeline['id']}/jobs")
         if all(j['status'] in ('success', 'failed', 'canceled', 'skipped') for j in jobs) or time.time() > deadline or runner.poll() is not None:
             break
@@ -139,5 +148,13 @@ finally:
         call('DELETE', f'/runners/{i}')
     left = call('GET', f'/projects/{pid}/runners')
     log('runners left on project:', len(left))
+    # Search Lamp's own records (journal, exec records) and the guard's audit
+    # spools for the instance secrets. Only counts are printed.
+    for kind, vals in sorted(locals().get('seen', {}).items()):
+        hits = 0
+        for v in vals:
+            r = subprocess.run(['sudo', '-n', 'grep', '-rlF', v, '/var/lib/lamp/t29-private', '/var/lib/lamp-audit/t29-private'], capture_output=True, text=True)
+            hits += len(r.stdout.split())
+        log(f'fleeting {kind}: {len(vals)} value(s); files in Lamp store and guard audit containing one: {hits}')
     log('runner log tail:\n    ' + '\n    '.join(l[:200] for l in (work / 'runner.log').read_text().splitlines()[-25:]))
 sys.exit(0 if ok else 1)
