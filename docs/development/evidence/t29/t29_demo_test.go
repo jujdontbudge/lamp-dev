@@ -819,7 +819,7 @@ func t29Fleet(t *testing.T, live t29Live, root string, base Config) {
 		for id, j := range svc.life.Jobs {
 			if j.Trigger == scheds[i] {
 				at := strings.TrimPrefix(textField(j.R, "external_id"), scheds[i]+"/schedule:")
-				occ[at] = append(occ[at], fmt.Sprintf("%s:%s(%s/%s %v)", ids[i], id, textField(j.R, "state"), textField(j.R, "result"), j.R["error"]))
+				occ[at] = append(occ[at], fmt.Sprintf("%s:%s(%s/%s %v)", ids[i], id, textField(j.R, "state"), textField(j.R, "result"), object(j.R["labels"])["lamp.error"]))
 			}
 		}
 		t.Logf("fleet: %s skipped %d occurrence(s) another host claimed", ids[i], svc.life.Schedules[scheds[i]].Skipped)

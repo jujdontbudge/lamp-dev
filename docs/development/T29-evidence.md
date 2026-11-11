@@ -77,28 +77,37 @@ All from [08](evidence/t29/logs/demonstration-08-systems.log):
   `hs_t29a`. The other host skipped the occurrences it did not claim (1 on
   `hs_t29a`, 2 on `hs_t29b`). The one job that ran ended `failed`. That does
   not affect coordination, which is the point of this observation.
+- **Fleet job result** ([27](evidence/t29/logs/demonstration-27-fleet.log)).
+  The one fleet-scheduled job ended `failed` because sandbox admission returned
+  `429 NO_CAPACITY: local reserved slice exhausted`. The demonstration's two
+  fleet hosts have no VM capacity of their own. It was not the guard timeout.
 - **Trusted vs public policy** (trusted
-  [23](evidence/t29/logs/demonstration-23-trusted.log), public
+  [25](evidence/t29/logs/demonstration-25-trusted.log) with its native
+  [Gitea log](evidence/t29/logs/gitea-run-10-native.log), public
   [24](evidence/t29/logs/demonstration-24-public.log)). These come from the
-  live VM's root-owned network attachment and the broker's own audit:
+  live VM's root-owned network attachment, the broker's own audit and the job
+  records:
 
   | | Trusted (Gitea, `trusted`) | Public (Woodpecker, `public_pr`) |
   | --- | --- | --- |
-  | Model or broker secret | grant issued (broker audit: `issued` for its VM) | none issued; the broker audit is empty |
+  | Model or broker secret | grant issued; the job saw `lamp model grant - present` | none issued; the broker audit is empty |
   | Network exceptions | 8: the private forge ports plus broker `10.219.29.1:3936` | 7: the forge ports only, no broker |
-  | Retention (`retain_stopped=true`) | VM deleted, because the job failed and only successful trusted jobs are kept | VM deleted even though the job succeeded: public jobs are never retained |
+  | Retention (`retain_stopped=true`), successful job | VM **kept** (`suspended`), then inspected and deleted by the owner | VM **deleted**: public jobs are never retained |
 
-  The trusted job failed in each of three attempts: in runs 18 and 23, and run
-  21 timed out waiting for a dispatch. So a retained trusted VM was **not
-  observed**. The rule is `retain = retain_stopped && !public`, applied to
-  successful jobs. The public side shows that rule really deleting a successful
-  job's VM. In run 23, gitea-runner exited without a native result (`native
-  job result unavailable after runner exit`), and the guard log is clean. In
-  run 18, the guard died with `ENOBUFS` on its netlink queue. Run 19, a public
-  run, shows `NFQUEUE poll/liveness failure`. These are not yet explained.
-- **Guard limit found.** The per-process guard spool is 256 KiB, and heartbeats
-  are written every 250 ms. A command that runs longer than about 2.7 minutes
-  fills the spool, and the guard exits 70. The same limit is on `main`.
+- **Guard heartbeat fix, and one job over 3 minutes.** The guard's collector
+  sends a heartbeat every 250 ms. The host used to write each one into the
+  command's 256 KiB audit spool. The spool filled after about 2.7 minutes, the
+  guard exited 70, and the command was killed. That is what failed trusted run
+  23: the runner's spool `process-000004.ndjson` stood at 261,690 bytes, and
+  gitea-runner died without a native result. The host receiver
+  (`crates/lamp-guard/src/audit.rs`) now ACKs heartbeats and keeps one a minute,
+  with the count it stands for. Every other record is still durable before its
+  ACK, and a full spool still kills the command. Run 25's trusted job then ran
+  3 min 34 s, 22:16:37 to 22:20:11 UTC, with a step that took 201 s. Every step
+  succeeded.
+- **Netlink failures.** Run 18's `ENOBUFS` and run 19's `NFQUEUE
+  poll/liveness failure` are the guard netlink receive-buffer issue that PR #32
+  (T25) fixes. This PR does not change `netlink.rs`.
 
 ## Not run
 
