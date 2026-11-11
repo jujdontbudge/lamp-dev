@@ -52,6 +52,8 @@ type installState struct {
 	Previous       string   `json:"previous,omitempty"`
 	HighestVersion string   `json:"highest_version"`
 	LampdArgs      []string `json:"lampd_args"`
+	// Supervisor, when set, is the VZ supervisor this installation runs.
+	Supervisor *supervisorState `json:"supervisor,omitempty"`
 }
 
 type updatePolicy struct {
@@ -641,6 +643,11 @@ func install(args []string) error {
 	tokenFile := fl.String("token-file", "", "with --identity-file: the owner bearer file the updater and health checks use")
 	agent := fl.Bool("agent", true, "run the updater agent service beside lampd")
 	wait := fl.Bool("wait", true, "wait for lampd to answer (fleet hosts answer only once quorum forms)")
+	var supArgs multi
+	fl.Var(&supArgs, "supervisor-arg", "run the VZ supervisor as a Lamp component with this serve argument (repeatable; include --socket)")
+	supDir := fl.String("supervisor-dir", "", "root-owned directory for release supervisor copies (default /usr/local/lib/lamp-<name>)")
+	supSystem := fl.String("supervisor-system", "/usr/local/lib/lamp", "supervisor used by releases that ship none")
+	hostID := fl.String("host-id", "", "with --supervisor-arg: this host's fleet id")
 	var extra multi
 	fl.Var(&extra, "lampd-arg", "extra lampd argument (repeatable), e.g. enrolled worker or --fleet-config flags")
 	fl.Parse(args)
@@ -709,6 +716,24 @@ func install(args []string) error {
 		return err
 	}
 	st := installState{Name: *name, Service: *service, Current: m.Version, HighestVersion: m.Version, LampdArgs: lampdArgs}
+	if len(supArgs) > 0 {
+		sup := &supervisorState{Dir: *supDir, System: *supSystem, Args: supArgs, HostID: *hostID}
+		if sup.Dir == "" {
+			sup.Dir = "/usr/local/lib/lamp-" + *name
+		}
+		for i, a := range supArgs {
+			if a == "--socket" && i+1 < len(supArgs) {
+				sup.Socket = supArgs[i+1]
+			}
+		}
+		if sup.Socket == "" || sup.HostID == "" {
+			return errors.New("--supervisor-arg needs --socket PATH and --host-id")
+		}
+		st.Supervisor = sup
+		if err := startSupervisor(p, &st, m.Version); err != nil {
+			return err
+		}
+	}
 	if err := saveState(p, st); err != nil {
 		return err
 	}
@@ -812,27 +837,20 @@ func applyUpdate(p, release string) error {
 		return err
 	}
 	event(p, map[string]any{"event": "draining", "from": st.Current, "to": m.Version, "saved_items": len(before)})
-	if err := stopService(p, st, lampdJob(p, st), time.Duration(pol.DrainTimeoutMs)*time.Millisecond); err != nil {
-		return err
-	}
 	old := st.Current
-	if err := point(p, m.Version); err != nil {
-		return err
-	}
-	st.Previous, st.Current = old, m.Version
-	saveState(p, st)
+	var held []string
 	event(p, map[string]any{"event": "applying", "version": m.Version})
-	startErr := startService(p, st, lampdJob(p, st))
+	err = transition(p, &st, pol, m.Version, &held)
 	var after []string
-	if startErr == nil {
-		after, startErr = waitHealthy(p, 90*time.Second)
+	if err == nil {
+		after, err = waitHealthy(p, 90*time.Second)
 	}
-	if startErr == nil && strings.Join(before, "\n") != strings.Join(after, "\n") {
-		startErr = fmt.Errorf("saved work differs after update (%d items before, %d after)", len(before), len(after))
+	if err == nil && strings.Join(before, "\n") != strings.Join(after, "\n") {
+		err = fmt.Errorf("saved or active work differs after update (%d items before, %d after)", len(before), len(after))
 	}
-	if startErr != nil {
-		event(p, map[string]any{"event": "check_failed", "version": m.Version, "reason": startErr.Error()})
-		if err := revert(p, &st, pol, before); err != nil {
+	if err != nil {
+		event(p, map[string]any{"event": "check_failed", "version": m.Version, "reason": err.Error()})
+		if err := revert(p, &st, pol, old, before, &held); err != nil {
 			event(p, map[string]any{"event": "failed", "reason": err.Error()})
 			return exitErr(4)
 		}
@@ -845,18 +863,12 @@ func applyUpdate(p, release string) error {
 	return nil
 }
 
-// revert returns to the previous release and checks it serves the same work.
-func revert(p string, st *installState, pol updatePolicy, before []string) error {
-	if st.Previous == "" {
+// revert returns to release `to` and checks it serves the same work.
+func revert(p string, st *installState, pol updatePolicy, to string, before []string, held *[]string) error {
+	if to == "" {
 		return errors.New("no previous release to roll back to")
 	}
-	stopService(p, *st, lampdJob(p, *st), time.Duration(pol.DrainTimeoutMs)*time.Millisecond)
-	if err := point(p, st.Previous); err != nil {
-		return err
-	}
-	st.Current, st.Previous = st.Previous, st.Current
-	saveState(p, *st)
-	if err := startService(p, *st, lampdJob(p, *st)); err != nil {
+	if err := transition(p, st, pol, to, held); err != nil {
 		return err
 	}
 	after, err := waitHealthy(p, 90*time.Second)
@@ -864,8 +876,53 @@ func revert(p string, st *installState, pol updatePolicy, before []string) error
 		return err
 	}
 	if before != nil && strings.Join(before, "\n") != strings.Join(after, "\n") {
-		return errors.New("saved work differs after rollback")
+		return errors.New("saved or active work differs after rollback")
 	}
+	return nil
+}
+
+// rollbackTo is an owner-requested rollback to an earlier staged release
+// (update_rollback). The release is checked again: its staged files against
+// its signed manifest, and that manifest against a signed index in the mirror.
+// On a failed check the host goes back to the release it was on.
+func rollbackTo(p, version string) error {
+	st, err := loadState(p)
+	if err != nil {
+		return err
+	}
+	pol := loadPolicy(p)
+	key, err := readTrust(filepath.Join(p, "config", "release-trust.pub"))
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(p, "releases", version)
+	ix, err := release.FindByVersion(filepath.Join(p, "mirror"), key, version)
+	if err == nil {
+		_, err = release.VerifyStaged(dir, key, ix.Platforms[release.Platform()])
+	}
+	if err != nil {
+		event(p, map[string]any{"event": "rollback_refused", "reason": err.Error(), "current": st.Current})
+		return fmt.Errorf("refused before rollback: %w", err)
+	}
+	if st.Current == version {
+		return nil
+	}
+	before, err := waitHealthy(p, 5*time.Second)
+	if err != nil {
+		return fmt.Errorf("host is not healthy before rollback: %w", err)
+	}
+	from := st.Current
+	var held []string
+	event(p, map[string]any{"event": "rolling_back", "from": from, "to": version})
+	err = revert(p, &st, pol, version, before, &held)
+	if err != nil {
+		event(p, map[string]any{"event": "check_failed", "version": version, "reason": err.Error()})
+		if err := revert(p, &st, pol, from, before, &held); err != nil {
+			return exitErr(4)
+		}
+		return exitErr(3)
+	}
+	event(p, map[string]any{"event": "rolled_back", "version": st.Current, "from": from, "saved_items_preserved": len(before)})
 	return nil
 }
 
@@ -879,7 +936,8 @@ func rollbackCmd(args []string) error {
 		return err
 	}
 	before, _ := inventory(p)
-	if err := revert(p, &st, loadPolicy(p), before); err != nil {
+	var held []string
+	if err := revert(p, &st, loadPolicy(p), st.Previous, before, &held); err != nil {
 		return err
 	}
 	event(p, map[string]any{"event": "rolled_back", "version": st.Current})
@@ -937,6 +995,11 @@ func status(args []string) error {
 	}
 	inv, ierr := inventory(p)
 	out := map[string]any{"name": st.Name, "service": st.Service, "current": st.Current, "previous": st.Previous, "highest_version": st.HighestVersion, "update_policy": loadPolicy(p), "healthy": ierr == nil, "saved_items": len(inv)}
+	if st.Supervisor != nil {
+		supBin, _, fromRelease := supPaths(p, st.Supervisor, st.Supervisor.Version)
+		sum, _ := fileSum(supBin)
+		out["supervisor"] = map[string]any{"release": st.Supervisor.Version, "from_release": fromRelease, "binary_sha256": sum, "pid": st.Supervisor.PID}
+	}
 	raw, _ := json.Marshal(out)
 	say("%s", raw)
 	return nil
@@ -979,6 +1042,10 @@ func uninstall(args []string) error {
 		return err
 	}
 	removeService(p, st, lampdJob(p, st))
+	if st.Supervisor != nil {
+		stopSupervisor(&st)
+		sudo("rm", "-rf", st.Supervisor.Dir)
+	}
 	os.Remove(filepath.Join(p, "run", "api.sock"))
 	if *data == "export" {
 		n, err := copyTree(stateDir, *exportDir)
@@ -1212,6 +1279,7 @@ type agentRequest struct {
 	UpdateID      string `json:"update_id"`
 	ReleaseDigest string `json:"release_digest"`
 	Version       string `json:"version"`
+	Rollback      bool   `json:"rollback,omitempty"`
 }
 
 type agentResult struct {
@@ -1257,7 +1325,10 @@ func agentCmd(args []string) error {
 		if err == nil {
 			dir, _, err = release.FindByDigest(filepath.Join(p, "mirror"), key, req.ReleaseDigest)
 		}
-		if err == nil {
+		if req.Rollback {
+			event(p, map[string]any{"event": "agent_rolling_back", "update_id": req.UpdateID, "version": req.Version})
+			err = rollbackTo(p, req.Version)
+		} else if err == nil {
 			event(p, map[string]any{"event": "agent_applying", "update_id": req.UpdateID, "version": req.Version})
 			err = applyUpdate(p, dir)
 		}
@@ -1265,6 +1336,9 @@ func agentCmd(args []string) error {
 		switch {
 		case err == nil:
 			res.State = "completed"
+		case errors.As(err, &ex) && ex == 3 && req.Rollback:
+			res.State = "failed"
+			res.Detail = "rollback check failed; host returned to the release it was on"
 		case errors.As(err, &ex) && ex == 3:
 			res.State = "rolled_back"
 			res.Detail = "check failed; previous release restored with saved and active work"

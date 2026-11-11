@@ -185,6 +185,39 @@ func VerifyPlatform(dir string, trust ed25519.PublicKey) (Index, Manifest, strin
 // VerifyManifest checks one platform directory. want, when set, is the
 // manifest digest the index promised.
 func VerifyManifest(dir string, trust ed25519.PublicKey, want string) (Manifest, error) {
+	return verifyManifestAt(dir, filepath.Join(dir, "payload"), trust, want)
+}
+
+// VerifyStaged checks an installed release directory (<prefix>/releases/<v>):
+// its signed manifest and every staged file, which sit beside the manifest
+// rather than under payload/.
+func VerifyStaged(dir string, trust ed25519.PublicKey, want string) (Manifest, error) {
+	return verifyManifestAt(dir, dir, trust, want)
+}
+
+// ManifestDigest is the digest an index names for the manifest in dir.
+func ManifestDigest(dir string) (string, error) {
+	raw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil {
+		return "", err
+	}
+	return Digest(raw), nil
+}
+
+// FindByVersion returns the mirrored release of a version whose signed index
+// verifies.
+func FindByVersion(mirror string, trust ed25519.PublicKey, version string) (Index, error) {
+	entries, _ := os.ReadDir(mirror)
+	for _, e := range entries {
+		ix, _, err := VerifyIndex(filepath.Join(mirror, e.Name()), trust)
+		if err == nil && ix.Version == version {
+			return ix, nil
+		}
+	}
+	return Index{}, fmt.Errorf("no signed release %s in the host's release mirror", version)
+}
+
+func verifyManifestAt(dir, payload string, trust ed25519.PublicKey, want string) (Manifest, error) {
 	var m Manifest
 	raw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	if err != nil {
@@ -206,12 +239,14 @@ func VerifyManifest(dir string, trust ed25519.PublicKey, want string) (Manifest,
 		return m, fmt.Errorf("release is for %s/%s, host is %s/%s", m.OS, m.Arch, runtime.GOOS, runtime.GOARCH)
 	}
 	seen := 0
-	payload := filepath.Join(dir, "payload")
 	err = filepath.WalkDir(payload, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
 		rel, _ := filepath.Rel(payload, p)
+		if payload == dir && (rel == "manifest.json" || rel == "manifest.sig") {
+			return nil
+		}
 		e, ok := m.Files[rel]
 		if !ok || !d.Type().IsRegular() {
 			return fmt.Errorf("payload file %s is not in the signed manifest", rel)

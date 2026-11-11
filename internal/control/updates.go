@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/JohanSardar/lamp/internal/release"
@@ -36,6 +37,7 @@ type updateRequest struct {
 	UpdateID      string `json:"update_id"`
 	ReleaseDigest string `json:"release_digest"`
 	Version       string `json:"version"`
+	Rollback      bool   `json:"rollback,omitempty"`
 }
 
 type updateResult struct {
@@ -222,9 +224,44 @@ func (s *Service) updateMutation(a caller, verb string, in map[string]any) (api.
 		delete(c.Updates, old.Id)
 		ref := api.ResourceRef{Kind: "update", Id: old.Id}
 		return ref, map[string]any{"update_id": old.Id}, nil, nil, nil
+	case "rollback":
+		old, ok := c.Updates[textField(in, "update_id")]
+		if !ok {
+			return fail(reject("NOT_FOUND", "update not found"))
+		}
+		if _, ok := in["expected_revision"]; ok && uintField(in, "expected_revision") != old.Revision {
+			return fail(reject("REVISION_CONFLICT", "update revision is "+strconv.FormatUint(old.Revision, 10)))
+		}
+		if updateActive(old) {
+			return fail(reject("RESOURCE_IN_USE", "update is still rolling out"))
+		}
+		for _, v := range c.Updates {
+			if updateActive(v) {
+				return fail(reject("RESOURCE_IN_USE", "update "+v.Id+" is still rolling out"))
+			}
+		}
+		if old.Labels["lamp.phase"] == "rollback" {
+			return fail(reject("INVALID_ARGUMENT", "update was already rolled back"))
+		}
+		// Hosts that completed this release go back, last updated first.
+		hosts := value(old.HostIds)
+		back := []string{}
+		for i := len(hosts) - 1; i >= 0; i-- {
+			if strings.HasPrefix(old.Labels["lamp.host."+hosts[i]], "completed ") {
+				back = append(back, hosts[i])
+			}
+		}
+		if len(back) == 0 || value(old.RollbackRef) == "" {
+			return fail(reject("INVALID_ARGUMENT", "no host completed this update; nothing to roll back"))
+		}
+		u = old
+		u.Labels["lamp.phase"] = "rollback"
+		u.Labels["lamp.rollback.hosts"] = strings.Join(back, ",")
+		u.CurrentHostId = pointer(back[0])
+		u.State = "pending"
+		u.Revision++
+		u.UpdatedAt = timestamp()
 	default:
-		// Rollback of completed hosts is not implemented; a failed host already
-		// rolls itself back and stops the rollout.
 		return fail(reject("NOT_FOUND", "operation not installed"))
 	}
 	c.Updates[u.Id] = u
@@ -294,8 +331,35 @@ func (s *Service) updateStep() {
 		}
 		var res updateResult
 		if readJSON(resPath, &res) && res.UpdateID == id {
+			rollback := u.Labels["lamp.phase"] == "rollback"
 			err := s.commitControlEdit(func(c *controlState) {
 				v := c.Updates[id]
+				if rollback {
+					v.Labels["lamp.rollback."+me] = res.State + " " + res.Version
+					hosts := strings.Split(v.Labels["lamp.rollback.hosts"], ",")
+					next := ""
+					for i, h := range hosts {
+						if h == me && i+1 < len(hosts) {
+							next = hosts[i+1]
+						}
+					}
+					switch {
+					case res.State != "completed":
+						v.State = "failed"
+					case next == "":
+						v.State = "rolled_back"
+					default:
+						v.CurrentHostId = pointer(next)
+						v.State = "pending"
+					}
+					if res.Detail != "" {
+						v.Labels["lamp.detail."+me] = truncate(res.Detail, 200)
+					}
+					v.Revision++
+					v.UpdatedAt = timestamp()
+					c.Updates[id] = v
+					return
+				}
 				v.Labels["lamp.host."+me] = res.State + " " + res.Version
 				if res.Detail != "" {
 					v.Labels["lamp.detail."+me] = truncate(res.Detail, 200)
@@ -335,7 +399,11 @@ func (s *Service) updateStep() {
 		if u.State != "pending" && u.State != "draining" {
 			return
 		}
-		raw, _ := json.Marshal(updateRequest{UpdateID: id, ReleaseDigest: value(u.ReleaseDigest), Version: u.Labels["lamp.version"]})
+		req := updateRequest{UpdateID: id, ReleaseDigest: value(u.ReleaseDigest), Version: u.Labels["lamp.version"]}
+		if u.Labels["lamp.phase"] == "rollback" {
+			req.Version, req.Rollback = value(u.RollbackRef), true
+		}
+		raw, _ := json.Marshal(req)
 		// Commit draining before handing over, so the fleet sees this host
 		// leave service before it actually does.
 		if u.State == "pending" {
