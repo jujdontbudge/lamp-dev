@@ -425,7 +425,12 @@ func (j *Jenkins) post(ctx context.Context, r Repository, path string, form url.
 	if form == nil {
 		form = url.Values{}
 	}
-	return j.call(ctx, r, "POST", path, form, nil, auth)
+	err = j.call(ctx, r, "POST", path, form, nil, auth)
+	// Jenkins answers successful form posts with a redirect to the new page.
+	if err != nil && (strings.Contains(err.Error(), "HTTP 302") || strings.Contains(err.Error(), "HTTP 303")) {
+		return nil
+	}
+	return err
 }
 
 type jenkinsItem struct {

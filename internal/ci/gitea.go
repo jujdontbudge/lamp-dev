@@ -157,14 +157,18 @@ func (g *Gitea) Verify(ctx context.Context, r Repository, id int64) (Demand, err
 	}
 	d.Public = publicFor(r, !run.Repository.Private || run.Fork || !TrustedEvent(event))
 	path := run.Path
-	if path == "" && run.Workflow != "" {
+	if path == "" {
+		path = run.Workflow
+	}
+	// Gitea reports the bare file name ("ci.yml@refs/heads/main").
+	if path, _, _ = strings.Cut(path, "@"); path != "" && !strings.Contains(path, "/") {
 		dir := ".forgejo/workflows/"
 		if g.Kind == "gitea" {
 			dir = ".gitea/workflows/"
 		}
-		path = dir + run.Workflow
+		path = dir + path
 	}
-	if path, _, _ = strings.Cut(path, "@"); strings.Contains(path, "..") {
+	if strings.Contains(path, "..") {
 		return d, errors.New("unsupported workflow source")
 	}
 	// Reviewed workflow digests are enforced exactly as for GitHub whenever
