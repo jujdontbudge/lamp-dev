@@ -200,7 +200,7 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		return
 	}
 	home := ""
-	for _, field := range []string{"sandbox_id", "exec_id", "operation_id", "approval_id"} {
+	for _, field := range []string{"sandbox_id", "exec_id", "operation_id", "approval_id", "session_id", "lease_id", "share_id"} {
 		if target := textField(selectors, field); target != "" {
 			home = resourceHome(target)
 		}
@@ -231,6 +231,15 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		}
 		if home == "" {
 			home = resourceHome(textField(input, "sandbox_id"))
+		}
+		if kind == "session" && op.Name == "session_create" {
+			location, _ := input["location"].(map[string]any)
+			if textField(location, "kind") == "host" {
+				home = textField(location, "host_id")
+			}
+		}
+		if home == "" && (kind == "lease" || kind == "share") {
+			home = resourceHome(textField(input, "resource_id"))
 		}
 		if kind == "approval" {
 			if home == "" {

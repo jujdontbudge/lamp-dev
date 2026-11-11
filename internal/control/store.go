@@ -57,9 +57,12 @@ type Config struct {
 	ProtectedActions map[string]ProtectedAction
 	ExportsDir       string
 	SharedReaders    map[uint32]string
+	Sessions         SessionConfig
 }
 type Service struct {
 	fleet          *Fleet
+	sessions       SessionConfig
+	sessionFleet   bool
 	mu             sync.Mutex
 	committing     bool
 	pending        []*pendingCommit
@@ -189,7 +192,7 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, fmt.Errorf("state directory is already in use: %w", err)
 	}
-	s := &Service{dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
+	s := &Service{dir: config.StateDir, lock: lock, worker: workerClient{config: w}, sessionFleet: config.Fleet != nil, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
 	s.journal = journal{Version: 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
 	path := filepath.Join(s.dir, "journal.json")
 	data, err := os.ReadFile(path)
@@ -306,6 +309,10 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	if err := s.initSessions(config.Sessions); err != nil {
+		lock.Close()
+		return nil, err
+	}
 	s.protected = config.ProtectedActions
 	s.eventRevisions = map[string]uint64{}
 	for _, event := range s.journal.Events {
@@ -365,6 +372,8 @@ func Open(config Config) (*Service, error) {
 	}
 	s.durableOps = cloneOperations(s.journal.Operations)
 	s.rootContext, s.cancel = context.WithCancel(context.Background())
+	s.wg.Add(1)
+	go s.driveSessions()
 	for _, rec := range s.journal.Operations {
 		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
 			s.wg.Add(1)

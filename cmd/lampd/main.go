@@ -2,10 +2,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -31,6 +33,7 @@ func run() error {
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
 	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
+	sessionsFile := flags.String("sessions-config", "", "owner-enrolled harnesses and native session runner locations")
 	profileDir := flags.String("profile-dir", "", "private CPU/mutex/block profiles for a diagnostic run")
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -124,7 +127,29 @@ func run() error {
 			return err
 		}
 	}
-	service, err := control.Open(control.Config{Fleet: fleetConfig, Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
+	var sessions control.SessionConfig
+	if *sessionsFile != "" {
+		info, err := os.Lstat(*sessionsFile)
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 1<<20 {
+			return fmt.Errorf("session enrollment requires a private regular configuration file of at most 1 MiB")
+		}
+		data, err := os.ReadFile(*sessionsFile)
+		if err != nil {
+			return err
+		}
+		decoder := json.NewDecoder(bytes.NewReader(data))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&sessions); err != nil {
+			return err
+		}
+		if decoder.Decode(new(any)) != io.EOF {
+			return fmt.Errorf("expected one session enrollment configuration")
+		}
+	}
+	service, err := control.Open(control.Config{Fleet: fleetConfig, Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
 	if err != nil {
 		return err
 	}

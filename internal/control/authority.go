@@ -36,14 +36,17 @@ type storedKey struct {
 	SHA256 string  `json:"sha256"`
 }
 type controlState struct {
-	OwnerID      string                    `json:"owner_id"`
-	Credentialed bool                      `json:"credentialed"`
-	CursorSecret string                    `json:"cursor_secret"`
-	Fleet        api.Fleet                 `json:"fleet"`
-	Principals   map[string]api.Principal  `json:"principals"`
-	Memberships  map[string]api.Membership `json:"memberships"`
-	Keys         map[string]storedKey      `json:"keys"`
-	Approvals    map[string]api.Approval   `json:"approvals"`
+	OwnerID       string                     `json:"owner_id"`
+	Credentialed  bool                       `json:"credentialed"`
+	CursorSecret  string                     `json:"cursor_secret"`
+	Fleet         api.Fleet                  `json:"fleet"`
+	Principals    map[string]api.Principal   `json:"principals"`
+	Memberships   map[string]api.Membership  `json:"memberships"`
+	Keys          map[string]storedKey       `json:"keys"`
+	Approvals     map[string]api.Approval    `json:"approvals"`
+	Sessions      map[string]*managedSession `json:"sessions"`
+	InputLeases   map[string]map[string]any  `json:"input_leases"`
+	SessionShares map[string]map[string]any  `json:"session_shares"`
 }
 type caller struct{ Principal, KeyID string }
 type callerContext struct{}
@@ -308,6 +311,7 @@ func (s *Service) admissionAllowed(a caller, name string, sb api.Sandbox) bool {
 							n++
 						}
 					}
+					n += s.chargedSessions(a.Principal)
 				}
 				if n >= *l.Concurrency {
 					return false
@@ -432,8 +436,14 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch op.Name {
 	case "sandbox_create", "sandbox_fork", "sandbox_delete", "exec_create", "sandbox_get", "exec_get", "exec_watch", "operation_get",
 		"sandbox_suspend", "sandbox_resume", "snapshot_create", "snapshot_get",
-		"share_create", "share_get", "template_get", "blob_get", "blob_download":
+		"template_get", "blob_get", "blob_download":
 		s.engineHTTP(w, r)
+	case "share_create", "share_get":
+		if s.isSessionShare(r, selectors) {
+			s.coreHTTP(w, r, id, op, selectors)
+		} else {
+			s.engineHTTP(w, r)
+		}
 	default:
 		s.coreHTTP(w, r, id, op, selectors)
 	}

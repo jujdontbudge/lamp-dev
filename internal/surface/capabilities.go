@@ -19,6 +19,11 @@ func init() {
 		"key_create", "key_get", "key_list", "key_rotate", "key_delete",
 		"approval_create", "approval_get", "approval_list", "approval_approve", "approval_deny", "approval_revoke",
 		"connection_invoke",
+		"harness_get", "harness_list",
+		"session_create", "session_get", "session_list", "session_update", "session_delete",
+		"session_watch", "session_attach", "session_input", "session_resize", "session_end",
+		"lease_create", "lease_get", "lease_list", "lease_renew", "lease_release", "lease_delete",
+		"share_list", "share_revoke", "share_delete",
 	} {
 		CoreNames[name] = true
 	}

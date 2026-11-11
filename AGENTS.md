@@ -28,3 +28,14 @@ Keep real product behavior: authorization, isolation, durable capture and recove
 - Never print, log or commit secrets. Authentication stays out of URLs and evidence metadata. Model tokens are the only permitted expense: buy, rent or subscribe to nothing else. Each pay-per-use key has a provider-enforced $25/month cap.
 - Work on the ticket's own branch and checkout, push it and open its PR; never push to `main` or another ticket's branch. The coordinator reviews and merges.
 - Before public repository visibility, disable or retire private persistent repository runners so public jobs cannot reach the owner's machines. Public repository CI may remain off; Lamp's CI feature retains its fresh-VM policy.
+
+# Session iteration
+
+For session-only changes, build `cmd/lampd` and `cmd/lamp-access` into a disposable
+binary directory and run `python3 tools/sessions_demo.py --root /tmp/<new-short-directory>
+--bin-dir <binary-directory>`. This exercises native PTYs, grants, stock SSH and
+daemon restart against a disposable clone of the public `octocat/Hello-World`
+repository. It does not demonstrate VM execution, model authentication, T3 Code
+or Herdr bridges, git change-set return, or teleport. Session runners require
+Python 3 on their execution location. `lampd --sessions-config` accepts a private
+owner-enrolled configuration; no host execution is enabled by default.

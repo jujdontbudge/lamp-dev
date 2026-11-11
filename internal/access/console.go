@@ -100,10 +100,12 @@ func (s *Service) console(session ssh.Session) {
 		}
 	case len(args) == 2 && args[0] == "attach" && safeID(args[1]):
 		e = b.attach(session, args[1])
+	case len(args) == 2 && args[0] == "watch" && safeID(args[1]):
+		e = b.output(ctx, session, session.Stderr(), "session_watch", "session_id", args[1])
 	case len(args) == 2 && args[0] == "shell" && safeID(args[1]):
 		e = b.shell(session, args[1])
 	default:
-		e = errors.New("use sessions, attach <session_id>, or shell <sandbox_id>")
+		e = errors.New("use sessions, watch <session_id>, attach <session_id>, or shell <sandbox_id>")
 	}
 	if e != nil {
 		var status *guestExit

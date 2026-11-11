@@ -72,6 +72,10 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			s.waitOperation(w, r, id, in)
 			return
 		}
+		if op.Name == "session_watch" {
+			s.watchSession(w, r, id, in)
+			return
+		}
 	}
 	if op.Mutation {
 		if r.URL.RawQuery != "" {
@@ -348,6 +352,43 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	items := []map[string]any{}
 	c := s.journal.Control
 	switch kind {
+	case "session":
+		for _, work := range c.Sessions {
+			if s.sessionAllowed(a, work.Resource, "session.get") {
+				m := object(work.Resource)
+				m["output_cursor"] = s.cursor(a, "session:"+textField(m, "id"), strconv.Itoa(len(work.Frames)))
+				items = append(items, m)
+			}
+		}
+	case "lease":
+		for _, lease := range c.InputLeases {
+			if lease["holder_id"] == a.Principal {
+				m := object(lease)
+				if sessionExpired(m) && m["state"] == "active" {
+					m["state"] = "expired"
+				}
+				items = append(items, m)
+			}
+		}
+	case "share":
+		for _, share := range c.SessionShares {
+			if share["owner_id"] == a.Principal || share["subject_id"] == a.Principal {
+				m := object(share)
+				if sessionExpired(m) && m["state"] == "active" {
+					m["state"] = "expired"
+				}
+				items = append(items, m)
+			}
+		}
+	case "harness":
+		for id, h := range s.sessions.Harnesses {
+			if h.OwnerID == a.Principal {
+				m := newResource("harness", h.OwnerID)
+				m["id"], m["auth_modes"], m["version"] = id, h.AuthModes, "enrolled"
+				m["created_at"], m["updated_at"] = c.Fleet.CreatedAt, c.Fleet.CreatedAt
+				items = append(items, m)
+			}
+		}
 	case "sandbox":
 		for _, v := range s.journal.Sandboxes {
 			if s.sandboxAllowed(a, v) {
@@ -422,6 +463,9 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 	}
 	if kind == "approval" {
 		return s.approvalMutation(a, op, in)
+	}
+	if kind == "session" || kind == "lease" || kind == "share" {
+		return s.sessionMutation(a, op, in)
 	}
 	if kind != "key" && kind != "principal" && kind != "membership" && kind != "fleet" {
 		return fail("NOT_FOUND", "operation not installed")
