@@ -109,6 +109,57 @@ All from [08](evidence/t29/logs/demonstration-08-systems.log):
   poll/liveness failure` are the guard netlink receive-buffer issue that PR #32
   (T25) fixes. This PR does not change `netlink.rs`.
 
+## Review fixes (2716db2)
+
+Shown in one short real run each:
+
+- **Replay with a fresh delivery ID**
+  ([28](evidence/t29/logs/demonstration-28-replay.log)). Delivery-ID headers
+  are not signed, so deduplication now keys on signed content only:
+  - Linear: `webhookId` plus the body hash;
+  - Lamp scheme: the hash of `timestamp.body`;
+  - forge scheme (`X-Hub-Signature-256`): the body hash.
+
+  For each scheme, a delivery ran once on a fresh VM. The same captured body
+  was then resent with a new `Linear-Delivery`, `X-Lamp-Delivery` or
+  `X-Gitea-Delivery` value. Each resend returned `replayed=true` with the same
+  operation, and each trigger had exactly 1 job.
+- **Fleeting secret off argv**
+  ([30](evidence/t29/logs/demonstration-30-gitlab.log)). The bootstrap exec's
+  argv now holds only a one-time boot nonce and the public SSH key. The plugin
+  accepts the nonce once, then sends the instance secret over the callback. The
+  guest agent receives it in its environment and removes it at start. The
+  Custom-executor and Fleeting jobs both succeeded. The driver collected the
+  instance secret from the plugin's own state file. It then searched the Lamp
+  store (journal and exec records) and the guard's audit spools for it: 0 files
+  contained it. The boot nonce had already been consumed before the driver's
+  first poll, so it was not searched.
+- **Fleet-wide overlap**
+  ([29](evidence/t29/logs/demonstration-29-fleet-skip.log)). The fleet state
+  now replicates the active occurrence of each `fleet_key` schedule. A claim
+  compare-and-sets it:
+  - `skip` refuses while another host's occurrence is live.
+  - `cancel_previous` supersedes it, and the previous host cancels its job when
+    it sees that.
+  - The host that ran the job clears the entry once the job ends.
+  - An entry older than 7 h counts as stale (the host was lost).
+
+  Two hosts ran one `skip` schedule, every minute, with a 150 s job. The 22:53
+  occurrence ran on `hs_t29a` from 22:53:00 to 22:55:30. Midway, the replicated
+  active entry named `hs_t29a`. Neither host claimed or started 22:54 or 22:55.
+  The job ran to `completed/success`.
+- **Code changes only**, noted rather than demonstrated:
+  - GitLab `pipeline` and `parent_pipeline` sources are now public, because a
+    child pipeline may descend from a fork's MR pipeline, which is not traced
+    upstream.
+  - Jenkins `UpstreamCause` is now public.
+  - CI retention requires `trust_class == "trusted"` directly at the keep
+    decision, so public work is never retained, whatever `Retain` holds.
+  - The guard coalesces only frames that are exactly the collector's
+    `{"sequence", "details": {"type":"heartbeat"}}`. Any other frame is
+    persisted. Records are still durable before their ACK, and a full spool
+    still kills the command.
+
 ## Not run
 
 Buildkite, CircleCI, Azure Pipelines and Bitbucket need hosted accounts. The

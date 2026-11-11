@@ -1,0 +1,70 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:221: enrolled plugins: [pg_forgejo]
+gitlab: project root/zlib-demo id 1 visibility private
+gitlab: pipeline 10 for commit c58ef220
+gitlab: job fleeting id=20 status=success runner=t29 lamp-fleeting artifacts=['artifacts.zip', 'metadata.gz']
+gitlab:   trace tail:
+    
+    2026-11-11T22:57:44.198823Z 00O+Uploading artifacts for successful job
+    2026-11-11T22:57:44.618744Z 01O Uploading artifacts...
+    2026-11-11T22:57:44.787652Z 01E Runtime platform                                    arch=amd64 os=linux pid=88 revision=33227fd4 version=19.5.3
+    2026-11-11T22:57:44.787678Z 01E out.txt: found 1 matching artifact files and directories 
+    2026-11-11T22:57:45.339168Z 01E Uploading artifacts as "archive" to coordinator... 201 Created  correlation_id=01M76D9QB72ACVYCRYSDT52G66 id=20 status=201 token=[redacted]
+    2026-11-11T22:57:45.405220Z 00O section_end:1794437865:upload_artifacts_on_success
+    
+    2026-11-11T22:57:45.405744Z 00O+section_start:1794437865:cleanup_file_variables
+    
+    2026-11-11T22:57:45.405767Z 00O+Cleaning up project directory and file based variables
+    2026-11-11T22:57:45.620953Z 00O section_end:1794437865:cleanup_file_variables
+    
+    2026-11-11T22:57:45.621224Z 00O Job succeeded
+gitlab: job custom-executor id=19 status=success runner=t29 lamp-custom artifacts=['artifacts.zip', 'metadata.gz']
+gitlab:   trace tail:
+    
+    2026-11-11T22:58:09.112993Z 00O+Uploading artifacts for successful job
+    2026-11-11T22:58:10.081211Z 01O Uploading artifacts...
+    2026-11-11T22:58:10.081255Z 01E Runtime platform                                    arch=amd64 os=linux pid=13 revision=33227fd4 version=19.5.3
+    2026-11-11T22:58:10.081263Z 01E out.txt: found 1 matching artifact files and directories 
+    2026-11-11T22:58:10.081264Z 01E Uploading artifacts as "archive" to coordinator... 201 Created  correlation_id=01M76DAFVT91VP4VXPE20QVJ46 id=19 status=201 token=[redacted]
+    2026-11-11T22:58:10.082114Z 00O section_end:1794437890:upload_artifacts_on_success
+    
+    2026-11-11T22:58:10.082498Z 00O+section_start:1794437890:cleanup_file_variables
+    
+    2026-11-11T22:58:10.082514Z 00O+Cleaning up project directory and file based variables
+    2026-11-11T22:58:10.451928Z 00O section_end:1794437890:cleanup_file_variables
+    
+    2026-11-11T22:58:11.466539Z 00O Job succeeded
+gitlab: runners left on project: 0
+gitlab: fleeting secret: 1 value(s); files in Lamp store and guard audit containing one: 0
+gitlab: runner log tail:
+    instance pruned                                     group=lamp/rc_794f614a07b409f01de4b6957ef2071c id=lf-d55aab769ace73e8 lifetime=26.02608387s runner=7vjkmvesk runner_name[0
+    Appending trace to coordinator...ok                 code=202 correlation_id=01M76D9VBXGGHSJ4GPEGJKE96R job=19 job-log=0-1248 job-status=running runner=PjpXszmdC runn
+    WARNING: Starting with version 17.0 the 'build_script' stage will be replaced with 'step_script': https://gitlab.com/groups/gitlab-org/-/epics/6112  gitlab_user_id=1 job
+    Job succeeded                                       duration_s=25.485869974 gitlab_user_id=1 job=19 job-status=success job_name=custom-executor namespace_id=1 organi
+    Appending trace to coordinator...ok                 code=202 correlation_id=01M76DAHCBK9XCNGC9SM84T6AR job=19 job-log=0-3990 job-status=running runner=PjpXszmdC runn
+    Updating job...                                     bytesize=3990 checksum=crc32:5e8c8519 correlation_id=d6c35bbaeedb4a679aefbf9aa7e5e0f9 job=19 runner=PjpXszmdC runner_n
+    Submitting job to coordinator...ok                  bytesize=3990 checksum=crc32:5e8c8519 code=200 correlation_id=01M76DAHEPQYGXY18WGK2SYNBN job=19 job-status=succes
+    Removed job from processing list                    builds=0 gitlab_user_id=1 job=19 max_builds=1 namespace_id=1 organization_id=1 pipeline_id=10 project=1
+    WARNING: [runWait] received stop signal             builds=0 max_builds=1 stop-signal=quit
+    WARNING: Starting graceful shutdown, waiting for builds to finish  StopSignal=quit builds=0 max_builds=1
+    All workers stopped.                                builds=0 max_builds=1
+    Shutting down executor providers                    builds=0 max_builds=1 shutdown-timeout=30s
+    Shutting down docker+machine executor provider      executor=docker+machine
+    No shutdown drain config, skipping machine pool drain  executor=docker+machine
+    received shutdown signal; stopping taskscaler's loop and triggering provisioner shutdown  runner=7vjkmvesk runner_name=lamp-fleeting subsystem=taskscaler
+    stopping main loop                                  runner=7vjkmvesk runner_name=lamp-fleeting subsystem=taskscaler
+    waiting for in-flight resumes to complete           runner=7vjkmvesk runner_name=lamp-fleeting subsystem=taskscaler
+    waiting for acquired instances to be released       runner=7vjkmvesk runner_name=lamp-fleeting subsystem=taskscaler
+    shutting down provisioner                           runner=7vjkmvesk runner_name=lamp-fleeting subsystem=taskscaler
+    received shutdown signal; stopping provisioner      group=lamp/rc_794f614a07b409f01de4b6957ef2071c runner=7vjkmvesk runner_name=lamp-fleeting subsystem=taskscaler
+    provisioner shutdown completed                      group=lamp/rc_794f614a07b409f01de4b6957ef2071c runner=7vjkmvesk runner_name=lamp-fleeting subsystem=taskscaler
+    taskscaler's shutdown completed                     runner=7vjkmvesk runner_name=lamp-fleeting subsystem=taskscaler
+    plugin process exited                               id=2040258 plugin=/home/johan/lamp-t29/bin/lamp-fleeting runner=7vjkmvesk runner_name=lamp-fleeting subsystem=fleeting
+    All executor providers shut down.                   builds=0 max_builds=1
+    Can exit now!                                       builds=0 max_builds=1
+    t29_demo_test.go:513: gitlab driver exit=<nil>; sandboxes not deleted at end: 0
+--- PASS: TestT29Demonstration (103.98s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	104.622s
+demonstration_exit 0
+firecracker_remaining 0
