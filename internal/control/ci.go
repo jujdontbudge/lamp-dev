@@ -32,7 +32,12 @@ type ciJob struct {
 	Workflow    string         `json:"workflow,omitempty"`
 	Plugin      string         `json:"plugin,omitempty"`
 	OneJob      bool           `json:"one_job,omitempty"`
-	BrokerGrant string         `json:"broker_grant,omitempty"`
+	// Trigger and schedule work (see triggers.go).
+	Trigger     string   `json:"trigger,omitempty"`
+	Argv        []string `json:"argv,omitempty"`
+	Payload     string   `json:"payload,omitempty"`
+	Attempts    int      `json:"attempts,omitempty"`
+	BrokerGrant string   `json:"broker_grant,omitempty"`
 }
 
 func init() {
@@ -52,7 +57,7 @@ func (s *Service) initCI(config *ci.Config) error {
 	}
 	if config == nil {
 		for _, j := range s.life.Jobs {
-			if !ciTerminal(textField(j.R, "state")) {
+			if !ciTerminal(textField(j.R, "state")) && !workJob(j) {
 				return errors.New("active CI jobs require their enrolled CI configuration")
 			}
 		}
@@ -120,7 +125,7 @@ func (s *Service) planJobCreate(a caller, in map[string]any) (lifePlan, error) {
 	}
 	plugin := textField(in, "plugin_id")
 	if s.forges[plugin] == nil {
-		return lifePlan{}, reject("CI_PLUGIN_INCOMPATIBLE", "CI adapter is not installed or enrolled")
+		return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "CI_PLUGIN_INCOMPATIBLE: CI adapter is not installed or enrolled")
 	}
 	external := textField(in, "external_id")
 	cut := strings.LastIndex(external, "/")
@@ -139,7 +144,7 @@ func (s *Service) planJobCreate(a caller, in map[string]any) (lifePlan, error) {
 		if j.Repository == name && j.External == id && (j.Plugin == plugin || j.Plugin == "" && plugin == "pg_github") {
 			return lifePlan{ref: lifeRef("job", textField(j.R, "id")), result: map[string]any{"job_id": textField(j.R, "id")}}, nil
 		}
-		if !ciTerminal(textField(j.R, "state")) {
+		if !ciTerminal(textField(j.R, "state")) && !workJob(j) {
 			return lifePlan{}, reject("NO_CAPACITY", "one CI job is already active on this controller")
 		}
 	}
@@ -188,6 +193,9 @@ func (s *Service) planJobReconcile(a caller, in map[string]any) (lifePlan, error
 	}
 	id := textField(m, "id")
 	return lifePlan{ref: lifeRef("job", id), run: func(ctx context.Context) (map[string]any, error) {
+		if workJob(s.life.Jobs[id]) {
+			return map[string]any{}, s.cleanupWork(ctx, id)
+		}
 		return map[string]any{}, s.cleanupCI(ctx, id, false)
 	}}, nil
 }
@@ -286,7 +294,7 @@ func (s *Service) ciRetryCleanup() {
 		var failed []string
 		s.readLock()
 		for id, j := range s.life.Jobs {
-			if textField(j.R, "state") == "cleanup_failed" {
+			if textField(j.R, "state") == "cleanup_failed" && !workJob(j) {
 				failed = append(failed, id)
 			}
 		}

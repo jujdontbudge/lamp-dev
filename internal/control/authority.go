@@ -398,6 +398,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	id := newID("req")
 	w.Header().Set("X-Request-ID", id)
+	if strings.HasPrefix(r.URL.Path, "/hooks/triggers/") {
+		s.triggerHookHTTP(w, r, id)
+		return
+	}
 	if r.Method == "POST" && r.URL.Path == "/internal/native-tasks" {
 		s.nativeHTTP(w, r, id)
 		return

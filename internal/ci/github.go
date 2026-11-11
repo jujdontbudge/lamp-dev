@@ -446,9 +446,9 @@ func (g *GitHub) DeregisterJob(ctx context.Context, r Repository, name string, k
 func (g *GitHub) Cancel(ctx context.Context, r Repository, run, _ int64) error {
 	return g.API(ctx, "POST", fmt.Sprintf("/repos/%s/actions/runs/%d/cancel", r.Name, run), nil, nil)
 }
-func (g *GitHub) Plugin() string             { return "pg_github" }
-func (g *GitHub) System() string             { return "github-actions" }
-func (g *GitHub) Issuer(Repository) string   { return GitHubIssuer }
+func (g *GitHub) Plugin() string           { return "pg_github" }
+func (g *GitHub) System() string           { return "github-actions" }
+func (g *GitHub) Issuer(Repository) string { return GitHubIssuer }
 func (g *GitHub) Repos() (out []Repository) {
 	for _, r := range g.Config.Repositories {
 		if r.system() == "github-actions" {
