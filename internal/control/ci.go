@@ -336,10 +336,11 @@ func (s *Service) ciCreateSandbox(ctx context.Context, id string, r ci.Repositor
 		return sandbox, reject("SCOPE_DENIED", "CI network attachment cannot be read")
 	}
 	var policy struct {
-		Require    bool  `json:"require_allowlist"`
-		Exceptions []any `json:"exceptions"`
-		Domains    []any `json:"subscription_domains"`
-		Ceiling    []struct {
+		AuditReservation uint64 `json:"audit_reservation_bytes"`
+		Require          bool   `json:"require_allowlist"`
+		Exceptions       []any  `json:"exceptions"`
+		Domains          []any  `json:"subscription_domains"`
+		Ceiling          []struct {
 			Default string `json:"default_egress"`
 			Allow   []struct {
 				CIDR string `json:"cidr"`
@@ -348,6 +349,9 @@ func (s *Service) ciCreateSandbox(ctx context.Context, id string, r ci.Repositor
 	}
 	if json.Unmarshal(raw, &policy) != nil || !policy.Require || len(policy.Exceptions) > 0 || len(policy.Domains) > 0 {
 		return sandbox, reject("SCOPE_DENIED", "CI requires an immutable allowlist without credential or private-service exceptions")
+	}
+	if policy.AuditReservation > s.auditReservationBytes {
+		return sandbox, reject("CONTROL_QUOTA_EXCEEDED", "installed audit allowance exceeds the enrolled per-sandbox reservation")
 	}
 	deny := false
 	for _, l := range policy.Ceiling {
@@ -443,7 +447,10 @@ os.chmod(dst,0o700)
 	req.Command = &pb.Request_Start{Start: &pb.Start{Cwd: "/var/tmp/lamp-ci-runner", Argv: []string{"python3", "-c", `import os
 jit=os.environ.pop('LAMP_JIT_CONFIG')
 os.environ['HOME']='/tmp'
-os.execv('./run.sh',['./run.sh','--jitconfig',jit])`}, Env: map[string]string{"LAMP_JIT_CONFIG": jit, "PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp"}}}
+os.execv('./run.sh',['./run.sh','--jitconfig',jit])`}, Env: map[string]string{"LAMP_JIT_CONFIG": jit, "PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp", "RUNNER_ALLOW_RUNASROOT": "1"}}}
+	// The protected collector presents UID 0 inside its task user namespace,
+	// mapped to an unprivileged guest UID. This skips only the runner's cosmetic
+	// UID check; it grants no host, supervisor or outer-guest authority.
 	err = s.worker.perform(ctx, req, "command_started")
 	jit = ""
 	req = nil

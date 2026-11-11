@@ -77,11 +77,20 @@ pub struct Policy {
     /// Trusted public/unknown-visibility forge intake must set this ceiling.
     #[serde(default)]
     pub require_allowlist: bool,
+    /// Per-command durable audit allowance. Long-lived native CI runners
+    /// need more than the small interactive-command default; all 64 possible
+    /// segments remain charged to this namespace's enrolled reservation.
+    #[serde(default = "default_process_spool_bytes")]
+    pub process_spool_bytes: u64,
     /// Owner/principal recorded in attribution.
     #[serde(default = "local_principal")]
     pub principal_id: String,
     #[serde(default)]
     pub subscription_domains: Option<Vec<String>>,
+}
+
+fn default_process_spool_bytes() -> u64 {
+    PROCESS_SPOOL_BYTES
 }
 
 fn local_principal() -> String {
@@ -93,6 +102,14 @@ impl Policy {
         let text = std::fs::read_to_string(path).ctx(format!("read {}", path.display()))?;
         let p: Policy = serde_json::from_str(&text)
             .map_err(|e| EngineError::invalid(format!("{}: {e}", path.display())))?;
+        if p.process_spool_bytes < 4096
+            || p.process_spool_bytes
+                .checked_mul(64)
+                .and_then(|n| n.checked_add(NET_SPOOL_BYTES))
+                .is_none()
+        {
+            return Err(EngineError::invalid("invalid process audit reservation"));
+        }
         if p.revision == 0 {
             return Err(EngineError::invalid(
                 "network policy revision must be nonzero",
@@ -501,7 +518,7 @@ impl Attachment {
         listener.set_nonblocking(true).ctx("audit listener")?;
         let stop = a.stop.clone();
         let guard_bin = policy.guard.clone();
-        let template = config(Path::new("/dev/null"), PROCESS_SPOOL_BYTES);
+        let template = config(Path::new("/dev/null"), policy.process_spool_bytes);
         let segments = Arc::new(AtomicU64::new(0));
         a.listener = Some(std::thread::spawn(move || {
             let mut children: Vec<Child> = Vec::new();

@@ -205,7 +205,7 @@ func (s *Service) ciAuthHTTP(w http.ResponseWriter, r *http.Request, id, name st
 	}
 	ids := []api.ResourceRef{}
 	for _, resourceID := range policy.ResourceIDs {
-		ids = append(ids, api.ResourceRef{Kind: api.ResourceKind(map[string]string{"sb": "sandbox", "tk": "task", "ar": "artifact", "jb": "job", "ex": "exec"}[strings.SplitN(resourceID, "_", 2)[0]]), Id: resourceID})
+		ids = append(ids, api.ResourceRef{Kind: api.ResourceKind(map[string]string{"sb": "sandbox", "tk": "task", "ar": "artifact", "jb": "job", "ex": "exec", "fl": "fleet", "pg": "plugin"}[strings.SplitN(resourceID, "_", 2)[0]]), Id: resourceID})
 	}
 	kid := newID("ky")
 	key := api.Key{Id: kid, Kind: "key", FleetId: "fl_local", OwnerId: s.journal.Control.OwnerID, PrincipalId: pointer(s.journal.Control.OwnerID), Revision: 1, CreatedAt: now, UpdatedAt: now, State: "active", Labels: api.StringMap{"source": "github-oidc"}, Visibility: "private", ExpiresAt: &keyExpiry, Scope: &api.Scope{Actions: &actions, ResourceIds: &ids, ExpiresAt: &keyExpiry}}

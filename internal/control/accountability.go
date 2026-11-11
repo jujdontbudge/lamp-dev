@@ -375,7 +375,7 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 		return reject("RESOURCE_IN_USE", "command queue quota reached")
 	}
 	if name == "sandbox_create" || name == "sandbox_fork" {
-		if uint64(len(s.journal.Sandboxes)+1) > q.AuditBytes/(24<<20) {
+		if uint64(len(s.journal.Sandboxes)+1) > q.AuditBytes/s.auditReservationBytes {
 			return reject("CONTROL_QUOTA_EXCEEDED", "retained guard spool reservations exhausted")
 		}
 		if retains && sb.Resources != nil {

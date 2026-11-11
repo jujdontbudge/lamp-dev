@@ -35,6 +35,9 @@ type Repository struct {
 	RunnerDirectory string            `json:"runner_directory"`
 	WorkflowSHA256  map[string]string `json:"workflow_sha256"`
 	RetainStopped   bool              `json:"retain_stopped"`
+	// Nil preserves reviewed-private-workflow trust. An explicit empty list
+	// trusts no actor; PR events remain untrusted even for an enrolled actor.
+	TrustedActorIDs []int64 `json:"trusted_actor_ids"`
 }
 type Config struct {
 	TokenFile      string       `json:"token_file"`
@@ -138,6 +141,9 @@ type Job struct {
 	Name       string   `json:"name"`
 }
 type Run struct {
+	Actor struct {
+		ID int64 `json:"id"`
+	} `json:"actor"`
 	ID         int64  `json:"id"`
 	Event      string `json:"event"`
 	HeadSHA    string `json:"head_sha"`
@@ -197,6 +203,16 @@ func (g *GitHub) Verify(ctx context.Context, r Repository, id int64) (Demand, er
 		return d, errors.New("privileged trigger cannot execute CI head code")
 	}
 	d.Public = !d.Run.Repository.Private || d.Run.Event == "pull_request"
+	if r.TrustedActorIDs != nil {
+		trusted := false
+		for _, id := range r.TrustedActorIDs {
+			if d.Run.Actor.ID == id {
+				trusted = true
+				break
+			}
+		}
+		d.Public = d.Public || !trusted
+	}
 	if strings.ContainsAny(d.Run.Path, "@?#%\\") || strings.Contains(d.Run.Path, "..") || !strings.HasPrefix(d.Run.Path, ".github/workflows/") || len(d.Run.HeadSHA) != 40 {
 		return d, errors.New("unsupported workflow source")
 	}

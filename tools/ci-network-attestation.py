@@ -25,5 +25,17 @@ config = json.loads(p.read_text())
 attr = config.get("attribution", {})
 if attr.get("sandbox_id") != sandbox or str(attr.get("generation")) != generation:
     raise SystemExit("attachment attribution mismatch")
-# The full network config contains paths and attribution, not transport tokens.
+# The initial readiness probe has already created a process receiver. Its
+# root-owned config reports the effective per-command allowance; a native
+# runner must not silently outrun lampd's enrolled retained-audit reservation.
+process_bytes = []
+for path in p.parent.glob("process-*.json"):
+    st = path.lstat()
+    if st.st_uid != 0 or st.st_mode & 0o022 or path.is_symlink():
+        raise SystemExit("process audit config is not immutable")
+    process_bytes.append(int(json.loads(path.read_text())["spool_bytes"]))
+if not process_bytes or len(set(process_bytes)) != 1:
+    raise SystemExit("process audit allowance unavailable or inconsistent")
+config["audit_reservation_bytes"] = int(config["spool_bytes"]) + 64 * process_bytes[0]
+# Paths/attribution and bounds only, never transport tokens.
 print(json.dumps(config))
