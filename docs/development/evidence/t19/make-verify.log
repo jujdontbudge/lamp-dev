@@ -10,20 +10,18 @@ mkdir -p bin
 cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
 go build ./...
 cargo build --workspace --locked
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-07ca4ea2-f74439ad043682ad/crates/lamp-engine)
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-07ca4ea2-f74439ad043682ad/crates/lamp-supervisor)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.25s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
 go test -count=1 ./cmd/lamp -run '^TestCLIUsesCanonicalMutationHeaders$'
-ok  	github.com/JohanSardar/lamp/cmd/lamp	0.314s
+ok  	github.com/JohanSardar/lamp/cmd/lamp	0.312s
 go test -count=1 ./internal/control -run '^(TestJournalReplaySnapshotBeforeLogTruncation|TestControlCoreInterfacesAndAuthority)$'
-ok  	github.com/JohanSardar/lamp/internal/control	1.699s
+ok  	github.com/JohanSardar/lamp/internal/control	1.862s
 go test -count=1 ./pkg/plugin -run '^TestNativeSandboxDeniesAmbientAuthority$'
-ok  	github.com/JohanSardar/lamp/pkg/plugin	0.886s
+ok  	github.com/JohanSardar/lamp/pkg/plugin	0.819s
 .venv/bin/python tests/contracts/test_schema.py Contracts.test_all_schemas_well_formed -v
 test_all_schemas_well_formed (__main__.Contracts.test_all_schemas_well_formed) ... ok
 
 ----------------------------------------------------------------------
-Ran 1 test in 1.099s
+Ran 1 test in 1.075s
 
 OK
 .venv/bin/python tests/ci/test_guard.py Guard.test_private_owner_push Guard.test_public_and_stranger_jobs_denied -v
