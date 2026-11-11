@@ -34,6 +34,10 @@ func run() error {
 	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
 	nativeFile := flags.String("native-fallback-file", "", "trusted local native runtime and immutable job credential bindings")
+	recoveryPublic := flags.String("recovery-public-key", "", "owner's offline data-recovery public key; every backup is also wrapped to it")
+	recoveryKey := flags.String("recovery-key-file", "", "replacement host only: owner's recovery key file, read once to import sealed archives")
+	recoveryImport := flags.String("recovery-import-dir", "", "directory of sealed .lbk archives to import with --recovery-key-file")
+	installDir := flags.String("install-dir", "", "lamp-installer prefix: release mirror, pinned release key and updater agent files")
 	profileDir := flags.String("profile-dir", "", "private CPU/mutex/block profiles for a diagnostic run")
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -72,6 +76,9 @@ func run() error {
 	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments")
+	}
+	if (*recoveryKey == "") != (*recoveryImport == "") {
+		return fmt.Errorf("--recovery-key-file and --recovery-import-dir go together")
 	}
 	var admin []string
 	if *stateAdmin != "" {
@@ -151,7 +158,7 @@ func run() error {
 			return e
 		}
 	}
-	service, err := control.Open(control.Config{Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin})
+	service, err := control.Open(control.Config{Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
 	if err != nil {
 		return err
 	}

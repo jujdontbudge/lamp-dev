@@ -1,0 +1,21 @@
+
+=== 09:18:38Z install 6.0.0 (supervisor and lamp-vz from the release)
+{"at":"2026-11-11T09:18:41Z","automatic_updates":false,"event":"installed","prefix":"/Users/johansardar/lt28e/f","service":"process","version":"6.0.0"}
+sandbox sb_239bc4ee0bce7bc395d27365dfbbc3ff ready
+signed engine 6.0.0: {'lamp-vz_sha256': 'cc0d0222af9791ea7d14a0dec08d86255b4a811ee277f1832391af66144b4852', 'snapshot_format': '1'}
+signed engine 6.1.0: {'lamp-vz_sha256': '7e3e1128333ec695671f351df2915a82ff06c716a199c000c61594f0502eebc9', 'snapshot_format': '2'}
+before: {"current":"6.0.0","healthy":true,"highest_version":"6.0.0","name":"t28e","previous":"","saved_items":1,"service":"process","supervisor":{"alive":true,"binary_sha256":"c4434e9aba2cb01c5399ea7672d228e931e22cba194a6b81ce321ee907809737","from_release":true,"pid":93672,"release":"6.0.0","sha256":{"lamp-supervisor":"c4434e9aba2cb01c5399ea7672d228e931e22cba194a6b81ce321ee907809737","lamp-vz":"cc
+
+=== 09:18:42Z update 6.0.0 -> 6.1.0 (new lamp-vz, snapshot format 1 -> 2)
+lamp-installer: refused before apply: release 6.1.0 changes the VM engine (lamp-vz_sha256=cc0d0222af97 snapshot_format=1 -> lamp-vz_sha256=7e3e1128333e snapshot_format=2); 2 saved machine state(s) made by the running engine could not be resumed by the new one (sb/sb_239bc4ee0bce7bc395d27365dfbbc3ff, templates/tp_d6285dd359be9d5cef26d69ca7); delete or re-prepare them, then update
+rc=1
+
+=== 09:18:43Z after: nothing changed
+{"current":"6.0.0","healthy":true,"highest_version":"6.0.0","name":"t28e","previous":"","saved_items":1,"service":"process","supervisor":{"alive":true,"binary_sha256":"c4434e9aba2cb01c5399ea7672d228e931e22cba194a6b81ce321ee907809737","from_release":true,"pid":93672,"release":"6.0.0","sha256":{"lamp-supervisor":"c4434e9aba2cb01c5399ea7672d228e931e22cba194a6b81ce321ee907809737","lamp-vz":"cc0d0222af
+sandbox sb_239bc4ee0bce7bc395d27365dfbbc3ff ready
+{"at":"2026-11-11T09:18:43Z","current":"6.0.0","event":"update_refused","reason":"release 6.1.0 changes the VM engine (lamp-vz_sha256=cc0d0222af97 snapshot_format=1 -\u003e lamp-vz_sha256=7e3e1128333e snapshot_format=2); 2 saved machine state(s) made by the running engine could not be resumed by the new one (sb/sb_239bc4ee0bce7bc395d27365dfbbc3ff, templates/tp_d6285dd359be9d5cef26d69ca7); delete or re-prepare them, then update"}
+
+=== 09:18:43Z cleanup
+sandbox delete rc=0
+{"at":"2026-11-11T09:18:43Z","data":"deleted","event":"uninstalled","name":"t28e","owner_data":"delete"}
+left: supervisor=0 dir=0
