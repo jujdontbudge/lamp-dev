@@ -712,6 +712,11 @@ func install(args []string) error {
 	if _, err := stage(p, *release, m); err != nil {
 		return err
 	}
+	// Keep the signed release in the mirror too, so a later owner rollback
+	// to it can verify it against its signed index.
+	if _, err := copyTree(*release, filepath.Join(p, "mirror", m.Version)); err != nil {
+		return err
+	}
 	if err := point(p, m.Version); err != nil {
 		return err
 	}
