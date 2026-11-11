@@ -55,6 +55,17 @@ def main():
             time.sleep(.3)
 
     def admission():
+        # Wait for a free slot under the owner's cap rather than exceed it.
+        end = time.monotonic() + 900
+        while True:
+            try:
+                return admission_now()
+            except RuntimeError:
+                if time.monotonic() > end:
+                    raise
+                time.sleep(10)
+
+    def admission_now():
         live = int(subprocess.run(['pgrep', '-c', 'firecracker'], capture_output=True, text=True).stdout.strip() or '0')
         avail = int(next(l for l in subprocess.check_output(['free', '-m'], text=True).splitlines() if l.startswith('Mem:')).split()[-1])
         if live >= 2 or avail < 12288:
@@ -251,12 +262,7 @@ def main():
         made = call('POST', '/v1/browsers', dict(sandbox_id=agent, wait_ms=60000), ok=False)
         if 'error' in made:
             record('browser setup failure shown', made)
-            def released():
-                try:
-                    return admission()
-                except RuntimeError:
-                    return None
-            record('browser VM admission retry', wait(released, 'failed browser VM released', 180))
+            record('browser VM admission retry', admission())
             made = call('POST', '/v1/browsers', dict(sandbox_id=agent, wait_ms=60000))
         browser = made['result']['browser_id']
         rev = lambda: call('GET', '/v1/browsers/' + browser)['data']['revision']
@@ -282,7 +288,8 @@ def main():
         ui('goto', url=dash + '#/approvals/' + approval['id'], wait=2500)
         shot('05-approval-effect', 'needs-decision: approval showing vault item, destination origin and submit')
         wait(lambda: any(r['event_type'] == 'task.needs_decision' for r in received), 'needs_decision webhook', 20)
-        ui('click', selector=f'#approvals-{approval["id"]} button[data-act=approve]', wait=15000)
+        clicked = ui('click', selector=f'#approvals-{approval["id"]} button[data-act=approve]', wait=15000)
+        record('approve click', dict(clicked=clicked, dashboard_messages=ui('eval', expr="document.querySelector('#errors').innerText")))
         record('approval after dashboard approve', call('GET', '/v1/approvals/' + approval['id'])['data'])
         ui('goto', url=dash + '#/browsers/' + browser, wait=2000)
         ui('click', selector=f'#browsers-{browser} button[data-act=view]', wait=8000)
