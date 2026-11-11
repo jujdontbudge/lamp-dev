@@ -1,0 +1,8 @@
+{"step": "allocation admission", "value": {"live_firecracker": 0, "available_mib": 27716}}
+{"step": "real VM", "value": {"id": "sb_ebaef6e4b1e78e9ef137049996dc13d4"}}
+{"step": "job accepted", "value": {"state": "installing", "job_id": "52a3fbfe9df43f9bc066cfc94700e4f6", "sandbox_id": "sb_ebaef6e4b1e78e9ef137049996dc13d4", "generation": 1}}
+{"step": "job terminal", "value": {"state": "ready", "result": {"installed": ["git"], "reused_packages": ["ca-certificates", "git"], "cached_packages": [], "downloaded_packages": [], "boundary": "vm", "path": "/tmp/lamp-toolchains/bin", "docker_host": null}, "job_id": "52a3fbfe9df43f9bc066cfc94700e4f6", "sandbox_id": "sb_ebaef6e4b1e78e9ef137049996dc13d4", "generation": 1}}
+{"step": "Git useful work", "value": {"git": "git version 2.53.0"}}
+{"step": "job accepted", "value": {"state": "installing", "job_id": "37d7a511bf03707796ea8ddad9f62108", "sandbox_id": "sb_ebaef6e4b1e78e9ef137049996dc13d4", "generation": 1}}
+{"step": "job terminal", "value": {"state": "failed", "failure_code": "KIT_INSTALL_FAILED", "phase": "docker", "job_id": "37d7a511bf03707796ea8ddad9f62108", "sandbox_id": "sb_ebaef6e4b1e78e9ef137049996dc13d4", "generation": 1}}
+{"step": "released", "value": {"state": "deleted"}}

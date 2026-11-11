@@ -1402,6 +1402,24 @@ OPERATIONS: Dict[str, Dict[str, Any]] = {
   "result_schema": "KitGetResult",
   "scope": "kit.get"
  },
+ "kit_install": {
+  "cli": "lamp kit install",
+  "input_schema": "KitInstallInput",
+  "method": "POST",
+  "mutation": True,
+  "path": "/v1/kits/{kit_id}:install",
+  "result_schema": "KitInstallResult",
+  "scope": "kit.install"
+ },
+ "kit_install_status": {
+  "cli": "lamp kit install-status",
+  "input_schema": "KitInstallStatusInput",
+  "method": "GET",
+  "mutation": False,
+  "path": "/v1/kits/{kit_id}/installations/{job_id}",
+  "result_schema": "KitInstallStatusResult",
+  "scope": "kit.install_status"
+ },
  "kit_list": {
   "cli": "lamp kit list",
   "input_schema": "KitListInput",
@@ -3586,6 +3604,14 @@ class LampClient(Transport):
     def kit_get(self, input: "types.KitGetInput" = None, **fields: Any) -> "types.KitGetResult":
         """`lamp kit get` — GET /v1/kits/{kit_id} (scope kit.get)."""
         return self.call('kit_get', {**(input or {}), **fields})
+
+    def kit_install(self, input: "types.KitInstallInput" = None, **fields: Any) -> "types.KitInstallResult":
+        """`lamp kit install` — POST /v1/kits/{kit_id}:install (scope kit.install)."""
+        return self.call('kit_install', {**(input or {}), **fields})
+
+    def kit_install_status(self, input: "types.KitInstallStatusInput" = None, **fields: Any) -> "types.KitInstallStatusResult":
+        """`lamp kit install-status` — GET /v1/kits/{kit_id}/installations/{job_id} (scope kit.install_status)."""
+        return self.call('kit_install_status', {**(input or {}), **fields})
 
     def kit_list(self, input: "types.KitListInput" = None, **fields: Any) -> "types.KitListResult":
         """`lamp kit list` — GET /v1/kits (scope kit.list)."""

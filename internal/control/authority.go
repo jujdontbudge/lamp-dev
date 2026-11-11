@@ -44,6 +44,7 @@ type controlState struct {
 	Memberships  map[string]api.Membership `json:"memberships"`
 	Keys         map[string]storedKey      `json:"keys"`
 	Approvals    map[string]api.Approval   `json:"approvals"`
+	Kits         *kitState                 `json:"kits,omitempty"`
 	// Updates are fleet-wide rollouts (HST-005), replicated with authority.
 	Updates map[string]api.Update `json:"updates,omitempty"`
 }
@@ -233,6 +234,19 @@ func (s *Service) can(a caller, action string) bool {
 }
 func (s *Service) own(a caller, owner string) bool { return a.Principal == owner }
 func (s *Service) resourceAllowed(a caller, refs ...api.ResourceRef) bool {
+	for _, ref := range refs {
+		if ref.Kind == "browser" && s.journal.Control.Kits != nil {
+			if browser := s.journal.Control.Kits.Browsers[ref.Id]; browser != nil && !s.sandboxSelectors(a, s.journal.Sandboxes[textField(browser.Data, "sandbox_id")]) {
+				return false
+			}
+		}
+		if ref.Kind == "sandbox" && s.privateBrowserDenied(a, s.journal.Sandboxes[ref.Id]) {
+			return false
+		}
+		if ref.Kind == "snapshot" && s.privateBrowserDenied(a, s.journal.Sandboxes[value(s.journal.Snapshots[ref.Id].Snapshot.SandboxId)]) {
+			return false
+		}
+	}
 	for _, sc := range s.scopes(a) {
 		if sc.ResourceIds == nil {
 			continue
@@ -252,6 +266,9 @@ func (s *Service) resourceAllowed(a caller, refs ...api.ResourceRef) bool {
 	return true
 }
 func (s *Service) sandboxSelectors(a caller, sb api.Sandbox) bool {
+	if s.privateBrowserDenied(a, sb) {
+		return false
+	}
 	if !s.current(a) || !s.own(a, sb.OwnerId) {
 		return false
 	}
@@ -449,6 +466,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
 	if op.Name == "plugin_get" && textField(selectors, "plugin_id") == "pg_github" {
 		s.ciPluginHTTP(w, r, id)
+		return
+	}
+	if kitOperation(op.Name) {
+		s.kitsHTTP(w, r, id, op, selectors)
 		return
 	}
 	if s.cleanExportRead(op.Name, selectors) {
