@@ -1,0 +1,14 @@
+{
+  "enrollment_error": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "INVALID_ARGUMENT",
+        "message": "key expires_at is required",
+        "retryable": false
+      },
+      "request_id": "req_3a5eeedc14076323e8d480cf8e1ef40f"
+    },
+    "isolation": null
+  }
+}

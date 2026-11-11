@@ -1,0 +1,65 @@
+{
+  "valid_job_credential": {
+    "status": 200,
+    "body": {
+      "data": {
+        "authority_epoch": 1,
+        "created_at": "2026-11-11T02:57:54.486791Z",
+        "fleet_id": "fl_local",
+        "id": "fl_local",
+        "kind": "fleet",
+        "labels": {},
+        "mode": "single_owner",
+        "owner_id": "pr_native_fixture",
+        "revision": 1,
+        "state": "active",
+        "updated_at": "2026-11-11T02:57:54.486791Z",
+        "visibility": "private"
+      },
+      "request_id": "req_9e0e0e102dcc2c3bf6c4646dbb039dd6"
+    },
+    "isolation": null
+  },
+  "public_ci_forged_origin": {
+    "status": 403,
+    "body": {
+      "error": {
+        "code": "VM_REQUIRED",
+        "message": "jb_public_fixture (public): public-repository CI requires a VM; weaker native execution is forbidden",
+        "retryable": false
+      },
+      "request_id": "req_4a0de7d00e3be2b9e13cb48bcfb378a1"
+    },
+    "isolation": "weaker_than_vm"
+  },
+  "public_ci_ordinary_create": {
+    "status": 403,
+    "body": {
+      "error": {
+        "code": "VM_REQUIRED",
+        "message": "jb_public_fixture (public): public-repository CI requires a VM; weaker native execution is forbidden",
+        "retryable": false
+      },
+      "request_id": "req_4d84fbb02f07ed688131bb94381e66c4"
+    },
+    "isolation": "weaker_than_vm"
+  },
+  "owner_native_task": {
+    "status": 200,
+    "body": {
+      "boundary": "app_sandbox_process",
+      "isolation": "weaker_than_vm",
+      "job": null,
+      "output": "{\"boundary\":\"app_sandbox_process\",\"fallback_reason\":\"virtualization_entitlement_absent\",\"isolation\":\"weaker_than_vm\"}\n{\"boundary\":\"app_sandbox_process\",\"isolation\":\"weaker_than_vm\",\"logins\":\"denied\",\"memory\":{\"available_mib\":1774,\"host_reserve_mib\":2048,\"physical_mib\":8192},\"network\":\"denied\",\"protected_connections\":\"denied\",\"public_repository_ci\":\"denied\"}\n{\"boundary\":\"app_sandbox_process\",\"exit_code\":0,\"isolation\":\"weaker_than_vm\",\"stderr\":\"\",\"stdout\":\"42\\n\",\"timed_out\":false,\"truncated\":false}\n",
+      "request_id": "req_e566f077cb9e67975cb654e0671aca67"
+    },
+    "isolation": null
+  },
+  "enrolled_job": {
+    "job_id": "jb_public_fixture",
+    "repository_visibility": "public",
+    "source": "custodian-owned startup configuration",
+    "caller_mutable": false
+  },
+  "public_ci_sandboxes_created": 0
+}

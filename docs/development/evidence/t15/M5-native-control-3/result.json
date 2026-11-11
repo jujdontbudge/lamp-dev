@@ -1,0 +1,14 @@
+{
+  "enrollment_error": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "INVALID_ARGUMENT",
+        "message": "KeyCreateInput.expires_at: invalid string",
+        "retryable": false
+      },
+      "request_id": "req_d3787114ade34b692e1e20421691ffcd"
+    },
+    "isolation": null
+  }
+}

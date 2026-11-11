@@ -1,0 +1,22 @@
+{
+  "sources": {
+    "crates/lamp-vz/src/spec.rs": "cec44436ff265812789af3832bfd46cfe03efa357ca5b84a84574a92264e8f6a",
+    "crates/lamp-vz/src/vz.rs": "69c8d66c3b3becd1b8a3b3f9eab440efdcb38362697b14307a06045b5b166a79",
+    "crates/lamp-vz/src/worker.rs": "930aa566e15fea0ec01d0caa52ef58851c9e2cfd37d8ea855b5583a4b660bede",
+    "crates/lamp-vz/src/confine.rs": "fb8ba49a7b9d8f1c5f35be079f114c66250a01cff274a18e3a8697935e03f169",
+    "crates/lamp-vz/src/admission.rs": "32c2a5161bfccde6a30715b5ffcefad091aab103e11e1175a44d985d85f92968",
+    "crates/lamp-vz/src/native.rs": "fb8dff96121a67e7853658bfa9053cb99955050424755c822571ad395d1b42ba",
+    "crates/lamp-engine/src/mac.rs": "7319cb8efd8222aca98b4033218f90bd8dec51d2a5971a54390016bcd9e4d17f",
+    "crates/lamp-supervisor/src/main.rs": "86b143d959a3f5c504c04632b5bd41bf4ced2845093cc0f8409fea92c35d86b4",
+    "images/linux-seed/build-seed-arm64.sh": "99585dea15dac032198b81ef116e8661fb76b65ecfd6806637a106ed57e34a3d",
+    "Cargo.lock": "7947764f9a594451d81a83c8e9a5595ea988c81e3ae869bae00bd3683b7aad4f"
+  },
+  "artifacts": {
+    "target/debug/lamp-vz": "b0400d7c0246575ae94ab07686ab13495432366ad38801969b53d6ab88f12cad",
+    "target/debug/lamp-supervisor": "d8249ccff70cdd15f406b7e3823faf7b41c533d35c4af9a50e915cb919a60c66",
+    "target/debug/lamp-native": "ed0d80d1d6c84b169c00d2f89840f0b3b6bd4add6fbd85a605d915a4cef795f7",
+    "target/t15-vz-denied": "0e1ac8a40f8f948a117c6db5e49b053f41458a130baa9858065ff1e581feaee0",
+    "target/t15-Image": "f7ffbfc8e60be0f69142e9049d00f447adb6857c98258691fb63e13dd3261b27",
+    "target/t15-gpu": "ea74d6c25a3de86c3628d456178139aef8711519c02d7124c54782994474b05f"
+  }
+}
