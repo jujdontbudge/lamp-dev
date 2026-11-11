@@ -87,7 +87,8 @@ capture and audit retention charges remain. A sandbox reserves 24 MiB for its
 65th collector is refused before its task starts. Each sandbox's mediated audit
 records and reservations have independent bounded limits, so exhausting one
 does not consume another admitted sandbox's allowance. Audit exports are also
-charged and bounded. Stop/delete/revoke operations have reserved control-record
+charged and bounded, with separate receipt retention so a full request audit
+remains exportable. Failed exports remove their uncommitted artifacts. Stop/delete/revoke operations have reserved control-record
 headroom. There is no payment processor, purchase flow, price calculation or
 provider-account configuration; typed resource and token ledger entries are
 available for later plan/quota/billing policy.
@@ -111,7 +112,8 @@ lamp audit-record export --input export.json --json
 lamp audit-record get au_... --json
 ```
 
-Control audit records form a SHA-256 predecessor chain. This is not a signed
+Control audit records and separately retained export receipts form SHA-256
+predecessor chains. This is not a signed
 ledger or a claim of tamper-proof archival storage. Guard records retain their
 own per-spool sequences and attribution. No request bodies, provider credentials,
 settings bytes or command environments are added to mediated audit records.

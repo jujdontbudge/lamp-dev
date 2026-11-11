@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"time"
@@ -45,6 +46,10 @@ func reserveTokens(ctx context.Context, c Connection, in Invocation) (uint64, er
 	if c.Kind != "model" {
 		return 0, nil
 	}
+	output, err := modelOutputLimit(in.Arguments["max_tokens"])
+	if err != nil {
+		return 0, err
+	}
 	if len(c.TokenizerCommand) > 0 {
 		raw, _ := json.Marshal(in.Arguments)
 		out, err := command(ctx, c.TokenizerCommand, raw)
@@ -57,15 +62,24 @@ func reserveTokens(ctx context.Context, c Connection, in Invocation) (uint64, er
 		if json.Unmarshal(out, &counted) != nil || counted.Prompt > 1<<40 {
 			return 0, errors.New("ACCOUNTING_UNAVAILABLE")
 		}
-		n, _ := in.Arguments["max_tokens"].(json.Number).Int64()
-		return counted.Prompt + uint64(n), nil
+		return counted.Prompt + output, nil
 	}
 	// Chat tokenization is vendor-specific. A configured vendor tokenizer must
 	// provide an exact prompt count; otherwise reserve a conservative UTF-8 byte
 	// bound plus the maximum output and report best-effort token visibility.
-	n, _ := in.Arguments["max_tokens"].(json.Number).Int64()
 	messages, _ := json.Marshal(in.Arguments["messages"])
-	return uint64(len(messages)) + uint64(n) + 1024, nil
+	return uint64(len(messages)) + output + 1024, nil
+}
+
+// Validation and reservation must interpret JSON numbers identically, including
+// integral decimal and exponent spellings such as 1000.0 and 1e3.
+func modelOutputLimit(v any) (uint64, error) {
+	encoded, ok := v.(json.Number)
+	n, err := encoded.Float64()
+	if !ok || err != nil || !(n >= 1 && n <= 4096) || n != math.Trunc(n) {
+		return 0, errors.New("SCOPE_DENIED")
+	}
+	return uint64(n), nil
 }
 func modelUsage(result []byte) *uint64 {
 	var reply struct {

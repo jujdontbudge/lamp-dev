@@ -66,6 +66,7 @@ type accountability struct {
 	TaskCallers   map[string]caller        `json:"task_callers"`
 	Reservations  map[string]reservation   `json:"reservations"`
 	Audit         []api.AuditRecord        `json:"audit"`
+	Exports       []api.AuditRecord        `json:"exports,omitempty"`
 	Telemetry     map[string]api.Telemetry `json:"telemetry"`
 	Usage         map[string][]usageSample `json:"usage"`
 }
@@ -114,6 +115,9 @@ func (s *Service) accountResources(a caller, kind string) []map[string]any {
 		}
 	case "audit_record":
 		for _, v := range c.Audit {
+			add(v)
+		}
+		for _, v := range c.Exports {
 			add(v)
 		}
 	}
@@ -183,6 +187,9 @@ func (s *Service) accountMutation(a caller, op api.OperationDescriptor, in map[s
 		}
 		if m == nil {
 			return fail("NOT_FOUND", "resource not found")
+		}
+		if !s.resourceAllowed(a, api.ResourceRef{Kind: ref.Kind, Id: textField(m, "id")}) {
+			return fail("SCOPE_DENIED", "resource outside selector")
 		}
 		if uintField(m, "revision") != uintField(in, "expected_revision") {
 			return fail("REVISION_CONFLICT", "resource revision changed")
@@ -301,9 +308,12 @@ func (s *Service) accountMutation(a caller, op api.OperationDescriptor, in map[s
 	return ref, result, nil, []string{"$accountability"}, nil
 }
 func (s *Service) taskStopped(t api.Task) bool {
+	return s.taskStopRequired(t, true)
+}
+func (s *Service) taskStopRequired(t api.Task, checkAuthority bool) bool {
 	c := s.journal.Accountability
 	for n := 0; n <= len(c.Tasks); n++ {
-		if t.State != "running" || s.expired(t.DeadlineAt) || !s.current(c.TaskCallers[t.Id]) {
+		if t.State != "running" || s.expired(t.DeadlineAt) || checkAuthority && !s.current(c.TaskCallers[t.Id]) {
 			return true
 		}
 		b, ok := c.Budgets[value(t.BudgetId)]
@@ -414,7 +424,7 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 			if l.ControlRecords != nil {
 				var charged uint64
 				for _, r := range s.journal.Operations {
-					if r.Operation.OwnerId == a.Principal {
+					if s.operationBudget(r) == b.Id {
 						charged++
 					}
 				}
@@ -430,11 +440,48 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 	return nil
 }
 func (s *Service) sandboxMustStop(sb api.Sandbox) bool {
+	return s.sandboxStopRequired(sb, true)
+}
+
+// Homes retain sandbox/task associations even after release. Resolve older
+// receipts through those immutable associations rather than charging every
+// operation by the same principal to every one of that principal's budgets.
+func (s *Service) operationBudget(r *record) string {
+	c := s.journal.Accountability
+	ref := r.Resource
+	if r.Custody != nil {
+		ref = api.ResourceRef{Kind: "sandbox", Id: r.Custody.Source}
+	}
+	switch ref.Kind {
+	case "budget":
+		return ref.Id
+	case "task":
+		return value(c.Tasks[ref.Id].BudgetId)
+	case "exec":
+		ref = api.ResourceRef{Kind: "sandbox", Id: value(s.journal.Execs[ref.Id].SandboxId)}
+	case "audit_record":
+		for _, group := range [][]api.AuditRecord{c.Audit, c.Exports} {
+			for _, rec := range group {
+				if rec.Id == ref.Id {
+					return value(c.Tasks[value(rec.TaskId)].BudgetId)
+				}
+			}
+		}
+	}
+	if ref.Kind == "sandbox" {
+		return value(c.Tasks[value(s.journal.Sandboxes[ref.Id].TaskId)].BudgetId)
+	}
+	return ""
+}
+func (s *Service) sandboxStopRequired(sb api.Sandbox, checkAuthority bool) bool {
 	if sb.TaskId != nil {
 		t, ok := s.journal.Accountability.Tasks[*sb.TaskId]
-		if !ok || s.taskStopped(t) {
+		if !ok || s.taskStopRequired(t, checkAuthority) {
 			return true
 		}
+	}
+	if !checkAuthority {
+		return false
 	}
 	for _, r := range s.journal.Operations {
 		if r.Resource.Id == sb.Id && (value(r.Operation.OperationName) == "sandbox_create" || value(r.Operation.OperationName) == "sandbox_fork") && r.Caller.Principal != "" && !s.can(r.Caller, strings.Replace(value(r.Operation.OperationName), "_", ".", 1)) {
@@ -466,11 +513,11 @@ func (s *Service) watchAccountability() {
 		case <-tick.C:
 		}
 		s.readLock()
-		if s.broken {
-			s.mu.Unlock()
-			continue
-		}
-		if time.Now().After(nextPrune) {
+		// Journal failure closes admission, but must never disable stopping.
+		// Before the first quorum activation, retained authority is unknown;
+		// enforce real deadlines without treating startup as revocation.
+		checkAuthority := !s.fleetEnabled || s.fleet != nil && s.fleet.authorityActivated()
+		if !s.broken && time.Now().After(nextPrune) {
 			nextPrune = time.Now().Add(time.Hour)
 			if s.pruneUsage(time.Now()) {
 				if err := s.save("$accountability"); err != nil {
@@ -482,7 +529,7 @@ func (s *Service) watchAccountability() {
 		}
 		changed := false
 		for id, t := range s.journal.Accountability.Tasks {
-			if t.State == "running" && s.taskStopped(t) {
+			if t.State == "running" && s.taskStopRequired(t, checkAuthority) {
 				t.State = "stopped"
 				t.Revision++
 				t.UpdatedAt = timestamp()
@@ -499,14 +546,14 @@ func (s *Service) watchAccountability() {
 				changed = true
 			}
 		}
-		if changed {
+		if changed && !s.broken {
 			if err := s.save("$accountability"); err != nil {
 				s.broken = true
 			}
 		}
 		var ids []string
 		for id, b := range s.journal.Sandboxes {
-			if s.sandboxCharged(b) && !s.busy[id] && s.starting[id] == 0 && s.sandboxMustStop(b) {
+			if s.sandboxCharged(b) && !s.busy[id] && s.starting[id] == 0 && s.sandboxStopRequired(b, checkAuthority) {
 				s.busy[id] = true
 				s.wg.Add(1)
 				ids = append(ids, id)
@@ -562,6 +609,17 @@ func (s *Service) stopAccountableSandbox(id string) {
 // Bridge is installed only behind lampd's owner-UID Unix listener. Fleet TLS
 // ingress rejects these non-public routes, including forwarded requests.
 func (s *Service) accountabilityBridge(w http.ResponseWriter, r *http.Request) {
+	peer, present := r.Context().Value(peerContextKey{}).(publicPeer)
+	if !present || !peer.owner {
+		http.Error(w, "accounting requires the owner Unix peer", http.StatusForbidden)
+		return
+	}
+	if s.fleet != nil {
+		if err := s.fleet.project(); err != nil {
+			http.Error(w, "fleet authority unavailable", http.StatusServiceUnavailable)
+			return
+		}
+	}
 	var in struct {
 		Sandbox     string  `json:"sandbox_id"`
 		Reservation string  `json:"reservation_id"`
@@ -685,9 +743,15 @@ func (s *Service) accountabilityBridge(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Service) appendAudit(sb api.Sandbox, visibility, typ, decision string) bool {
 	c := s.journal.Accountability
+	retained := &c.Audit
+	if visibility == "control" && typ == "audit.export" {
+		// Export receipts have their own bounded allowance so a full request
+		// log can still be retrieved without dropping any retained records.
+		retained = &c.Exports
+	}
 	var count uint64
 	var bytes uint64
-	for _, rec := range c.Audit {
+	for _, rec := range *retained {
 		if value(rec.SandboxId) == sb.Id {
 			count++
 			raw, _ := json.Marshal(rec)
@@ -707,16 +771,16 @@ func (s *Service) appendAudit(sb api.Sandbox, visibility, typ, decision string) 
 	m["generation"] = sb.Generation
 	m["type"] = typ
 	m["decision"] = decision
-	m["sequence"] = len(c.Audit) + 1
-	if len(c.Audit) > 0 {
-		m["previous_hash"] = digest(c.Audit[len(c.Audit)-1])
+	m["sequence"] = len(*retained) + 1
+	if len(*retained) > 0 {
+		m["previous_hash"] = digest((*retained)[len(*retained)-1])
 	}
 	var a api.AuditRecord
 	assign(m, &a)
 	if bytes+2048 > 16<<20 {
 		return false
 	}
-	c.Audit = append(c.Audit, a)
+	*retained = append(*retained, a)
 	return true
 }
 func (s *Service) recordUsage(owner string, duration uint64) {
@@ -757,6 +821,11 @@ func (s *Service) exportAudit(a caller, in map[string]any) (api.ResourceRef, map
 			records = append(records, r)
 		}
 	}
+	for _, r := range s.journal.Accountability.Exports {
+		if value(r.SandboxId) == id {
+			records = append(records, r)
+		}
+	}
 	if guardRecords, ok := in["$guard_records"].([]any); ok {
 		records = append(records, guardRecords...)
 	}
@@ -766,11 +835,16 @@ func (s *Service) exportAudit(a caller, in map[string]any) (api.ResourceRef, map
 	}
 	dir := filepath.Join(s.dir, "audit-exports")
 	var charged uint64
-	entries, _ := os.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
+	if err != nil && !os.IsNotExist(err) {
+		return ref, nil, nil, nil, err
+	}
 	for _, entry := range entries {
-		if info, e := entry.Info(); e == nil {
-			charged += uint64(info.Size())
+		info, e := entry.Info()
+		if e != nil {
+			return ref, nil, nil, nil, e
 		}
+		charged += uint64(info.Size())
 	}
 	if charged+uint64(len(raw)) > s.quotas.AuditBytes {
 		return ref, nil, nil, nil, reject("CONTROL_QUOTA_EXCEEDED", "retained audit exports quota exhausted")
@@ -778,30 +852,40 @@ func (s *Service) exportAudit(a caller, in map[string]any) (api.ResourceRef, map
 	if err = PrivateDir(dir); err != nil {
 		return ref, nil, nil, nil, err
 	}
+	if !s.appendAudit(sb, "control", "audit.export", "allow") {
+		return ref, nil, nil, nil, reject("CONTROL_QUOTA_EXCEEDED", "audit export receipt quota reached")
+	}
 	path := filepath.Join(dir, id+"-"+newID("export")+".json")
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return ref, nil, nil, nil, err
 	}
+	complete := false
+	defer func() {
+		if !complete {
+			_ = os.Remove(path)
+			_ = syncDirectory(dir)
+		}
+	}()
 	_, err = file.Write(raw)
 	if err == nil {
 		err = file.Sync()
 	}
-	file.Close()
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
 	if err != nil {
 		return ref, nil, nil, nil, err
 	}
 	if err = syncDirectory(dir); err != nil {
 		return ref, nil, nil, nil, err
 	}
-	if !s.appendAudit(sb, "control", "audit.export", "allow") {
-		return ref, nil, nil, nil, reject("CONTROL_QUOTA_EXCEEDED", "audit retention quota reached")
-	}
-	last := &s.journal.Accountability.Audit[len(s.journal.Accountability.Audit)-1]
+	last := &s.journal.Accountability.Exports[len(s.journal.Accountability.Exports)-1]
 	details, _ := json.Marshal(map[string]any{"path": path, "sha256": bearerHash(string(raw)), "records": len(records), "guard_reader_configured": s.auditReader != ""})
 	d := api.AuditDetails(details)
 	last.Details = &d
 	ref.Id = last.Id
+	complete = true
 	return ref, map[string]any{}, nil, []string{"$accountability"}, nil
 }
 

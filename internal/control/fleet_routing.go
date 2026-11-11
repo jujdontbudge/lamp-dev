@@ -64,6 +64,11 @@ func (f *Fleet) leaseValid() bool {
 	defer f.mu.Unlock()
 	return err == nil && f.active && ticks < f.deadline
 }
+func (f *Fleet) authorityActivated() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.active
+}
 func (f *Fleet) authorityNow() time.Time {
 	ticks, err := authorityTicks()
 	f.mu.Lock()
@@ -89,18 +94,11 @@ func (f *Fleet) authorityNow() time.Time {
 	return now
 }
 func (s *Service) expired(expires *string) bool {
-	if s.fleet == nil {
-		if expires == nil {
-			return false
-		}
-		t, err := time.Parse(time.RFC3339Nano, *expires)
-		return err != nil || !s.enforcementNow().Before(t)
-	}
 	if expires == nil {
 		return false
 	}
 	t, err := time.Parse(time.RFC3339Nano, *expires)
-	return err != nil || !s.fleet.authorityNow().Before(t)
+	return err != nil || !s.enforcementNow().Before(t)
 }
 func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 	id := newID("req")
@@ -235,6 +233,10 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		}
 		if home == "" {
 			home = resourceHome(textField(input, "sandbox_id"))
+			if op.Name == "audit_record_export" {
+				filter, _ := input["filter"].(map[string]any)
+				home = resourceHome(textField(filter, "sandbox_id"))
+			}
 			if home == "" {
 				home = resourceHome(textField(input, "task_id"))
 			}
@@ -594,7 +596,7 @@ func (f *Fleet) catalogHTTP(w http.ResponseWriter, r *http.Request, id string, a
 // Continuous host ticks include sleep and prevent wall-clock rollback during a
 // daemon lifetime from extending task and derived-key deadlines.
 func (s *Service) enforcementNow() time.Time {
-	if s.fleet != nil {
+	if s.fleet != nil && s.fleet.authorityActivated() {
 		return s.fleet.authorityNow()
 	}
 	now := time.Now()

@@ -129,3 +129,71 @@ charged. Budgets and descendants stay on one immutable home. This work does not
 claim commercial-provider compatibility, a signed/tamper-proof ledger, Mac VM
 audit qualification, or a payment integration. See
 [implementation details](T23-budgets-and-audit.md).
+
+## Correctness review fixes — 2026-11-10
+
+All eight review scenarios were checked against the updated binaries using a
+private single-host Raft fleet, the real broker and one disposable Firecracker
+sandbox on Ubuntu. [Transcript](evidence/t23/review-fixes.jsonl),
+[binary hashes](evidence/t23/review-binaries.txt), and
+[`make verify` log](evidence/t23/review-make-verify.log).
+The [exported artifact](evidence/t23/review-audit-export.json) retains the actual
+101-record audit. No tests were added. `make verify` ran once and passed for this
+revision.
+
+1. An enrolled `nobody` Unix peer submitted a reservation for the known sandbox.
+   The bridge returned HTTP 403 and left reserved tokens at zero. Every bridge
+   operation now requires the authenticated owner Unix peer, including in fleet
+   mode; a public TLS request was also denied.
+2. After starting `/bin/sleep 120`, the demo renamed only its own `journal.log`
+   and caused an export commit to fail with `DATA_UNAVAILABLE`. The supervisor
+   independently reported the VM running before its deadline and `NOT_FOUND`
+   after the watchdog stopped and released it. Journal failure still closes
+   admission, while deadline enforcement continues without a successful write.
+3. The fleet daemon restarted with that unexpired task retained. After the real
+   Raft election, the task remained `running` and its budget `active`. Startup
+   now enforces real deadlines while deferring revocation decisions until the
+   first authority activation; admissions still require valid authority.
+4. A key selecting one task could stop that task but received `SCOPE_DENIED`
+   for a different task of the same principal. A budget-update key selecting A
+   likewise could not update B. Selector checks precede mutation and revision
+   changes.
+5. The actual broker completed a model request through the fleet daemon's Unix
+   accounting bridge. Reserve and settle both worked. Internal bridge requests
+   remain unavailable to public TLS callers and forwarded fleet requests.
+6. For `max_tokens: 1e3`, the HTTPS fixture observed 1,002 tokens reserved before
+   its effect: two prompt tokens plus 1,000 output tokens. Settlement charged
+   five actual tokens. With another 500 tokens outstanding, the same request
+   returned `BUDGET_EXHAUSTED` before any second provider call. Validation and
+   both reservation modes now use the same bounded numeric conversion.
+7. Budget B's task/control activity did not exhaust A's five-record allowance:
+   A's already-admitted sandbox could start `/bin/sleep 120` and run `/bin/true`
+   to exit zero. Control charges resolve each operation's own budget through
+   retained task/sandbox associations, including custody and export receipts.
+8. After filling all 32 request-audit slots, a new mediated request was refused
+   but export succeeded with 101 actual control, mediated and guard records.
+   Its SHA-256 was
+   `32aed0702c421dea78a1f34e40f5b2bb31c2c136fbf4693b9f1192ef06b4d776`.
+   Export receipts now have separate bounded retention, checked before writing
+   an artifact. The journal-failure export left exactly the original one file,
+   proving failed export cleanup. The fleet routes exports by the sandbox in
+   their filter, so exporting also worked with the host's compute slice full.
+
+The retained disposable run is `/tmp/t23-fix-4` on Ubuntu. Its invocation was:
+
+```sh
+python3 /home/johan/lamp-t23/t23-fix-check.py \
+  --root /tmp/t23-fix-4 --store /var/lib/lamp/t23 \
+  --policy /home/johan/lamp-t23/policy.json \
+  --template tp_8a6922170222418fabafdc0c95 \
+  --binary-dir /home/johan/lamp-t23
+```
+
+Immediately before allocation the machine had zero Firecracker processes and
+27,115 MiB available. The watchdog released the sandbox, then the demo revoked
+its grant and stopped its own broker, daemon and supervisor. Final inspection
+found no demo processes. The shared machine then had one Firecracker process;
+the demonstrated VM was independently confirmed absent. Earlier interrupted
+setup/debugging attempts remain in `/tmp/t23-fix-1` through `-3`; each cleaned
+up its sandbox and owned processes. No owner services, Docker resources, visible
+apps, paid providers, benchmarks or trial runs were used.

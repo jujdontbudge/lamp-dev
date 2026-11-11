@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -242,6 +244,27 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		writeError(w, id, code, err.Error(), nil)
 		return
 	}
+	// A rejected or failed export must not leave an unreceipted file charging
+	// other sandboxes' export capacity, including a journal commit failure.
+	exportCommitted := false
+	if op.Name == "audit_record_export" {
+		exports := s.journal.Accountability.Exports
+		if len(exports) > 0 {
+			var details struct {
+				Path string `json:"path"`
+			}
+			last := exports[len(exports)-1]
+			if last.Id == ref.Id && last.Details != nil {
+				_ = json.Unmarshal([]byte(*last.Details), &details)
+			}
+			defer func() {
+				if !exportCommitted && details.Path != "" {
+					_ = os.Remove(details.Path)
+					_ = syncDirectory(filepath.Dir(details.Path))
+				}
+			}()
+		}
+	}
 	now := timestamp()
 	operationID := s.resourceID("op")
 	refs := []api.ResourceRef{ref}
@@ -275,6 +298,7 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		writeError(w, id, "DATA_UNAVAILABLE", "cannot commit management operation", pointer(operationID))
 		return
 	}
+	exportCommitted = true
 	if op.Name == "telemetry_purge" || op.Name == "telemetry_update" && !value(s.telemetry(a).Enabled) {
 		if err := s.compact(); err != nil {
 			s.broken = true

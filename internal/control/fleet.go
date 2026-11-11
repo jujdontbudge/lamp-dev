@@ -604,7 +604,15 @@ func (f *Fleet) collect() {
 	f.mu.Unlock()
 	_ = os.WriteFile(filepath.Join(f.service.dir, "fleet-catalog.json"), raw, 0600)
 }
-func (f *Fleet) ServeHTTP(w http.ResponseWriter, r *http.Request) { f.serve(w, r, false) }
+func (f *Fleet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/internal/accountability/") {
+		// The bridge checks the Unix peer itself. Public TLS and mTLS
+		// forwarding cannot supply the owner peer context.
+		f.service.accountabilityBridge(w, r)
+		return
+	}
+	f.serve(w, r, false)
+}
 func (f *Fleet) forward(w http.ResponseWriter, r *http.Request, home, code string) {
 	f.mu.Lock()
 	_, observed := f.observations[home]
