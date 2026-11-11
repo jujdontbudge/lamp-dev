@@ -5,6 +5,7 @@
 import json, os, signal, subprocess, sys, tempfile, time, urllib.request
 from pathlib import Path
 
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))  # still run the cleanup below
 base = Path.home() / 'lamp-t29'
 api = 'http://10.219.29.1:3934/api/v4'
 token = (base / 'gitlab-token').read_text().strip()
@@ -72,8 +73,7 @@ check_interval = 3
       state_dir = "{work / 'fleeting'}"
       max_size = 1
     [runners.autoscaler.connector_config]
-      username = "root"
-      use_static_credentials = true
+      use_static_credentials = false
     [[runners.autoscaler.policy]]
       idle_count = 0
       idle_time = "1m"

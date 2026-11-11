@@ -166,7 +166,7 @@ func prepare(c *client, job string) int {
 		}
 	}
 	server := env("CI_SERVER_HOST")
-	out, err := c.do("POST", "/v1/sandboxes", map[string]any{"recipe_id": recipe, "labels": map[string]string{"lamp.ci": "gitlab", "gitlab.server": server, "gitlab.job": job, "trust_class": trust}},
+	out, err := c.do("POST", "/v1/sandboxes", map[string]any{"recipe_id": recipe},
 		map[string]string{"Idempotency-Key": "gitlab-custom:" + server + ":" + job})
 	if err != nil {
 		return systemFailure(err)

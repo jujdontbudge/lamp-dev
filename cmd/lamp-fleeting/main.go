@@ -12,8 +12,7 @@
 //	    callback_addr = "10.219.29.1:3935" # enrolled private endpoint, guest-reachable
 //	    state_dir     = "/var/lib/lamp-fleeting"
 //	  [runners.autoscaler.connector_config]
-//	    username = "root"
-//	    use_static_credentials = true
+//	    use_static_credentials = false   # the plugin reports the guest user and key
 //
 // Lamp authority comes from LAMP_SOCKET or LAMP_API_URL with LAMP_TOKEN or
 // LAMP_TOKEN_FILE in the runner's environment.
@@ -58,6 +57,7 @@ type instance struct {
 	Sandbox string `json:"sandbox"`
 	Secret  string `json:"secret"`
 	Exec    string `json:"exec,omitempty"`
+	User    string `json:"user,omitempty"`
 	port    int
 	ctl     net.Conn
 	pending chan net.Conn
@@ -185,7 +185,7 @@ func (g *Group) Increase(ctx context.Context, n int) (int, error) {
 // agent as one long-lived command; deleting the sandbox ends both.
 func (g *Group) startAgent(id string, it *instance) {
 	agent := `import os,socket,sys,threading
-cb,iid,sec=sys.argv[1],sys.argv[2],sys.argv[3]
+cb,iid,sec,user=sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4]
 h,p=cb.rsplit(':',1)
 def pipe(a,b):
   try:
@@ -199,19 +199,22 @@ def pipe(a,b):
     except OSError: pass
 def stream():
   up=socket.create_connection((h,int(p)));up.sendall(('data %s %s\n'%(iid,sec)).encode())
-  down=socket.create_connection(('127.0.0.1',22))
+  down=socket.create_connection(('127.0.0.1',2222))
   threading.Thread(target=pipe,args=(up,down),daemon=True).start();pipe(down,up)
-ctl=socket.create_connection((h,int(p)));ctl.sendall(('ctl %s %s\n'%(iid,sec)).encode())
+ctl=socket.create_connection((h,int(p)));ctl.sendall(('ctl %s %s %s\n'%(iid,sec,user)).encode())
 for line in ctl.makefile():
   if line.strip()=='open': threading.Thread(target=stream,daemon=True).start()
 `
+	// Sandbox commands run unprivileged: sshd runs as that user on loopback
+	// with its own host key, and the runner logs in as the same user.
 	script := `set -e
-mkdir -p /root/.ssh /run/sshd && chmod 700 /root/.ssh
-printf '%s\n' "$1" > /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys
-ssh-keygen -A >/dev/null
-[ -x /opt/gitlab-runner/gitlab-runner ] && ln -sf /opt/gitlab-runner/gitlab-runner /usr/local/bin/gitlab-runner || true
-/usr/sbin/sshd -o ListenAddress=127.0.0.1 -o PermitRootLogin=prohibit-password -o PasswordAuthentication=no
-exec python3 -c "$2" "$3" "$4" "$5"`
+D=/var/tmp/lamp-fleeting
+mkdir -p "$D" && chmod 700 "$D"
+printf '%s\n' "$1" > "$D/authorized_keys" && chmod 600 "$D/authorized_keys"
+[ -f "$D/hostkey" ] || ssh-keygen -q -t ed25519 -N '' -f "$D/hostkey"
+/usr/sbin/sshd -f /dev/null -o ListenAddress=127.0.0.1 -o Port=2222 -o HostKey="$D/hostkey" -o AuthorizedKeysFile="$D/authorized_keys" \
+  -o StrictModes=no -o UsePAM=no -o PasswordAuthentication=no -o PidFile="$D/sshd.pid" -o "SetEnv=PATH=/opt/gitlab-runner:/usr/local/bin:/usr/bin:/bin HOME=$D"
+exec python3 -c "$2" "$3" "$4" "$5" "$(id -un)"`
 	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": it.Sandbox, "argv": []string{"sh", "-c", script, "lamp", g.pub, agent, g.CallbackAddr, id, it.Secret}},
 		map[string]string{"Idempotency-Key": "fleeting-agent:" + id})
 	if err != nil {
@@ -237,7 +240,7 @@ func (g *Group) acceptAgents() {
 			r := bufio.NewReader(c)
 			line, err := r.ReadString('\n')
 			f := strings.Fields(line)
-			if err != nil || len(f) != 3 {
+			if err != nil || len(f) < 3 || len(f) > 4 {
 				c.Close()
 				return
 			}
@@ -250,6 +253,9 @@ func (g *Group) acceptAgents() {
 					it.ctl.Close()
 				}
 				it.ctl, it.pending = c, make(chan net.Conn, 4)
+				if len(f) == 4 {
+					it.User = f[3]
+				}
 			}
 			pending := (chan net.Conn)(nil)
 			if ok {
@@ -302,7 +308,10 @@ func (g *Group) ConnectInfo(ctx context.Context, id string) (provider.ConnectInf
 	}
 	info := provider.ConnectInfo{ConnectorConfig: g.settings.ConnectorConfig, ID: id, ExternalAddr: "127.0.0.1:" + strconv.Itoa(it.port), InternalAddr: "127.0.0.1:" + strconv.Itoa(it.port)}
 	info.OS, info.Arch, info.Protocol, info.ProtocolPort = "linux", "amd64", provider.ProtocolSSH, it.port
-	info.Username, info.Key, info.UseStaticCredentials = "root", g.key, true
+	info.Username, info.Key, info.UseStaticCredentials = it.User, g.key, true
+	if info.Username == "" {
+		info.Username = "root"
+	}
 	return info, nil
 }
 
