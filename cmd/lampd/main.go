@@ -65,11 +65,18 @@ func run() error {
 	pid := flags.Int("worker-pid", 0, "assigned supervisor OS PID (required)")
 	grant := flags.String("grant-id", "", "supervisor-installed control grant ID")
 	timeout := flags.Duration("worker-timeout", 30*time.Second, "absolute operation deadline (max 1m)")
+	stateAdmin := flags.String("state-admin", "", "JSON argv of the supervisor's root-only state administration, used to discard saved state")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments")
+	}
+	var admin []string
+	if *stateAdmin != "" {
+		if err := json.Unmarshal([]byte(*stateAdmin), &admin); err != nil || len(admin) == 0 {
+			return fmt.Errorf("--state-admin must be a JSON argv")
+		}
 	}
 	if *profileDir != "" {
 		if err := control.PrivateDir(*profileDir); err != nil {
@@ -136,7 +143,7 @@ func run() error {
 			return e
 		}
 	}
-	service, err := control.Open(control.Config{Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
+	service, err := control.Open(control.Config{Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin})
 	if err != nil {
 		return err
 	}

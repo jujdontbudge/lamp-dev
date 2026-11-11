@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/JohanSardar/lamp/internal/network"
+	"github.com/JohanSardar/lamp/internal/surface"
 )
 
 const maxControlActionBytes = 1 << 20
@@ -28,7 +29,11 @@ type serviceConfig struct {
 	IngressSandboxID string   `json:"ingress_sandbox_id"`
 	IngressPort      uint16   `json:"ingress_port"`
 	PrivateViewers   []string `json:"private_viewers"`
-	Sandboxes        []config `json:"sandboxes"`
+	// WakeAPISocket and WakeTokenFile, when set, let an allowed dev request
+	// resume a suspended sandbox through Lamp's public API.
+	WakeAPISocket string   `json:"wake_api_socket"`
+	WakeTokenFile string   `json:"wake_token_file"`
+	Sandboxes     []config `json:"sandboxes"`
 }
 type runningSandbox struct {
 	director *network.Director
@@ -267,6 +272,17 @@ func runService(path string) error {
 		return err
 	}
 	defer manager.Close()
+	if plan.WakeAPISocket != "" && plan.WakeTokenFile != "" {
+		manager.SetWake(func(ctx context.Context, sandboxID string) error {
+			raw, err := os.ReadFile(plan.WakeTokenFile)
+			if err != nil {
+				return err
+			}
+			client := &surface.Client{Socket: plan.WakeAPISocket, Token: strings.TrimSpace(string(raw))}
+			defer client.Close()
+			return surface.WakeSandbox(ctx, client, sandboxID)
+		})
+	}
 	listener, err := ingress.member.ListenTCP(plan.IngressPort)
 	if err != nil {
 		return err

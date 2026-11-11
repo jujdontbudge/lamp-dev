@@ -58,8 +58,13 @@ type Config struct {
 	ProtectedActions map[string]ProtectedAction
 	ExportsDir       string
 	SharedReaders    map[uint32]string
-	Quotas           Quotas
-	AuditReader      string
+	// StateAdmin is the trusted argv prefix of the supervisor's root-only
+	// state administration (for example `sudo -n lamp-supervisor state
+	// --admin-socket P`); Lamp appends `delete <capture>` to discard saved
+	// state it no longer references. Empty keeps every capture.
+	StateAdmin  []string
+	Quotas      Quotas
+	AuditReader string
 }
 type Service struct {
 	clockWall      time.Time
@@ -103,6 +108,9 @@ type Service struct {
 	// mark is journal.commit: the durable committed end of log (see
 	// commitMark). A commit is acknowledged only once mark covers it.
 	mark *os.File
+	// life is lifecycle, lasting storage and saved-template state (T19).
+	life       *lifeState
+	stateAdmin []string
 }
 
 // logPrealloc is how far journal.log is extended with zeros at a time.
@@ -390,6 +398,10 @@ func Open(config Config) (*Service, error) {
 	}
 	s.durableOps = cloneOperations(s.journal.Operations)
 	s.rootContext, s.cancel = context.WithCancel(context.Background())
+	if err := s.initLifecycle(config.StateAdmin); err != nil {
+		lock.Close()
+		return nil, err
+	}
 	s.wg.Add(1)
 	go s.watchAccountability()
 	for _, rec := range s.journal.Operations {

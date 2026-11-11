@@ -433,6 +433,24 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
+	if s.cleanExportRead(op.Name, selectors) {
+		// T9's clean-export templates and blobs keep their own read path.
+		s.engineHTTP(w, r)
+		return
+	}
+	if lifeOperation(op.Name) {
+		s.lifeHTTP(w, r, id, op, selectors)
+		return
+	}
+	if op.Name == "sandbox_delete" && !s.deleteKeepsWrites(w, id, textField(selectors, "sandbox_id")) {
+		return
+	}
+	if op.Name == "exec_create" && !s.wakeForExec(w, r, id) {
+		return
+	}
+	if op.Name == "sandbox_create" && s.lifeCreate(w, r, id) {
+		return
+	}
 	switch op.Name {
 	case "sandbox_create", "sandbox_fork", "sandbox_delete", "exec_create", "sandbox_get", "exec_get", "exec_watch", "operation_get",
 		"sandbox_suspend", "sandbox_resume", "snapshot_create", "snapshot_get",
