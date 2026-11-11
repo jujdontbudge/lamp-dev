@@ -49,11 +49,14 @@ type FleetHost struct {
 	Capacity api.Capacity `json:"capacity"`
 }
 type fleetObservation struct {
-	Host      string                 `json:"host"`
-	Sandboxes map[string]api.Sandbox `json:"sandboxes"`
-	Execs     map[string]api.Exec    `json:"execs"`
-	Sequence  uint64                 `json:"sequence"`
-	At        string                 `json:"at"`
+	ControlDigest      string                 `json:"control_digest"`
+	AuthorityEnforced  bool                   `json:"authority_enforced"`
+	AuthorityExpiresAt string                 `json:"authority_expires_at"`
+	Host               string                 `json:"host"`
+	Sandboxes          map[string]api.Sandbox `json:"sandboxes"`
+	Execs              map[string]api.Exec    `json:"execs"`
+	Sequence           uint64                 `json:"sequence"`
+	At                 string                 `json:"at"`
 }
 type fleetPeer struct {
 	host   FleetHost
@@ -536,7 +539,7 @@ func (f *Fleet) peerHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/internal/fleet/observe" && r.Method == "GET" {
 		s := f.service
 		s.readLock()
-		observation := fleetObservation{Host: f.config.HostID, Sandboxes: s.journal.Sandboxes, Execs: s.journal.Execs, Sequence: s.journal.Sequence, At: timestamp()}
+		observation := fleetObservation{ControlDigest: digest(s.journal.Control), AuthorityEnforced: s.authorityEnforced(), AuthorityExpiresAt: f.fsm.snapshot().ExpiresAt, Host: f.config.HostID, Sandboxes: s.journal.Sandboxes, Execs: s.journal.Execs, Sequence: s.journal.Sequence, At: timestamp()}
 		raw, err := json.Marshal(observation)
 		s.mu.Unlock()
 		if err != nil {
@@ -568,7 +571,7 @@ func (f *Fleet) collect() {
 			if id == f.config.HostID {
 				s := f.service
 				s.readLock()
-				raw, _ := json.Marshal(fleetObservation{Host: id, Sandboxes: s.journal.Sandboxes, Execs: s.journal.Execs, Sequence: s.journal.Sequence, At: timestamp()})
+				raw, _ := json.Marshal(fleetObservation{ControlDigest: digest(s.journal.Control), AuthorityEnforced: s.authorityEnforced(), AuthorityExpiresAt: f.fsm.snapshot().ExpiresAt, Host: id, Sandboxes: s.journal.Sandboxes, Execs: s.journal.Execs, Sequence: s.journal.Sequence, At: timestamp()})
 				s.mu.Unlock()
 				err = json.Unmarshal(raw, &observation)
 			} else {
@@ -601,7 +604,15 @@ func (f *Fleet) collect() {
 	f.mu.Unlock()
 	_ = os.WriteFile(filepath.Join(f.service.dir, "fleet-catalog.json"), raw, 0600)
 }
-func (f *Fleet) ServeHTTP(w http.ResponseWriter, r *http.Request) { f.serve(w, r, false) }
+func (f *Fleet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/internal/accountability/") {
+		// The bridge checks the Unix peer itself. Public TLS and mTLS
+		// forwarding cannot supply the owner peer context.
+		f.service.accountabilityBridge(w, r)
+		return
+	}
+	f.serve(w, r, false)
+}
 func (f *Fleet) forward(w http.ResponseWriter, r *http.Request, home, code string) {
 	f.mu.Lock()
 	_, observed := f.observations[home]

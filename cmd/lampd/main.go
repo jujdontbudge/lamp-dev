@@ -29,6 +29,8 @@ func main() {
 }
 func run() error {
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
+	auditReader := flags.String("audit-reader", "", "trusted absolute executable reading guard audit for sandbox ID and generation")
+	quotaFile := flags.String("quota-file", "", "host admission quota JSON")
 	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
 	profileDir := flags.String("profile-dir", "", "private CPU/mutex/block profiles for a diagnostic run")
@@ -131,7 +133,17 @@ func run() error {
 			return err
 		}
 	}
-	service, err := control.Open(control.Config{Fleet: fleetConfig, Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin})
+	var quotas control.Quotas
+	if *quotaFile != "" {
+		raw, e := os.ReadFile(*quotaFile)
+		if e != nil {
+			return e
+		}
+		if e = json.Unmarshal(raw, &quotas); e != nil {
+			return e
+		}
+	}
+	service, err := control.Open(control.Config{Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin})
 	if err != nil {
 		return err
 	}

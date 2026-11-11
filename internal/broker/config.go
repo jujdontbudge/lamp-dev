@@ -15,14 +15,16 @@ import (
 const limit = 2 << 20
 
 type Config struct {
-	UpstreamCAFiles []string                  `json:"upstream_ca_files,omitempty"`
-	Connections     map[string]Connection     `json:"connections"`
-	Settings        map[string]SettingsSource `json:"settings"`
+	AccountabilitySocket string                    `json:"accountability_socket,omitempty"`
+	UpstreamCAFiles      []string                  `json:"upstream_ca_files,omitempty"`
+	Connections          map[string]Connection     `json:"connections"`
+	Settings             map[string]SettingsSource `json:"settings"`
 }
 type Connection struct {
-	Kind     string `json:"kind"`   // model, mcp, cli, service, git_sign
-	Access   string `json:"access"` // off, read_only, ask_first, full
-	Endpoint string `json:"endpoint,omitempty"`
+	TokenizerCommand []string `json:"tokenizer_command,omitempty"`
+	Kind             string   `json:"kind"`   // model, mcp, cli, service, git_sign
+	Access           string   `json:"access"` // off, read_only, ask_first, full
+	Endpoint         string   `json:"endpoint,omitempty"`
 	// CredentialCommand is a host-only credential-store reader. Its stdout must
 	// contain only the bearer. No shell is used and stderr is never forwarded.
 	CredentialCommand []string             `json:"credential_command,omitempty"`
@@ -69,6 +71,9 @@ func Load(path string) (Config, error) {
 	return c, c.Validate()
 }
 func (c Config) Validate() error {
+	if c.AccountabilitySocket != "" && !filepath.IsAbs(c.AccountabilitySocket) {
+		return errors.New("accountability socket must be absolute")
+	}
 	for id, v := range c.Connections {
 		if !namePattern.MatchString(id) || len(v.Operations) == 0 {
 			return errors.New("connection requires a name and explicit operations")
@@ -80,6 +85,9 @@ func (c Config) Validate() error {
 		}
 		if len(v.CredentialCommand) > 0 && !filepath.IsAbs(v.CredentialCommand[0]) {
 			return errors.New("credential reader must be an absolute executable")
+		}
+		if len(v.TokenizerCommand) > 0 && (v.Kind != "model" || !filepath.IsAbs(v.TokenizerCommand[0])) {
+			return errors.New("tokenizer must be an absolute host model adapter")
 		}
 		switch v.Kind {
 		case "model", "mcp", "service":
