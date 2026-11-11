@@ -17499,6 +17499,10 @@ pub enum ScopeActionsItem {
     KitDelete,
     #[serde(rename = "kit.get")]
     KitGet,
+    #[serde(rename = "kit.install")]
+    KitInstall,
+    #[serde(rename = "kit.install_status")]
+    KitInstallStatus,
     #[serde(rename = "kit.list")]
     KitList,
     #[serde(rename = "kit.update")]

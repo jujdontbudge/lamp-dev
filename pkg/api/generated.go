@@ -8370,6 +8370,8 @@ const (
 	ScopeActionsItemKitCreate                  ScopeActionsItem = "kit.create"
 	ScopeActionsItemKitDelete                  ScopeActionsItem = "kit.delete"
 	ScopeActionsItemKitGet                     ScopeActionsItem = "kit.get"
+	ScopeActionsItemKitInstall                 ScopeActionsItem = "kit.install"
+	ScopeActionsItemKitInstallStatus           ScopeActionsItem = "kit.install_status"
 	ScopeActionsItemKitList                    ScopeActionsItem = "kit.list"
 	ScopeActionsItemKitUpdate                  ScopeActionsItem = "kit.update"
 	ScopeActionsItemLeaseCreate                ScopeActionsItem = "lease.create"

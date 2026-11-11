@@ -53135,6 +53135,8 @@
                 "kit.create",
                 "kit.delete",
                 "kit.get",
+                "kit.install",
+                "kit.install_status",
                 "kit.list",
                 "kit.update",
                 "lease.create",
