@@ -165,6 +165,15 @@ func prepare(c *client, job string) int {
 			return systemFailure(errors.New("public work needs LAMP_GITLAB_PUBLIC_RECIPE (deny-by-default network, no secrets)"))
 		}
 	}
+	// GitLab retries a failed prepare with the same job: reuse its sandbox.
+	if sb, e := sandboxOf(job); e == nil {
+		if out, e := c.do("GET", "/v1/sandboxes/"+sb, nil, nil); e == nil {
+			if d, _ := out["data"].(map[string]any); d != nil && d["state"] == "ready" {
+				fmt.Printf("Lamp sandbox %s (%s) ready\n", sb, trust)
+				return 0
+			}
+		}
+	}
 	server := env("CI_SERVER_HOST")
 	out, err := c.do("POST", "/v1/sandboxes", map[string]any{"recipe_id": recipe},
 		map[string]string{"Idempotency-Key": "gitlab-custom:" + server + ":" + job})
@@ -182,18 +191,17 @@ func prepare(c *client, job string) int {
 	if err = wait(c, op); err != nil {
 		return systemFailure(err)
 	}
-	// Artifact and cache stages call the runner's own helper by name.
-	execute(c, sandbox, []string{"sh", "-c", "[ -x /opt/gitlab-runner/gitlab-runner ] && ln -sf /opt/gitlab-runner/gitlab-runner /usr/local/bin/gitlab-runner || true"}, "gl:"+job+":helper", false)
 	fmt.Printf("Lamp sandbox %s (%s) ready\n", sandbox, trust)
 	return 0
 }
 
 func wait(c *client, op string) error {
 	for {
-		out, err := c.do("GET", "/v1/operations/"+op+"?wait_ms=25000", nil, nil)
+		out, err := c.do("GET", "/v1/operations/"+op, nil, nil)
 		if err != nil {
 			return err
 		}
+		time.Sleep(500 * time.Millisecond)
 		data, _ := out["data"].(map[string]any)
 		switch data["state"] {
 		case "succeeded":
@@ -298,7 +306,8 @@ func runStage(c *client, job, script, stage string) int {
 			return systemFailure(fmt.Errorf("script upload failed: %v", err))
 		}
 	}
-	code, err := execute(c, sandbox, []string{"bash", target}, "gl:"+job+":"+stage+":run:"+nonce, true)
+	// Artifact and cache stages call the runner's own helper by name.
+	code, err := execute(c, sandbox, []string{"env", "HOME=/var/tmp/lamp-ci", "PATH=/opt/gitlab-runner:/usr/local/bin:/usr/bin:/bin", "bash", target}, "gl:"+job+":"+stage+":run:"+nonce, true)
 	if err != nil {
 		return systemFailure(err)
 	}
