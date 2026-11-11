@@ -32,14 +32,15 @@ maximum price zero, and only a short-lived scoped Lamp grant in the job.
 | Cancellation | [42962867545](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42962867545) | Canceled through GitHub while the native cancel step ran; Lamp job `jb_cd4594f5d4c297a6fddb6898afe4ce86` became canceled. |
 | Trusted stopped retention | [42963069751](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42963069751) | Suspended VM, old-Task resume HTTP 409, new budget/Task inspected retained public checkout and absence of runner transport directory; VM then deleted. |
 | Actual untrusted same-repository PR | [42971889992](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42971889992) | Owner-authored [PR #3](https://github.com/JohanSardar/lamp-t26-fixture/pull/3), explicitly empty trusted actor list. Native build and authority checks passed; classified `public_pr`; fresh sandbox `sb_adffa9b5cc87b180b519b5fff82af34d` deleted despite `retain_stopped=true`. No repository/environment model or Lamp secrets. **Not a stranger's fork.** |
+| Claude Code Action, real model reply | [42983320133](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42983320133) | Fresh one-job runner; scoped `claude`/`messages` grant from Lamp's host credential broker to free OpenRouter (`openrouter/free`, provider max price 0; served by `nvidia/nemotron-3.5-super-vl:free`). Reply `LAMP_T26_CLAUDE_FREE_OK` verified from the action's execution file; Lamp job `jb_70a712bc1705bd26eea1f88fcc44ce4c` completed. No owner subscription or new key; GitHub held no model secret. Claude Code's own `costUSD` is its estimate for an unknown model, not a charge. |
+| Codex Action, real model reply | [42987215991](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42987215991) | Fresh one-job runner; scoped `codex`/`responses` grant through the same broker. Reply `LAMP_T26_CODEX_FREE_OK` verified from the action's `final-message`; Lamp job `jb_8586d9302f7561a813f29be66fe19424` completed. Workflow disables Codex's hosted `web_search` tool (broker admits only function tools) and gives the action a pass-through `sudo` (runner is already UID 0 in its task namespace). |
 
 [Native status](evidence/t26/native-status.json) records the matching observation
 metadata. Passed goals are not being rerun. Coding-agent limitations and final
 fixture cleanup are recorded separately. A real
 **stranger's fork PR remains open evidence**, not replaced by an owner PR.
-No usable headless Claude credential was located (M5 cached OAuth expired;
-none located in the inspected Ubuntu/Air credential files), and no API key was
-provisioned: Claude Code Action is **not run**.
+The earlier Claude/Codex limitations below are historical; both actions later
+passed through the host credential broker (rows above).
 
 ## Coding-agent observations — no inference success claimed
 
@@ -57,7 +58,7 @@ provisioned: Claude Code Action is **not run**.
   repository Internet-access setting to be changed; no available public API
   setting was located. No owner browser/profile was used and no validation or
   Lamp guard was bypassed. **Native placement observed; model inference not run.**
-* **Codex:** only an existing ChatGPT subscription credential was available,
+* **Codex (historical, before the broker route):** only an existing ChatGPT subscription credential was available,
   supplied through a private Actions secret into a mode-0600 transient job file;
   no API key was created.
   [42964816530](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42964816530)
@@ -71,7 +72,7 @@ provisioned: Claude Code Action is **not run**.
   run-log archive. Its underlying cause was not established. **These are failed
   native attempts, not successful Codex Action or model inference evidence.**
   The Actions secret was removed before the untrusted PR was created.
-* **Claude Code Action:** **not run**, for the credential limitation above.
+* **Claude Code Action (historical):** not run at that point, for want of a credential.
   Expired cached OAuth was not relabeled as a working credential, no approval
   dialog/keychain write was attempted, and no account or key was provisioned.
 
@@ -226,3 +227,12 @@ not the preserved failed development conclusions.
 `docs/ci.md` documents the implemented setup and these limitations; example
 workflows are outside `.github/workflows` and did not start owner-machine jobs.
 Lamp's existing private persistent CI runners were not attached elsewhere.
+
+## Broker-route agent attempts that failed (kept failed)
+
+Before the passing runs: Claude runs 42977215770 and 42979631446 were cancelled,
+and 42980322884 and 42981371273 ended `is_error:true` with no reply (fixed by
+also giving the action `ANTHROPIC_AUTH_TOKEN`; free-model routing was also flaky).
+Codex 42983775174 failed on missing `sudo`, 42984094522 on `SCOPE_DENIED` for the
+hosted `web_search` tool, and 42985020769 hung until the job timeout with its log
+lost; the 300 s grant TTL had expired by then. Cause not established.
