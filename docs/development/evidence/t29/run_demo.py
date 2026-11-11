@@ -14,8 +14,8 @@ sh('sudo','-n','install','-d','-m','0755',bindir,'/run/t29','/run/t29/m','/run/t
 sh('sudo','-n','install','-d','-m','0700',audit)
 policy=json.loads(sh('sudo','-n','cat','/var/lib/lamp/t26-private-bin/network.json').stdout)
 policy.update(audit_dir=audit,require_allowlist=True,subscription_domains=None,principal_id='pr_local',policy_layers=[],
- exceptions=[dict(address='10.219.29.1',transport='tcp',port=3929)],
- policy_ceiling=[dict(filter_mode='transport',default_egress='deny',allow=[dict(cidr='10.219.29.1/32',protocol='tcp',ports=[3929])],deny=[])])
+ exceptions=[dict(address='10.219.29.1',transport='tcp',port=p) for p in (3929,3930,3931,3932,3933)],
+ policy_ceiling=[dict(filter_mode='transport',default_egress='deny',allow=[dict(cidr='10.219.29.1/32',protocol='tcp',ports=[3929,3930,3931,3932,3933])],deny=[])])
 (base/'network.json').write_text(json.dumps(policy))
 sh('sudo','-n','install','-m','0644',str(base/'network.json'),bindir+'/network.json')
 sh('sudo','-n','install','-m','0755',str(base/'src/tools/ci-network-attestation.py'),bindir+'/ci-network-attestation')
@@ -32,15 +32,20 @@ try:
   time.sleep(.05)
  pid=int(sh('sudo','-n','cat','/run/t29/w.pid').stdout)
  grant=json.loads(sh('sudo','-n',sup,'grant-install','--store',store,'--caller-uid',str(os.getuid()),'--ttl-s','7200','--max-generation','16').stdout)
- template=json.loads((base/'template.json').read_text())['template_id']
+ template=json.loads((base/os.environ.get('LAMP_T29_TEMPLATE','template.json')).read_text())['template_id']
+ eps='10.219.29.1:3929,10.219.29.1:3930,10.219.29.1:3931,10.219.29.1:3932,10.219.29.1:3933'
  repo=dict(system='forgejo',name='lamp-admin/zlib',id=1,owner_id=1,label='lamp-t29',template_id=template,runner_directory='/opt/forgejo-runner',
-  base_url=forge,token_file=str(base/'forgejo-token'),project='1',workflow_sha256=pins,options=dict(private_endpoint='10.219.29.1:3929'))
+  base_url=forge,token_file=str(base/'forgejo-token'),project='1',workflow_sha256=pins,options=dict(private_endpoint=eps))
+ gpin=hashlib.sha256((base/'zlib-gitea/.gitea/workflows/ci.yml').read_bytes()).hexdigest()
+ repos=[dict(system='gitea',name='lamp-admin/zlib',id=1,owner_id=1,label='lamp-t29g',template_id=template,runner_directory='/opt/gitea-runner',base_url='http://10.219.29.1:3930',token_file=str(base/'gitea-token'),project='1',workflow_sha256={'.gitea/workflows/ci.yml':gpin},options=dict(private_endpoint=eps)),
+  dict(system='jenkins',name='zlib',label='lamp-t29j',template_id=template,runner_directory='/opt/jenkins-agent',base_url='http://10.219.29.1:3931',token_file=str(base/'jenkins-token'),project='zlib',options=dict(private_endpoint=eps)),
+  dict(system='woodpecker',name='lamp-admin/zlib-public',label='lamp-t29w',template_id=template,runner_directory='/opt/woodpecker-agent',base_url='http://10.219.29.1:3932',token_file=str(base/'woodpecker-token'),project='1',options=dict(private_endpoint=eps,grpc_address='10.219.29.1:3933'))]
  conf=base/'live.json'
- conf.write_text(json.dumps(dict(template=template,forge=forge,token_file=str(base/'forgejo-token'),repository=repo,
+ conf.write_text(json.dumps(dict(template=template,forge=forge,token_file=str(base/'forgejo-token'),repository=repo,repositories=repos if os.environ.get('LAMP_T29_ONLY')=='systems' else [],
   network_reader=['sudo','-n',bindir+'/ci-network-attestation',audit],state_admin=['sudo','-n',sup,'state','--admin-socket','/run/t29/admin.sock'],
   worker=dict(Socket='/run/t29/w.sock',WorkerID='lamp-supervisor@'+os.uname().nodename,BootID=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),UID=0,PID=pid,GrantID=grant['grant_id'],Timeout=60000000000))))
  conf.chmod(0o600)
- env=dict(os.environ,LAMP_T29_LIVE_CONFIG=str(conf),PATH='/home/johan/go-sdk/bin:'+os.environ['PATH'])
+ env=dict(os.environ,LAMP_T29_ONLY=os.environ.get('LAMP_T29_ONLY',''),LAMP_T29_LIVE_CONFIG=str(conf),PATH='/home/johan/go-sdk/bin:'+os.environ['PATH'])
  p=subprocess.run(['go','test','./internal/control','-run','^TestT29Demonstration$','-count=1','-v','-timeout','60m'],cwd=base/'src',env=env)
  print('demonstration_exit',p.returncode,flush=True)
 finally:

@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/JohanSardar/lamp/internal/ci"
@@ -31,8 +32,10 @@ func (s *Service) ciBrokerNetwork(id string, r ci.Repository, exceptions []any) 
 	// own enrolled endpoint (every job needs it), plus the model broker for
 	// trusted jobs only. Anything else, or a missing required one, is refused.
 	want := map[string]bool{}
-	if ep := r.Options["private_endpoint"]; ep != "" {
-		want[ep] = true
+	for _, ep := range strings.Split(r.Options["private_endpoint"], ",") {
+		if ep = strings.TrimSpace(ep); ep != "" {
+			want[ep] = true
+		}
 	}
 	if b := s.ciModelPolicy(id, r); b != nil {
 		u, _ := url.Parse(b.Endpoint)

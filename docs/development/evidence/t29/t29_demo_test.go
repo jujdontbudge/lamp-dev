@@ -35,7 +35,8 @@ type t29Live struct {
 	Worker        WorkerConfig  `json:"worker"`
 	StateAdmin    []string      `json:"state_admin"`
 	NetworkReader []string      `json:"network_reader"`
-	Repository    ci.Repository `json:"repository"`
+	Repository    ci.Repository   `json:"repository"`
+	Repositories  []ci.Repository `json:"repositories"`
 	Template      string        `json:"template"`
 	Forge         string        `json:"forge"`
 	TokenFile     string        `json:"token_file"`
@@ -176,7 +177,7 @@ func TestT29Demonstration(t *testing.T) {
 	}
 	root := t.TempDir()
 	config := Config{StateDir: filepath.Join(root, "state"), Worker: live.Worker, StateAdmin: live.StateAdmin,
-		CI: &ci.Config{NetworkReader: live.NetworkReader, Repositories: []ci.Repository{live.Repository}, PollSeconds: 3}}
+		CI: &ci.Config{NetworkReader: live.NetworkReader, Repositories: append([]ci.Repository{live.Repository}, live.Repositories...), PollSeconds: 3}}
 	s, err := Open(config)
 	if err != nil {
 		t.Fatal(err)
@@ -212,6 +213,20 @@ func TestT29Demonstration(t *testing.T) {
 		}
 	}()
 
+	if os.Getenv("LAMP_T29_ONLY") == "systems" {
+		defer s.Close()
+		// One real native job per further self-hosted system, each on a fresh VM.
+		for _, plugin := range []string{"pg_gitea", "pg_jenkins", "pg_woodpecker"} {
+			var id string
+			t29Until(t, plugin+" job", 15*time.Minute, func() bool {
+				id, _ = t29Job(s, func(j *ciJob) bool { return j.Plugin == plugin && ciTerminal(textField(j.R, "state")) })
+				return id != ""
+			})
+			t29Report(t, s, id)
+		}
+		t29Triggers(t, s, live, root)
+		return
+	}
 	if os.Getenv("LAMP_T29_ONLY") == "triggers" {
 		defer s.Close()
 		t29Triggers(t, s, live, root)
