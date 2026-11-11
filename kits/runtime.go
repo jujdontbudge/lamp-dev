@@ -4,7 +4,9 @@ package kits
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,8 +43,24 @@ func Start(ctx context.Context, config, root string) (string, func(), error) {
 		}
 	}
 	socket := filepath.Join(root, "owner.sock")
-	if _, err := os.Lstat(socket); err == nil {
-		return "", nil, fmt.Errorf("kits socket already exists; refuse to replace it")
+	if info, err := os.Lstat(socket); err == nil {
+		// A backend killed with SIGKILL (or by OOM) leaves its socket behind.
+		// Remove only a real socket (Lstat: never a symlink's target) that no
+		// backend answers; a live backend or any other file is never replaced.
+		if info.Mode()&os.ModeSocket == 0 {
+			return "", nil, fmt.Errorf("kits socket path is not a socket; refuse to replace it")
+		}
+		conn, dialErr := net.DialTimeout("unix", socket, time.Second)
+		if dialErr == nil {
+			conn.Close()
+			return "", nil, fmt.Errorf("a kits backend is already serving %s", socket)
+		}
+		if !errors.Is(dialErr, syscall.ECONNREFUSED) {
+			return "", nil, fmt.Errorf("kits socket state unknown; refuse to replace it: %w", dialErr)
+		}
+		if err := os.Remove(socket); err != nil {
+			return "", nil, err
+		}
 	}
 	command := exec.CommandContext(ctx, "python3", "-m", "kits", "serve", "--config", config, "--root", root, "--owner-socket", socket)
 	command.Dir = runtimeDir

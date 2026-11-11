@@ -498,3 +498,44 @@ started from a background shell inherits SIGINT as ignored, so lampd never
 finished its SIGTERM drain. `kits/runtime.go` now sends SIGTERM (the backend
 installs a handler for it) and kills after 10 s. Checked on LX: on SIGTERM, lampd
 and its kits backend both exited (lampd was left a zombie for its parent to reap).
+
+## Review fixes for 5867649 — 2026-11-11
+
+**1. A task can no longer block later execs.** Guest init no longer delegates
+`/sys/fs/cgroup/tasks`, so it stays guest-root-owned. `lamp-guest-helper` now
+creates a fresh leaf `tasks/x-<id>` for each exec as guest root. For an audited
+task it delegates only that leaf (the directory plus `cgroup.procs`,
+`cgroup.threads` and `cgroup.subtree_control`) to the task UID, and starts the
+exec there. Empty leaves of finished execs are removed. The Docker kit uses the
+job's own leaf as `--cgroup-parent`. Seed v5 (new `lamp-init` `17796dde…` and
+`lamp-guest-helper` `9b26c7a3…`, rootfs `d3c99361…`), template
+`tp_a7db232158f9cdd3913ebf53a7`.
+
+[Real check](evidence/t22/cgroup-delegation.jsonl), `tools/kits_cgroup_demo.py`
+on LX, as the confined task:
+- On the shared `tasks` cgroup, `mkdir tasks/x`, `+pids` and `+memory` on
+  `tasks/cgroup.subtree_control` were each refused with `PermissionError:13`.
+- In its own leaf, it moved a long-lived child and itself into `x` (`ok`). The kernel
+  refused `+pids`/`+memory` on the leaf with `ENOENT`, because the parent doesn't
+  offer those controllers.
+- The **next Lamp exec ran** in a fresh leaf `/tasks/x-…-2`, UID map `0 65537 1`.
+
+Docker still works with the per-exec leaf: [run 11](evidence/t22/docker-run11.jsonl)
+printed `lamp-kit-docker-working` from `docker run` inside the guest. Both VMs were
+released and the Firecracker count returned to 0.
+
+**2. lampd restarts after the kits backend is killed.** `kits.Start` now removes
+a leftover `owner.sock` only when `Lstat` shows a real socket (a symlink or any
+other file is refused) and connecting is refused. A live backend is never replaced,
+and any other connect error is refused. On LX: the backend got `kill -9` and its
+`owner.sock` stayed. lampd got SIGTERM and exited. The same lampd command line,
+started again on the same state directory, logged
+`control API listening`, and a new kits backend was serving its socket.
+
+**3. A Docker install can't hang on stale sockets.** `kits/toolchains.py` reuses
+`containerd.sock`/`docker.sock` only when a daemon accepts a connection on it.
+Otherwise it removes the stale socket (never through a symlink) and starts the
+daemon. One 300 s bound now covers containerd startup, dockerd startup and
+reuse, and a reused daemon that disappears fails the job. That 300 s bound
+had been lost by an earlier edit; it is back. Build-only check: the generated
+job script compiles.

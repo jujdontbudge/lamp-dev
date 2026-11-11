@@ -99,9 +99,10 @@ mark('start')
 sock='unix:///tmp/lamp-kit-docker/docker.sock'
 docker_env={'PATH':str(bindir)+':/usr/sbin:/usr/bin:/sbin:/bin','HOME':str(state),
  'XDG_RUNTIME_DIR':str(state)}
-# Guest init delegates /sys/fs/cgroup/tasks to the task UID; containers get
-# child cgroups under it (--cgroup-parent). runc runs in rootless mode because
-# it is inside an unprivileged user namespace.
+# Lamp gives each exec its own leaf cgroup delegated to the task UID;
+# containers get child cgroups under this job's leaf (--cgroup-parent). runc
+# runs in rootless mode because it is inside an unprivileged user namespace.
+own_cgroup=next(l[3:] for l in pathlib.Path('/proc/self/cgroup').read_text().splitlines() if l.startswith('0::'))
 # Only namespace root is mapped, so drop the devpts gid= option exactly as
 # runc's rootless spec conversion (specconv.ToRootless) does.
 (state/'runc-rootless').write_text('#!'+sys.executable+'\\nimport json,os,sys\\na=sys.argv[1:]\\nif "--bundle" in a and a and ("create" in a or "run" in a):\\n p=os.path.join(a[a.index("--bundle")+1],"config.json");c=json.load(open(p))\\n for m in c.get("mounts",[]):\\n  if m.get("type")=="devpts":m["options"]=[o for o in m.get("options",[]) if not o.startswith("gid=")]\\n json.dump(c,open(p,"w"))\\nos.execv('+repr(str(bindir/'runc'))+',["runc","--rootless=true"]+a)\\n')
@@ -118,40 +119,58 @@ if not pathlib.Path('/run/docker').is_dir():
  for d in ('/run/containerd','/run/docker'):os.makedirs(d,mode=0o711,exist_ok=True)
 mark('runtime-dir ready')
 phase='containerd'
+import socket as _socket
+def served(path):
+ # A socket file left by a dead daemon is not a running daemon.
+ if not path.exists():return False
+ probe=_socket.socket(_socket.AF_UNIX,_socket.SOCK_STREAM)
+ try:probe.connect(str(path));return True
+ except OSError:
+  if path.is_socket() and not path.is_symlink():path.unlink()
+  return False
+ finally:probe.close()
+# Not a speed target: every wait below ends as a failed job whose runtime.log
+# can be read, instead of an install that never finishes.
+give_up=time.monotonic()+300
 containerd=None
 containerd_socket=state/'containerd.sock'
-if not containerd_socket.exists():
+if not served(containerd_socket):
+ for stale in (state/'containerd.sock.ttrpc',):
+  if stale.is_socket() and not stale.is_symlink():stale.unlink()
  config=state/'containerd.toml'
  generated=subprocess.run([str(bindir/'containerd'),'config','default'],check=True,
-  stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=docker_env)
+  stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=docker_env,timeout=60)
  config.write_bytes(generated.stdout);config.chmod(0o600)
  containerd=subprocess.Popen([str(bindir/'containerd'),'--config='+str(config),
   '--root='+str(state/'containerd-data'),'--state='+str(state/'containerd-run'),
   '--address='+str(containerd_socket),'--log-level=error'],
   stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=runtime_log,start_new_session=True,env=docker_env)
-containerd_give_up=time.monotonic()+300
-while not containerd_socket.exists():
- if time.monotonic()>containerd_give_up:raise RuntimeError('guest containerd never became ready')
+while not served(containerd_socket):
+ if time.monotonic()>give_up:raise RuntimeError('guest containerd never became ready')
  if containerd is not None and containerd.poll() is not None:raise RuntimeError('guest containerd exited')
  time.sleep(.25)
 mark('containerd ready')
 phase='docker'
 daemon=None
-if not (state/'docker.sock').exists():
- daemon=subprocess.Popen([str(bindir/'dockerd'),'--group=0','--add-runtime=lamp-runc='+str(state/'runc-rootless'),'--default-runtime=lamp-runc','--exec-opt=native.cgroupdriver=cgroupfs','--cgroup-parent=/tasks/lamp-docker','--host='+sock,'--data-root='+str(state/'data'),
+docker_socket=state/'docker.sock'
+if not served(docker_socket):
+ (state/'daemon.pid').unlink(missing_ok=True)
+ daemon=subprocess.Popen([str(bindir/'dockerd'),'--group=0','--add-runtime=lamp-runc='+str(state/'runc-rootless'),'--default-runtime=lamp-runc','--exec-opt=native.cgroupdriver=cgroupfs','--cgroup-parent='+own_cgroup+'/lamp-docker','--host='+sock,'--data-root='+str(state/'data'),
   '--containerd='+str(containerd_socket),'--exec-root='+str(state/'exec'),'--pidfile='+str(state/'daemon.pid'),
   '--bridge=none','--iptables=false','--ip6tables=false','--storage-driver=vfs','--debug'],
   stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=runtime_log,start_new_session=True,env=docker_env)
+ mark('dockerd started')
 while True:
+ if time.monotonic()>give_up:raise RuntimeError('guest Docker never became ready')
  try:
   probe=subprocess.run([str(bindir/'docker'),'--host='+sock,'info'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10,env=docker_env)
   mark('docker info exit '+str(probe.returncode))
   if probe.returncode==0:break
  except subprocess.TimeoutExpired:
   mark('docker info timed out')
-  pass  # A live daemon still starting is pending, not a failed speed target.
- if daemon is not None and daemon.poll() is not None:raise RuntimeError('rootless guest Docker exited')
+ if daemon is not None and daemon.poll() is not None:raise RuntimeError('guest Docker exited')
  if containerd is not None and containerd.poll() is not None:raise RuntimeError('guest containerd exited')
+ if daemon is None and not served(docker_socket):raise RuntimeError('reused guest Docker is gone')
  time.sleep(.25)
 '''
     script += 'result={"installed":' + json.dumps(names) + ',"reused_packages":reused,"cached_packages":cached,"downloaded_packages":needed,"boundary":"vm","path":str(bindir),"docker_host":"unix:///tmp/lamp-kit-docker/docker.sock" if "docker" in ' + repr(names) + ' else None}\n'

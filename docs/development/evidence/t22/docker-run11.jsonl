@@ -1,0 +1,8 @@
+{"operation": "allocation admission", "value": {"available_mib": 27199, "live_firecracker": 0}}
+{"operation": "created disposable VM", "value": {"sandbox_id": "sb_24e0e52837b7d68788901a5998fd096f"}}
+{"operation": "guest boot preparation and confinement", "value": {"host_socket_present": false, "runtime_mode": "0o1777", "uid_map": "0      65537          1"}}
+{"operation": "started VM toolchain installation", "value": {"generation": 1, "job_id": "e34fa346f30d77cc315ea053845b9c05", "sandbox_id": "sb_24e0e52837b7d68788901a5998fd096f", "state": "installing"}}
+{"operation": "VM toolchain installation outcome", "value": {"generation": 1, "job_id": "e34fa346f30d77cc315ea053845b9c05", "result": {"boundary": "vm", "cached_packages": ["busybox-static", "docker.io"], "docker_host": "unix:///tmp/lamp-kit-docker/docker.sock", "downloaded_packages": [], "installed": ["git", "docker"], "path": "/tmp/lamp-toolchains/bin", "reused_packages": ["ca-certificates", "git"]}, "sandbox_id": "sb_24e0e52837b7d68788901a5998fd096f", "state": "ready"}}
+{"operation": "real isolated Docker container", "value": {"docker_host": "unix:///tmp/lamp-kit-docker/docker.sock", "docker_root": "/tmp/lamp-kit-docker/data", "guest_uid_map": ["0", "65537", "1"], "host_socket_present": false, "output": "lamp-kit-docker-working", "security_options": ["name=seccomp,profile=builtin", "name=cgroupns"], "server_version": "29.1.3"}}
+{"operation": "public release", "value": {"released": true}}
+{"operation": "fixture teardown", "value": {"controller_stopped": true, "live_firecracker": 0}}

@@ -272,6 +272,46 @@ mod linux {
         format!("{TASKS_CGROUP}/{name}")
     }
 
+    /// A fresh leaf cgroup for one exec, created by guest root under the
+    /// root-owned tasks cgroup. For an audited task it is delegated to the task
+    /// UID (directory, cgroup.procs, cgroup.threads, cgroup.subtree_control),
+    /// so a confined container runtime can make child cgroups for its own
+    /// processes. Nothing a task does in its leaf can affect the tasks cgroup
+    /// or a later exec's fresh leaf. Empty leaves of finished execs are removed.
+    fn exec_cgroup(task_uid: Option<u32>) -> io::Result<String> {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        if let Ok(entries) = std::fs::read_dir(TASKS_CGROUP) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = entry.file_name();
+                if name.to_string_lossy().starts_with("x-")
+                    && std::fs::read_to_string(path.join("cgroup.events"))
+                        .is_ok_and(|e| e.lines().any(|l| l == "populated 0"))
+                {
+                    let _ = std::fs::remove_dir(&path);
+                }
+            }
+        }
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let leaf = format!("{TASKS_CGROUP}/x-{nanos:x}-{n}");
+        std::fs::create_dir(&leaf)?;
+        if let Some(uid) = task_uid {
+            let dir = std::path::Path::new(&leaf);
+            for path in std::iter::once(dir.to_path_buf()).chain(
+                lamp_init::DELEGATED_CGROUP_FILES
+                    .iter()
+                    .map(|f| dir.join(f)),
+            ) {
+                std::os::unix::fs::chown(&path, Some(uid), Some(uid))?;
+            }
+        }
+        Ok(leaf)
+    }
+
     const CGROUP_ROOT: &str = "/sys/fs/cgroup";
     /// Frozen leaf that holds processes found in the root cgroup, which
     /// itself cannot be frozen.
@@ -548,7 +588,8 @@ mod linux {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "argv is empty"));
         }
         let limit = x.output_limit.min(MAX_GUEST_FRAME / 4);
-        let procs = std::ffi::CString::new(cgroup_file("cgroup.procs")).unwrap();
+        let leaf = exec_cgroup(x.audit.as_ref().map(|a| a.task_uid))?;
+        let procs = std::ffi::CString::new(format!("{leaf}/cgroup.procs")).unwrap();
         // Audited commands run only under the protected collector; if it is
         // missing or fails, nothing runs (fail closed).
         // The collector reports the command's own exit on fd 3 (`status:3`)
