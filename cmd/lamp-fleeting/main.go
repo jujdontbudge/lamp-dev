@@ -19,7 +19,7 @@
 // LAMP_TOKEN_FILE in the runner's environment.
 //
 // SSH transport: guests accept no inbound connections, so lamp-fleeting-guest
-// (uploaded through the exec API) dials the plugin's callback address (an
+// (fetched over the authenticated callback) dials the plugin's callback address (an
 // exact enrolled network exception) and serves SSH on each requested stream.
 // The runner connects to a per-instance loopback port on the runner host.
 // A per-instance random secret authenticates the agent's connections.
@@ -28,10 +28,10 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
@@ -76,6 +76,7 @@ type Group struct {
 	api      *client
 	settings provider.Settings
 	key      []byte
+	guest    []byte
 	pub      string
 	mu       sync.Mutex
 	items    map[string]*instance
@@ -93,6 +94,9 @@ func (g *Group) Init(ctx context.Context, log hclog.Logger, settings provider.Se
 		g.MaxSize = 2
 	}
 	var err error
+	if g.guest, err = os.ReadFile(g.GuestBinary); err != nil {
+		return provider.ProviderInfo{}, fmt.Errorf("guest_binary: %w", err)
+	}
 	if g.api, err = newClient(); err != nil {
 		return provider.ProviderInfo{}, err
 	}
@@ -184,36 +188,29 @@ func (g *Group) Increase(ctx context.Context, n int) (int, error) {
 	return done, nil
 }
 
-// startAgent uploads lamp-fleeting-guest through Lamp's exec API and runs it
-// as one long-lived command; deleting the sandbox ends it.
+// startAgent runs one small bootstrap command: the guest fetches
+// lamp-fleeting-guest from the plugin over the authenticated callback (argv is
+// audited, so bulk data never travels in it), checks its digest and runs it as
+// one long-lived command; deleting the sandbox ends it.
 func (g *Group) startAgent(id string, it *instance) {
-	raw, err := os.ReadFile(g.GuestBinary)
-	if err != nil {
-		g.log.Error("guest binary unreadable", "err", err)
-		return
-	}
-	var z bytes.Buffer
-	w := gzip.NewWriter(&z)
-	w.Write(raw)
-	w.Close()
-	const path = "/var/tmp/lamp-fleeting-guest"
-	if err = g.runWait(it.Sandbox, []string{"sh", "-c", ": > " + path + ".gz"}, "fleeting-up:"+id+":init"); err != nil {
-		g.log.Error("guest upload failed", "instance", id, "err", err)
-		return
-	}
-	data := z.Bytes()
-	for off, n := 0, 0; off < len(data); off, n = off+32<<10, n+1 {
-		chunk := base64.StdEncoding.EncodeToString(data[off:min(off+32<<10, len(data))])
-		if err = g.runWait(it.Sandbox, []string{"python3", "-c", "import base64,sys;open(sys.argv[1],'ab').write(base64.b64decode(sys.argv[2]))", path + ".gz", chunk}, fmt.Sprintf("fleeting-up:%s:%d", id, n)); err != nil {
-			g.log.Error("guest upload failed", "instance", id, "err", err)
-			return
-		}
-	}
-	if err = g.runWait(it.Sandbox, []string{"sh", "-c", "gunzip -f " + path + ".gz && chmod 700 " + path}, "fleeting-up:"+id+":unpack"); err != nil {
-		g.log.Error("guest unpack failed", "instance", id, "err", err)
-		return
-	}
-	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": it.Sandbox, "argv": []string{path, g.CallbackAddr, id, it.Secret, g.pub}},
+	fetch := `import hashlib,socket,sys
+cb,iid,sec,want,path=sys.argv[1:6]
+h,p=cb.rsplit(':',1)
+c=socket.create_connection((h,int(p)));c.sendall(('bin %s %s\n'%(iid,sec)).encode())
+data=b''
+while True:
+  d=c.recv(1<<16)
+  if not d: break
+  data+=d
+if hashlib.sha256(data).hexdigest()!=want: sys.exit('lamp-fleeting-guest digest mismatch')
+open(path,'wb').write(data)`
+	script := `set -e
+umask 077
+python3 -c "$1" "$2" "$3" "$4" "$5" /var/tmp/lamp-fleeting-guest
+chmod 700 /var/tmp/lamp-fleeting-guest
+exec /var/tmp/lamp-fleeting-guest "$2" "$3" "$4" "$6"`
+	sum := sha256.Sum256(g.guest)
+	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": it.Sandbox, "argv": []string{"sh", "-c", script, "lamp", fetch, g.CallbackAddr, id, it.Secret, hex.EncodeToString(sum[:]), g.pub}},
 		map[string]string{"Idempotency-Key": "fleeting-agent:" + id})
 	if err != nil {
 		g.log.Error("agent start failed", "instance", id, "err", err)
@@ -225,36 +222,6 @@ func (g *Group) startAgent(id string, it *instance) {
 		g.save()
 		g.mu.Unlock()
 	}
-}
-
-// runWait runs one short sandbox command and waits for it to exit 0.
-func (g *Group) runWait(sandbox string, argv []string, key string) error {
-	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": sandbox, "argv": argv}, map[string]string{"Idempotency-Key": key})
-	if err != nil {
-		return err
-	}
-	exe := ""
-	if refs, ok := out["resource_ids"].([]any); ok && len(refs) > 0 {
-		exe, _ = refs[0].(map[string]any)["id"].(string)
-	}
-	for i := 0; i < 600; i++ {
-		got, err := g.api.do("GET", "/v1/execs/"+exe, nil, nil)
-		if err != nil {
-			return err
-		}
-		d, _ := got["data"].(map[string]any)
-		switch d["state"] {
-		case "exited":
-			if fmt.Sprint(d["exit_code"]) != "0" {
-				return fmt.Errorf("sandbox command exited %v", d["exit_code"])
-			}
-			return nil
-		case "failed", "outcome_unknown":
-			return fmt.Errorf("sandbox command %v", d["state"])
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	return errors.New("sandbox command timed out")
 }
 
 func (g *Group) acceptAgents() {
@@ -292,6 +259,9 @@ func (g *Group) acceptAgents() {
 			g.mu.Unlock()
 			switch {
 			case !ok:
+				c.Close()
+			case f[0] == "bin":
+				c.Write(g.guest)
 				c.Close()
 			case f[0] == "data" && pending != nil:
 				pending <- &bufConn{Conn: c, r: r}
