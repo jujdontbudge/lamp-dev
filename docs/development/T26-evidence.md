@@ -1,12 +1,27 @@
-# T26 — CI core and GitHub: implementation and remaining live evidence
+# T26 — native GitHub Actions evidence
 
-2026-11-11. **The ticket's complete goal is not demonstrated.** The new controller
-ran a real public third-party workload in fresh Firecracker VMs, but its forge,
-runner transport and JWT issuer were controlled fixtures. This is not native
-GitHub Actions, a real stranger's GitHub PR, a GitHub-issued JWT, Copilot, Claude
-Code Action or Codex Action evidence. Those hosted routes remain unverified.
+2026-11-11. Native Actions now ran on fresh Lamp Firecracker VMs in the explicitly
+authorized **private** disposable `JohanSardar/lamp-t26-fixture`, seeded with
+public zlib v1.3.1. No GitHub-hosted or persistent LX/M5/LA runner was attached.
+The earlier controlled-forge results below remain historical, not native proof.
 
-## What actually ran
+## Native goals passed
+
+| Goal | Actual GitHub run | Observation |
+| --- | --- | --- |
+| Ordinary Actions build | [42961916224](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42961916224) | Real runner, checkout, zlib build and README round-trip; downloaded artifact verified; Lamp job `jb_977fbe75fd42fce3499825aa6badf24f` completed. |
+| GitHub-issued OIDC | [42962635889](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42962635889) | Live GitHub issuer/JWKS, proof-bound exchange, scoped fleet read allowed and key-list denied. No stored Lamp credential in GitHub. |
+| Cancellation | [42962867545](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42962867545) | Canceled through GitHub while the native cancel step ran; Lamp job `jb_cd4594f5d4c297a6fddb6898afe4ce86` became canceled. |
+| Trusted stopped retention | [42963069751](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42963069751) | Suspended VM, old-Task resume HTTP 409, new budget/Task inspected retained public checkout and absence of runner transport directory; VM then deleted. |
+
+[Native status](evidence/t26/native-status.json) records the matching observation
+metadata. These four goals are not being rerun. Coding-agent routes, the real
+same-repository untrusted PR, and fixture cleanup are in progress. A real
+**stranger's fork PR remains open evidence**, not replaced by an owner PR.
+No usable Claude subscription credential was found (M5 expired; Ubuntu/Air
+absent), and no API key was provisioned: Claude Code Action is **not run**.
+
+## Earlier controlled-forge demonstration (historical)
 
 [`demonstration-11.log`](evidence/t26/demonstration-11.log) records one explicit
 end-to-end demonstration of the production control-service job lifecycle on
@@ -53,7 +68,7 @@ private supervisor store. Prepared public-source templates/seeds remain as
 fixtures, not running sandboxes or private job roots. No speed target was
 measured; Go's ordinary elapsed-time lines are not benchmark evidence.
 
-## Safety and reproduction
+## Controlled demonstration safety and reproduction
 
 Only the owner's Ubuntu laptop ran VMs. Before each allocation (including the
 new-Task inspection resume), the shared Firecracker count was below two and
@@ -114,7 +129,11 @@ All original logs remain in [evidence/t26](evidence/t26/):
 
 These are development results, not relabeled successes or certification rows.
 
-## Hosted GitHub blocker and unfinished evidence
+## Historical signup blocker, before private-fixture authorization
+
+The following account-access limitation describes the earlier demonstration
+only. The coordinator subsequently authorized the private owner fixture above;
+no further signup attempt was made.
 
 Unauthenticated headless access to `https://github.com/signup` returned **403**
 on the M5, Ubuntu and Air. The M5's normal GitHub homepage and login page were
