@@ -191,7 +191,7 @@ func build(args []string) error {
 	out := fl.String("out", "", "new release directory")
 	snapshotFormat := fl.String("snapshot-format", "", "with an engine in the payload: the saved-machine-state format it reads and writes")
 	var files multi
-	fl.Var(&files, "file", "payload/path=source (repeatable); bin/lampd and bin/lamp-installer are required")
+	fl.Var(&files, "file", "payload/path=source (repeatable); bin/lampd and bin/lamp-installer are required; ship tools/guard-audit-release.py so installs free deleted sandboxes' spool slots")
 	fl.Parse(args)
 	if _, err := parseVersion(*version); err != nil {
 		return err
@@ -714,6 +714,7 @@ func install(args []string) error {
 	fl.Var(&supArgs, "supervisor-arg", "run the VZ supervisor as a Lamp component with this serve argument (repeatable; include --socket)")
 	supDir := fl.String("supervisor-dir", "", "root-owned directory for release supervisor copies (default /usr/local/lib/lamp-<name>)")
 	supSystem := fl.String("supervisor-system", "/usr/local/lib/lamp", "supervisor used by releases that ship none")
+	guardAuditDir := fl.String("guard-audit-dir", defaultGuardAuditDir(), "host guard audit spool root that lampd releases deleted sandboxes' spools from")
 	var extra multi
 	fl.Var(&extra, "lampd-arg", "extra lampd argument (repeatable), e.g. enrolled worker or --fleet-config flags")
 	fl.Parse(args)
@@ -785,6 +786,21 @@ func install(args []string) error {
 	}
 	if err := point(p, m.Version); err != nil {
 		return err
+	}
+	// Deleted sandboxes hold a retained guard-spool reservation until lampd has
+	// captured and removed their spools, so an installed lampd always gets the
+	// release command the release ships. Linux spools are root-owned; Mac
+	// sandboxes have no host guard spools, and the tool treats a missing root
+	// as empty, so release only marks them freed. Never sudo on a Mac.
+	if tool := filepath.Join(p, "current", "tools", "guard-audit-release.py"); !hasArg(lampdArgs, "--audit-release") {
+		if _, err := os.Stat(tool); err == nil {
+			argv := []string{"/usr/bin/python3", tool, *guardAuditDir}
+			if runtime.GOOS == "linux" && os.Geteuid() != 0 {
+				argv = append([]string{"sudo", "-n"}, argv...)
+			}
+			raw, _ := json.Marshal(argv)
+			lampdArgs = append(lampdArgs, "--audit-release", string(raw))
+		}
 	}
 	// lampd's own host id, which its sandboxes carry: the fleet config's
 	// host_id, else the single-host default. Never taken from the caller, so
@@ -1519,4 +1535,13 @@ func restartCmd(args []string) error {
 func readFile(path string, v any) bool {
 	raw, err := os.ReadFile(path)
 	return err == nil && json.Unmarshal(raw, v) == nil
+}
+
+// defaultGuardAuditDir is the supervisor's guard audit root: the Linux
+// engine's spools, or a prefix-independent empty root on a Mac.
+func defaultGuardAuditDir() string {
+	if runtime.GOOS == "linux" {
+		return "/var/lib/lamp-audit"
+	}
+	return "/var/empty/lamp-audit"
 }

@@ -14,7 +14,7 @@ root, action, sandbox = sys.argv[1:4]
 if action not in ("capture", "remove") or not re.fullmatch(r"sb_[0-9a-f]{32}", sandbox):
     raise SystemExit(2)
 pattern = re.compile(re.escape(sandbox) + r"-g\d+-[0-9a-f]{32}")
-dirs = sorted(e.path for e in os.scandir(root) if e.is_dir(follow_symlinks=False) and pattern.fullmatch(e.name))
+dirs = [] if not os.path.isdir(root) else sorted(e.path for e in os.scandir(root) if e.is_dir(follow_symlinks=False) and pattern.fullmatch(e.name))
 out = sys.stdout.buffer
 for d in dirs:
     if action == "remove":
