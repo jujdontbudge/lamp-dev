@@ -24,8 +24,19 @@ Two runs of `tools/dashboard_demo.py` on the Ubuntu laptop (LX), 2026-11-11. Bot
 | Inspectable retries, acknowledgement | `run28/08-notifications-retries.png`, `run28/09-retry-acknowledged.png`: offline sink, 4 attempts with errors, manual retry, acknowledged |
 | Private signed-in action links | links are `PublicURL/#/…` without credentials; opening one signed out asks to sign in |
 
+## Review follow-up (runs 29 and fleet-4, current build)
+
+- **Browser VM had no network on this branch's supervisor (run 27).** The cause was my merge of T22 into this branch. It dropped T22's "vanished process" handling from `status()` in `crates/lamp-guard/src/process.rs`, so the guard failed whenever a short-lived browser process exited before it was observed. With that arm restored, **run 29** (`transcript-run29.jsonl`, `run29/`) used the supervisor and guard built from this branch. It went through the full journey: private takeover with the sealed view of the-internet.herokuapp.com (`run29/04-private-takeover.png`, `run29/06-approved-fill-result.png`), the approval consumed, and suspend.
+- **Stuck.** A budget watchdog (`block_after_ms`) that ends a task which never finished now marks the task `blocked` rather than `stopped`. In run 29, a task with a 20 s watchdog became `blocked`, and the phone sink received a signed `task.stuck` webhook (`run29/07b-task-stuck.png`, step "stuck task and webhook").
+- **Multi-host** (`tools/dashboard_fleet_demo.py`, `transcript-fleet.jsonl`, `fleet/`). Two lampd hosts formed one enrolled fleet, with a private CA and mTLS on loopback:
+  - hs_a was compute, using this branch's supervisor.
+  - hs_b was control-only and served the dashboard.
+  - hs_b's page listed both hosts and hs_a's sandbox (`fleet/f1-hosts-from-b.png`).
+  - hs_a held a suspended sandbox's saved state and was put to sleep by stopping its lampd. hs_b's page then showed hs_a `unavailable`, with "Saved state stranded on this unavailable host" (`fleet/f2-stranded-saved-state.png`), and the sandbox page explained why it could not resume (`fleet/f3-stranded-sandbox.png`).
+  - hs_a then woke, and the sandbox was deleted.
+  - Two fixes this needed: the fleet cache now keeps a sleeping host's suspended sandbox as `suspended` instead of `unavailable`, and the page re-reads its lists every 10 s, because a sleeping peer cannot emit an event.
+  - Remaining gap: the retention end date for the stranded state shows "—" on hs_b, because the countdown fields are computed on the sandbox's home host and are not in the fleet-merged copy.
+
 ## Not shown live
 
-- Saved state stranded on a sleeping host. The page renders it from host status, but this demo had a fleet of one host.
-- `task.stuck` delivery. It is wired to a blocked task, but no task was blocked in these runs.
-- Browser steps with the rebuilt supervisor. The guest has no network there (see above), so the browser evidence comes from run 26.
+- Nothing further. The earlier gaps (multi-host, stuck and current-build browser) are covered above.

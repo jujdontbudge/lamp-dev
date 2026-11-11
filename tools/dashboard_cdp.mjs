@@ -42,7 +42,14 @@ ws.addEventListener('message', (ev) => {
   if (process.env.LAMP_CDP_DEBUG) process.stderr.write(String(ev.data).slice(0, 300) + '\n');
   if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
 });
-const send = (method, params = {}) => new Promise((resolve) => { const id = ++seq; pending.set(id, resolve); ws.send(JSON.stringify({ id, method, params })); });
+// A dropped tunnel closes the socket: fail loudly instead of hanging the demo.
+ws.addEventListener('close', () => { process.stderr.write('cdp socket closed\n'); process.exit(3); });
+const send = (method, params = {}) => new Promise((resolve, reject) => {
+  const id = ++seq;
+  const timer = setTimeout(() => { pending.delete(id); reject(new Error('cdp timeout: ' + method)); }, 45000);
+  pending.set(id, (m) => { clearTimeout(timer); resolve(m); });
+  ws.send(JSON.stringify({ id, method, params }));
+});
 await send('Page.enable');
 await send('Runtime.enable');
 if (process.env.LAMP_CDP_DEBUG) await send('Network.enable');
