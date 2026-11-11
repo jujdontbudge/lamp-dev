@@ -117,5 +117,13 @@ class Control:
         encoded = base64.b64encode(Path(__file__).with_name("guest.py").read_bytes()).decode()
         return self.execute(identity, ["python3", "-c", "import base64,pathlib,json; p=pathlib.Path('/tmp/lamp-kits-worker.py'); p.write_bytes(base64.b64decode('" + encoded + "')); p.chmod(0o600); print(json.dumps({'installed':True}))"])
 
+    def start(self, identity, argv):
+        """Start a long-lived guest exec without waiting for it to exit."""
+        self.sandbox(identity)
+        return self.mutation("POST", "/v1/execs", {"sandbox_id": identity, "argv": argv})["exec_id"]
+
+    def launch_browser(self, identity):
+        return self.start(identity, ["python3", "/tmp/lamp-kits-worker.py", json.dumps({"operation": "launch"}, separators=(",", ":"))])
+
     def browser(self, identity, operation, **arguments):
         return self.execute(identity, ["python3", "/tmp/lamp-kits-worker.py", json.dumps(dict(operation=operation, **arguments), separators=(",", ":"))])

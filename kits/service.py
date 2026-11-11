@@ -286,6 +286,7 @@ class Kits:
         try:
             value['browser_generation'] = self.control.sandbox(sandbox)['generation']
             self.control.install_worker(sandbox)
+            self.control.launch_browser(sandbox)
             reply = self.control.browser(sandbox, 'boot', owner_key=self.public_key)
             value['public_key'] = reply['public_key']
             if mode == 'copied' and 'cookies' in request:
@@ -297,6 +298,8 @@ class Kits:
             # Keep a failed allocation recorded until public Stop/Release proves
             # deletion. Do not erase evidence or pretend cleanup completed.
             value['private'] = True
+            # KitError text is constant and secret-free; keep it for diagnosis.
+            value['setup_error'] = str(error) if isinstance(error, KitError) else type(error).__name__
             self.persist()
             phases = ('boot.key', 'boot.start', 'boot.cdp', 'boot.context')
             suffix = next((':' + p for p in phases if isinstance(error, KitError) and str(error) == 'GUEST_ACTION_FAILED:' + p), '')

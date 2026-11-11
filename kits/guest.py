@@ -222,13 +222,10 @@ def main(request):
     global PHASE
     op = request['operation']
     ROOT.mkdir(mode=0o700, exist_ok=True)
-    if op == 'boot':
-        if STATE.exists():
-            raise ValueError('already booted')
-        PHASE = 'boot.key'
-        command(['openssl', 'genpkey', '-algorithm', 'RSA', '-pkeyopt', 'rsa_keygen_bits:3072', '-out', str(ROOT / 'private.pem')])
-        (ROOT / 'private.pem').chmod(0o600)
-        public = command(['openssl', 'pkey', '-in', str(ROOT / 'private.pem'), '-pubout']).decode()
+    if op == 'launch':
+        # Lamp's guard keeps an exec running until its PID namespace is empty,
+        # so Chromium is its own long-lived exec (ended by stop/VM release).
+        # Boot then runs as a separate exec that can actually return.
         extracted = Path('/tmp/lamp-toolchains/opt/google/chrome/chrome')
         binary = str(extracted) if extracted.is_file() else next((shutil.which(p) for p in ('google-chrome', 'chromium', 'chromium-browser') if shutil.which(p)), None)
         if not binary:
@@ -238,20 +235,26 @@ def main(request):
         # Public exec already maps namespace root to an unprivileged guest UID.
         # The dedicated guarded VM is the isolation boundary; do not bypass its
         # collector or attempt a guest setuid/root helper for Chromium.
-        PHASE = 'boot.start'
-        process = subprocess.Popen([binary, '--headless=new', '--no-sandbox', '--no-first-run', '--no-default-browser-check',
+        null = os.open(os.devnull, os.O_RDWR)
+        for fd in (0, 1, 2):
+            os.dup2(null, fd)
+        os.execve(binary, [binary, '--headless=new', '--no-sandbox', '--no-first-run', '--no-default-browser-check',
             '--disable-background-networking', '--disable-sync', '--disable-breakpad',
             '--password-store=basic', '--remote-debugging-address=127.0.0.1',
             f'--remote-debugging-port={PORT}', '--user-data-dir=' + str(profile), 'about:blank'],
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            start_new_session=True, env={'PATH': '/usr/bin:/bin', 'HOME': str(profile),
-                'LD_LIBRARY_PATH': '/tmp/lamp-toolchains/usr/lib/x86_64-linux-gnu:/tmp/lamp-toolchains/usr/lib'})
-        deadline = time.monotonic() + 15
+            {'PATH': '/usr/bin:/bin', 'HOME': str(profile),
+             'LD_LIBRARY_PATH': '/tmp/lamp-toolchains/usr/lib/x86_64-linux-gnu:/tmp/lamp-toolchains/usr/lib'})
+    if op == 'boot':
+        if STATE.exists():
+            raise ValueError('already booted')
+        PHASE = 'boot.key'
+        command(['openssl', 'genpkey', '-algorithm', 'RSA', '-pkeyopt', 'rsa_keygen_bits:3072', '-out', str(ROOT / 'private.pem')])
+        (ROOT / 'private.pem').chmod(0o600)
+        public = command(['openssl', 'pkey', '-in', str(ROOT / 'private.pem'), '-pubout']).decode()
+        PHASE = 'boot.cdp'
+        deadline = time.monotonic() + 30
         while True:
             try:
-                if process.poll() is not None:
-                    raise RuntimeError('browser exited')
-                PHASE = 'boot.cdp'
                 cdp = browser()
                 break
             except (OSError, ValueError):

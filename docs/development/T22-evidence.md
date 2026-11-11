@@ -309,3 +309,36 @@ This failed run is retained without relabeling or rerunning a passed demo.
 See [operator instructions](T22-kits.md). The source hash manifest describes the
 final checked-in implementation, not the historical binaries for every earlier
 failed journey.
+
+## Bitwarden (Vaultwarden) browser form fill — 2026-11-11
+
+**PASS: per-vault approval and real form fill with native Bitwarden CLI against
+the disposable Vaultwarden 1.37.5. The later password-specific private-typing
+step in the same journey did not pass.**
+
+Root cause of the earlier browser-VM setup failure (`host-20261111-lamp-browser-5`):
+the saved guest audit shows the boot exec's `openssl` steps and Chrome starting,
+then no boot result. Lamp's guard reaps each exec until its PID namespace is
+empty (`crates/lamp-guard/src/process.rs:407–431`), so a boot exec that leaves
+Chromium running never reaches `exited`, and kits reported a generic setup
+failure. Fix: `kits/guest.py` now has a `launch` op that `execve`s Chromium as
+its own long-lived exec (`Control.launch_browser`), and `boot` is a separate exec
+that generates the key, waits for CDP and creates the context. Exec namespaces
+share the VM's network and `/tmp`, so CDP stays reachable. Kits also persist the
+constant, secret-free setup error for any future failure.
+
+One run, `tools/kits_lamp_demo.py --vault-evidence vaultwarden-account-5/evidence.json`
+on LX against a fresh isolated host (admission: 1 Firecracker from another
+ticket, 25,447 MiB available). The [transcript](evidence/t22/bitwarden-fill.jsonl)
+records: real agent VM suspended; a separate external browser VM; the broad
+agent key denied read/exec/capture of that VM; the owner reviewing the one-use
+vault/item/origin/submit plan; then native read, sealed fill and submit, with the
+page observed at `/secure` (`real_login_completed: true`, `VAULT_PASS`).
+Ordinary agent typing into the password field was refused.
+
+After takeover, private typing and submit, the login check exec exited
+non-zero (`GUEST_ACTION_FAILED`), so password-specific private typing is **not
+shown** by this run (the earlier generic private typing result still stands).
+Both VMs were released through the public API, and Firecracker count returned
+to 0. The demo's final host-shutdown check rejected my relative `--root` path and
+lampd did not stop on SIGTERM; I killed my own lampd and kits processes by PID.
