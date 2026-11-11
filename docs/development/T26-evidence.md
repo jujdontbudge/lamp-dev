@@ -282,3 +282,24 @@ trusted events, and every other event is `public_pr` in both `Verify` and OIDC
 `VerifyIdentity`. `cleanup_failed` jobs are now retried by the controller with
 30 s to 30 min backoff, including jobs left over from a previous controller.
 The controlled-forge test `internal/control/ci_demo_test.go` was deleted.
+
+## Installed lampd releases deleted sandboxes' spools
+
+`lamp-installer install` now passes `--audit-release` whenever the release ships
+`tools/guard-audit-release.py`. On Linux that uses `sudo -n` unless lampd runs as
+root. On a Mac it never uses sudo, and an absent spool root counts as empty.
+`--guard-audit-dir` sets the root (Linux default `/var/lib/lamp-audit`, which
+matches the installed supervisor's network policy).
+
+Shown once on Ubuntu, 2026-11-11, with a disposable prefix
+(`/home/johan/lamp-t26/inst`, process service). The release `9.0.0` was signed
+with a throwaway key. lampd connected to T26's existing sandbox worker on a
+fresh grant, while T26's controller was paused.
+
+* The running installed lampd had
+  `--audit-release ["sudo","-n","/usr/bin/python3","<prefix>/current/tools/guard-audit-release.py","/var/lib/lamp-audit/t26-native"]`.
+* Sandbox `sb_1764b81e4cda4f87b30a68139ecd37a6`: created with 1 spool directory
+  on the host, deleted at 09:30:59Z. lampd's sweep wrote its `.released` marker at
+  09:31:42Z with 345,890 bytes of captured records. 0 spool directories were left.
+* The prefix was then uninstalled (`--data delete`), the grant revoked and T26's
+  controller restarted.
