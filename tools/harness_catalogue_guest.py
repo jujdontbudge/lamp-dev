@@ -38,6 +38,7 @@ def main():
     parser.add_argument("--base-seed", type=Path, required=True)
     parser.add_argument("--engine-bin", type=Path, required=True, help="lamp-supervisor and lamp-guard matching the base seed")
     parser.add_argument("--supervisor-name", default="lamp-supervisor-next")
+    parser.add_argument("--guard", type=Path, help="host network guard binary (default: lamp-guard-next from --engine-bin)")
     parser.add_argument("--lampd", type=Path, required=True)
     parser.add_argument("--broker", type=Path, required=True)
     parser.add_argument("--harness-bin", type=Path, required=True, help="official Linux binaries named by kind")
@@ -57,7 +58,7 @@ def main():
     runtime.mkdir(mode=0o755)
     binaries = root / "bin"
     binaries.mkdir()
-    for source, name in [(args.engine_bin / args.supervisor_name, "lamp-supervisor"), (args.engine_bin / "lamp-guard-next", "lamp-guard"), (args.lampd, "lampd"), (args.broker, "lamp-broker")]:
+    for source, name in [(args.engine_bin / args.supervisor_name, "lamp-supervisor"), (args.guard or args.engine_bin / "lamp-guard-next", "lamp-guard"), (args.lampd, "lampd"), (args.broker, "lamp-broker")]:
         shutil.copy2(source, binaries / name)
     for kind in kinds:
         shutil.copy2(args.harness_bin / kind, binaries / kind)
@@ -212,6 +213,9 @@ def main():
         start([str(binaries / "lampd"), "--state-dir", str(root / "control"), "--socket", str(api), "--sessions-config", str(root / "sessions.json"), "--worker-socket", str(runtime / "w.sock"), "--worker-id", "lamp-supervisor@" + HOST_ID, "--worker-boot-id", Path("/proc/sys/kernel/random/boot_id").read_text().strip(), "--worker-uid", "0", "--worker-pid", str(worker.pid), "--grant-id", worker_grant, "--worker-timeout", "1m"], "lampd")
         wait(lambda: api.exists(), 60)
 
+        # Let the seed and template writes reach disk first, so the guard's
+        # 1 s durable-audit deadline measures the sandbox, not this setup.
+        subprocess.run(["sync"], check=True)
         live = int(subprocess.run(["pgrep", "-c", "firecracker"], capture_output=True, text=True).stdout.strip() or "0")
         available = int(next(line for line in subprocess.check_output(["free", "-m"], text=True).splitlines() if line.startswith("Mem:")).split()[-1])
         record("allocation-admission", live_firecracker=live, available_mib=available)

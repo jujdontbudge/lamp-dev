@@ -108,22 +108,75 @@ Raw: `evidence/t25-host-vm-host.json`.
 | VM `sb_7f850f842b1dbe40608dba0f6eaeee73` | 2 | `LAMP024CFF` | `LAMP024CFF` (given `LAMPD3C119`) |
 | host `hs_lx` | 3 | `LAMPD3C119` | `LAMPD3C119` |
 
-**droid: the move works, but the in-VM turn did not.** Twice, droid's turn
-inside the VM printed `Request timed out.` The broker audit shows no request
-from the sandbox at all, while host turns completed. Back on the host, the
-same native session recalled the first codeword, so the session survived both
-moves. The cause appears to be that droid's BYOK mode still contacts Factory
-hosts, which the vendor-only guest network does not allow. Until those
-endpoints are enrolled, droid is host-only for in-VM turns.
+**droid now completes inside the VM.** Raw: `evidence/t25-droid-vm.json`.
+Earlier I suspected droid's BYOK mode needed Factory's servers. The guard
+audit showed otherwise: the host network guard itself had stopped, and it
+fails closed, so the VM had no network.
+
+- Run 7 (`t25-run7`): `lamp-guard: No buffer space available (os error 105)`
+  at 16:51:12, as droid's first in-VM turn started after opencode's turns.
+  Each queued packet is copied up to 64 KiB into the default netlink receive
+  buffer, so droid's large first request overflowed it. The guard treated
+  ENOBUFS as fatal.
+- Droid-only rerun: `audit storage deadline exceeded` two seconds after the
+  sandbox started, three minutes before droid ran. This followed this script's
+  20 GB seed copy. The 1 s durable-audit deadline is intended fail-closed
+  behaviour and is unchanged.
+
+Fixes: the guard's queue socket now reserves a 32 MiB receive buffer. A
+reported overflow is treated as dropped packets (no allow verdict, still
+fail-closed) instead of stopping the guard. The script also runs `sync`
+before allocating. Both changes were applied together in this run, so the
+run does not show which one mattered here.
+
+With them, droid's session `dc29698d-09c3-4ac1-8959-95a9b491e1b2` ran
+host → VM `sb_c873cee0fa624554ae71a964d830c2a1` → host. Inside the VM it
+recalled `LAMPE20B48`. The guard stayed up to sandbox deletion. Its audit
+shows the only destination was the broker (`10.219.25.1:17780`). Droid's BYOK
+turn reached no Factory host, so no vendor-endpoint exception is needed for
+this route. On the last hop back to the host, the model repeated
+`LAMPE20B48` instead of the newer codeword it had been given. That is a model
+miss on a continued session and is kept as observed.
 
 Failed attempts are kept as `/var/lib/lamp/t25-attempt1..6` and
 `t25-run7`. One hit an exec-body error. One was correctly refused while two
 other tickets' sandboxes were live. One used the wrong sandbox host ID. One
 stalled at upload offset 0 with a worker that did not match the seed.
 
-A further observed limit: the broker buffers a native stream and caps each
-upstream call at 40 s and 2 MiB. One long free-model reply (649 KB) was
-rejected that way.
+## 4. Native replies stream through the broker
+
+Previously the broker buffered native replies and allowed 40 s and 2 MiB per
+call, which cut off long turns. The native routes now forward bytes as they
+arrive, with a 90 s stall watchdog in place of the wall clock. Grant expiry
+gates whether a call starts but no longer ends a running stream; a budget
+deadline still does. Known credential encodings are scanned on the stream
+with a held-back tail. Usage frames are kept and settled when the stream ends.
+`max_completion_tokens` is now reserved under its own key; it used to be
+refused.
+
+`tools/broker_stream_demo.py` sent the same long streamed request through each
+broker binary. A budget-accounting stub recorded what the broker reserved and
+settled.
+
+- Old broker (0584815), `evidence/t25-stream-old.json`: HTTP 502 after
+  exactly 40.0 s, nothing delivered, settled with no usage. Two of three
+  earlier runs failed the same way; the faster routes finished under 40 s.
+- New broker, `evidence/t25-stream-new.json`, with `max_completion_tokens`:
+  first byte at 10.5 s, whole at 43.9 s, `[DONE]` with
+  `finish_reason=length`, 17,358 characters. It reserved 5,416 tokens and
+  settled 4,138 actual tokens.
+
+## 5. Restored native state is untrusted
+
+A continuation archive can come from a sandbox, so its `lamp-native.json` is
+untrusted. On load, the wrapper keeps only resume keys that match
+`[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}`, so they can select a session but never
+be a path or an option, plus the directory and turn count. Pi's fork source is
+computed during the turn, must resolve inside pi's own sessions directory, and
+is never persisted. A planted
+`{"session_id":"--fork=/etc/hosts","fork_from":"~/.ssh/id_ed25519","forked_from_id":"planted"}`
+produced a pi argv with neither, and a fresh session ID. The ignored fields
+are reported on stderr.
 
 ## Routes not yet exercised, and why
 

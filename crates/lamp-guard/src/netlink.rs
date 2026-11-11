@@ -44,6 +44,24 @@ impl Queue {
             return Err(io::Error::last_os_error());
         }
         let fd = unsafe { OwnedFd::from_raw_fd(raw) };
+        // Each queued packet is copied up to 64 KiB. The kernel default
+        // receive buffer holds only a few, so one burst of large writes
+        // overflowed it (ENOBUFS). Reserve room for a full burst instead.
+        let size: libc::c_int = 32 << 20;
+        for option in [libc::SO_RCVBUFFORCE, libc::SO_RCVBUF] {
+            let set = unsafe {
+                libc::setsockopt(
+                    raw,
+                    libc::SOL_SOCKET,
+                    option,
+                    ptr::from_ref(&size).cast(),
+                    mem::size_of_val(&size) as _,
+                )
+            };
+            if set == 0 {
+                break;
+            }
+        }
         let mut addr: libc::sockaddr_nl = unsafe { mem::zeroed() };
         addr.nl_family = libc::AF_NETLINK as u16;
         if unsafe {
@@ -153,7 +171,14 @@ impl Queue {
         if fd.revents != libc::POLLIN {
             return Err(io::Error::other("NFQUEUE poll/liveness failure"));
         }
-        decode(&self.recv()?)
+        match self.recv() {
+            // The kernel dropped queue notifications it could not deliver.
+            // Those packets never receive an allow verdict, so this stays
+            // fail-closed; TCP retransmits are queued afresh.
+            Err(e) if e.raw_os_error() == Some(libc::ENOBUFS) => Ok(Vec::new()),
+            Err(e) => Err(e),
+            Ok(b) => decode(&b),
+        }
     }
     pub fn verdict(&mut self, id: u32, allow: bool) -> io::Result<()> {
         let mut value = (if allow { 1_u32 } else { 0 }).to_be_bytes().to_vec();
