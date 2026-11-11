@@ -55,9 +55,9 @@ The successful observations are retained in `/tmp/l21-native-d/evidence.json`
 and `/tmp/l21-native-e/evidence.json` on the M5. Earlier failed attempts remain
 in their separate disposable directories.
 
-This does not yet demonstrate inside/outside sandbox operation or subscription
-authorization. T9's retained evidence records an incomplete subscription login;
-its merged custody implementation is not evidence of an authorized account.
+Those initial M5 observations alone did not demonstrate inside/outside sandbox
+operation or subscription authorization. Real guest observations follow below.
+Outside driving and protected subscription turns are still being completed.
 
 ### Real-guest recovery run
 
@@ -84,10 +84,38 @@ progress uses one protected persistent session relay over the authenticated,
 generation-fenced guest channel; it does not raise or remove the audit limit.
 The new worker command and guest helper pass focused Go vet, Mac/Linux
 `cargo check`, Linux `cargo clippy -- -D warnings`, and a static musl guest-helper
-build. Deployment into a newly built seed and the real Codex rerun are pending.
+build. At that point deployment and a completed real Codex turn were pending.
 The guest observations are retained in
 `/var/lib/lamp/t21a/claude-inside-evidence.json` and
 `/var/lib/lamp/t21a/codex-inside-evidence.json` on Ubuntu.
+
+### Completed official Codex turn in a real guest
+
+On 2026-11-11 at 06:04 UTC, official Codex completed the pending real guest turn:
+
+```text
+sandbox: sb_bc3648f8ab83916b13a02283de61190d
+boundary: vm
+session: se_d022be7ac1495f1673d94ac901373781
+output: T21_CODEX_REAL_GUEST
+status after turn: idle
+native continuation: 01a1c934-eaae-7bc2-884e-b57a5cf2f25c
+```
+
+The preceding TLS failure was a deployment error: the broker's certificate had
+`CA:TRUE` and was being used as its server certificate. The Rust client rejected
+it with `unknown certificate`. A separate `CA:FALSE`, `serverAuth` leaf signed
+by the existing CA corrected the route. CA verification remained enabled.
+
+The existing API/provider custody, zero-price route, and scoped transport grant
+were retained. The protected relay also handled short idle/stat/read/append
+infrastructure work without consuming a collector segment for every poll or
+file chunk; the audit bound remains 64. No passed demonstration was rerun.
+
+Before this sandbox was created, Ubuntu had one live Firecracker process and
+25,648 MiB available, within the shared owner limit.
+The raw completed turn is retained in
+`/var/lib/lamp/t21a/codex-inside-evidence.json`.
 
 ## 3. T3 Code and Herdr
 
