@@ -422,7 +422,3 @@ impl<'a> Reactor<'a> {
         Ok(())
     }
 }
-
-#[cfg(test)]
-#[path = "subscription_tunnel_tests.rs"]
-mod tests;

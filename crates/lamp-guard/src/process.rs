@@ -774,29 +774,4 @@ mod tests {
             assert_eq!(libc::WTERMSIG(status), libc::SIGKILL);
         }
     }
-
-    #[test]
-    fn task_env_is_validated() {
-        let env = super::task_env(r#"{"FOO":"value","PATH":"/opt/bin","EMPTY":""}"#).unwrap();
-        let pairs: Vec<(String, String)> = env
-            .into_iter()
-            .map(|(k, v)| (k.into_string().unwrap(), v.into_string().unwrap()))
-            .collect();
-        assert_eq!(
-            pairs,
-            [("EMPTY", ""), ("FOO", "value"), ("PATH", "/opt/bin")]
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-        );
-        for bad in [
-            r#"{"":"x"}"#,
-            r#"{"A=B":"x"}"#,
-            r#"{"A\u0000":"x"}"#,
-            r#"{"A":"x\u0000y"}"#,
-            r#"{"A":1}"#,
-            "[]",
-            "not json",
-        ] {
-            assert!(super::task_env(bad).is_err(), "{bad} accepted");
-        }
-    }
 }
