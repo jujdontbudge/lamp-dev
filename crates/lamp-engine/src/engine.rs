@@ -1045,12 +1045,20 @@ impl Engine {
                 auth.sandbox_id
             )));
         }
+        // A released id that is allocated again (a resumed sandbox) keeps its
+        // custody record: its lineage and exposures carry over, never reset.
         self.custody
             .as_ref()
             .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
             .lock()
             .unwrap()
-            .transact(|graph| graph.create(auth.sandbox_id))?;
+            .transact(|graph| {
+                if graph.contains(auth.sandbox_id) {
+                    Ok(())
+                } else {
+                    graph.create(auth.sandbox_id)
+                }
+            })?;
         let jail = self.new_jail(&jail_id(auth.sandbox_id))?;
         let uid = jail.uid;
         // Build the guard network now, in the background: for a fork the

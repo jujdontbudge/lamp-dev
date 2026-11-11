@@ -268,10 +268,15 @@ impl Engine {
                     online: true,
                 };
                 let original = self.captures.lock().unwrap().get(source).cloned();
-                if original.is_some_and(|capture| {
-                    capture.source_sandbox == sandbox.id
-                        && capture.source_generation == sandbox.generation
-                }) {
+                // Restoring a sandbox's own capture (a resume, possibly as a
+                // later generation or after a supervisor restart) keeps its
+                // lineage; anything else inherits.
+                if graph.captured_from(source, &sandbox.id)
+                    || original.is_some_and(|capture| {
+                        capture.source_sandbox == sandbox.id
+                            && capture.source_generation <= sandbox.generation
+                    })
+                {
                     graph.authorize(source, destination, CapturePurpose::OwnerPrivate)?;
                 } else {
                     graph.inherit(source, &sandbox.id, destination)?;
