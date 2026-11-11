@@ -443,7 +443,16 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 			}
 		}
 	case "fleet":
-		items = append(items, object(c.Fleet))
+		f := c.Fleet
+		p := c.updatePolicy()
+		f.UpdatePolicy = &p
+		items = append(items, object(f))
+	case "update":
+		for _, v := range c.Updates {
+			if v.OwnerId == a.Principal || s.role(a) == "owner" {
+				items = append(items, object(v))
+			}
+		}
 	case "key":
 		for _, v := range c.Keys {
 			if value(v.Key.PrincipalId) == a.Principal || s.role(a) == "owner" {
@@ -502,6 +511,9 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 	if kind == "approval" {
 		return s.approvalMutation(a, op, in)
 	}
+	if kind == "update" {
+		return s.updateMutation(a, verb, in)
+	}
 	if kind != "key" && kind != "principal" && kind != "membership" && kind != "fleet" {
 		return fail("NOT_FOUND", "operation not installed")
 	}
@@ -531,7 +543,7 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 	}
 	switch kind {
 	case "fleet":
-		if err := acceptFields(in, "fleet_id mode name"); err != nil {
+		if err := acceptFields(in, "fleet_id mode name update_policy"); err != nil {
 			return ref, nil, nil, nil, err
 		}
 		if verb != "update" {
@@ -542,7 +554,18 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 				m[k] = v
 			}
 		}
+		delete(m, "update_policy")
+		policy := c.Fleet.UpdatePolicy
 		assign(m, &c.Fleet)
+		c.Fleet.UpdatePolicy = policy
+		if raw, ok := in["update_policy"]; ok {
+			if s.role(a) != "owner" {
+				return fail("SCOPE_DENIED", "update policy needs owner authority")
+			}
+			if err := setUpdatePolicy(c, raw); err != nil {
+				return ref, nil, nil, nil, err
+			}
+		}
 	case "principal":
 		if err := acceptFields(in, "principal_id issuer subject display_name disabled"); err != nil {
 			return ref, nil, nil, nil, err

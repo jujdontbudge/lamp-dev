@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lamp-sdk"
+version = "0.1.0"
+description = "Lamp API client generated from the canonical schema"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+readme = "README.md"
+
+[tool.setuptools]
+packages = ["lamp_sdk"]

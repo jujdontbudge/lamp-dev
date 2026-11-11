@@ -3,6 +3,7 @@ package control
 import (
 	"bytes"
 	"context"
+	"crypto/ecdh"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -67,6 +68,16 @@ type Config struct {
 	Quotas      Quotas
 	AuditReader string
 	KitsSocket  string
+	// RecoveryPublicKey is the owner's offline data-recovery public key file;
+	// every new backup is also wrapped to it.
+	RecoveryPublicKey string
+	// RecoveryKeyFile and RecoveryImportDir import sealed archives on a
+	// replacement host with the owner's recovery material (recovery.go).
+	RecoveryKeyFile   string
+	RecoveryImportDir string
+	// InstallDir is the lamp-installer prefix: release mirror, pinned release
+	// key and the updater agent's request/result files (updates.go).
+	InstallDir string
 }
 type Service struct {
 	kitsSocket     string
@@ -83,6 +94,9 @@ type Service struct {
 	durableOps     map[string]*record
 	commitChanged  chan struct{}
 	identity       IdentityConfig
+	recoveryPublic *ecdh.PublicKey
+	installDir     string
+	wantFleet      bool
 	protected      map[string]ProtectedAction
 	native         *NativeFallbackConfig
 	eventRevisions map[string]uint64
@@ -409,9 +423,25 @@ func Open(config Config) (*Service, error) {
 	}
 	s.durableOps = cloneOperations(s.journal.Operations)
 	s.rootContext, s.cancel = context.WithCancel(context.Background())
+	if config.RecoveryPublicKey != "" {
+		if s.recoveryPublic, err = readRecoveryPublic(config.RecoveryPublicKey); err != nil {
+			lock.Close()
+			return nil, err
+		}
+	}
 	if err := s.initLifecycle(config.StateAdmin); err != nil {
 		lock.Close()
 		return nil, err
+	}
+	s.installDir = config.InstallDir
+	s.wantFleet = config.Fleet != nil
+	s.wg.Add(1)
+	go s.updateDriver()
+	if config.RecoveryKeyFile != "" {
+		if err := s.importRecovered(config.RecoveryKeyFile, config.RecoveryImportDir); err != nil {
+			s.Close()
+			return nil, err
+		}
 	}
 	s.wg.Add(1)
 	go s.watchAccountability()
