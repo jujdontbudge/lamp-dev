@@ -59,10 +59,11 @@ class Control:
             raise KitError("READY_VM_REQUIRED")
         return value
 
-    def create(self, template, resources):
-        return self.mutation("POST", "/v1/sandboxes", {
-            "template_id": template, "resources": resources,
-            "durability": "volatile"})["sandbox_id"]
+    def create(self, template, resources, browser_custody=False):
+        body = {"template_id": template, "resources": resources, "durability": "volatile"}
+        if browser_custody:
+            body['labels'] = {'lamp.browser-custody': 'external'}
+        return self.mutation("POST", "/v1/sandboxes", body)["sandbox_id"]
 
     def delete(self, identity):
         value = self.call("GET", "/v1/sandboxes/" + identity)["data"]

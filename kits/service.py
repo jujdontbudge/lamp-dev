@@ -118,6 +118,11 @@ class Kits:
         self.control.browser(value['sandbox'], 'private')
 
     def dispatch(self, request, owner=False, token=''):
+        if owner and request.get('operation') == 'task_dispatch':
+            action = request['request']
+            with self.lock:
+                delegated = self.grant(action['browser_id'])['token']
+            return self.dispatch(action, owner=False, token=delegated)
         with self.lock:
             now = time.monotonic()
             self.tokens = {k: v for k, v in self.tokens.items() if now < v[1]}
@@ -261,13 +266,15 @@ class Kits:
             self.checked(source)
             selected = self.control.browser(source['sandbox'], 'export_logins', origin=origin(request['login_origin']))
             request = dict(request, cookies=unseal(self.private_key, selected['sealed'])['cookies'])
-        identity = 'br_' + secrets.token_hex(16)
+        identity = request.get('browser_id') or ('br_' + secrets.token_hex(16))
+        if identity in self.browsers:
+            raise KitError('BROWSER_ALREADY_ATTACHED')
         sandbox = agent['id']
         observed = None
         if mode == 'external':
             observed = admission(self.config.get('linux_admission_host'))  # all tickets count
             sandbox = self.control.create(self.config['browser_template'], self.config.get('browser_resources',
-                {'vcpus': 2, 'memory_mib': 4096, 'disk_gib': 20, 'pids_max': 4096}))
+                {'vcpus': 2, 'memory_mib': 4096, 'disk_gib': 20, 'pids_max': 4096}), browser_custody=True)
         value = {'agent': agent['id'], 'agent_generation': agent['generation'], 'sandbox': sandbox,
                  'browser_generation': 1, 'mode': mode, 'private': True, 'public_key': ''}
         self.browsers[identity] = value

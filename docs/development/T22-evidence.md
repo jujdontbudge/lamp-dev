@@ -126,6 +126,61 @@ Focused checks both passed, exit 0:
 No VM, full-suite or benchmark run was added for this import-only resolution.
 The source hash manifest was refreshed; the feature limitations below remain.
 
+## Incremental public API/CLI checkpoint — 2026-11-11
+
+This checkpoint publishes the compiling integration, not a new passing browser,
+Docker or vault-fill demonstration. No new tests or reruns of passed demos.
+
+- `lampd --kits-config` embeds/extracts and manages the private Python backend;
+  `--kits-socket` supports an existing owner-only backend. Canonical browser and
+  kit routes are installed, including install/status and generated contracts.
+- Browser/kit metadata and mutation intents use the durable control journal.
+  Private request digests are keyed; screenshot bytes are returned transiently,
+  not saved in operation outcomes. CLI private input uses stdin and screenshots
+  use new mode-0600 output files.
+- External browser allocations carry owner-only custody labels. Common sandbox,
+  exec, snapshot and resource authorization denies their underlying VM to agent
+  keys, even broad keys sharing the owner principal. Browser resource scopes bind
+  to their agent sandbox. These new restrictions still need the live credential
+  demonstration; compilation is not that proof.
+- The fresh `host-20261111-integrated-docker-1` fixture reached
+  `T22 isolated public API ready` with the bundled backend. Running
+  `PYTHONPATH=. python3 tools/kits_docker_demo.py --fixture /home/johan/lamp-t22/host-20261111-integrated-docker-1 --root /home/johan/lamp-t22/docker-integrated-1 --lamp /home/johan/lamp-t22/lamp-integrated`
+  exited **1**, `OWNER_SANDBOX_CAPACITY`, before VM allocation. Another ticket
+  took the free slot between inspection and allocation. Its transcript confirms
+  `controller_stopped: true`, count 2 at teardown. The subsequent inspection
+  showed one Firecracker, UID `1940000000`, not T22's UID range, and 26,842 MiB
+  available. This is a capacity refusal, not a container pass.
+- **Vaultwarden 1.37.5**, not Bitwarden cloud, is running natively from verified
+  public image contents on loopback with disposable data/private libraries.
+  No host Docker command or existing Docker resource was used. Official Linux
+  Bitwarden CLI 2026.10.1 was downloaded and its published SHA-256 verified.
+  Disposable registration succeeded after implementing its no-email token flow;
+  native CLI login failed (script exit **1**, private output withheld). Public
+  server discovery advertises `http://localhost` rather than the actual
+  `http://127.0.0.1:18224` origin. Correct that native fixture configuration before
+  another fresh account attempt. Native read and real form fill remain unproven.
+- A Mac CLI version probe unexpectedly initialized previously absent default
+  Bitwarden CLI files. It did not authenticate or read an owner vault. Subsequent
+  provisioning explicitly isolates HOME/appdata on LX; never use that Mac
+  default directory as a demonstration profile.
+- **1Password not demonstrated:** its [official personal pricing](https://1password.com/pricing/personal)
+  offers paid plans and a 14-day trial, excluded by the no-payment/no-trial rule;
+  no account was created. **Proton Pass not demonstrated:** no human-verification-free
+  disposable provisioning path was established. Support-page fetches did not
+  provide usable article text; no signup failure or CAPTCHA encounter is claimed.
+
+Focused checks on this checkpoint all passed, exit **0**:
+
+- `go build ./cmd/lamp ./cmd/lampd`
+- `GOOS=linux GOARCH=amd64 go build -o /tmp/lamp-t22-integrated-lampd ./cmd/lampd`
+- `GOOS=linux GOARCH=amd64 go build -o /tmp/lamp-t22-integrated-lamp ./cmd/lamp`
+- `python3 -m py_compile kits/control.py kits/service.py tools/kits_docker_demo.py tools/kits_lx_demo_host.py tools/kits_vaultwarden_provision.py`
+- `git diff --check`
+
+The native Vaultwarden is an owned temporary non-VM service; it remains running
+for the pending provisioning work. Failed account/fixture directories are retained.
+
 ## Remaining work
 
 - With one LX slot available, start a **fresh** owned fixture using the prepared
@@ -133,12 +188,12 @@ The source hash manifest was refreshed; the feature limitations below remain.
   performs admission immediately before create, imports public BusyBox, attempts
   a real isolated container, and releases/stops its fixture on exit. Do not reuse
   an existing output directory or stop another ticket to obtain the slot.
-- Demonstrate 1Password, Bitwarden and Proton Pass against disposable real vaults
-  and native isolated sessions; do not substitute the owner's profiles/items or
-  mock a provider. Account setup is not implemented by these adapters.
-- Canonical `lamp`/MCP browser registration, readiness attachment and dashboard UI
-  are not wired by this standalone companion. Agent credentials must not grant
-  exec/read/capture access to the external browser VM.
+- Finish the disposable native Vaultwarden/Bitwarden CLI login, native read and
+  real form fill. Do not substitute an owner's profiles/items or mock a provider.
+  1Password and Proton Pass remain explicitly not demonstrated as described above.
+- Demonstrate the installed canonical Lamp API/CLI browser create, private
+  takeover/handback, vault fill and kit installation. Prove agent credentials
+  cannot exec/read/capture the external VM. Dashboard UI remains T27's work.
 - Arbitrary online package installation, every named language preset, non-root
   Docker image users, networking, MFA/passkeys and arbitrary website secret
   noninterference have not been demonstrated. Unsupported forms require private

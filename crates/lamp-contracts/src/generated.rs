@@ -3306,6 +3306,10 @@ pub struct Browser {
     pub custody_host_ids: Option<Vec<String>>,
     #[serde(rename = "exposures", default, skip_serializing_if = "Option::is_none")]
     pub exposures: Option<Vec<String>>,
+    #[serde(rename = "mode", default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<BrowserMode>,
+    #[serde(rename = "warning", default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -3381,12 +3385,8 @@ pub struct BrowserCreateInput {
     pub owner_id: Option<String>,
     #[serde(rename = "task_id", default, skip_serializing_if = "Option::is_none")]
     pub task_id: Option<String>,
-    #[serde(
-        rename = "sandbox_id",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub sandbox_id: Option<String>,
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
     #[serde(rename = "kit_id", default, skip_serializing_if = "Option::is_none")]
     pub kit_id: Option<String>,
     #[serde(
@@ -3457,6 +3457,26 @@ pub struct BrowserCreateInput {
     pub idempotency_key: String,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(rename = "mode", default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<BrowserCreateInputMode>,
+    #[serde(
+        rename = "source_browser_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub source_browser_id: Option<String>,
+    #[serde(
+        rename = "login_origin",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub login_origin: Option<String>,
+    #[serde(
+        rename = "acknowledge_agent_can_read_logins",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub acknowledge_agent_can_read_logins: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BrowserCreateInputDurability {
@@ -3468,6 +3488,13 @@ pub enum BrowserCreateInputDurability {
     Replicated,
     #[serde(rename = "backup")]
     Backup,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BrowserCreateInputMode {
+    #[serde(rename = "external")]
+    External,
+    #[serde(rename = "copied")]
+    Copied,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BrowserCreateInputVisibility {
@@ -3536,7 +3563,22 @@ pub enum BrowserDurability {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct BrowserFillPasswordCompletion {}
+pub struct BrowserFillPasswordCompletion {
+    #[serde(
+        rename = "approval_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub approval_id: Option<String>,
+    #[serde(rename = "plan", default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<AdapterDocument>,
+    #[serde(rename = "state", default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(rename = "filled", default, skip_serializing_if = "Option::is_none")]
+    pub filled: Option<bool>,
+    #[serde(rename = "private", default, skip_serializing_if = "Option::is_none")]
+    pub private: Option<bool>,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BrowserFillPasswordInput {
@@ -3572,6 +3614,12 @@ pub struct BrowserFillPasswordInput {
     pub wait_ms: Option<u64>,
     #[serde(rename = "expected_revision")]
     pub expected_revision: u64,
+    #[serde(rename = "origin", default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+    #[serde(rename = "submit", default, skip_serializing_if = "Option::is_none")]
+    pub submit: Option<bool>,
+    #[serde(rename = "plan", default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<AdapterDocument>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -3631,6 +3679,13 @@ pub struct BrowserListResult {
     pub next_cursor: Option<String>,
     #[serde(rename = "request_id")]
     pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BrowserMode {
+    #[serde(rename = "external")]
+    External,
+    #[serde(rename = "copied")]
+    Copied,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -10405,6 +10460,8 @@ pub struct Kit {
         skip_serializing_if = "Option::is_none"
     )]
     pub state_schema: Option<JSONSchema>,
+    #[serde(rename = "tools", default, skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<KitToolsItem>>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -10451,6 +10508,27 @@ pub struct KitCreateInput {
     pub idempotency_key: String,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(rename = "tools")]
+    pub tools: Vec<KitCreateInputToolsItem>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum KitCreateInputToolsItem {
+    #[serde(rename = "git")]
+    Git,
+    #[serde(rename = "docker")]
+    Docker,
+    #[serde(rename = "browser")]
+    Browser,
+    #[serde(rename = "python")]
+    Python,
+    #[serde(rename = "node")]
+    Node,
+    #[serde(rename = "go")]
+    Go,
+    #[serde(rename = "rust")]
+    Rust,
+    #[serde(rename = "c")]
+    C,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum KitCreateInputVisibility {
@@ -10520,6 +10598,66 @@ pub struct KitGetResult {
     #[serde(rename = "request_id")]
     pub request_id: String,
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KitInstallCompletion {
+    #[serde(rename = "state")]
+    pub state: String,
+    #[serde(rename = "job_id")]
+    pub job_id: String,
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "generation")]
+    pub generation: u64,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KitInstallInput {
+    #[serde(rename = "lease_id", default, skip_serializing_if = "Option::is_none")]
+    pub lease_id: Option<String>,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+    #[serde(rename = "kit_id")]
+    pub kit_id: String,
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KitInstallResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<KitInstallCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KitInstallStatusInput {
+    #[serde(rename = "kit_id")]
+    pub kit_id: String,
+    #[serde(rename = "job_id")]
+    pub job_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KitInstallStatusResult {
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "data")]
+    pub data: AdapterDocument,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum KitKind {
     #[serde(rename = "kit")]
@@ -10557,6 +10695,25 @@ pub enum KitState {
     Disabled,
     #[serde(rename = "deleted")]
     Deleted,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum KitToolsItem {
+    #[serde(rename = "git")]
+    Git,
+    #[serde(rename = "docker")]
+    Docker,
+    #[serde(rename = "browser")]
+    Browser,
+    #[serde(rename = "python")]
+    Python,
+    #[serde(rename = "node")]
+    Node,
+    #[serde(rename = "go")]
+    Go,
+    #[serde(rename = "rust")]
+    Rust,
+    #[serde(rename = "c")]
+    C,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -15639,6 +15796,8 @@ pub struct SandboxCreateInput {
     pub idempotency_key: String,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(rename = "labels", default, skip_serializing_if = "Option::is_none")]
+    pub labels: Option<StringMap>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxCreateInputAuthMode {
@@ -24223,6 +24382,28 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/kits/{kit_id}",
         input_schema: "KitGetInput",
         result_schema: "KitGetResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
+        name: "kit_install",
+        scope: "kit.install",
+        cli: "lamp kit install",
+        method: "post",
+        path: "/v1/kits/{kit_id}:install",
+        input_schema: "KitInstallInput",
+        result_schema: "KitInstallResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "kit_install_status",
+        scope: "kit.install_status",
+        cli: "lamp kit install-status",
+        method: "get",
+        path: "/v1/kits/{kit_id}/installations/{job_id}",
+        input_schema: "KitInstallStatusInput",
+        result_schema: "KitInstallStatusResult",
         authorization: "authenticated_scope",
         mutation: false,
     },

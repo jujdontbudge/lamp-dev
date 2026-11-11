@@ -1,9 +1,25 @@
 # Owner-operated kits
 
-`python3 -m kits` is a standalone companion to `lampd`, like `lamp-broker`.
-It uses only the public sandbox/exec API and Python's standard library, plus
-`openssl` and the selected native password-manager CLI. It does not register
-canonical `browser_*` operations in `lampd` yet. Dashboard views remain T27's work.
+`lampd --kits-config /private/config.json` starts the bundled headless kits
+backend. Canonical `browser_*` and `kit_*` routes are installed in Lamp's public
+API and generic `lamp browser …` / `lamp kit …` CLI. `--kits-socket` can instead
+attach an existing owner-only backend; do not specify both options. The config
+below supplies its public control socket, token-file path and prepared template.
+The backend uses only the public sandbox/exec API, Python's standard library,
+`openssl` and the selected native password-manager CLI. Dashboard views remain
+T27's work. The standalone companion remains available for operator diagnostics.
+
+The integration builds and its managed service starts, but its complete live
+browser/CLI and agent-isolation demonstration is still pending; see
+[T22 evidence](T22-evidence.md). Browser VM allocation carries an owner-only
+`lamp.browser-custody=external` label from birth. Non-bootstrap agent credentials,
+including broad keys sharing the owner principal, are denied the underlying VM
+and its source snapshots. Browser resource scopes also bind to the agent sandbox.
+Private screenshot responses are transient, not persisted in operation outcomes.
+
+Use `--input -` for private JSON input rather than browser arguments on argv.
+For screenshots, `lamp browser action … --input - --private-png /private/new.png`
+writes a new mode-0600 file and does not print the image or private page URL.
 
 ## Start
 

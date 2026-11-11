@@ -23,6 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fixture', required=True)
     parser.add_argument('--root', required=True)
+    parser.add_argument('--lamp', help='use canonical lamp kit create/install/status instead of the companion SDK')
     args = parser.parse_args()
     fixture = Path(args.fixture).resolve()
     root = Path(args.root).resolve()
@@ -64,11 +65,25 @@ def main():
         assert runtime['runtime_mode'] == '0o1777'
         assert not runtime['host_socket_present']
         record('guest boot preparation and confinement', runtime)
-        job = start_install(control, sandbox, ['git', 'docker'])
+        def lamp(action, body, resource=None):
+            command = [args.lamp, 'kit', action]
+            if resource: command.append(resource)
+            result = subprocess.run(command + ['--socket', str(fixture / 'api.sock'), '--token-file', str(fixture / 'token'), '--input', '-', '--json'],
+                input=json.dumps(body).encode(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if result.returncode: raise RuntimeError('canonical Lamp kit request failed')
+            return json.loads(result.stdout)
+        kit_id = None
+        if args.lamp:
+            kit_id = lamp('create', {'name': 'Disposable Docker tools', 'tools': ['git', 'docker']})['result']['kit_id']
+            revision = lamp('get', {}, kit_id)['data']['revision']
+            job = lamp('install', {'sandbox_id': sandbox, 'expected_revision': revision}, kit_id)['result']
+            record('canonical lamp kit installed', {'kit_id': kit_id})
+        else:
+            job = start_install(control, sandbox, ['git', 'docker'])
         record('started VM toolchain installation', job)
         while job['state'] == 'installing':
             time.sleep(1)
-            job = install_status(control, sandbox, job['job_id'])
+            job = lamp('install-status', {'job_id': job['job_id']}, kit_id)['data'] if args.lamp else install_status(control, sandbox, job['job_id'])
         record('VM toolchain installation outcome', job)
         if job['state'] != 'ready':
             # Only a pristine public-package fixture is eligible for this dump.
