@@ -56,6 +56,50 @@ All from [08](evidence/t29/logs/demonstration-08-systems.log):
   to 03:30 EDT (or is skipped under `skip`). On the fall-back day, 01:30 runs
   once.
 
+## Linear, trigger cancel, fleet schedules and policy
+
+- **Linear** ([17](evidence/t29/logs/demonstration-17-extra.log)). A
+  `Linear-Signature` HMAC delivery returns 202. A redelivery is replayed as the
+  same operation. A forged signature returns 401 `Linear signature mismatch`,
+  and a stale timestamp returns 401. Four deliveries created one job. It ran to
+  `completed/success` on a fresh VM, and that VM was deleted.
+- **Trigger cancel** ([17](evidence/t29/logs/demonstration-17-extra.log)). A
+  live trigger-started job was cancelled through Lamp. It ended
+  `canceled/cancelled`, its VM was deleted, 0 execs were left in it, and no
+  Firecracker process was left on the host. The guard audit shows
+  `released=false`, only because this demonstration configures no
+  `--audit-release`. No other authority was left.
+- **Schedule fleet coordination**
+  ([20](evidence/t29/logs/demonstration-20-fleet.log)). Two lampd hosts
+  (`hs_t29a`, `hs_t29b`) formed one fleet over mTLS Raft. The same schedule
+  (`fleet_key=t29-nightly`, every minute) was enrolled on both. Each occurrence
+  has one replicated claim. Occurrence 21:06Z ran once fleet-wide, on
+  `hs_t29a`. The other host skipped the occurrences it did not claim (1 on
+  `hs_t29a`, 2 on `hs_t29b`). The one job that ran ended `failed`. That does
+  not affect coordination, which is the point of this observation.
+- **Trusted vs public policy** (trusted
+  [23](evidence/t29/logs/demonstration-23-trusted.log), public
+  [24](evidence/t29/logs/demonstration-24-public.log)). These come from the
+  live VM's root-owned network attachment and the broker's own audit:
+
+  | | Trusted (Gitea, `trusted`) | Public (Woodpecker, `public_pr`) |
+  | --- | --- | --- |
+  | Model or broker secret | grant issued (broker audit: `issued` for its VM) | none issued; the broker audit is empty |
+  | Network exceptions | 8: the private forge ports plus broker `10.219.29.1:3936` | 7: the forge ports only, no broker |
+  | Retention (`retain_stopped=true`) | VM deleted, because the job failed and only successful trusted jobs are kept | VM deleted even though the job succeeded: public jobs are never retained |
+
+  The trusted job failed in each of three attempts: in runs 18 and 23, and run
+  21 timed out waiting for a dispatch. So a retained trusted VM was **not
+  observed**. The rule is `retain = retain_stopped && !public`, applied to
+  successful jobs. The public side shows that rule really deleting a successful
+  job's VM. In run 23, gitea-runner exited without a native result (`native
+  job result unavailable after runner exit`), and the guard log is clean. In
+  run 18, the guard died with `ENOBUFS` on its netlink queue. Run 19, a public
+  run, shows `NFQUEUE poll/liveness failure`. These are not yet explained.
+- **Guard limit found.** The per-process guard spool is 256 KiB, and heartbeats
+  are written every 250 ms. A command that runs longer than about 2.7 minutes
+  fills the spool, and the guard exits 70. The same limit is on `main`.
+
 ## Not run
 
 Buildkite, CircleCI, Azure Pipelines and Bitbucket need hosted accounts. The
