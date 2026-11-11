@@ -74,6 +74,9 @@ type Config struct {
 	// replacement host with the owner's recovery material (recovery.go).
 	RecoveryKeyFile   string
 	RecoveryImportDir string
+	// InstallDir is the lamp-installer prefix: release mirror, pinned release
+	// key and the updater agent's request/result files (updates.go).
+	InstallDir string
 }
 type Service struct {
 	clockWall      time.Time
@@ -89,6 +92,8 @@ type Service struct {
 	commitChanged  chan struct{}
 	identity       IdentityConfig
 	recoveryPublic *ecdh.PublicKey
+	installDir     string
+	wantFleet      bool
 	protected      map[string]ProtectedAction
 	native         *NativeFallbackConfig
 	eventRevisions map[string]uint64
@@ -423,6 +428,10 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	s.installDir = config.InstallDir
+	s.wantFleet = config.Fleet != nil
+	s.wg.Add(1)
+	go s.updateDriver()
 	if config.RecoveryKeyFile != "" {
 		if err := s.importRecovered(config.RecoveryKeyFile, config.RecoveryImportDir); err != nil {
 			s.Close()

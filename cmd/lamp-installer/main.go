@@ -37,33 +37,12 @@ import (
 	"time"
 
 	"github.com/JohanSardar/lamp/internal/control"
+	"github.com/JohanSardar/lamp/internal/release"
 )
 
-const manifestFormat = "lamp.release/v1"
-const trustPrefix = "lamp-release-ed25519 "
-
-type fileEntry struct {
-	SHA256 string `json:"sha256"`
-	Mode   uint32 `json:"mode"`
-	Size   int64  `json:"size"`
-}
-
-type component struct {
-	Path    string `json:"path"`
-	Version string `json:"version"`
-	Sum     string `json:"sum,omitempty"`
-}
-
-type manifest struct {
-	Format     string                 `json:"format"`
-	Version    string                 `json:"version"`
-	Channel    string                 `json:"channel"`
-	OS         string                 `json:"os"`
-	Arch       string                 `json:"arch"`
-	CreatedAt  string                 `json:"created_at"`
-	Files      map[string]fileEntry   `json:"files"`
-	Components map[string][]component `json:"components"`
-}
+type fileEntry = release.FileEntry
+type component = release.Component
+type manifest = release.Manifest
 
 // installState is <prefix>/config/install.json.
 type installState struct {
@@ -89,7 +68,7 @@ func main() {
 	cmds := map[string]func([]string) error{
 		"keygen": keygen, "recovery-keygen": recoveryKeygen, "build": build, "verify": verifyCmd,
 		"install": install, "update": update, "auto": auto, "policy": policy, "rollback": rollbackCmd,
-		"status": status, "uninstall": uninstall, "rollout": rollout, "recover": recoverCmd,
+		"status": status, "uninstall": uninstall, "rollout": rollout, "recover": recoverCmd, "index": indexCmd, "publish": publish, "agent": agentCmd, "restart": restartCmd,
 	}
 	fn, ok := cmds[os.Args[1]]
 	if !ok {
@@ -106,7 +85,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: lamp-installer keygen|recovery-keygen|build|verify|install|update|auto|policy|rollback|status|uninstall|rollout|recover [flags]")
+	fmt.Fprintln(os.Stderr, "usage: lamp-installer keygen|recovery-keygen|build|verify|install|update|auto|policy|rollback|status|uninstall|rollout|recover|index|publish|agent|restart [flags]")
 	os.Exit(2)
 }
 
@@ -156,7 +135,7 @@ func keygen(args []string) error {
 	if err := writePrivate(*out, []byte(base64.StdEncoding.EncodeToString(priv.Seed())+"\n")); err != nil {
 		return err
 	}
-	line := trustPrefix + base64.StdEncoding.EncodeToString(pub) + "\n"
+	line := release.TrustPrefix + base64.StdEncoding.EncodeToString(pub) + "\n"
 	if err := os.WriteFile(*pubOut, []byte(line), 0644); err != nil {
 		return err
 	}
@@ -189,21 +168,7 @@ func recoveryKeygen(args []string) error {
 	return nil
 }
 
-func readTrust(path string) (ed25519.PublicKey, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	line := strings.TrimSpace(string(raw))
-	if !strings.HasPrefix(line, trustPrefix) {
-		return nil, errors.New("not a lamp release trust file")
-	}
-	b, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(line, trustPrefix))
-	if err != nil || len(b) != ed25519.PublicKeySize {
-		return nil, errors.New("not a lamp release trust file")
-	}
-	return b, nil
-}
+func readTrust(path string) (ed25519.PublicKey, error) { return release.ReadTrust(path) }
 
 // ---- build ----
 
@@ -235,7 +200,8 @@ func build(args []string) error {
 		return errors.New("invalid release signing key")
 	}
 	priv := ed25519.NewKeyFromSeed(seed)
-	m := manifest{Format: manifestFormat, Version: *version, Channel: *channel, OS: *goos, Arch: *arch, CreatedAt: time.Now().UTC().Format(time.RFC3339), Files: map[string]fileEntry{}, Components: map[string][]component{}}
+	*out = filepath.Join(*out, *goos+"-"+*arch)
+	m := manifest{Format: release.ManifestFormat, Version: *version, Channel: *channel, OS: *goos, Arch: *arch, CreatedAt: time.Now().UTC().Format(time.RFC3339), Files: map[string]fileEntry{}, Components: map[string][]component{}}
 	if err := os.MkdirAll(filepath.Join(*out, "payload"), 0755); err != nil {
 		return err
 	}
@@ -296,85 +262,13 @@ func validPath(p string) bool {
 
 // ---- verification ----
 
-func parseVersion(v string) ([3]int, error) {
-	var out [3]int
-	parts := strings.Split(v, ".")
-	if len(parts) != 3 {
-		return out, fmt.Errorf("version %q is not a.b.c", v)
-	}
-	for i, p := range parts {
-		n, err := strconv.Atoi(p)
-		if err != nil || n < 0 {
-			return out, fmt.Errorf("version %q is not a.b.c", v)
-		}
-		out[i] = n
-	}
-	return out, nil
-}
+func parseVersion(v string) ([3]int, error) { return release.ParseVersion(v) }
+func newer(a, b string) bool                { return release.Newer(a, b) }
 
-func newer(a, b string) bool {
-	x, _ := parseVersion(a)
-	y, _ := parseVersion(b)
-	for i := range x {
-		if x[i] != y[i] {
-			return x[i] > y[i]
-		}
-	}
-	return false
-}
-
-// verifyRelease checks trust, platform and every payload file before apply.
+// verifyRelease checks index trust, this platform's manifest and every file.
 func verifyRelease(dir string, trust ed25519.PublicKey) (manifest, error) {
-	var m manifest
-	raw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
-	if err != nil {
-		return m, err
-	}
-	sigRaw, err := os.ReadFile(filepath.Join(dir, "manifest.sig"))
-	if err != nil {
-		return m, errors.New("release is unsigned")
-	}
-	sig, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(sigRaw)))
-	if err != nil || !ed25519.Verify(trust, raw, sig) {
-		return m, errors.New("release signature does not verify against the pinned release key")
-	}
-	if err := json.Unmarshal(raw, &m); err != nil || m.Format != manifestFormat {
-		return m, errors.New("unknown release manifest format")
-	}
-	if _, err := parseVersion(m.Version); err != nil {
-		return m, err
-	}
-	if m.OS != runtime.GOOS || m.Arch != runtime.GOARCH {
-		return m, fmt.Errorf("release is for %s/%s, host is %s/%s", m.OS, m.Arch, runtime.GOOS, runtime.GOARCH)
-	}
-	seen := 0
-	err = filepath.WalkDir(filepath.Join(dir, "payload"), func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		rel, _ := filepath.Rel(filepath.Join(dir, "payload"), p)
-		e, ok := m.Files[rel]
-		if !ok || !d.Type().IsRegular() {
-			return fmt.Errorf("payload file %s is not in the signed manifest", rel)
-		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		sum := sha256.Sum256(data)
-		if hex.EncodeToString(sum[:]) != e.SHA256 {
-			return fmt.Errorf("payload file %s does not match its signed digest", rel)
-		}
-		seen++
-		return nil
-	})
-	if err != nil {
-		return m, err
-	}
-	if seen != len(m.Files) {
-		return m, errors.New("payload is missing signed files")
-	}
-	return m, nil
+	_, m, _, err := release.VerifyPlatform(dir, trust)
+	return m, err
 }
 
 func verifyCmd(args []string) error {
@@ -402,6 +296,7 @@ func stage(prefix, dir string, m manifest) (string, error) {
 	}
 	tmp := target + ".staging"
 	os.RemoveAll(tmp)
+	dir = filepath.Join(dir, release.Platform())
 	for rel, e := range m.Files {
 		data, err := os.ReadFile(filepath.Join(dir, "payload", rel))
 		if err != nil {
@@ -465,12 +360,31 @@ func loadPolicy(prefix string) updatePolicy {
 
 // ---- service management ----
 
-func label(st installState) string    { return "si.eilmer.lamp." + st.Name }
-func unitName(st installState) string { return "lamp-" + st.Name + ".service" }
-
-func lampdArgv(prefix string, st installState) []string {
-	return append([]string{filepath.Join(prefix, "current", "bin", "lampd")}, st.LampdArgs...)
+// A job is one supervised process: lampd itself, or the updater agent that
+// runs beside it so stopping lampd during an update never stops the updater.
+type job struct {
+	suffix string // "" for lampd, "-agent" for the updater
+	argv   []string
 }
+
+func lampdJob(prefix string, st installState) job {
+	return job{"", append([]string{filepath.Join(prefix, "current", "bin", "lampd")}, st.LampdArgs...)}
+}
+
+// agentJob runs the installer binary copied outside releases, so an update
+// swapping current/ never replaces the running updater underneath itself.
+func agentJob(prefix string, st installState) job {
+	return job{"-agent", []string{filepath.Join(prefix, "config", "lamp-installer"), "agent", "--prefix", prefix}}
+}
+
+func label(st installState, j job) string    { return "si.eilmer.lamp." + st.Name + j.suffix }
+func unitName(st installState, j job) string { return "lamp-" + st.Name + j.suffix + ".service" }
+func plistPath(st installState, j job) string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, "Library", "LaunchAgents", label(st, j)+".plist")
+}
+func logName(j job) string { return "lampd" + j.suffix + ".log" }
+func guiDomain() string    { return "gui/" + strconv.Itoa(os.Getuid()) }
 
 func sudo(args ...string) error {
 	cmd := exec.Command("sudo", append([]string{"-n"}, args...)...)
@@ -478,34 +392,38 @@ func sudo(args ...string) error {
 	return cmd.Run()
 }
 
-func writeService(prefix string, st installState) error {
-	argv := lampdArgv(prefix, st)
+func writeService(prefix string, st installState, j job) error {
 	switch st.Service {
 	case "systemd":
-		quoted := make([]string, len(argv))
-		for i, a := range argv {
+		quoted := make([]string, len(j.argv))
+		for i, a := range j.argv {
 			quoted[i] = strconv.Quote(a)
 		}
-		unit := fmt.Sprintf("[Unit]\nDescription=Lamp control daemon (%s)\nAfter=network-online.target\n\n[Service]\nUser=%d\nExecStart=%s\nRestart=on-failure\nRestartSec=2\nKillSignal=SIGTERM\nTimeoutStopSec=60\n\n[Install]\nWantedBy=multi-user.target\n", st.Name, os.Getuid(), strings.Join(quoted, " "))
-		tmp := filepath.Join(prefix, "config", unitName(st))
+		unit := fmt.Sprintf("[Unit]\nDescription=Lamp %s (%s)\nAfter=network-online.target\n\n[Service]\nUser=%d\nExecStart=%s\nRestart=on-failure\nRestartSec=2\nKillSignal=SIGTERM\nTimeoutStopSec=60\n\n[Install]\nWantedBy=multi-user.target\n", strings.TrimPrefix("daemon"+j.suffix, ""), st.Name, os.Getuid(), strings.Join(quoted, " "))
+		tmp := filepath.Join(prefix, "config", unitName(st, j))
 		if err := os.WriteFile(tmp, []byte(unit), 0644); err != nil {
 			return err
 		}
-		if err := sudo("install", "-m", "0644", tmp, "/etc/systemd/system/"+unitName(st)); err != nil {
+		if err := sudo("install", "-m", "0644", tmp, "/etc/systemd/system/"+unitName(st, j)); err != nil {
 			return err
 		}
 		if err := sudo("systemctl", "daemon-reload"); err != nil {
 			return err
 		}
-		return sudo("systemctl", "enable", unitName(st))
+		return sudo("systemctl", "enable", unitName(st, j))
 	case "launchd":
+		// A per-user LaunchAgent in the gui/<uid> domain; never a system daemon.
 		var b strings.Builder
-		for _, a := range argv {
+		for _, a := range j.argv {
 			b.WriteString("<string>" + xmlEscape(a) + "</string>")
 		}
-		plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>%s</string><key>ProgramArguments</key><array>%s</array><key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>StandardErrorPath</key><string>%s</string></dict></plist>`, label(st), b.String(), xmlEscape(filepath.Join(prefix, "log", "lampd.log")))
-		home, _ := os.UserHomeDir()
-		return os.WriteFile(filepath.Join(home, "Library", "LaunchAgents", label(st)+".plist"), []byte(plist), 0644)
+		logf := xmlEscape(filepath.Join(prefix, "log", logName(j)))
+		plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>Label</key><string>%s</string><key>ProgramArguments</key><array>%s</array><key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>ThrottleInterval</key><integer>2</integer><key>ProcessType</key><string>Background</string><key>StandardOutPath</key><string>%s</string><key>StandardErrorPath</key><string>%s</string></dict></plist>
+`, label(st, j), b.String(), logf, logf)
+		os.MkdirAll(filepath.Dir(plistPath(st, j)), 0755)
+		return os.WriteFile(plistPath(st, j), []byte(plist), 0644)
 	case "process":
 		return nil
 	}
@@ -529,44 +447,76 @@ func xmlEscape(s string) string {
 	return b.String()
 }
 
-func pidFile(prefix string) string { return filepath.Join(prefix, "run", "lampd.pid") }
+func pidFile(prefix string, j job) string {
+	return filepath.Join(prefix, "run", "lampd"+j.suffix+".pid")
+}
 
-func startService(prefix string, st installState) error {
+func startService(prefix string, st installState, j job) error {
 	switch st.Service {
 	case "systemd":
-		return sudo("systemctl", "start", unitName(st))
+		return sudo("systemctl", "start", unitName(st, j))
 	case "launchd":
-		home, _ := os.UserHomeDir()
-		return exec.Command("launchctl", "bootstrap", "gui/"+strconv.Itoa(os.Getuid()), filepath.Join(home, "Library", "LaunchAgents", label(st)+".plist")).Run()
+		out, err := exec.Command("launchctl", "bootstrap", guiDomain(), plistPath(st, j)).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("launchctl bootstrap: %v: %s", err, strings.TrimSpace(string(out)))
+		}
+		return nil
 	}
-	argv := lampdArgv(prefix, st)
-	logf, err := os.OpenFile(filepath.Join(prefix, "log", "lampd.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	logf, err := os.OpenFile(filepath.Join(prefix, "log", logName(j)), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
 	defer logf.Close()
-	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd := exec.Command(j.argv[0], j.argv[1:]...)
 	cmd.Stdout, cmd.Stderr = logf, logf
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 	pid := cmd.Process.Pid
-	cmd.Process.Release()
-	return os.WriteFile(pidFile(prefix), []byte(strconv.Itoa(pid)), 0600)
+	// Reap it when it exits, or a long-running agent would see a zombie
+	// as still alive.
+	go cmd.Wait()
+	return os.WriteFile(pidFile(prefix, j), []byte(strconv.Itoa(pid)), 0600)
 }
 
-// stopService drains lampd with SIGTERM: the journal is durable, so active
-// and saved work is reloaded by the next daemon.
-func stopService(prefix string, st installState, drain time.Duration) error {
+// restartService restarts a running job in place (systemctl restart /
+// launchctl kickstart -k).
+func restartService(prefix string, st installState, j job) error {
 	switch st.Service {
 	case "systemd":
-		return sudo("systemctl", "stop", unitName(st))
+		return sudo("systemctl", "restart", unitName(st, j))
 	case "launchd":
-		exec.Command("launchctl", "bootout", "gui/"+strconv.Itoa(os.Getuid())+"/"+label(st)).Run()
+		out, err := exec.Command("launchctl", "kickstart", "-k", guiDomain()+"/"+label(st, j)).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("launchctl kickstart: %v: %s", err, strings.TrimSpace(string(out)))
+		}
 		return nil
 	}
-	raw, err := os.ReadFile(pidFile(prefix))
+	if err := stopService(prefix, st, j, 60*time.Second); err != nil {
+		return err
+	}
+	return startService(prefix, st, j)
+}
+
+// stopService drains a job with SIGTERM: the journal is durable, so active
+// and saved work is reloaded by the next daemon.
+func stopService(prefix string, st installState, j job, drain time.Duration) error {
+	switch st.Service {
+	case "systemd":
+		return sudo("systemctl", "stop", unitName(st, j))
+	case "launchd":
+		exec.Command("launchctl", "bootout", guiDomain()+"/"+label(st, j)).Run()
+		deadline := time.Now().Add(drain)
+		for time.Now().Before(deadline) {
+			if exec.Command("launchctl", "print", guiDomain()+"/"+label(st, j)).Run() != nil {
+				return nil
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+		return fmt.Errorf("%s did not stop within %s", label(st, j), drain)
+	}
+	raw, err := os.ReadFile(pidFile(prefix, j))
 	if err != nil {
 		return nil
 	}
@@ -576,29 +526,28 @@ func stopService(prefix string, st installState, drain time.Duration) error {
 	}
 	proc, _ := os.FindProcess(pid)
 	if proc.Signal(syscall.SIGTERM) != nil {
-		os.Remove(pidFile(prefix))
+		os.Remove(pidFile(prefix, j))
 		return nil
 	}
 	deadline := time.Now().Add(drain)
 	for time.Now().Before(deadline) {
 		if proc.Signal(syscall.Signal(0)) != nil {
-			os.Remove(pidFile(prefix))
+			os.Remove(pidFile(prefix, j))
 			return nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return fmt.Errorf("lampd %d did not drain within %s", pid, drain)
+	return fmt.Errorf("process %d did not drain within %s", pid, drain)
 }
 
-func removeService(prefix string, st installState) {
+func removeService(prefix string, st installState, j job) {
 	switch st.Service {
 	case "systemd":
-		sudo("systemctl", "disable", unitName(st))
-		sudo("rm", "-f", "/etc/systemd/system/"+unitName(st))
+		sudo("systemctl", "disable", unitName(st, j))
+		sudo("rm", "-f", "/etc/systemd/system/"+unitName(st, j))
 		sudo("systemctl", "daemon-reload")
 	case "launchd":
-		home, _ := os.UserHomeDir()
-		os.Remove(filepath.Join(home, "Library", "LaunchAgents", label(st)+".plist"))
+		os.Remove(plistPath(st, j))
 	}
 }
 
@@ -642,6 +591,12 @@ func inventory(prefix string) ([]string, error) {
 		items, _ := out["items"].([]any)
 		for _, it := range items {
 			m, _ := it.(map[string]any)
+			if kind == "sandboxes" {
+				// A running sandbox must still be running; its revision may
+				// advance when the new daemon reconciles it.
+				rows = append(rows, fmt.Sprintf("%s %v %v %v", kind, m["id"], m["state"], m["host_id"]))
+				continue
+			}
 			rows = append(rows, fmt.Sprintf("%s %v %v %v %v", kind, m["id"], m["state"], m["revision"], firstOf(m, "manifest_digest", "sha256", "generation_digest")))
 		}
 	}
@@ -682,8 +637,12 @@ func install(args []string) error {
 	trust := fl.String("trust", "", "release trust file to pin")
 	service := fl.String("service", defaultService(), "systemd|launchd|process")
 	recovery := fl.String("recovery-public-key", "", "owner recovery public key (omit to make backups visibly nonrecoverable)")
+	identityFile := fl.String("identity-file", "", "existing owner enrollment (fleet hosts share one); default generates a new owner bearer")
+	tokenFile := fl.String("token-file", "", "with --identity-file: the owner bearer file the updater and health checks use")
+	agent := fl.Bool("agent", true, "run the updater agent service beside lampd")
+	wait := fl.Bool("wait", true, "wait for lampd to answer (fleet hosts answer only once quorum forms)")
 	var extra multi
-	fl.Var(&extra, "lampd-arg", "extra lampd argument (repeatable), e.g. enrolled worker flags")
+	fl.Var(&extra, "lampd-arg", "extra lampd argument (repeatable), e.g. enrolled worker or --fleet-config flags")
 	fl.Parse(args)
 	key, err := readTrust(*trust)
 	if err != nil {
@@ -697,7 +656,7 @@ func install(args []string) error {
 	if _, err := os.Stat(filepath.Join(p, "config", "install.json")); err == nil {
 		return errors.New("already installed here; use update")
 	}
-	for _, d := range []string{"config", "releases", "run", "log", "state"} {
+	for _, d := range []string{"config", "releases", "mirror", "run", "log", "state"} {
 		if err := os.MkdirAll(filepath.Join(p, d), 0700); err != nil {
 			return err
 		}
@@ -706,7 +665,17 @@ func install(args []string) error {
 	os.WriteFile(filepath.Join(p, "config", "release-trust.pub"), trustRaw, 0644)
 	// The owner bearer: only its SHA-256 goes to lampd's enrollment.
 	tokenPath := filepath.Join(p, "config", "owner.token")
-	if _, err := os.Stat(tokenPath); err != nil {
+	if *identityFile != "" {
+		ident, err1 := os.ReadFile(*identityFile)
+		tok, err2 := os.ReadFile(*tokenFile)
+		if err1 != nil || err2 != nil {
+			return errors.New("--identity-file needs a readable --token-file")
+		}
+		if err := writePrivate(tokenPath, tok); err != nil {
+			return err
+		}
+		os.WriteFile(filepath.Join(p, "config", "identity.json"), ident, 0600)
+	} else if _, err := os.Stat(tokenPath); err != nil {
 		tok := make([]byte, 32)
 		rand.Read(tok)
 		t := hex.EncodeToString(tok)
@@ -719,7 +688,7 @@ func install(args []string) error {
 	}
 	policyRaw, _ := json.MarshalIndent(loadPolicy(p), "", " ")
 	os.WriteFile(filepath.Join(p, "config", "update-policy.json"), policyRaw, 0600)
-	lampdArgs := []string{"--socket", filepath.Join(p, "run", "api.sock"), "--state-dir", filepath.Join(p, "state", "control"), "--identity-file", filepath.Join(p, "config", "identity.json")}
+	lampdArgs := []string{"--socket", filepath.Join(p, "run", "api.sock"), "--state-dir", filepath.Join(p, "state", "control"), "--identity-file", filepath.Join(p, "config", "identity.json"), "--install-dir", p}
 	if *recovery != "" {
 		raw, err := os.ReadFile(*recovery)
 		if err != nil {
@@ -728,7 +697,7 @@ func install(args []string) error {
 		os.WriteFile(filepath.Join(p, "config", "recovery.pub"), raw, 0644)
 		lampdArgs = append(lampdArgs, "--recovery-public-key", filepath.Join(p, "config", "recovery.pub"))
 	}
-	if !hasWorker(extra) {
+	if !hasWorker(extra) && !hasArg(extra, "--fleet-config") {
 		// Control-only host until a supervisor is enrolled.
 		lampdArgs = append(lampdArgs, "--worker-socket", filepath.Join(p, "run", "worker.sock"), "--worker-id", "unenrolled", "--worker-boot-id", "unenrolled", "--grant-id", "none", "--worker-uid", strconv.Itoa(os.Getuid()), "--worker-pid", "1")
 	}
@@ -743,14 +712,35 @@ func install(args []string) error {
 	if err := saveState(p, st); err != nil {
 		return err
 	}
-	if err := writeService(p, st); err != nil {
+	if err := writeService(p, st, lampdJob(p, st)); err != nil {
 		return err
 	}
-	if err := startService(p, st); err != nil {
+	if err := startService(p, st, lampdJob(p, st)); err != nil {
 		return err
 	}
-	if _, err := waitHealthy(p, 20*time.Second); err != nil {
-		return err
+	if *wait {
+		if _, err := waitHealthy(p, 60*time.Second); err != nil {
+			return err
+		}
+	}
+	if *agent {
+		self, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(self)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(p, "config", "lamp-installer"), data, 0755); err != nil {
+			return err
+		}
+		if err := writeService(p, st, agentJob(p, st)); err != nil {
+			return err
+		}
+		if err := startService(p, st, agentJob(p, st)); err != nil {
+			return err
+		}
 	}
 	event(p, map[string]any{"event": "installed", "version": m.Version, "service": *service, "prefix": p, "automatic_updates": false})
 	return nil
@@ -761,6 +751,15 @@ func defaultService() string {
 		return "launchd"
 	}
 	return "systemd"
+}
+
+func hasArg(args []string, flag string) bool {
+	for _, a := range args {
+		if a == flag {
+			return true
+		}
+	}
+	return false
 }
 
 func hasWorker(args []string) bool {
@@ -813,7 +812,7 @@ func applyUpdate(p, release string) error {
 		return err
 	}
 	event(p, map[string]any{"event": "draining", "from": st.Current, "to": m.Version, "saved_items": len(before)})
-	if err := stopService(p, st, time.Duration(pol.DrainTimeoutMs)*time.Millisecond); err != nil {
+	if err := stopService(p, st, lampdJob(p, st), time.Duration(pol.DrainTimeoutMs)*time.Millisecond); err != nil {
 		return err
 	}
 	old := st.Current
@@ -823,10 +822,10 @@ func applyUpdate(p, release string) error {
 	st.Previous, st.Current = old, m.Version
 	saveState(p, st)
 	event(p, map[string]any{"event": "applying", "version": m.Version})
-	startErr := startService(p, st)
+	startErr := startService(p, st, lampdJob(p, st))
 	var after []string
 	if startErr == nil {
-		after, startErr = waitHealthy(p, 15*time.Second)
+		after, startErr = waitHealthy(p, 90*time.Second)
 	}
 	if startErr == nil && strings.Join(before, "\n") != strings.Join(after, "\n") {
 		startErr = fmt.Errorf("saved work differs after update (%d items before, %d after)", len(before), len(after))
@@ -851,16 +850,16 @@ func revert(p string, st *installState, pol updatePolicy, before []string) error
 	if st.Previous == "" {
 		return errors.New("no previous release to roll back to")
 	}
-	stopService(p, *st, time.Duration(pol.DrainTimeoutMs)*time.Millisecond)
+	stopService(p, *st, lampdJob(p, *st), time.Duration(pol.DrainTimeoutMs)*time.Millisecond)
 	if err := point(p, st.Previous); err != nil {
 		return err
 	}
 	st.Current, st.Previous = st.Previous, st.Current
 	saveState(p, *st)
-	if err := startService(p, *st); err != nil {
+	if err := startService(p, *st, lampdJob(p, *st)); err != nil {
 		return err
 	}
-	after, err := waitHealthy(p, 15*time.Second)
+	after, err := waitHealthy(p, 90*time.Second)
 	if err != nil {
 		return err
 	}
@@ -974,10 +973,12 @@ func uninstall(args []string) error {
 	default:
 		return errors.New("choose what happens to owner data: --data retain, --data export --export-dir DIR, or --data delete --confirm-delete NAME; nothing was changed")
 	}
-	if err := stopService(p, st, 60*time.Second); err != nil {
+	stopService(p, st, agentJob(p, st), 60*time.Second)
+	removeService(p, st, agentJob(p, st))
+	if err := stopService(p, st, lampdJob(p, st), 60*time.Second); err != nil {
 		return err
 	}
-	removeService(p, st)
+	removeService(p, st, lampdJob(p, st))
 	os.Remove(filepath.Join(p, "run", "api.sock"))
 	if *data == "export" {
 		n, err := copyTree(stateDir, *exportDir)
@@ -986,7 +987,7 @@ func uninstall(args []string) error {
 		}
 		say("exported %d files of owner data to %s", n, *exportDir)
 	}
-	for _, d := range []string{"releases", "incoming", "current", "run", "log", ".current.tmp"} {
+	for _, d := range []string{"releases", "incoming", "mirror", "current", "run", "log", ".current.tmp", "config/lamp-installer"} {
 		os.RemoveAll(filepath.Join(p, d))
 	}
 	kept := "retained at " + stateDir
@@ -1098,27 +1099,221 @@ func recoverCmd(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := stopService(p, st, 60*time.Second); err != nil {
+	if err := stopService(p, st, lampdJob(p, st), 60*time.Second); err != nil {
 		return err
 	}
 	once := st
 	once.Service = "process"
 	once.LampdArgs = append(append([]string{}, st.LampdArgs...), "--recovery-key-file", *key, "--recovery-import-dir", *archives)
-	if err := startService(p, once); err != nil {
+	if err := startService(p, once, lampdJob(p, once)); err != nil {
 		return err
 	}
 	inv, err := waitHealthy(p, 20*time.Second)
-	stopService(p, once, 60*time.Second)
+	stopService(p, once, lampdJob(p, once), 60*time.Second)
 	if err != nil {
-		startService(p, st)
+		startService(p, st, lampdJob(p, st))
 		return fmt.Errorf("import failed, nothing imported (see %s): %w", filepath.Join(p, "log", "lampd.log"), err)
 	}
-	if err := startService(p, st); err != nil {
+	if err := startService(p, st, lampdJob(p, st)); err != nil {
 		return err
 	}
 	if _, err := waitHealthy(p, 20*time.Second); err != nil {
 		return err
 	}
 	event(p, map[string]any{"event": "recovered", "saved_items": len(inv)})
+	return nil
+}
+
+// indexCmd signs the multi-platform index of a release version directory.
+func indexCmd(args []string) error {
+	fl := flag.NewFlagSet("index", flag.ExitOnError)
+	dir := fl.String("release", "", "release version directory holding <os>-<arch>/ builds")
+	key := fl.String("key", "", "private release signing key file")
+	metadata := fl.Uint64("metadata-version", 1, "monotonic signed metadata version")
+	var revoked multi
+	fl.Var(&revoked, "revoke", "sha256:DIGEST=reason (repeatable): a revoked earlier release")
+	fl.Parse(args)
+	priv, err := signingKey(*key)
+	if err != nil {
+		return err
+	}
+	ix := release.Index{Format: release.IndexFormat, MetadataVersion: *metadata, CreatedAt: time.Now().UTC().Format(time.RFC3339), Platforms: map[string]string{}, Revocations: []release.Revocation{},
+		Migration: release.Migration{LogVersion: 1, SnapshotVersion: 1, ProjectionVersion: 1, Phase: "expand", RollbackSafe: true}}
+	for _, r := range revoked {
+		d, reason, _ := strings.Cut(r, "=")
+		ix.Revocations = append(ix.Revocations, release.Revocation{Digest: d, EffectiveAt: ix.CreatedAt, Reason: reason})
+	}
+	entries, _ := os.ReadDir(*dir)
+	for _, e := range entries {
+		raw, err := os.ReadFile(filepath.Join(*dir, e.Name(), "manifest.json"))
+		if err != nil {
+			continue
+		}
+		var m manifest
+		if json.Unmarshal(raw, &m) != nil {
+			return fmt.Errorf("%s: bad manifest", e.Name())
+		}
+		if ix.Version == "" {
+			ix.Version, ix.Channel = m.Version, m.Channel
+		} else if ix.Version != m.Version || ix.Channel != m.Channel {
+			return errors.New("platform builds disagree on version or channel")
+		}
+		ix.Platforms[e.Name()] = release.Digest(raw)
+	}
+	if len(ix.Platforms) == 0 {
+		return errors.New("no platform builds")
+	}
+	raw, _ := json.MarshalIndent(ix, "", " ")
+	if err := os.WriteFile(filepath.Join(*dir, "index.json"), raw, 0644); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(*dir, "index.sig"), []byte(base64.StdEncoding.EncodeToString(ed25519.Sign(priv, raw))+"\n"), 0644); err != nil {
+		return err
+	}
+	say("indexed %s (%d platforms) release_digest %s", ix.Version, len(ix.Platforms), release.Digest(raw))
+	return nil
+}
+
+func signingKey(path string) (ed25519.PrivateKey, error) {
+	seedRaw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	seed, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(seedRaw)))
+	if err != nil || len(seed) != ed25519.SeedSize {
+		return nil, errors.New("invalid release signing key")
+	}
+	return ed25519.NewKeyFromSeed(seed), nil
+}
+
+// publish copies a release into this host's mirror, where lampd and the
+// updater find it by digest. Publishing verifies nothing is applied yet.
+func publish(args []string) error {
+	fl := flag.NewFlagSet("publish", flag.ExitOnError)
+	prefix := fl.String("prefix", "", "installation directory")
+	dir := fl.String("release", "", "release version directory")
+	fl.Parse(args)
+	p, _ := filepath.Abs(*prefix)
+	target := filepath.Join(p, "mirror", filepath.Base(*dir))
+	os.RemoveAll(target + ".tmp")
+	if _, err := copyTree(*dir, target+".tmp"); err != nil {
+		return err
+	}
+	os.RemoveAll(target)
+	if err := os.Rename(target+".tmp", target); err != nil {
+		return err
+	}
+	raw, _ := os.ReadFile(filepath.Join(target, "index.json"))
+	event("", map[string]any{"event": "published", "release": filepath.Base(*dir), "release_digest": release.Digest(raw)})
+	return nil
+}
+
+type agentRequest struct {
+	UpdateID      string `json:"update_id"`
+	ReleaseDigest string `json:"release_digest"`
+	Version       string `json:"version"`
+}
+
+type agentResult struct {
+	UpdateID string `json:"update_id"`
+	State    string `json:"state"` // completed | rolled_back | failed
+	Version  string `json:"version"`
+	Detail   string `json:"detail,omitempty"`
+	At       string `json:"at"`
+}
+
+// agentCmd is the updater service. lampd writes update-request.json when
+// the fleet's Update reaches this host; the agent drains, applies, checks
+// and if needed rolls back, then leaves update-result.json for lampd to
+// commit to the fleet. It never decides which host goes next.
+func agentCmd(args []string) error {
+	fl := flag.NewFlagSet("agent", flag.ExitOnError)
+	prefix := fl.String("prefix", "", "installation directory")
+	fl.Parse(args)
+	p, _ := filepath.Abs(*prefix)
+	reqPath := filepath.Join(p, "config", "update-request.json")
+	resPath := filepath.Join(p, "config", "update-result.json")
+	say("lamp-installer agent watching %s", reqPath)
+	for {
+		time.Sleep(time.Second)
+		raw, err := os.ReadFile(reqPath)
+		if err != nil {
+			continue
+		}
+		var req agentRequest
+		if json.Unmarshal(raw, &req) != nil || req.UpdateID == "" {
+			os.Remove(reqPath)
+			continue
+		}
+		if old, err := os.ReadFile(resPath); err == nil {
+			var r agentResult
+			if json.Unmarshal(old, &r) == nil && r.UpdateID == req.UpdateID {
+				continue // lampd has not collected it yet
+			}
+		}
+		res := agentResult{UpdateID: req.UpdateID, Version: req.Version}
+		key, err := readTrust(filepath.Join(p, "config", "release-trust.pub"))
+		var dir string
+		if err == nil {
+			dir, _, err = release.FindByDigest(filepath.Join(p, "mirror"), key, req.ReleaseDigest)
+		}
+		if err == nil {
+			event(p, map[string]any{"event": "agent_applying", "update_id": req.UpdateID, "version": req.Version})
+			err = applyUpdate(p, dir)
+		}
+		var ex exitErr
+		switch {
+		case err == nil:
+			res.State = "completed"
+		case errors.As(err, &ex) && ex == 3:
+			res.State = "rolled_back"
+			res.Detail = "check failed; previous release restored with saved and active work"
+		default:
+			res.State = "failed"
+			res.Detail = err.Error()
+		}
+		st, _ := loadState(p)
+		if res.State != "completed" {
+			res.Version = st.Current
+			// Never leave the host without its daemon after a failed attempt.
+			if _, herr := waitHealthy(p, 3*time.Second); herr != nil {
+				startService(p, st, lampdJob(p, st))
+				waitHealthy(p, 90*time.Second)
+			}
+		}
+		res.At = time.Now().UTC().Format(time.RFC3339)
+		out, _ := json.Marshal(res)
+		os.WriteFile(resPath+".tmp", out, 0600)
+		os.Rename(resPath+".tmp", resPath)
+		os.Remove(reqPath)
+		event(p, map[string]any{"event": "agent_result", "update_id": res.UpdateID, "state": res.State, "version": res.Version})
+	}
+}
+
+func restartCmd(args []string) error {
+	fl := flag.NewFlagSet("restart", flag.ExitOnError)
+	prefix := fl.String("prefix", "", "installation directory")
+	fl.Parse(args)
+	p, _ := filepath.Abs(*prefix)
+	st, err := loadState(p)
+	if err != nil {
+		return err
+	}
+	before, err := inventory(p)
+	if err != nil {
+		return err
+	}
+	if err := restartService(p, st, lampdJob(p, st)); err != nil {
+		return err
+	}
+	time.Sleep(time.Second)
+	after, err := waitHealthy(p, 90*time.Second)
+	if err != nil {
+		return err
+	}
+	if strings.Join(before, "\n") != strings.Join(after, "\n") {
+		return errors.New("saved work differs after restart")
+	}
+	event(p, map[string]any{"event": "restarted", "service": st.Service, "saved_items_preserved": len(after)})
 	return nil
 }

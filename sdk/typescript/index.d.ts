@@ -6674,7 +6674,7 @@ export interface UpdateListResult {
   "request_id": string;
 }
 export interface UpdatePolicy {
-  "automatic"?: false;
+  "automatic"?: boolean;
   "max_unavailable"?: number;
   "channel"?: string;
   "drain_timeout_ms"?: number;

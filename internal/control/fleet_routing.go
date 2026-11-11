@@ -173,7 +173,7 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		}
 	}
 	kind, _, _ := strings.Cut(op.Scope, ".")
-	global := op.Mutation && (kind == "fleet" || kind == "key" || kind == "membership" || kind == "principal")
+	global := op.Mutation && (kind == "fleet" || kind == "key" || kind == "membership" || kind == "principal" || kind == "update")
 	if global {
 		leader := f.leaderID()
 		if leader == "" {
