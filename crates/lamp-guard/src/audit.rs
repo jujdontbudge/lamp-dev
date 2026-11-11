@@ -405,11 +405,15 @@ fn read_frame(socket: &mut UnixStream, wait: bool) -> io::Result<Option<Value>> 
     )?))
 }
 
+/// One kept heartbeat per minute at the collector's 250 ms cadence.
+const HEARTBEAT_KEEP_EVERY: u64 = 240;
+
 /// Host side of one collector stream. Frames that have already arrived are
 /// written together under one storage barrier; each is ACKed, in order, only
 /// after that barrier.
 pub fn receive(mut socket: UnixStream, spool: &mut Spool) -> io::Result<()> {
     let mut expected = 1_u64;
+    let mut skipped = 0_u64;
     loop {
         let mut batch = Vec::new();
         let mut complete = false;
@@ -427,6 +431,24 @@ pub fn receive(mut socket: UnixStream, spool: &mut Spool) -> io::Result<()> {
             batch.push(v);
         }
         let n = batch.len() as u64;
+        // Heartbeats only prove liveness (four a second). Persisting each one
+        // filled a command's spool after ~2.7 minutes and killed it, so keep
+        // one a minute with the count it stands for. Every other record is
+        // still durable before its ACK, and a full spool still fails closed.
+        batch.retain(|v| {
+            if v["details"]["type"] != "heartbeat" {
+                return true;
+            }
+            skipped += 1;
+            if skipped < HEARTBEAT_KEEP_EVERY {
+                return false;
+            }
+            skipped = 0;
+            true
+        });
+        for v in batch.iter_mut().filter(|v| v["details"]["type"] == "heartbeat") {
+            v["details"]["coalesced"] = HEARTBEAT_KEEP_EVERY.into();
+        }
         spool.record_batch("protected_process_collector", batch)?;
         let mut acks = Vec::with_capacity(8 * n as usize);
         for sequence in expected..expected + n {

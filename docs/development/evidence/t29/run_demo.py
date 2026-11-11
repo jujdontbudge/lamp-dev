@@ -19,6 +19,9 @@ policy=json.loads(sh('sudo','-n','cat','/var/lib/lamp/t26-private-bin/network.js
 policy.update(audit_dir=audit,require_allowlist=True,subscription_domains=None,principal_id='pr_local',policy_layers=[],
  exceptions=[dict(address='10.219.29.1',transport='tcp',port=p) for p in ports],
  policy_ceiling=[dict(filter_mode='transport',default_egress='deny',allow=[dict(cidr='10.219.29.1/32',protocol='tcp',ports=ports)],deny=[])])
+# This branch's guard (heartbeats coalesced), root-owned, not the shared T19 copy.
+sh('sudo','-n','install','-m','0755',str(base/'src/target/release/lamp-guard'),bindir+'/lamp-guard')
+policy['guard']=bindir+'/lamp-guard'
 (base/'network.json').write_text(json.dumps(policy))
 sh('sudo','-n','install','-m','0644',str(base/'network.json'),bindir+'/network.json')
 sh('sudo','-n','install','-m','0755',str(base/'src/tools/ci-network-attestation.py'),bindir+'/ci-network-attestation')
