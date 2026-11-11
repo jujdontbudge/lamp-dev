@@ -27,17 +27,29 @@ func (s *Service) ciModelPolicy(id string, r ci.Repository) *ci.ModelBroker {
 	return r.ModelBroker
 }
 func (s *Service) ciBrokerNetwork(id string, r ci.Repository, exceptions []any) bool {
-	b := s.ciModelPolicy(id, r)
-	if b == nil {
-		return len(exceptions) == 0
+	// Permitted exact private-service exceptions: the self-hosted CI system's
+	// own enrolled endpoint (every job needs it), plus the model broker for
+	// trusted jobs only. Anything else, or a missing required one, is refused.
+	want := map[string]bool{}
+	if ep := r.Options["private_endpoint"]; ep != "" {
+		want[ep] = true
 	}
-	if len(exceptions) != 1 {
+	if b := s.ciModelPolicy(id, r); b != nil {
+		u, _ := url.Parse(b.Endpoint)
+		want[net.JoinHostPort(u.Hostname(), u.Port())] = true
+	}
+	if len(exceptions) != len(want) {
 		return false
 	}
-	u, _ := url.Parse(b.Endpoint)
-	port, _ := strconv.Atoi(u.Port())
-	e, ok := exceptions[0].(map[string]any)
-	return ok && len(e) == 3 && textField(e, "address") == u.Hostname() && textField(e, "transport") == "tcp" && uintField(e, "port") == uint64(port)
+	for _, raw := range exceptions {
+		e, ok := raw.(map[string]any)
+		key := net.JoinHostPort(textField(e, "address"), strconv.FormatUint(uintField(e, "port"), 10))
+		if !ok || len(e) != 3 || textField(e, "transport") != "tcp" || !want[key] {
+			return false
+		}
+		delete(want, key)
+	}
+	return len(want) == 0
 }
 func ciBrokerCall(ctx context.Context, socket, path string, input, out any) error {
 	tr := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {

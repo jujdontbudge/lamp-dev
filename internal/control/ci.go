@@ -30,6 +30,8 @@ type ciJob struct {
 	Cancel      bool           `json:"cancel"`
 	Retain      bool           `json:"retain"`
 	Workflow    string         `json:"workflow,omitempty"`
+	Plugin      string         `json:"plugin,omitempty"`
+	OneJob      bool           `json:"one_job,omitempty"`
 	BrokerGrant string         `json:"broker_grant,omitempty"`
 }
 
@@ -56,19 +58,49 @@ func (s *Service) initCI(config *ci.Config) error {
 		}
 		return nil
 	}
-	g, err := ci.New(*config)
+	g, forges, err := ci.NewForges(*config)
 	if err != nil {
 		return err
 	}
 	s.github = g
+	s.forges = forges
+	s.ciConfig = config
 	return nil
+}
+
+// ciPluginID reports whether id names a shipped CI plugin.
+func ciPluginID(id string) bool {
+	for _, system := range ci.Systems {
+		if id == ciPluginFor(system) {
+			return true
+		}
+	}
+	return false
+}
+func ciPluginFor(system string) string {
+	if system == "github-actions" {
+		return "pg_github"
+	}
+	return "pg_" + strings.ReplaceAll(system, "-", "_")
+}
+
+// ciForge is the job's CI system; jobs journaled before T29 are GitHub's.
+func (s *Service) ciForge(j ciJob) ci.Forge {
+	plugin := j.Plugin
+	if plugin == "" {
+		plugin = "pg_github"
+	}
+	return s.forges[plugin]
 }
 func ciTerminal(state string) bool {
 	return state == "completed" || state == "failed" || state == "canceled"
 }
-func (s *Service) ciRepo(name string) (ci.Repository, bool) {
-	if s.github != nil {
-		for _, r := range s.github.Config.Repositories {
+func (s *Service) ciRepo(plugin, name string) (ci.Repository, bool) {
+	if plugin == "" {
+		plugin = "pg_github"
+	}
+	if f := s.forges[plugin]; f != nil {
+		for _, r := range f.Repos() {
 			if r.Name == name {
 				return r, true
 			}
@@ -77,8 +109,8 @@ func (s *Service) ciRepo(name string) (ci.Repository, bool) {
 	return ci.Repository{}, false
 }
 func (s *Service) planJobCreate(a caller, in map[string]any) (lifePlan, error) {
-	if s.github == nil {
-		return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "GitHub CI is not enrolled")
+	if len(s.forges) == 0 {
+		return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "no CI system is enrolled")
 	}
 	if a.Principal != s.journal.Control.OwnerID || a.KeyID != "" {
 		return lifePlan{}, reject("SCOPE_DENIED", "job intake is host-controller authority only; workflow identities cannot assert trust")
@@ -86,24 +118,25 @@ func (s *Service) planJobCreate(a caller, in map[string]any) (lifePlan, error) {
 	if err := onlyFields(in, "plugin_id external_id labels"); err != nil {
 		return lifePlan{}, err
 	}
-	if textField(in, "plugin_id") != "pg_github" {
-		return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "CI adapter is not installed")
+	plugin := textField(in, "plugin_id")
+	if s.forges[plugin] == nil {
+		return lifePlan{}, reject("CI_PLUGIN_INCOMPATIBLE", "CI adapter is not installed or enrolled")
 	}
 	external := textField(in, "external_id")
-	parts := strings.Split(external, "/")
-	if len(parts) != 3 {
-		return lifePlan{}, reject("INVALID_ARGUMENT", "external_id must be owner/repository/numeric-job-id")
+	cut := strings.LastIndex(external, "/")
+	if cut <= 0 {
+		return lifePlan{}, reject("INVALID_ARGUMENT", "external_id must be project/numeric-job-id")
 	}
-	name := parts[0] + "/" + parts[1]
-	id, err := strconv.ParseInt(parts[2], 10, 64)
+	name := external[:cut]
+	id, err := strconv.ParseInt(external[cut+1:], 10, 64)
 	if err != nil || id <= 0 {
 		return lifePlan{}, reject("INVALID_ARGUMENT", "invalid forge job id")
 	}
-	if _, ok := s.ciRepo(name); !ok {
+	if _, ok := s.ciRepo(plugin, name); !ok {
 		return lifePlan{}, reject("SCOPE_DENIED", "repository is not enrolled")
 	}
 	for _, j := range s.life.Jobs {
-		if j.Repository == name && j.External == id {
+		if j.Repository == name && j.External == id && (j.Plugin == plugin || j.Plugin == "" && plugin == "pg_github") {
 			return lifePlan{ref: lifeRef("job", textField(j.R, "id")), result: map[string]any{"job_id": textField(j.R, "id")}}, nil
 		}
 		if !ciTerminal(textField(j.R, "state")) {
@@ -116,10 +149,10 @@ func (s *Service) planJobCreate(a caller, in map[string]any) (lifePlan, error) {
 	m := s.lifeResource("jb", "job", a.Principal)
 	applyLabels(m, in)
 	m["state"] = "queued"
-	m["plugin_id"] = "pg_github"
+	m["plugin_id"] = plugin
 	m["external_id"] = external
 	m["artifact_ids"] = []string{}
-	j := &ciJob{R: m, Repository: name, External: id}
+	j := &ciJob{R: m, Repository: name, External: id, Plugin: plugin}
 	jid := textField(m, "id")
 	s.life.Jobs[jid] = j
 	return lifePlan{ref: lifeRef("job", jid), timeout: 6 * time.Hour, run: func(ctx context.Context) (map[string]any, error) {
@@ -195,7 +228,7 @@ func (s *Service) ciController(pending []string) {
 	}
 	s.wg.Add(1)
 	go s.ciRetryCleanup()
-	seconds := s.github.Config.PollSeconds
+	seconds := s.ciConfig.PollSeconds
 	if seconds == 0 {
 		<-s.context().Done()
 		return
@@ -207,20 +240,24 @@ func (s *Service) ciController(pending []string) {
 		case <-s.context().Done():
 			return
 		case <-timer.C:
-			for _, r := range s.github.Config.Repositories {
-				ctx, cancel := context.WithTimeout(s.context(), time.Minute)
-				jobs, e := s.github.Queued(ctx, r)
-				more, e2 := s.github.QueuedInProgress(ctx, r)
-				cancel()
-				if e != nil || e2 != nil {
-					continue
-				}
-				jobs = append(jobs, more...)
-				for _, j := range jobs {
-					s.readLock()
-					owner := s.journal.Control.OwnerID
-					s.mu.Unlock()
-					s.lifeStart(caller{Principal: owner}, "job_create", map[string]any{"plugin_id": "pg_github", "external_id": fmt.Sprintf("%s/%d", r.Name, j.ID), "idempotency_key": fmt.Sprintf("github:%d:%d", r.ID, j.ID)})
+			for plugin, f := range s.forges {
+				for _, r := range f.Repos() {
+					ctx, cancel := context.WithTimeout(s.context(), time.Minute)
+					jobs, e := f.Queued(ctx, r)
+					cancel()
+					if e != nil {
+						continue
+					}
+					for _, j := range jobs {
+						s.readLock()
+						owner := s.journal.Control.OwnerID
+						s.mu.Unlock()
+						key := fmt.Sprintf("%s:%s:%d", f.System(), r.Name, j.ID)
+						if plugin == "pg_github" {
+							key = fmt.Sprintf("github:%d:%d", r.ID, j.ID)
+						}
+						s.lifeStart(caller{Principal: owner}, "job_create", map[string]any{"plugin_id": plugin, "external_id": fmt.Sprintf("%s/%d", r.Name, j.ID), "idempotency_key": key})
+					}
 				}
 			}
 		}
@@ -379,11 +416,11 @@ func (s *Service) ciCreateSandbox(ctx context.Context, id string, r ci.Repositor
 	// by the enrolled supervisor, not a caller's boolean policy assertion.
 	var raw []byte
 	var err error
-	reader := s.github.Config.NetworkReader
+	reader := s.ciConfig.NetworkReader
 	if len(reader) > 0 {
 		raw, err = exec.CommandContext(ctx, reader[0], append(append([]string{}, reader[1:]...), sandbox, strconv.FormatUint(value(sb.Generation), 10))...).Output()
 	} else {
-		matches, e := filepath.Glob(filepath.Join(s.github.Config.AuditDirectory, fmt.Sprintf("%s-g%d-*", sandbox, value(sb.Generation)), "network.json"))
+		matches, e := filepath.Glob(filepath.Join(s.ciConfig.AuditDirectory, fmt.Sprintf("%s-g%d-*", sandbox, value(sb.Generation)), "network.json"))
 		if e != nil || len(matches) != 1 {
 			return sandbox, reject("SCOPE_DENIED", "CI network attachment cannot be verified")
 		}
@@ -441,8 +478,9 @@ func (s *Service) runCIJob(ctx context.Context, id string) (err error) {
 		return err
 	}
 	j := s.ciSnapshot(id)
-	r, _ := s.ciRepo(j.Repository)
-	demand, err := s.github.Verify(ctx, r, j.External)
+	r, _ := s.ciRepo(j.Plugin, j.Repository)
+	forge := s.ciForge(j)
+	demand, err := forge.Verify(ctx, r, j.External)
 	if err != nil {
 		return err
 	}
@@ -455,7 +493,10 @@ func (s *Service) runCIJob(ctx context.Context, id string) (err error) {
 		j.R["repository_visibility"] = map[bool]string{true: "public", false: "private"}[!demand.Run.Repository.Private]
 		j.R["trust_class"] = map[bool]string{true: "public_pr", false: "trusted"}[demand.Public]
 		j.Retain = r.RetainStopped && !demand.Public
-		j.R["source_identity"] = map[string]any{"issuer": ci.GitHubIssuer, "repository_id": strconv.FormatInt(r.ID, 10), "repository_owner_id": strconv.FormatInt(r.OwnerID, 10), "sha": demand.Run.HeadSHA, "event": demand.Run.Event}
+		j.R["source_identity"] = map[string]any{"issuer": forge.Issuer(r), "repository_id": strconv.FormatInt(r.ID, 10), "repository_owner_id": strconv.FormatInt(r.OwnerID, 10), "sha": demand.Run.HeadSHA, "event": demand.Run.Event}
+		if forge.Plugin() != "pg_github" {
+			j.R["source_identity"] = map[string]any{"issuer": forge.Issuer(r), "repository_id": r.Project, "sha": demand.Run.HeadSHA, "event": demand.Run.Event}
+		}
 	}); err != nil {
 		return err
 	}
@@ -467,7 +508,7 @@ func (s *Service) runCIJob(ctx context.Context, id string) (err error) {
 	// the enrolled image's runner. No host credentials are copied into the guest.
 	_, err = s.guestPython(ctx, sandbox, `import os,shutil,sys
 src=sys.argv[1];dst='/var/tmp/lamp-ci-runner'
-if any(os.path.lexists(os.path.join(src,p)) for p in ('.runner','.credentials','.credentials_rsaparams','_work')): raise SystemExit(1)
+if any(os.path.lexists(os.path.join(src,p)) for p in ('.runner','.credentials','.credentials_rsaparams','_work','.agent','config.yml','.forgejo-runner','buildkite-agent.cfg','runner-config.yaml')): raise SystemExit(1)
 if os.path.exists(dst): raise SystemExit(1)
 shutil.copytree(src,dst,symlinks=True)
 os.chmod(dst,0o700)
@@ -478,7 +519,7 @@ os.chmod(dst,0o700)
 	// Recheck the forge after VM preparation; do not issue authority for a job
 	// canceled while allocating. JIT config is only ever in this stack and the
 	// private worker envelope, never public exec argv/env or operation metadata.
-	demand, err = s.github.Verify(ctx, r, j.External)
+	demand, err = forge.Verify(ctx, r, j.External)
 	if err != nil {
 		return err
 	}
@@ -488,20 +529,26 @@ os.chmod(dst,0o700)
 	if err = s.ciUpdate(id, func(j *ciJob) { j.Registering = true }); err != nil {
 		return err
 	}
-	runner, jit, err := s.github.JIT(ctx, r, demand.RunnerLabel, "lamp-"+id)
+	agent, err := forge.Register(ctx, r, demand, "lamp-"+id)
 	if err != nil {
+		forge.DeregisterJob(context.WithoutCancel(ctx), r, "lamp-"+id, agent.ID)
 		return err
 	}
+	runner := agent.ID
 	if err = s.ciUpdate(id, func(j *ciJob) {
 		j.Runner = runner
 		j.R["runner_ref"] = strconv.FormatInt(runner, 10)
+		if agent.Ref != "" {
+			j.R["runner_ref"] = agent.Ref
+		}
+		j.OneJob = agent.OneJob
 		actions := []string{"one-job-runner"}
 		if demand.Route == "copilot_cloud_agent" {
 			actions = append(actions, "coding-agent-session")
 		}
-		j.R["job_token"] = map[string]any{"issuer": "https://github.com", "audience": r.Name, "actions": actions, "resource_ids": []string{fmt.Sprint(j.External)}}
+		j.R["job_token"] = map[string]any{"issuer": forge.Issuer(r), "audience": r.Name, "actions": actions, "resource_ids": []string{fmt.Sprint(j.External)}}
 	}); err != nil {
-		s.github.Deregister(ctx, r, runner)
+		forge.DeregisterJob(ctx, r, "lamp-"+id, runner)
 		return err
 	}
 	modelEnv, err := s.ciModelEnvironment(ctx, id, r)
@@ -515,10 +562,26 @@ os.chmod(dst,0o700)
 	if err = s.ciUpdate(id, func(j *ciJob) { j.Command = command }); err != nil {
 		return err
 	}
-	req.Command = &pb.Request_Start{Start: &pb.Start{Cwd: "/var/tmp/lamp-ci-runner", Argv: []string{"python3", "-c", `import os
-jit=os.environ.pop('LAMP_JIT_CONFIG')
+	// The wrapper substitutes "$SECRET:NAME" argv entries from the private
+	// worker envelope and removes them from the environment before exec.
+	env := map[string]string{"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp", "LAMP_AGENT_ARGV": mustJSON(agent.Argv)}
+	for k, v := range agent.Env {
+		env[k] = v
+	}
+	for k, v := range agent.Secret {
+		if name, ok := strings.CutPrefix(k, "env:"); ok {
+			env["LAMP_SECRET_ENV__"+name] = v
+		} else {
+			env["LAMP_SECRET_"+k] = v
+		}
+	}
+	req.Command = &pb.Request_Start{Start: &pb.Start{Cwd: "/var/tmp/lamp-ci-runner", Argv: []string{"python3", "-c", `import json,os
+argv=json.loads(os.environ.pop('LAMP_AGENT_ARGV'))
+secret={k[12:]:os.environ.pop(k) for k in list(os.environ) if k.startswith('LAMP_SECRET_')}
+argv=[secret[a[8:]] if a.startswith('$SECRET:') else a for a in argv]
+for k in [k for k in secret if k.startswith('ENV__')]: os.environ[k[5:]]=secret.pop(k)
 os.environ['HOME']='/tmp'
-os.execv('./run.sh',['./run.sh','--jitconfig',jit])`}, Env: map[string]string{"LAMP_JIT_CONFIG": jit, "PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp", "RUNNER_ALLOW_RUNASROOT": "1", "TAR_OPTIONS": "--no-same-owner"}}}
+os.execvp(argv[0],argv)`}, Env: env}}
 	for k, v := range modelEnv {
 		req.GetStart().Env[k] = v
 	}
@@ -528,7 +591,8 @@ os.execv('./run.sh',['./run.sh','--jitconfig',jit])`}, Env: map[string]string{"L
 	// tar must likewise keep extracted files owned by this one mapped task UID,
 	// rather than trying to chown archives to unmapped build-machine accounts.
 	err = s.worker.perform(ctx, req, "command_started")
-	jit = ""
+	agent = ci.Agent{}
+	env = nil
 	req = nil
 	if err != nil {
 		return errors.New("one-job runner launch failed")
@@ -546,13 +610,13 @@ os.execv('./run.sh',['./run.sh','--jitconfig',jit])`}, Env: map[string]string{"L
 		case <-timer.C:
 			current := s.ciSnapshot(id)
 			if current.Cancel {
-				if e := s.github.Cancel(ctx, r, current.Run); e != nil {
+				if e := forge.Cancel(ctx, r, current.Run, current.External); e != nil {
 					return e
 				}
 				s.ciUpdate(id, func(j *ciJob) { j.R["result"] = "cancelled" })
 				return nil
 			}
-			observed, e := s.github.GetJob(ctx, r, j.External)
+			observed, e := forge.GetJob(ctx, r, j.External)
 			if e != nil {
 				continue
 			}
@@ -587,12 +651,13 @@ os.execv('./run.sh',['./run.sh','--jitconfig',jit])`}, Env: map[string]string{"L
 func (s *Service) cleanupCI(ctx context.Context, id string, allowRetain bool) error {
 	s.ciState(id, "collecting")
 	j := s.ciSnapshot(id)
-	r, ok := s.ciRepo(j.Repository)
+	r, ok := s.ciRepo(j.Plugin, j.Repository)
+	forge := s.ciForge(j)
 	if !ok {
 		// Removing intake policy must not strand execution. Cleanup may still
 		// revoke the previously enrolled repository's authority, but never retain
 		// its VM or admit more work. Forge failure is reported after VM release.
-		r = ci.Repository{Name: j.Repository}
+		r = ci.Repository{Name: j.Repository, System: forge.System()}
 		allowRetain = false
 	}
 	// Resolve a create whose response was lost. Idempotency is permanent; never
@@ -614,21 +679,21 @@ func (s *Service) cleanupCI(ctx context.Context, id string, allowRetain bool) er
 	// An interrupted controller never leaves a job with live forge authority.
 	result := textField(j.R, "result")
 	if j.Run != 0 && result == "" {
-		if observed, e := s.github.GetJob(ctx, r, j.External); e == nil && observed.Status == "completed" {
+		if observed, e := forge.GetJob(ctx, r, j.External); e == nil && observed.Status == "completed" {
 			result = observed.Conclusion
 			s.ciUpdate(id, func(j *ciJob) { j.R["result"] = result })
 		}
 	}
 	if j.Run != 0 && result == "" {
-		s.github.Cancel(ctx, r, j.Run)
+		forge.Cancel(ctx, r, j.Run, j.External)
 	}
 	brokerErr := s.ciRevokeModel(ctx, id, r)
 	var deregErr error
 	if j.Registering || j.Runner != 0 {
-		deregErr = s.github.DeregisterJob(ctx, r, "lamp-"+id, j.Runner)
+		deregErr = forge.DeregisterJob(ctx, r, "lamp-"+id, j.Runner)
 	}
 	sandboxID := textField(j.R, "sandbox_id")
-	keep := allowRetain && j.Retain && deregErr == nil && result != "" && result != "cancelled"
+	keep := allowRetain && j.Retain && (j.OneJob || j.Plugin == "" || j.Plugin == "pg_github") && deregErr == nil && result != "" && result != "cancelled"
 	if keep && j.Command != "" {
 		for keep {
 			q := s.workerRequest(ctx, "ci-retain-observe", sandboxID, s.sandboxGeneration(sandboxID))
@@ -663,7 +728,7 @@ func (s *Service) cleanupCI(ctx context.Context, id string, allowRetain bool) er
 	}
 	// Native outputs already survive VM removal on GitHub. Also capture them in
 	// Lamp's durable object store; unavailable bytes remain explicitly incomplete.
-	s.collectCIOutputs(ctx, id, r, j)
+	s.collectCIOutputs(ctx, id, forge, r, j)
 	sandbox := textField(j.R, "sandbox_id")
 	var releaseErr error
 	if sandbox != "" {
@@ -758,11 +823,11 @@ shutil.rmtree(root)`)
 	}
 	return s.ciState(id, state)
 }
-func (s *Service) collectCIOutputs(ctx context.Context, id string, r ci.Repository, j ciJob) {
+func (s *Service) collectCIOutputs(ctx context.Context, id string, forge ci.Forge, r ci.Repository, j ciJob) {
 	if j.Run == 0 {
 		return
 	}
-	outputs, err := s.github.Outputs(ctx, r, j.Run, j.External)
+	outputs, err := forge.Outputs(ctx, r, j.Run, j.External)
 	if err != nil && len(outputs) == 0 {
 		return
 	}
@@ -794,7 +859,7 @@ func (s *Service) collectCIOutputs(ctx context.Context, id string, r ci.Reposito
 		if found {
 			continue
 		}
-		data, e := s.github.Download(ctx, output.Path, remaining)
+		data, e := forge.Download(ctx, r, output.Path, remaining)
 		if e == nil {
 			remaining -= int64(len(data))
 		}
@@ -847,26 +912,51 @@ func (s *Service) collectCIOutputs(ctx context.Context, id string, r ci.Reposito
 	}
 }
 
+func mustJSON(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
 // ciPluginHTTP is intentionally a host adapter descriptor, not a simulated
 // installed worker or a claim about vendor-cloud placement.
-func (s *Service) ciPluginHTTP(w http.ResponseWriter, r *http.Request, id string) {
+func (s *Service) ciPluginHTTP(w http.ResponseWriter, r *http.Request, id, plugin string) {
 	s.readLock()
 	defer s.mu.Unlock()
-	if !s.can(requestCaller(r), "plugin.get") || !s.resourceAllowed(requestCaller(r), lifeRef("plugin", "pg_github")) {
+	if !s.can(requestCaller(r), "plugin.get") || !s.resourceAllowed(requestCaller(r), lifeRef("plugin", plugin)) {
 		writeError(w, id, "NOT_FOUND", "plugin not found", nil)
 		return
 	}
+	system := "github-actions"
+	for _, v := range ci.Systems {
+		if ciPluginFor(v) == plugin {
+			system = v
+		}
+	}
 	m := newResource("plugin", s.journal.Control.OwnerID)
-	m["id"] = "pg_github"
+	m["id"] = plugin
 	m["created_at"] = s.journal.Control.Fleet.CreatedAt
 	m["updated_at"] = s.journal.Control.Fleet.CreatedAt
 	m["type"] = "ci"
 	m["state"] = "disabled"
-	if s.github != nil {
+	if s.forges[plugin] != nil {
 		m["state"] = "enabled"
 	}
 	m["version"] = "1"
-	m["adapter_ids"] = []string{"github_actions"}
-	m["labels"] = map[string]string{"runner_mode": "jit-one-job"}
+	m["adapter_ids"] = []string{strings.ReplaceAll(system, "-", "_")}
+	m["labels"] = map[string]string{"runner_mode": ciRunnerMode[system], "system": system}
 	prepareJSON(w, 200, map[string]any{"data": m, "request_id": id})()
+}
+
+// ciRunnerMode names each system's native one-job contract.
+var ciRunnerMode = map[string]string{
+	"github-actions":  "jit-one-job",
+	"gitlab":          "custom-executor+fleeting",
+	"buildkite":       "acquire-job",
+	"jenkins":         "inbound-agent-one-build",
+	"forgejo":         "one-job",
+	"gitea":           "ephemeral-runner",
+	"circleci":        "machine-runner-single-task",
+	"azure-pipelines": "agent-once",
+	"bitbucket":       "runner-one-step",
+	"woodpecker":      "agent-one-workflow",
 }

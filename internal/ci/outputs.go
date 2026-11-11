@@ -45,7 +45,7 @@ func (g *GitHub) Outputs(ctx context.Context, r Repository, run, job int64) ([]O
 
 // Download follows GitHub's signed artifact URL without forwarding host auth.
 // URLs and bodies never enter errors, journals or evidence metadata.
-func (g *GitHub) Download(ctx context.Context, path string, limit int64) ([]byte, error) {
+func (g *GitHub) Download(ctx context.Context, _ Repository, path string, limit int64) ([]byte, error) {
 	token, err := os.ReadFile(g.Config.TokenFile)
 	if err != nil {
 		return nil, errors.New("forge credential unavailable")

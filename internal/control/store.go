@@ -92,6 +92,8 @@ type Service struct {
 	auditRelease          []string
 	auditReleased         map[string]bool
 	github                *ci.GitHub
+	forges                map[string]ci.Forge
+	ciConfig              *ci.Config
 	native                *NativeFallbackConfig
 	clockWall             time.Time
 	clockTicks            int64
@@ -475,7 +477,7 @@ func Open(config Config) (*Service, error) {
 		s.wg.Add(1)
 		go s.sweepGuardAudit()
 	}
-	if s.github != nil {
+	if len(s.forges) > 0 {
 		var pending []string
 		for id, j := range s.life.Jobs {
 			if !ciTerminal(textField(j.R, "state")) {
