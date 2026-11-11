@@ -229,7 +229,7 @@ func (g *Gitea) Register(ctx context.Context, r Repository, d Demand, name strin
 	if tok.Token == "" {
 		return Agent{}, errors.New("forge returned no registration token")
 	}
-	script := `umask 077; printf %s "$1" > .token; ./gitea-runner register --no-interactive --ephemeral --instance "$2" --token-file .token --name "$3" --labels "$4:host" >/dev/null && rm -f .token && exec ./gitea-runner daemon --once`
+	script := `umask 077; export HOME="$PWD"; printf %s "$1" > .token; ./gitea-runner register --no-interactive --ephemeral --instance "$2" --token-file .token --name "$3" --labels "$4:host" >/dev/null && rm -f .token && exec ./gitea-runner daemon --once`
 	return Agent{Ref: name, OneJob: true, Argv: []string{"sh", "-c", script, "lamp", "$SECRET:TOKEN", base, name, r.Label}, Secret: map[string]string{"TOKEN": tok.Token}}, nil
 }
 func (g *Gitea) GetJob(ctx context.Context, r Repository, id int64) (Job, error) {
