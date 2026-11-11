@@ -38,6 +38,8 @@ func run() error {
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
 	sessionsFile := flags.String("sessions-config", "", "owner-enrolled harnesses and native session runner locations")
 	nativeFile := flags.String("native-fallback-file", "", "trusted local native runtime and immutable job credential bindings")
+	dashboardListen := flags.String("dashboard-listen", "", "also serve the dashboard and bearer-authenticated API on this TCP address (for example 127.0.0.1:7480)")
+	notifyFile := flags.String("notifications-config", "", "private notification destinations and dashboard public URL (OPS-003)")
 	kitsConfig := flags.String("kits-config", "", "private kits/vault configuration; start the bundled headless backend")
 	kitsSocket := flags.String("kits-socket", "", "enrolled owner-only kits Unix socket (instead of a managed backend)")
 	recoveryPublic := flags.String("recovery-public-key", "", "owner's offline data-recovery public key; every backup is also wrapped to it")
@@ -200,7 +202,13 @@ func run() error {
 		defer closeBackend()
 		*kitsSocket = backend
 	}
-	service, err := control.Open(control.Config{KitsSocket: *kitsSocket, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
+	var notifications *control.NotificationConfig
+	if *notifyFile != "" {
+		if notifications, err = control.LoadNotificationConfig(*notifyFile); err != nil {
+			return err
+		}
+	}
+	service, err := control.Open(control.Config{Notifications: notifications, KitsSocket: *kitsSocket, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
 	if err != nil {
 		return err
 	}
@@ -238,6 +246,16 @@ func run() error {
 	defer stop()
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(authenticated) }()
+	if *dashboardListen != "" {
+		tcp, err := net.Listen("tcp", *dashboardListen)
+		if err != nil {
+			return err
+		}
+		defer tcp.Close()
+		web := &http.Server{Handler: control.RequireBearer(handler), ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
+		go func() { done <- web.Serve(tcp) }()
+		fmt.Fprintln(os.Stderr, "lampd: dashboard listening on", tcp.Addr())
+	}
 	fmt.Fprintln(os.Stderr, "lampd: control API listening on", *socket)
 	select {
 	case err := <-done:

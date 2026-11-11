@@ -32,6 +32,8 @@ func init() {
 		"budget_create", "budget_get", "budget_list", "budget_update", "budget_delete",
 		"task_create", "task_get", "task_list", "task_stop", "task_delete",
 		"audit_record_get", "audit_record_list", "audit_record_export",
+		"notification_sink_create", "notification_sink_get", "notification_sink_list", "notification_sink_update", "notification_sink_delete", "notification_sink_test",
+		"notification_get", "notification_list", "notification_retry", "notification_acknowledge",
 		"telemetry_get", "telemetry_update", "telemetry_purge",
 	} {
 		CoreNames[name] = true

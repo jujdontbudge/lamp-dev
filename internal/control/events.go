@@ -46,6 +46,12 @@ func (s *Service) addEvents(delta *journal) {
 		for id, r := range delta.Accountability.Tasks {
 			items = append(items, item{"task", id, r.OwnerId, string(r.State), r.Revision})
 		}
+		for id, r := range delta.Accountability.Sinks {
+			items = append(items, item{"notification_sink", id, r.OwnerId, string(r.State), r.Revision})
+		}
+		for id, r := range delta.Accountability.Notifications {
+			items = append(items, item{"notification", id, r.Notification.OwnerId, string(r.Notification.State), r.Notification.Revision})
+		}
 	}
 	if delta.Control != nil {
 		c := delta.Control
@@ -64,7 +70,11 @@ func (s *Service) addEvents(delta *journal) {
 		}
 		for id, session := range c.Sessions {
 			r := session.Resource
-			items = append(items, item{"session", id, textField(r, "owner_id"), textField(r, "state"), uintField(r, "revision")})
+			state := textField(r, "state")
+			if textField(r, "status") == "blocked" && state == "active" {
+				state = "blocked"
+			}
+			items = append(items, item{"session", id, textField(r, "owner_id"), state, uintField(r, "revision")})
 		}
 		for id, r := range c.InputLeases {
 			items = append(items, item{"lease", id, textField(r, "owner_id"), textField(r, "state"), uintField(r, "revision")})
@@ -89,8 +99,29 @@ func (s *Service) addEvents(delta *journal) {
 		if r.kind == "approval" && r.state == "consumed" {
 			typ = "approval.consumed"
 		}
+		if r.kind == "notification" && r.state == "failed" {
+			typ = "notification.delivery_failed"
+		}
 		e := api.Event{Kind: "event", EventId: eventID, HostId: s.hostID(), HostEpoch: 1, Sequence: sequence, ResourceKind: r.kind, ResourceId: r.id, ResourceRevision: r.revision, Type: api.EventType(typ), Data: raw, OccurredAt: timestamp(), Cursor: strconv.FormatUint(sequence, 10)}
 		delta.Events = append(delta.Events, storedEvent{r.owner, e})
+		// Task-level notification events (OPS-003) follow the state change.
+		derived := ""
+		switch {
+		case r.kind == "task" && (r.state == "stopped" || r.state == "completed"):
+			derived = "task.done"
+		case r.kind == "task" && r.state == "blocked":
+			derived = "task.stuck"
+		case r.kind == "approval" && r.state == "pending" && s.eventRevisions[k] == 0:
+			derived = "task.needs_decision"
+		case r.kind == "session" && r.state == "blocked":
+			derived = "task.needs_decision"
+		}
+		if derived != "" {
+			sequence++
+			d := e
+			d.EventId, d.Sequence, d.Type, d.Cursor = fmt.Sprintf("%s-1-%d", s.hostID(), sequence), sequence, api.EventType(derived), strconv.FormatUint(sequence, 10)
+			delta.Events = append(delta.Events, storedEvent{r.owner, d})
+		}
 		s.eventRevisions[k] = r.revision
 	}
 	delta.EventSequence = s.journal.EventSequence + uint64(len(delta.Events))

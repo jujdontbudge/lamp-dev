@@ -415,6 +415,9 @@ func narrow(parent, child api.Scope) api.Scope {
 	return child
 }
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if serveDashboard(w, r) {
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/internal/accountability/") {
 		s.accountabilityBridge(w, r)
 		return

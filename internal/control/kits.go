@@ -10,8 +10,10 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/JohanSardar/lamp/internal/surface"
 	"github.com/JohanSardar/lamp/pkg/api"
@@ -297,6 +299,9 @@ func (s *Service) kitsHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	entry = copyEntry
 	s.mu.Unlock()
 	result, err := s.kitEffect(r.Context(), op.Name, in, entry, resourceID, owner)
+	if err == nil && op.Name == "browser_fill_password" && textField(in, "approval_id") != "" {
+		result["consumed_approval_id"] = textField(in, "approval_id")
+	}
 	private := op.Name == "browser_action" && textField(in, "action") == "screenshot"
 	s.finishKit(w, r, id, rec, entry, result, err, private)
 }
@@ -341,6 +346,9 @@ func (s *Service) finishKit(w http.ResponseWriter, r *http.Request, id string, r
 		}
 		rec.Operation.State = "succeeded"
 		editResource(entry.Data)
+		if value(rec.Operation.OperationName) == "browser_fill_password" {
+			s.recordKitApproval(rec.Caller, entry, result)
+		}
 		stored := result
 		if private {
 			stored = map[string]any{"observations": map[string]any{"private_output_available": false}}
@@ -487,4 +495,65 @@ func (s *Service) kitEffect(ctx context.Context, name string, in map[string]any,
 		completion = out
 	}
 	return completion, nil
+}
+
+// recordKitApproval mirrors a vault fill proposal into the fleet's approval
+// list (OPS-001, journey 5) so the dashboard, notifications and consoles show
+// the exact effect: which vault item is typed into which origin and whether
+// the form is submitted. Approving still goes to the kit backend with that
+// same plan, which re-checks it; secret values never enter the journal.
+// Runs under mu.
+func (s *Service) recordKitApproval(a caller, entry *kitResource, result map[string]any) {
+	c := s.journal.Control
+	if consumed := textField(result, "consumed_approval_id"); consumed != "" {
+		for id, ap := range c.Approvals {
+			if ap.Labels["kit_approval_id"] == consumed && ap.State == "pending" {
+				ap.State, ap.ConsumedAt = "consumed", pointer(timestamp())
+				ap.Revision++
+				ap.UpdatedAt = timestamp()
+				c.Approvals[id] = ap
+			}
+		}
+		return
+	}
+	plan, ok := result["plan"].(map[string]any)
+	kitID := textField(result, "approval_id")
+	if !ok || kitID == "" || textField(result, "state") != "approval_required" {
+		return
+	}
+	for _, ap := range c.Approvals {
+		if ap.Labels["kit_approval_id"] == kitID {
+			return
+		}
+	}
+	sandboxID := textField(entry.Data, "sandbox_id")
+	sb := s.journal.Sandboxes[sandboxID]
+	raw, _ := json.Marshal(plan)
+	args := api.AdapterDocument(raw)
+	browserID := textField(entry.Data, "id")
+	dest := &api.Destination{Protocol: pointer("https")}
+	if u, err := url.Parse(textField(plan, "origin")); err == nil && u.Hostname() != "" {
+		dest.Hostname, dest.Protocol = pointer(u.Hostname()), pointer(u.Scheme)
+	}
+	operation := "type the saved password into the login form"
+	if plan["submit"] == true {
+		operation = "type the saved password and submit the login form"
+	}
+	m := newResource("approval", c.OwnerID)
+	m["id"] = s.resourceID("approval")
+	var ap api.Approval
+	assign(m, &ap)
+	ap.State = "pending"
+	ap.Labels = api.StringMap{"source": "kit", "kit_approval_id": kitID, "browser_id": browserID}
+	ap.PrincipalId = pointer(a.Principal)
+	ap.SandboxId = pointer(sandboxID)
+	ap.Generation = sb.Generation
+	ap.TaskId = sb.TaskId
+	ap.ResourceRef = &api.ResourceRef{Kind: "browser", Id: browserID}
+	ap.Destination = dest
+	ap.ActionPlan = &api.ActionPlan{Operation: pointer(operation), ResourceRef: ap.ResourceRef, Arguments: &args, Destination: dest,
+		SecretRefs: &[]string{textField(plan, "vault_id") + "/" + textField(plan, "item_id")}}
+	ap.ActionDigest = pointer(digest(plan))
+	ap.ExpiresAt = pointer(time.Now().Add(55 * time.Second).UTC().Format(time.RFC3339Nano))
+	c.Approvals[ap.Id] = ap
 }

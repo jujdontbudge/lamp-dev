@@ -69,6 +69,10 @@ type accountability struct {
 	Exports       []api.AuditRecord        `json:"exports,omitempty"`
 	Telemetry     map[string]api.Telemetry `json:"telemetry"`
 	Usage         map[string][]usageSample `json:"usage"`
+	// Notification sinks and deliveries (OPS-003, notifications.go).
+	Sinks          map[string]api.NotificationSink `json:"notification_sinks,omitempty"`
+	Notifications  map[string]*notificationRecord  `json:"notifications,omitempty"`
+	NotifySequence uint64                          `json:"notify_sequence,omitempty"`
 }
 
 func (s *Service) initAccountability() {

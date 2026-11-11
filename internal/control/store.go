@@ -69,6 +69,8 @@ type Config struct {
 	Quotas      Quotas
 	AuditReader string
 	KitsSocket  string
+	// Notifications enrolls private notification destinations (OPS-003).
+	Notifications *NotificationConfig
 	// RecoveryPublicKey is the owner's offline data-recovery public key file;
 	// every new backup is also wrapped to it.
 	RecoveryPublicKey string
@@ -81,6 +83,9 @@ type Config struct {
 	InstallDir string
 }
 type Service struct {
+	notifyConfig   *NotificationConfig
+	notifyKick     chan struct{}
+	notifyInflight map[string]bool
 	kitsSocket     string
 	kitsMu         sync.Mutex
 	clockWall      time.Time
@@ -458,6 +463,10 @@ func Open(config Config) (*Service, error) {
 	}
 	s.wg.Add(1)
 	go s.watchAccountability()
+	s.notifyKick, s.notifyInflight = make(chan struct{}, 1), map[string]bool{}
+	s.readLock()
+	s.initNotifications(config.Notifications)
+	s.mu.Unlock()
 	for _, rec := range s.journal.Operations {
 		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
 			s.wg.Add(1)
