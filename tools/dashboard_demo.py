@@ -290,6 +290,7 @@ def main():
         wait(lambda: any(r['event_type'] == 'task.needs_decision' for r in received), 'needs_decision webhook', 20)
         clicked = ui('click', selector=f'#approvals-{approval["id"]} button[data-act=approve]', wait=15000)
         record('approve click', dict(clicked=clicked, dashboard_messages=ui('eval', expr="document.querySelector('#errors').innerText")))
+        wait(lambda: call('GET', '/v1/approvals/' + approval['id'])['data']['state'] != 'pending', 'approval decided', 30)
         record('approval after dashboard approve', call('GET', '/v1/approvals/' + approval['id'])['data'])
         ui('goto', url=dash + '#/browsers/' + browser, wait=2000)
         ui('click', selector=f'#browsers-{browser} button[data-act=view]', wait=8000)
@@ -315,7 +316,8 @@ def main():
         ui('goto', url=dash + '#/sessions/' + session, wait=2500)
         shot('03b-session-needs-answer', 'session waiting on the person, with the question and an answer box')
         ui('eval', expr=f"document.querySelector('#sessions-{session} [name=answer]').value='echo answer-from-dashboard: new branch'; true")
-        ui('click', selector=f'#sessions-{session} button[data-act=answer]', wait=3000)
+        ui('click', selector=f'#sessions-{session} button[data-act=answer]', wait=2500)
+        record('answer click', ui('eval', expr="document.querySelector('#errors').innerText"))
         import base64
 
         def shell_text():
@@ -352,8 +354,13 @@ def main():
         record('share after dashboard revoke', call('GET', '/v1/shares')['items'])
 
         ui('goto', url=dash + '#/sandboxes/' + agent, wait=2000)
-        ui('click', selector=f'#sandboxes-{agent} button[data-act=suspend]', wait=1000)
-        wait(lambda: call('GET', '/v1/sandboxes/' + agent)['data']['state'] == 'suspended', 'agent suspended', 120)
+        ui('click', selector=f'#sandboxes-{agent} button[data-act=suspend]', wait=3000)
+        record('suspend click', ui('eval', expr="document.querySelector('#errors').innerText"))
+        try:
+            wait(lambda: call('GET', '/v1/sandboxes/' + agent)['data']['state'] == 'suspended', 'agent suspended', 240)
+        except RuntimeError:
+            record('suspend diagnostics', dict(sandbox=call('GET', '/v1/sandboxes/' + agent)['data'], operations=[o for o in call('GET', '/v1/operations')['items'] if o.get('operation_name') == 'sandbox_suspend']))
+            raise
         ui('goto', url=dash + '#/sandboxes/' + agent, wait=2500)
         shot('06b-saved-state', 'suspended sandbox with saved-state retention countdown')
         ui('goto', url=dash + '#/tasks/' + task, wait=2000)

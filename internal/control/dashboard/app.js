@@ -195,14 +195,22 @@ const ACTIONS = {
     return api('POST', '/v1/shares', { resource_kind: 'session', resource_id: id, subject_id: subject, actions, expires_at: new Date(Date.now() + 8 * 3600000).toISOString() });
   },
   answer: async (id, el) => {
-    const s = byId('sessions', id), text = el.closest('.card').querySelector('[name=answer]').value + '\n';
+    const text = el.closest('.card').querySelector('[name=answer]').value + '\n';
     let lease = state.leases[id];
     if (!lease) {
-      const out = await api('POST', '/v1/leases', { type: 'input', resource_id: id, expires_at: new Date(Date.now() + 30 * 60000).toISOString(), wait_ms: 10000 });
+      const out = await api('POST', '/v1/leases', { type: 'input', resource_id: id, expires_at: new Date(Date.now() + 4 * 60000).toISOString(), wait_ms: 10000 });
       lease = state.leases[id] = { id: out.result && out.result.lease_id, seq: 0 };
     }
     const data = btoa(String.fromCharCode(...new TextEncoder().encode(text)));
-    await api('POST', `/v1/sessions/${id}:input`, { lease_id: lease.id, location_epoch: s.location_epoch || 0, sequence: lease.seq, data_base64: data, wait_ms: 10000 }, s.revision);
+    // Output observations advance the session revision constantly: send
+    // against the current one, retrying once if it moved in between.
+    for (let attempt = 0; ; attempt++) {
+      const s = (await api('GET', `/v1/sessions/${id}`)).data;
+      try {
+        await api('POST', `/v1/sessions/${id}:input`, { lease_id: lease.id, location_epoch: s.location_epoch || 0, sequence: lease.seq, data_base64: data, wait_ms: 10000 }, s.revision);
+        break;
+      } catch (e) { if (e.code !== 'REVISION_CONFLICT' || attempt > 2) throw e; }
+    }
     lease.seq++;
   },
 };
