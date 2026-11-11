@@ -209,6 +209,7 @@ for line in ctl.makefile():
 mkdir -p /root/.ssh /run/sshd && chmod 700 /root/.ssh
 printf '%s\n' "$1" > /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys
 ssh-keygen -A >/dev/null
+[ -x /opt/gitlab-runner/gitlab-runner ] && ln -sf /opt/gitlab-runner/gitlab-runner /usr/local/bin/gitlab-runner || true
 /usr/sbin/sshd -o ListenAddress=127.0.0.1 -o PermitRootLogin=prohibit-password -o PasswordAuthentication=no
 exec python3 -c "$2" "$3" "$4" "$5"`
 	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": it.Sandbox, "argv": []string{"sh", "-c", script, "lamp", g.pub, agent, g.CallbackAddr, id, it.Secret}},

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -248,6 +249,11 @@ func TestT29Demonstration(t *testing.T) {
 		t29Triggers(t, s, live, root)
 		return
 	}
+	if os.Getenv("LAMP_T29_ONLY") == "gitlab" {
+		defer s.Close()
+		t29GitLab(t, s, live)
+		return
+	}
 	if os.Getenv("LAMP_T29_ONLY") == "triggers" {
 		defer s.Close()
 		t29Triggers(t, s, live, root)
@@ -432,4 +438,54 @@ func t29Triggers(t *testing.T, s *Service, live t29Live, root string) {
 	}
 	s.mu.Unlock()
 	t.Logf("sandboxes not deleted at end: %d; forge runners still registered: %d", live2, t29Runners(t, live))
+}
+
+// t29GitLab serves this Lamp API on a local socket and runs a host GitLab
+// Runner whose Custom executor and Fleeting plugin reach Lamp only through it.
+func t29GitLab(t *testing.T, s *Service, live t29Live) {
+	code, out := t29Call(t, s, "POST", "/v1/recipes", map[string]any{"name": "t29-gitlab", "template_id": live.Template, "resources": map[string]any{"vcpus": 2, "memory_mib": 4096, "disk_gib": 20, "pids_max": 4096}}, "")
+	if code >= 300 {
+		t.Fatalf("recipe HTTP %d %v", code, out)
+	}
+	recipe := textField(t29Wait(t, s, out), "recipe_id")
+	sock := filepath.Join(t.TempDir(), "lamp.sock")
+	l, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &http.Server{Handler: s, ConnContext: s.PeerContext}
+	go srv.Serve(&t29Local{l})
+	defer srv.Close()
+	cmd := exec.Command("python3", os.Getenv("LAMP_T29_GITLAB_DRIVER"))
+	cmd.Env = append(os.Environ(), "LAMP_SOCKET="+sock, "LAMP_GITLAB_RECIPE="+recipe)
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	err = cmd.Run()
+	live2 := 0
+	s.readLock()
+	for _, sb := range s.journal.Sandboxes {
+		if sb.State != "deleted" {
+			live2++
+		}
+	}
+	s.mu.Unlock()
+	t.Logf("gitlab driver exit=%v; sandboxes not deleted at end: %d", err, live2)
+	if err != nil {
+		t.Fail()
+	}
+}
+
+type t29Local struct{ net.Listener }
+
+func (l *t29Local) Accept() (net.Conn, error) {
+	for {
+		c, err := l.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		if AuthenticateLocal(c.(*net.UnixConn)) != nil {
+			c.Close()
+			continue
+		}
+		return c, nil
+	}
 }

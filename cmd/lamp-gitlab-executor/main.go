@@ -182,6 +182,8 @@ func prepare(c *client, job string) int {
 	if err = wait(c, op); err != nil {
 		return systemFailure(err)
 	}
+	// Artifact and cache stages call the runner's own helper by name.
+	execute(c, sandbox, []string{"sh", "-c", "[ -x /opt/gitlab-runner/gitlab-runner ] && ln -sf /opt/gitlab-runner/gitlab-runner /usr/local/bin/gitlab-runner || true"}, "gl:"+job+":helper", false)
 	fmt.Printf("Lamp sandbox %s (%s) ready\n", sandbox, trust)
 	return 0
 }

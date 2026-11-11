@@ -14,8 +14,8 @@ sh('sudo','-n','install','-d','-m','0755',bindir,'/run/t29','/run/t29/m','/run/t
 sh('sudo','-n','install','-d','-m','0700',audit)
 policy=json.loads(sh('sudo','-n','cat','/var/lib/lamp/t26-private-bin/network.json').stdout)
 policy.update(audit_dir=audit,require_allowlist=True,subscription_domains=None,principal_id='pr_local',policy_layers=[],
- exceptions=[dict(address='10.219.29.1',transport='tcp',port=p) for p in (3929,3930,3931,3932,3933)],
- policy_ceiling=[dict(filter_mode='transport',default_egress='deny',allow=[dict(cidr='10.219.29.1/32',protocol='tcp',ports=[3929,3930,3931,3932,3933])],deny=[])])
+ exceptions=[dict(address='10.219.29.1',transport='tcp',port=p) for p in (3929,3930,3931,3932,3933,3934,3935)],
+ policy_ceiling=[dict(filter_mode='transport',default_egress='deny',allow=[dict(cidr='10.219.29.1/32',protocol='tcp',ports=[3929,3930,3931,3932,3933,3934,3935])],deny=[])])
 (base/'network.json').write_text(json.dumps(policy))
 sh('sudo','-n','install','-m','0644',str(base/'network.json'),bindir+'/network.json')
 sh('sudo','-n','install','-m','0755',str(base/'src/tools/ci-network-attestation.py'),bindir+'/ci-network-attestation')
@@ -45,7 +45,7 @@ try:
   network_reader=['sudo','-n',bindir+'/ci-network-attestation',audit],state_admin=['sudo','-n',sup,'state','--admin-socket','/run/t29/admin.sock'],
   worker=dict(Socket='/run/t29/w.sock',WorkerID='lamp-supervisor@'+os.uname().nodename,BootID=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),UID=0,PID=pid,GrantID=grant['grant_id'],Timeout=60000000000))))
  conf.chmod(0o600)
- env=dict(os.environ,LAMP_T29_ONLY=os.environ.get('LAMP_T29_ONLY',''),LAMP_T29_LIVE_CONFIG=str(conf),PATH='/home/johan/go-sdk/bin:'+os.environ['PATH'])
+ env=dict(os.environ,LAMP_T29_GITLAB_DRIVER=str(base/'src/docs/development/evidence/t29/gitlab_demo.py'),LAMP_T29_ONLY=os.environ.get('LAMP_T29_ONLY',''),LAMP_T29_LIVE_CONFIG=str(conf),PATH='/home/johan/go-sdk/bin:'+os.environ['PATH'])
  p=subprocess.run(['go','test','./internal/control','-run','^TestT29Demonstration$','-count=1','-v','-timeout','60m'],cwd=base/'src',env=env)
  print('demonstration_exit',p.returncode,flush=True)
 finally:
