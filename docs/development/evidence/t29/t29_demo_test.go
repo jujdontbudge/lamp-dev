@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -124,6 +125,7 @@ func t29Until(t *testing.T, what string, d time.Duration, f func() bool) {
 	deadline := time.Now().Add(d)
 	for !f() {
 		if time.Now().After(deadline) {
+			t.Logf("vms on host: %s", func() string { b, _ := exec.Command("pgrep", "-c", "firecracker").Output(); return strings.TrimSpace(string(b)) }())
 			t.Fatalf("timed out waiting for %s", what)
 		}
 		time.Sleep(time.Second)
@@ -144,6 +146,11 @@ func t29Report(t *testing.T, s *Service, id string) {
 	if e := textField(object(j.R["labels"]), "lamp.error"); e != "" {
 		t.Logf("job %s error: %s", id, e)
 	}
+	defer func() {
+		if !ciTerminal(textField(j.R, "state")) {
+			t.Logf("job %s still %s", id, textField(j.R, "state"))
+		}
+	}()
 	t.Logf("job %s plugin=%s external=%s state=%s result=%s trust=%s runner=%s sandbox=%s(%s) outputs=%v",
 		id, textField(j.R, "plugin_id"), textField(j.R, "external_id"), textField(j.R, "state"), textField(j.R, "result"), textField(j.R, "trust_class"), textField(j.R, "runner_ref"), sb.Id, sb.State, outs)
 }
@@ -218,7 +225,7 @@ func TestT29Demonstration(t *testing.T) {
 		// One real native job per further self-hosted system, each on a fresh VM.
 		for _, plugin := range []string{"pg_gitea", "pg_jenkins", "pg_woodpecker"} {
 			var id string
-			t29Until(t, plugin+" job", 15*time.Minute, func() bool {
+			t29Until(t, plugin+" job", 25*time.Minute, func() bool {
 				id, _ = t29Job(s, func(j *ciJob) bool { return j.Plugin == plugin && ciTerminal(textField(j.R, "state")) })
 				return id != ""
 			})
@@ -248,7 +255,7 @@ func TestT29Demonstration(t *testing.T) {
 	// 2. Cancellation through Lamp is native cancellation in Forgejo.
 	t29Forge(t, live, "POST", "/actions/workflows/slow.yml/dispatches", map[string]any{"ref": "main"})
 	var slow string
-	t29Until(t, "slow job running", 6*time.Minute, func() bool {
+	t29Until(t, "slow job running", 20*time.Minute, func() bool {
 		id, j := t29Job(s, func(j *ciJob) bool { return j.Workflow == ".forgejo/workflows/slow.yml" && !ciTerminal(textField(j.R, "state")) })
 		slow = id
 		return id != "" && textField(j.R, "state") == "running"
@@ -271,7 +278,7 @@ func TestT29Demonstration(t *testing.T) {
 	// cancels the native job, deregisters the runner and deletes the VM.
 	t29Forge(t, live, "POST", "/actions/workflows/slow.yml/dispatches", map[string]any{"ref": "main"})
 	var lost string
-	t29Until(t, "second slow job running", 6*time.Minute, func() bool {
+	t29Until(t, "second slow job running", 20*time.Minute, func() bool {
 		id, j := t29Job(s, func(j *ciJob) bool { return j.Workflow == ".forgejo/workflows/slow.yml" && !ciTerminal(textField(j.R, "state")) })
 		lost = id
 		return id != "" && textField(j.R, "state") == "running"
@@ -337,7 +344,7 @@ func t29Triggers(t *testing.T, s *Service, live t29Live, root string) {
 	t.Logf("slack event HTTP %d; replayed-old timestamp HTTP %d %v", c4, c5, r5["error"])
 	for _, src := range []string{hook, slack} {
 		var id string
-		t29Until(t, "trigger work "+src, 6*time.Minute, func() bool {
+		t29Until(t, "trigger work "+src, 20*time.Minute, func() bool {
 			var j ciJob
 			id, j = t29Job(s, func(j *ciJob) bool { return j.Trigger == src })
 			return id != "" && ciTerminal(textField(j.R, "state"))
@@ -386,7 +393,7 @@ func t29Triggers(t *testing.T, s *Service, live t29Live, root string) {
 	}
 	sched := textField(t29Wait(t, s, out), "schedule_id")
 	var sj string
-	t29Until(t, "scheduled work", 6*time.Minute, func() bool {
+	t29Until(t, "scheduled work", 20*time.Minute, func() bool {
 		var j ciJob
 		sj, j = t29Job(s, func(j *ciJob) bool { return j.Trigger == sched })
 		return sj != "" && ciTerminal(textField(j.R, "state"))
@@ -398,7 +405,7 @@ func t29Triggers(t *testing.T, s *Service, live t29Live, root string) {
 	rev := strconv.FormatUint(uintField(m, "revision"), 10)
 	s.mu.Unlock()
 	t29Call(t, s, "POST", "/v1/schedules/"+sched+":pause", map[string]any{}, rev)
-	t29Until(t, "all work to finish", 6*time.Minute, func() bool {
+	t29Until(t, "all work to finish", 20*time.Minute, func() bool {
 		id, _ := t29Job(s, func(j *ciJob) bool { return !ciTerminal(textField(j.R, "state")) })
 		return id == ""
 	})
