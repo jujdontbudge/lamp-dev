@@ -33,7 +33,7 @@ try:
  pid=int(sh('sudo','-n','cat','/run/t29/w.pid').stdout)
  grant=json.loads(sh('sudo','-n',sup,'grant-install','--store',store,'--caller-uid',str(os.getuid()),'--ttl-s','7200','--max-generation','16').stdout)
  template=json.loads((base/os.environ.get('LAMP_T29_TEMPLATE','template.json')).read_text())['template_id']
- eps='10.219.29.1:3929,10.219.29.1:3930,10.219.29.1:3931,10.219.29.1:3932,10.219.29.1:3933'
+ eps=','.join('10.219.29.1:%d'%p for p in range(3929,3936))
  repo=dict(system='forgejo',name='lamp-admin/zlib',id=1,owner_id=1,label='lamp-t29',template_id=template,runner_directory='/opt/forgejo-runner',
   base_url=forge,token_file=str(base/'forgejo-token'),project='1',workflow_sha256=pins,options=dict(private_endpoint=eps))
  gpin=hashlib.sha256((base/'zlib-gitea/.gitea/workflows/ci.yml').read_bytes()).hexdigest()
