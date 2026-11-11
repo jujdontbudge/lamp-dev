@@ -394,6 +394,10 @@ func narrow(parent, child api.Scope) api.Scope {
 	return child
 }
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/internal/accountability/") {
+		s.accountabilityBridge(w, r)
+		return
+	}
 	id := newID("req")
 	w.Header().Set("X-Request-ID", id)
 	op, selectors, ok := surface.Match(r.Method, r.URL.Path)

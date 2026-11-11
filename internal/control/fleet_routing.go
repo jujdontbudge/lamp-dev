@@ -64,6 +64,11 @@ func (f *Fleet) leaseValid() bool {
 	defer f.mu.Unlock()
 	return err == nil && f.active && ticks < f.deadline
 }
+func (f *Fleet) authorityActivated() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.active
+}
 func (f *Fleet) authorityNow() time.Time {
 	ticks, err := authorityTicks()
 	f.mu.Lock()
@@ -89,14 +94,11 @@ func (f *Fleet) authorityNow() time.Time {
 	return now
 }
 func (s *Service) expired(expires *string) bool {
-	if s.fleet == nil {
-		return expired(expires)
-	}
 	if expires == nil {
 		return false
 	}
 	t, err := time.Parse(time.RFC3339Nano, *expires)
-	return err != nil || !s.fleet.authorityNow().Before(t)
+	return err != nil || !s.enforcementNow().Before(t)
 }
 func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 	id := newID("req")
@@ -200,7 +202,7 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		return
 	}
 	home := ""
-	for _, field := range []string{"sandbox_id", "exec_id", "operation_id", "approval_id", "session_id", "lease_id", "share_id"} {
+	for _, field := range []string{"sandbox_id", "exec_id", "operation_id", "approval_id", "session_id", "lease_id", "share_id", "budget_id", "task_id", "audit_record_id"} {
 		if target := textField(selectors, field); target != "" {
 			home = resourceHome(target)
 		}
@@ -231,6 +233,19 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		}
 		if home == "" {
 			home = resourceHome(textField(input, "sandbox_id"))
+			if op.Name == "audit_record_export" {
+				filter, _ := input["filter"].(map[string]any)
+				home = resourceHome(textField(filter, "sandbox_id"))
+			}
+			if home == "" {
+				home = resourceHome(textField(input, "task_id"))
+			}
+			if home == "" {
+				home = resourceHome(textField(input, "parent_task_id"))
+			}
+			if home == "" {
+				home = resourceHome(textField(input, "budget_id"))
+			}
 		}
 		if kind == "session" && op.Name == "session_create" {
 			location, _ := input["location"].(map[string]any)
@@ -585,4 +600,24 @@ func (f *Fleet) catalogHTTP(w http.ResponseWriter, r *http.Request, id string, a
 		next = pointer(s.cursor(a, "fleet:"+op.Name, fmt.Sprint(items[len(items)-1]["id"])))
 	}
 	prepareJSON(w, 200, map[string]any{"items": items, "next_cursor": next, "request_id": id})()
+}
+
+// Continuous host ticks include sleep and prevent wall-clock rollback during a
+// daemon lifetime from extending task and derived-key deadlines.
+func (s *Service) enforcementNow() time.Time {
+	if s.fleet != nil && s.fleet.authorityActivated() {
+		return s.fleet.authorityNow()
+	}
+	now := time.Now()
+	if !s.clockWall.IsZero() {
+		ticks, err := authorityTicks()
+		if err != nil {
+			return time.Unix(1<<62, 0)
+		}
+		continuous := s.clockWall.Add(time.Duration(ticks - s.clockTicks))
+		if continuous.After(now) {
+			return continuous
+		}
+	}
+	return now
 }

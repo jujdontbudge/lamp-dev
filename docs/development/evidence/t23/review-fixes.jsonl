@@ -1,0 +1,14 @@
+{"step": "4 task selector rejects other task and permits selected task", "value": {"allowed": "succeeded", "denied": "SCOPE_DENIED", "other_state": "running"}}
+{"step": "4 budget selector rejects other budget", "value": "SCOPE_DENIED"}
+{"step": "allocation guard", "value": {"available_mib": 27115, "firecracker": 0}}
+{"step": "7 budget B activity does not exhaust admitted A", "value": {"control_records_limit": 5, "exec": {"argv": ["/bin/true"], "created_at": "2026-11-11T00:19:15.915221029Z", "exit_code": 0, "fleet_id": "fl_local", "id": "ex_f29f958878e9888c7b237218b45224f7_h_hs_t23", "kind": "exec", "labels": {}, "owner_id": "pr_t23_demo", "revision": 3, "sandbox_id": "sb_aac9f706175555c6ff7bb467b2ca0124_h_hs_t23", "signal": 0, "started_at": "2026-11-11T00:19:15.914818822Z", "state": "exited", "updated_at": "2026-11-11T00:19:16.029524333Z", "visibility": "private"}}}
+{"step": "3 retained task survives fleet re-election", "value": {"budget_state": "active", "deadline": "2026-11-11T00:20:45.468822831Z", "task_state": "running"}}
+{"step": "1 enrolled shared reader reserve denied without changing budget", "value": {"body": "accounting requires the owner Unix peer\n", "status": 403}}
+{"step": "5 fleet Unix reserve succeeds; public TLS denied", "value": {"tls_status": 403, "unix_status": 200}}
+{"step": "5 and 6 actual fleet broker exponent request reserved 1002 tokens", "value": {"provider_saw_reserved": 1002, "status": 200, "used": 5}}
+{"step": "6 exponent output cap rejects before second provider effect", "value": {"provider_calls": 1, "status": 403}}
+{"step": "8 full audit remains exportable", "value": {"artifact_records": 101, "files": 1, "request_records": 32, "sha256": "32aed0702c421dea78a1f34e40f5b2bb31c2c136fbf4693b9f1192ef06b4d776"}}
+{"step": "8 failed export commit leaves no additional file", "value": {"error": "DATA_UNAVAILABLE", "files": 1}}
+{"step": "2 supervisor observes work before deadline", "value": {"exit": 0, "stderr": "", "stdout": "{\"detail\":{\"boundary\":\"vm\",\"disk_gib\":\"20\",\"engine\":\"firecracker-1.17.0\",\"generation\":\"1\",\"memory_mib\":\"4096\",\"source\":\"tp_8a6922170222418fabafdc0c95\",\"vcpus\":\"2\",\"vmm_pid\":\"1150410\",\"vmm_uid\":\"1850000000\"},\"handles\":[],\"state\":\"running\"}\n"}}
+{"step": "2 broken journal watchdog released actual sandbox", "value": {"deadline": "2026-11-11T00:20:45.468822831Z", "exit": 1, "stderr": "lamp-supervisor: NOT_FOUND: sandbox sb_aac9f706175555c6ff7bb467b2ca0124_h_hs_t23\n", "stdout": ""}}
+{"step": "complete", "value": {"benchmarks": false, "new_tests": false}}

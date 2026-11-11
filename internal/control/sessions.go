@@ -557,7 +557,7 @@ func (s *Service) driveSessions() {
 		s.readLock()
 		ids := []string{}
 		for id, work := range s.journal.Control.Sessions {
-			if s.sessionFleet && (s.fleet == nil || resourceHome(id) != s.hostID() || !s.fleet.leaseValid()) {
+			if s.fleetEnabled && (s.fleet == nil || resourceHome(id) != s.hostID() || !s.fleet.leaseValid()) {
 				continue
 			}
 			if work.Failure == "" && (textField(work.Resource, "state") == "active" || textField(work.Resource, "state") == "starting" || len(work.Pending) > 0 || work.More) {
@@ -577,7 +577,7 @@ func (s *Service) driveSession(id string) {
 		s.mu.Unlock()
 		return
 	}
-	if s.sessionFleet && (s.fleet == nil || resourceHome(id) != s.hostID() || !s.fleet.leaseValid()) {
+	if s.fleetEnabled && (s.fleet == nil || resourceHome(id) != s.hostID() || !s.fleet.leaseValid()) {
 		s.mu.Unlock()
 		return
 	}

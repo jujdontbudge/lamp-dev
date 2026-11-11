@@ -24,6 +24,10 @@ func init() {
 		"session_watch", "session_attach", "session_input", "session_resize", "session_end",
 		"lease_create", "lease_get", "lease_list", "lease_renew", "lease_release", "lease_delete",
 		"share_list", "share_revoke", "share_delete",
+		"budget_create", "budget_get", "budget_list", "budget_update", "budget_delete",
+		"task_create", "task_get", "task_list", "task_stop", "task_delete",
+		"audit_record_get", "audit_record_list", "audit_record_export",
+		"telemetry_get", "telemetry_update", "telemetry_purge",
 	} {
 		CoreNames[name] = true
 	}

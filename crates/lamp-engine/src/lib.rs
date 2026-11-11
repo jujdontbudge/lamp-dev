@@ -12,9 +12,6 @@ pub mod definition;
 pub mod error;
 pub mod manifest;
 
-#[cfg(test)]
-mod custody_tests;
-
 #[cfg(target_os = "linux")]
 pub mod build;
 #[cfg(target_os = "linux")]

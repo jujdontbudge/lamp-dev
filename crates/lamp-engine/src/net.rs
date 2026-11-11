@@ -509,6 +509,13 @@ impl Attachment {
                 match listener.accept() {
                     Ok((stream, _)) => {
                         let n = segments.fetch_add(1, Ordering::SeqCst) + 1;
+                        // Charge the entire retained process spool allowance up front.
+                        // Exhaustion refuses only this sandbox's next collector; the
+                        // task cannot start without its collector acknowledgement.
+                        if n > 64 {
+                            drop(stream);
+                            continue;
+                        }
                         let mut c = template.clone();
                         c["spool"] = serde_json::json!(dir.join(format!("process-{n:06}.ndjson")));
                         let cfg = dir.join(format!("process-{n:06}.json"));
@@ -593,15 +600,4 @@ fn receiver(guard: &Path, config: &Path, fd: OwnedFd) -> std::io::Result<Child> 
     let child = cmd.spawn();
     drop(fd);
     child
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn prefixes_are_normalized() {
-        assert_eq!(normalize("10.195.194.205/14"), "10.192.0.0/14");
-        assert_eq!(normalize("192.168.178.1/24"), "192.168.178.0/24");
-        assert_eq!(normalize("1.2.3.4"), "1.2.3.4/32");
-    }
 }

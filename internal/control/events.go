@@ -39,6 +39,14 @@ func (s *Service) addEvents(delta *journal) {
 	for id, r := range delta.Execs {
 		items = append(items, item{"exec", id, r.OwnerId, string(r.State), r.Revision})
 	}
+	if delta.Accountability != nil {
+		for id, r := range delta.Accountability.Budgets {
+			items = append(items, item{"budget", id, r.OwnerId, string(r.State), r.Revision})
+		}
+		for id, r := range delta.Accountability.Tasks {
+			items = append(items, item{"task", id, r.OwnerId, string(r.State), r.Revision})
+		}
+	}
 	if delta.Control != nil {
 		c := delta.Control
 		items = append(items, item{"fleet", c.Fleet.Id, c.OwnerID, string(c.Fleet.State), c.Fleet.Revision})
@@ -346,6 +354,14 @@ func (s *Service) waitOperation(w http.ResponseWriter, r *http.Request, id strin
 }
 
 func (s *Service) indexEventRevisions() {
+	if c := s.journal.Accountability; c != nil {
+		for id, r := range c.Budgets {
+			s.eventRevisions["budget/"+id] = r.Revision
+		}
+		for id, r := range c.Tasks {
+			s.eventRevisions["task/"+id] = r.Revision
+		}
+	}
 	for id, r := range s.journal.Operations {
 		s.eventRevisions["operation/"+id] = r.Operation.Revision
 	}

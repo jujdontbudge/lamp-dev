@@ -258,6 +258,22 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 		s.mu.Unlock()
 		return fail("RESOURCE_IN_USE", "sandbox is not in the required state")
 	}
+	if resume && sb.SnapshotId == nil {
+		s.mu.Unlock()
+		return fail("CONTINUATION_UNSUPPORTED", "suspend capture missing")
+	}
+	if err := s.accountAdmission(a, plan.Name, sb); err != nil {
+		s.mu.Unlock()
+		e := err.(*coreError)
+		return fail(e.code, e.message)
+	}
+	if !s.appendAudit(sb, "control", plan.Name, "allow") {
+		s.mu.Unlock()
+		return fail("CONTROL_QUOTA_EXCEEDED", "audit retention quota reached")
+	}
+	if !resume {
+		s.chargeFork(sb)
+	}
 	ref := api.ResourceRef{Kind: "sandbox", Id: sb.Id}
 	if plan.Name == "snapshot_create" || suspend {
 		plan.SnapshotID = newID("ss")
@@ -281,9 +297,9 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 	}
 	id := newID("op")
 	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: sb.OwnerId, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: &plan.Name, ResourceIds: &[]api.ResourceRef{ref}, RequestHash: &hash, AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
-	s.journal.Operations[id] = &record{Operation: op, Hash: hash, Key: journalKey, Resource: ref, Custody: &plan}
+	s.journal.Operations[id] = &record{Caller: a, Operation: op, Hash: hash, Key: journalKey, Resource: ref, Custody: &plan}
 	s.keys[journalKey], s.done[id], s.busy[plan.Source] = id, make(chan struct{}), true
-	if err := s.save(id, ref.Id, plan.SnapshotID); err != nil {
+	if err := s.save(id, ref.Id, plan.SnapshotID, "$accountability"); err != nil {
 		s.broken = true
 		s.mu.Unlock()
 		return fail("DATA_UNAVAILABLE", "custody admission was not committed")
@@ -306,6 +322,21 @@ func (s *Service) executeCustody(id string) {
 		s.mu.Unlock()
 		return
 	}
+	if rec.Caller.Principal != "" && !s.can(rec.Caller, strings.Replace(plan.Name, "_", ".", 1)) {
+		rec.Operation.State = "failed"
+		rec.Operation.Error = &api.ErrorDetail{Code: "SCOPE_DENIED", Message: "authority changed before custody dispatch"}
+		rec.Operation.Revision++
+		rec.Operation.CompletedAt = pointer(timestamp())
+		rec.Operation.UpdatedAt = timestamp()
+		rec.Operation.CleanupState = pointer(api.OperationCleanupStateComplete)
+		if err := s.save(id); err != nil {
+			s.broken = true
+		}
+		delete(s.busy, plan.Source)
+		close(s.done[id])
+		s.mu.Unlock()
+		return
+	}
 	sb := s.journal.Sandboxes[plan.Source]
 	snapshot := s.journal.Snapshots[plan.SnapshotID]
 	rec.Operation.State = "running"
@@ -317,8 +348,16 @@ func (s *Service) executeCustody(id string) {
 		s.mu.Unlock()
 		return
 	}
+	taskDeadline := s.journal.Accountability.Tasks[value(sb.TaskId)].DeadlineAt
 	s.mu.Unlock()
 	ctx, cancel := context.WithTimeout(s.context(), custodyOperationTimeout)
+	if taskDeadline != nil {
+		if deadline, e := time.Parse(time.RFC3339Nano, *taskDeadline); e == nil {
+			var stop context.CancelFunc
+			ctx, stop = context.WithDeadline(ctx, deadline)
+			defer stop()
+		}
+	}
 	defer cancel()
 	call := func(step string, command any) (*pb.Receipt, error) {
 		deadline, _ := ctx.Deadline()
