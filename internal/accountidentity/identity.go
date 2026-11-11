@@ -121,6 +121,7 @@ func (v *Verifier) key(ctx context.Context, id string) (*rsa.PublicKey, error) {
 	if e != nil {
 		return nil, e
 	}
+	req.Header.Set("User-Agent", "Lamp-Identity/1.0 (+https://eilmer.si)")
 	client := v.Client
 	if client == nil {
 		client = &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}

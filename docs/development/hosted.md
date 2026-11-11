@@ -1,217 +1,234 @@
-# Optional hosted relay and separate issuer
+# Optional hosted account, relay and separate issuer
 
-Status: implemented private SSH relay and issuer admission path; **T24 is not
-fully demonstrated**. See [the evidence and remaining work](T24-evidence.md).
-Nothing in this change opens public sign-up, creates public DNS, or changes the
-owner's existing Clerk application, tailnet, Docker resources or other products.
+The private owner-hardware demonstration uses the **existing production Eilmer
+Clerk instance**, trusted production certificates and browser/native traffic.
+See [actual evidence and historical failures](T24-evidence.md). Nothing is opened
+to the public Internet; published DNS addresses are RFC1918 and sign-up is closed.
 
-## Build and trust boundary
+## Components and trust
 
 ```sh
+go build -o lamp-account ./cmd/lamp-account
+go build -o lamp-ingress ./cmd/lamp-ingress
 go build -o lamp-relay ./cmd/lamp-relay
 go build -o lamp-relay-client ./cmd/lamp-relay-client
 go build -o lamp-issuer ./cmd/lamp-issuer
 go build -o lamp-dns-cloudflare ./cmd/lamp-dns-cloudflare
 ```
 
-The relay server is a separate AGPL-3.0-only binary. The host/client, shared JWT
-verifier and issuer are Apache-2.0. Offer relay users the corresponding source,
-including deployed modifications. Do not link relay server code into hosts.
+`lamp-relay` is a separate AGPL-3.0-only executable. Offer its users corresponding
+source, including modifications. Clients, account/ingress and issuer code are
+Apache-2.0; do not link relay-server code into hosts.
 
-The relay owns outer TLS and account/routing metadata, **not** inner SSH keys.
-Only the host terminates SSH. Use OpenSSH with strict host verification against
-a fleet CA obtained locally or from a previously trusted caller. A CA supplied
-by the relay is not first-pairing trust. A valid relay account/membership cannot
-create a fleet principal, bypass SSH user authentication, recover a root, or
-read another principal's private resources.
+- **Account:** `https://account.eilmer.si`, separate OS identity and leaf TLS key.
+  Clerk issuer stays `https://clerk.eilmer.si`. Never merge identities by email.
+- **Relay:** routing/account metadata and outer transport TLS only. No fleet
+  root/TLS/SSH key, ACME key, DNS API token, model credential or work transcript.
+- **Fleet ingress:** owns the exact fleet wildcard key and terminates browser
+  work TLS. Its API maps verified issuer/subject to an already enrolled fleet
+  principal's private credential. Its content host has its own explicit ACL.
+- **Issuer:** separate identity, ACME account/ledger and pinned public fleet roots.
+- **DNS custodian:** separate constrained SSH effect endpoint; alone holds the
+  zone-scoped Cloudflare token. Neither issuer nor forwarding process gets it.
 
-Version 1 uses outbound WebSockets: one host carrier per fleet, one one-use
-attachment per caller. The host connector reaches only its configured numeric
-loopback SSH listener. This is not a browser HTTPS/SNI ingress, QUIC multiplexer
-or public stock-SSH port allocator. Neither Cloudflare edge decryption nor
-private worker RPCs are involved.
+Browser work follows:
 
-## Relay configuration
+```text
+browser -- fleet TLS --> private owner TCP bridge --> relay SNI router
+        --> outbound host WebSocket carrier --> fleet TLS ingress --> local app/API
+```
 
-All config, enrollment, token and state files are private (0600; directories
-0700). Keep credentials out of argv, URLs, logs and evidence.
+The relay reads a bounded ClientHello to select an allocated SNI route, then
+forwards the original bytes without completing fleet TLS. Account SNI goes to
+the account process; relay SNI goes to the relay's separate leaf-TLS listener.
+The raw router itself does not authenticate encrypted HTTP cookies: the fleet
+endpoint gates work requests inside end-to-end TLS. Connection capacity is bounded.
+
+## Account sign-in and origin isolation
+
+All config/credential/state files are private regular files (0600, directories
+0700). No secrets in argv values, URLs, logs or evidence. Run:
+
+```sh
+lamp-account --config /private/account.json
+lamp-ingress --config /private/ingress.json
+lamp-relay --config /private/relay.json
+```
+
+Account config fields are `listen`, `origin`, `certificate`, `key`, `clients`
+(exact HTTPS origins), and `subjects` (`{issuer,subject}` allowlist). Registered
+clients are the relay and allocated fleet API/content hosts. Distinct **DNS
+hostnames**, not just different ports, are mandatory: cookies ignore ports.
+
+The account server uses production Clerk email codes and keeps frontend cookie
+jars/JWTs **server-side**. Its SDK client uses Clerk's original
+`https://accounts.eilmer.si` party; no Clerk cookie reaches the product browser.
+The existing managed Account Portal is disabled, instance access is invite-only,
+and its configured sign-in/sign-out URLs use the canonical isolated account
+origin. Sign-up points to `/closed`. No replacement Clerk app/key/user is created
+on startup. Additional members require explicit enrollment/configuration.
+
+Product `/account/login` starts a CSRF/state-bound form POST to `/authorize`.
+A short-lived one-use code returns by form POST, never a query string. Redemption
+at `/redeem` checks exact audience and S256 PKCE verifier. Product sessions are
+opaque, in-memory, scoped to that product; account and product restarts fail
+closed and require login again. Logout and private CLI-token download require
+session CSRF. Clerk refresh verifies RS256, issuer, immutable subject, original
+party and token lifetime. Provider failures never fabricate an identity.
+
+Cookies are Secure, HttpOnly, SameSite=Strict, Path=/, without Domain:
+`__Host-eilmer_account`, `__Host-lamp_session`, and `__Host-lamp_port` on their
+respective, distinct hosts. Exact POST Origin checks and no credentialed CORS
+prevent a sibling content origin from reading/mutating account state. Account
+pages disallow framing and use nonce-bound scripts. A harmless unprefixed
+parent-domain cookie can still exist; it is never used for authentication.
+
+Ingress config has `listen`, `certificate`, `key`, `account_origin`, and `hosts`.
+Each host has `origin`, `users` (`identity`, plus `token_file` for API access),
+and exactly one of `api_socket` or numeric-loopback HTTP `upstream`. The supplied
+content adapter strips **all inbound cookies and Authorization**, platform and
+forwarding identity headers before the app; it is not an app-cookie session
+adapter. It strips parent-domain/reserved authentication response cookies and
+credentialed CORS headers. Configure an app's ACL deliberately; a fleet account
+is not automatically entitled to every published app. No sandbox HTML runs on
+an account, relay or fleet API origin.
+
+## Relay configuration and native access
 
 ```json
 {
   "listen": "127.0.0.1:7443",
   "hostname": "relay.eilmer.si",
   "state": "/var/lib/lamp-relay/private/state.json",
-  "certificate": "/etc/lamp-relay/private/relay.pem",
-  "key": "/etc/lamp-relay/private/relay-key.pem",
+  "certificate": "/private/relay-chain.pem",
+  "key": "/private/relay-key.pem",
   "issuer": "https://clerk.eilmer.si",
   "audience": "lamp:relay",
   "authorized_parties": ["https://accounts.eilmer.si"],
   "fleets": [{
     "id": "f123",
-    "owner": {"issuer": "https://clerk.eilmer.si", "subject": "user_REPLACE"},
-    "members": [{"issuer": "https://clerk.eilmer.si", "subject": "user_REPLACE_BEA"}]
-  }]
+    "owner": {"issuer":"https://clerk.eilmer.si","subject":"user_REPLACE"},
+    "members": []
+  }],
+  "browser": {
+    "origin": "https://relay.eilmer.si:37443",
+    "account_origin": "https://account.eilmer.si",
+    "raw_listen": "127.0.0.1:7444",
+    "private_listen": "10.0.0.2:443",
+    "account_target": "127.0.0.1:7445",
+    "routes": {"api.f123.fleet.eilmer.si":"f123","p-RANDOM.f123.fleet.eilmer.si":"f123"}
+  }
 }
 ```
 
-Production requires the **existing shared Eilmer Clerk issuer**, exact
-`lamp:relay` audience and existing account portal origin. Provision a short-lived
-Clerk token template with that audience; only the account portal is an allowed
-`azp`. JWT signature, RS256 algorithm, key ID, issuer, subject, audience, party,
-expiry/not-before/issued-at and maximum one-hour lifetime are checked. Public
-JWKS is cached for five minutes; unknown rotated keys fail closed until refresh.
-Email is ignored. Membership is an explicit issuer/subject configuration, not
-self-registration. Removing members requires a process restart, terminating
-existing streams; host revocation also cancels active carriers/streams.
+Use an allocated lowercase random content label in place of `p-RANDOM`.
+`private_listen` is optional and accepts only explicit RFC1918 IPv4. Raw/TLS
+service targets are numeric loopback. Only the direct private listener needs
+low-port binding privilege; it must not acquire private-key read privileges.
 
-The existing portal is `accounts.eilmer.si`, not the proposed architecture's
-`account.eilmer.si`. Do not move it or change the issuer without checking other
-products and explicitly migrating provider identities. Never join old/new
-identities by email. The browser sign-in/code exchange and real Clerk cookie
-scope still need implementation/provisioning; a token file is currently an
-operator-provided input, not a completed sign-in UX.
+The relay page exports its own opaque session to a private file for the CLI:
 
 ```sh
-lamp-relay --config /private/relay.json
 lamp-relay-client issue-enrollment --fleet f123 \
-  --account-token-file /private/alice.jwt --out /private/enrollment
-# Securely hand only the enrollment file to the intended host; redeem within 60s.
+  --account-token-file /private/relay-account --out /private/enrollment
 lamp-relay-client enroll --fleet f123 --enrollment-file /private/enrollment \
   --credential-file /private/host-credential
 lamp-relay-client host --credential-file /private/host-credential \
-  --target 127.0.0.1:2222
+  --target 127.0.0.1:2222 --https-target 127.0.0.1:7460
 ```
 
-The host generates its reconnect secret locally, writes it before redemption,
-and sends only its SHA-256. Enrollment consumption and the host hash are one
-fsynced atomic state update, protected against concurrent server processes.
-If redemption times out, retain the credential: the enrollment may already be
-consumed. Try hosting with it before asking the owner to revoke/re-enroll.
-`DELETE /v1/hosts/f123` with the owner's account bearer revokes the host and all
-pending enrollments before allowing replacement.
+`--relay-dial-address` may override only the numeric-loopback dial target for
+private deployment; it preserves normal TLS hostname verification. The host
+creates its reconnect secret locally before one-use enrollment redemption.
+Enrollment consumption plus host hash is an fsynced atomic update with a process
+lock. A timed-out redemption may have committed: retain the credential and try
+hosting before revoking/re-enrolling. Owner `DELETE /v1/hosts/f123` revokes the
+host, pending enrollments and streams. The state stores hashes/metadata, not work.
 
-Example OpenSSH options (use ordinary `-i` for the separate fleet user key):
+The legacy explicit JWT input requires a Clerk template with audience
+`lamp:relay` and the configured original account party. The demonstrated browser
+path instead exports a product-scoped opaque token; **no template is needed**.
+JWT API endpoints reject browser Cookie/Origin. Browser login is handled only by
+the separate browser routes, not by loosening native endpoint checks.
 
-```text
-Host h-private.f123.fleet.eilmer.si
-  StrictHostKeyChecking yes
-  UserKnownHostsFile /private/fleet-known-hosts
-  ProxyCommand /path/lamp-relay-client connect --fleet f123 --account-token-file /private/alice.jwt
-```
+For SSH use an independently trusted fleet CA, strict host checking, a separate
+user SSH key, and `ProxyCommand lamp-relay-client connect --fleet f123
+--account-token-file /private/relay-account`. Relay membership does not create
+SSH/fleet authority. Token expiry and host revocation terminate streams.
 
-`fleet-known-hosts` contains the independently obtained `@cert-authority` entry.
-The relay forwards the resulting SSH stream without transcript logging or disk
-spooling. It persists only versioned host/enrollment hashes and enrollment
-expiry. It sees account/fleet/address/timing/byte metadata; it cannot hide this
-metadata. Existing streams stop at account-token expiry. The server bounds
-concurrent requests/streams and each host connector bounds active SSH links.
-One-use routing attachments time out after ten seconds.
+## Owner-only private TCP bridge
 
-There are no browser sessions here: Cookie, Origin and query-bearing requests
-are rejected, CORS is not enabled, and no Set-Cookie is emitted. Host/SNI must
-match `relay.eilmer.si`; production TLS is 1.3 minimum. Cross-origin/frame/cache
-headers are restrictive. This does **not** prove isolation of Clerk's existing
-cookies or provide sandbox web ingress. No untrusted HTML is served here.
+No bore.pub, Serveo, third-party tunnel or edge TLS termination is used. M5 runs
+verified bore 0.6.0; Ubuntu connects outbound to M5's private LAN address. The
+server binds that address, control port 7835 and only allocated tunnel port 37443.
+The shared transport HMAC is loaded from a 0600 file, never argv.
 
-`private_development: true` permits only numeric loopback listeners and a
-numeric loopback HTTP identity signer. Clients permit plain HTTP only at numeric
-loopback. The demonstration forwards only that Ubuntu loopback relay over SSH;
-this SSH tunnel is a private development transport, not a second hosted domain
-or a public relay deployment.
+`tools/hosted/private_bridge.py` launches the M5 server under `sandbox-exec`
+with a minimal environment, read-only system-library access, no home-directory
+data access, no outbound-connect grant and only the two listening ports.
+Seatbelt's local IP matcher supports wildcard/localhost only: port confinement
+is in the sandbox and the explicit LAN bind is in bore's verified CLI arguments.
+The optional open-only credential probe never reads or prints credential bytes.
+Provide `--binary`, `--bind`, `--port`, `--secret-file`, `--log`, `--pid-file`, and
+optionally `--denied-file-probe`. No sudo or Mac launch-item bootstrap is needed.
+Ubuntu's client runs under the relay OS identity and forwards loopback 7444.
 
-## Non-relay local accounts and owner OIDC
+## Separate certificate issuer
 
-Existing local SSH/public-key and opaque fleet-token routes do not construct a
-hosted account verifier or contact Clerk. `lamp-access` additionally accepts an
-optional owner OIDC JWT provider:
+Fleet generates its TLS key and CSR locally. The issuer accepts only a pinned
+Ed25519 root proof binding allocation, one-minute nonce and CSR DER hash.
+`fleet_roots` allocates exact `*.f123.fleet.eilmer.si`; `services` separately
+allocates exact `relay.eilmer.si`/`account.eilmer.si` leaves to public root keys.
+No platform-wide wildcard/private key is distributed.
 
-```json
-"oidc": {
-  "issuer": "https://id.eilmer.si/owner",
-  "audience": "my-fleet",
-  "jwks_url": "https://id.eilmer.si/owner/keys",
-  "authorized_parties": ["https://account.eilmer.si"]
-}
-```
-
-These are configuration-shape examples, **not provisioned services**. Owner
-OIDC may be the fleet owner's existing provider; Eilmer-hosted services never
-use another domain. Add each user's immutable `identity: {issuer,subject}` next
-to its existing `token_file`. The verified JWT maps to that user's enrolled
-fleet credential, never to an email or an unauthenticated socket owner. The JWT
-is not forwarded to the control daemon. Requests/streams are bounded by JWT
-expiry. The JWT API rejects browser origins/cookies. Supported input is RS256
-JWT with exact audience and `azp`, obtained through the owner's provider; there
-is no new code+PKCE discovery/login UI. Omit `oidc` and user `identity` for a
-fully local-only configuration. A local opaque token does not need JWKS even
-when an OIDC provider is configured and unavailable.
-
-## Separate fleet certificate issuer
-
-Run `lamp-issuer` as a different OS principal/machine from the relay. Never copy
-its ACME account key, ledger, DNS helper or DNS credentials onto the relay. The
-fleet creates its TLS private key and CSR on its own approved ingress host.
-The issuer receives only the CSR and an Ed25519 fleet-root proof binding fleet,
-one-minute one-use issuer nonce and SHA-256 of CSR DER. Its private registry
-pins the root for each allocated fleet. Exact CSR name is
-`*.f123.fleet.eilmer.si`; no per-sandbox issuance or platform-wide fleet key.
-
-Private issuer config fields:
-
-- `state_dir`, `directory` (LE production or staging), optional contact `email`.
-- `fleet_roots`: fleet ID to base64 Ed25519 public key.
-- `weekly_capacity`: **default zero**. This is the actually allocated slice of
-  shared-domain capacity after other products and repair reserve, not a quota
-  increase. It can be at most 50; failed attempts conservatively retain their
-  reservation for seven days. No production allocation was obtained here.
-- `authoritative_dns`: numeric authoritative server addresses with port 53.
-- `dns_helper`, `dns_helper_sha256`: a separately provisioned, digest-pinned
-  executable with permission only for the allocated DNS-01 challenge records.
-  It receives JSON `{action:present|cleanup,name,value}` on stdin; cleanup must
-  remove only the matching value and be idempotent. No shell or captured helper
-  output is used. `cmd/lamp-dns-cloudflare` supplies the Cloudflare helper;
-  its production credential and custodian deployment are not yet provisioned.
+Private config: `state_dir`, `directory`, optional `email`, `fleet_roots`,
+`services`, `weekly_capacity` (default zero), `authoritative_dns`, `dns_helper`
+and `dns_helper_sha256`. Capacity is an actual allocated shared-domain slice,
+not an assumed quota increase; failures conservatively retain reservations.
 
 ```sh
-lamp-issuer init-account --config /private/issuer.json  # account URI is public
+lamp-issuer init-account --config /private/issuer.json
 lamp-issuer challenge --config /private/issuer.json --fleet f123
-# On the fleet host, using the returned public nonce:
 lamp-issuer request --fleet f123 --nonce NONCE --csr /private/fleet.csr \
   --root-key /private/fleet-root.pem --out /private/request.json
-# Back at the separate issuer:
 lamp-issuer issue --config /private/issuer.json --request /private/request.json \
   --out /private/fleet-chain.pem
 ```
 
-Only DNS-01 is enabled. Both `fleet.eilmer.si` and the exact allocated fleet
-subtree must have ordinary and wildcard CAA restricted to the registered ACME
-account URI and `validationmethods=dns-01`. All configured authoritative servers
-must answer authoritatively and agree. CNAME/DNAME answers and additive
-permissive policies are refused. Domain administration must separately inventory
-all descendants, delegations and aliases before activation; this CLI does not
-claim a whole-zone audit or CT monitor. Do **not** change apex CAA used by other
-Eilmer products. Inspect their records/usage before assigning any capacity.
+Only DNS-01 is enabled. Authoritative CAA must agree and bind ordinary/wildcard
+issuance to the account URI and DNS-01, at the fleet boundary and allocation.
+Service CAA denies wildcards. Preserve apex CAA, delegations, aliases, mail and
+other products; inventory the whole zone before administration. The Cloudflare
+custodian config is `{zone_id,token_file,records}` with exact challenge names.
+Its fixed SSH command accepts only `{action:present|cleanup,name,value}`; cleanup
+is exact-value/idempotent. It cannot mutate CAA, arbitrary names or other types.
 
-For Cloudflare, run the helper under a separate DNS-custodian identity with
-private config `{zone_id,token_file,records}`. `records` must explicitly enumerate
-names such as `_acme-challenge.f123.fleet.eilmer.si`; arbitrary suffix grants are
-not accepted. Use a zone-limited DNS-edit API token. Keep that token on the DNS
-custodian, **not** the issuer. A dedicated SSH authorized key with `restrict`
-and a fixed `command="/path/lamp-dns-cloudflare --config /private/dns.json"` can
-expose only the JSON effect protocol to the issuer. Do not reuse the owner's
-unrestricted SSH key. The helper lists only the exact TXT name, preserves other
-values, and deletes only matching challenge values. Neither CAA nor other DNS
-record types can be requested through this helper.
+A fresh root proof through `issue` forces renewal, binding the persisted
+predecessor with ACME ARI `replaces`. Missing policy/capacity or provider failure
+never activates plaintext/self-signed routing. `certificate --fleet ... --out
+...` recovers a persisted chain after a lost response. The demonstration issued
+four production certificates using a separately allocated capacity of four.
+Automatic renewal scheduling/shared usage ingestion are not implemented.
 
-To force renewal, obtain a fresh issuer challenge and submit a fresh fleet-root
-proof for the CSR through the same `issue` command. If a certificate is already
-persisted for that fleet, the ACME order binds `replaces` to it using ARI. A corrupt
-or foreign-fleet predecessor fails closed. Capacity reservations remain
-conservative even for replacements. This path still needs its production run;
-a build is not renewal evidence.
+`tools/hosted/ct_evidence.py` (Python `cryptography` required) verifies public SCT,
+STH and RFC6962-v1 inclusion against a matching fetched entry. Output is
+exclusive-create so missing observations are preserved. Tiled-only logs remain
+explicitly unobserved; this is an observation tool, not a continuous CT monitor.
 
-An absent policy, exhausted allocation or ACME failure never returns a ready
-certificate or falls back to plaintext. Successful chains are checked against
-the authorized CSR and persisted; `certificate --fleet f123 --out ...` retrieves
-them after a lost response. Automatic ARI renewal, shared product usage ingestion,
-CT monitoring, fleet route activation and trusted public issuance remain open.
+## Local/own-provider operation and cleanup
+
+Local SSH/public keys and opaque fleet tokens do not contact Clerk or the relay.
+Optional `lamp-access` OIDC config supplies `issuer`, `audience`, `jwks_url` and
+`authorized_parties`, mapping verified issuer/subject to enrolled `token_file`.
+It supports exact-party RS256 JWT input, not an owner-IdP browser discovery UI.
+Email is ignored; opaque local tokens work even while that provider is offline.
+
+Stop only ticket-owned bridge/carrier/account/relay/ingress/app processes. The
+browser demonstration's `stop-live` signal cleans its disposable control/app
+processes; it allocates no VM. Revoke host enrollment before discarding reconnect
+credentials. Remove only recorded ticket-owned address/CAA records if retiring
+the deployment; preserve all original records and account identities. Never
+remove shared Clerk users/keys, original DNS, owner services, Docker resources,
+or main-tailnet settings as generic cleanup. Private operator state stays out
+of the repository. Public rollout, signup and unattended operations are separate
+from this private demonstration.

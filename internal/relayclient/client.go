@@ -187,6 +187,9 @@ func Enroll(ctx context.Context, base, fleet, enrollmentFile, out string) error 
 	return nil
 }
 func dial(ctx context.Context, base, path, token, ticket string) (*websocket.Conn, error) {
+	return dialAt(ctx, base, path, token, ticket, "")
+}
+func dialAt(ctx context.Context, base, path, token, ticket, dialAddress string) (*websocket.Conn, error) {
 	address, e := endpoint(base, path, true)
 	if e != nil {
 		return nil, e
@@ -196,6 +199,11 @@ func dial(ctx context.Context, base, path, token, ticket string) (*websocket.Con
 		h.Set("X-Lamp-Ticket", ticket)
 	}
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	if dialAddress != "" {
+		client.Transport = &http.Transport{DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, dialAddress)
+		}}
+	}
 	c, resp, e := websocket.Dial(ctx, address, &websocket.DialOptions{HTTPHeader: h, HTTPClient: client})
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
@@ -240,6 +248,9 @@ func Proxy(ctx context.Context, base, fleet, tokenFile string, in io.Reader, out
 // Host maintains one outbound carrier; it accepts no inbound listener. Only a
 // configured loopback SSH service can be reached, never arbitrary relay targets.
 func Host(ctx context.Context, base, credentialFile, target string) error {
+	return HostHTTPS(ctx, base, credentialFile, target, "", "")
+}
+func HostHTTPS(ctx context.Context, base, credentialFile, target, httpsTarget, dialAddress string) error {
 	raw, e := privateRead(credentialFile)
 	if e != nil {
 		return e
@@ -248,16 +259,24 @@ func Host(ctx context.Context, base, credentialFile, target string) error {
 	if json.Unmarshal(raw, &credential) != nil || !validFleet(credential.Fleet) || len(credential.Secret) != 64 {
 		return errors.New("invalid host credential")
 	}
-	host, _, e := net.SplitHostPort(target)
-	ip := net.ParseIP(host)
-	if e != nil || ip == nil || !ip.IsLoopback() {
-		return errors.New("host target must be numeric loopback SSH")
+	for _, address := range []string{target, httpsTarget, dialAddress} {
+		if address == "" {
+			continue
+		}
+		host, _, e := net.SplitHostPort(address)
+		ip := net.ParseIP(host)
+		if e != nil || ip == nil || !ip.IsLoopback() {
+			return errors.New("host service and optional relay dial targets must be numeric loopback")
+		}
+	}
+	if target == "" {
+		return errors.New("SSH target required")
 	}
 	for {
 		if ctx.Err() != nil {
 			return nil
 		}
-		_ = hostSession(ctx, base, credential, target)
+		_ = hostSession(ctx, base, credential, target, httpsTarget, dialAddress)
 		select {
 		case <-ctx.Done():
 			return nil
@@ -265,9 +284,9 @@ func Host(ctx context.Context, base, credentialFile, target string) error {
 		}
 	}
 }
-func hostSession(ctx context.Context, base string, credential Credential, target string) error {
+func hostSession(ctx context.Context, base string, credential Credential, target, httpsTarget, dialAddress string) error {
 	setup, cancel := context.WithTimeout(ctx, 15*time.Second)
-	c, e := dial(setup, base, "/v1/carrier/"+credential.Fleet, credential.Secret, "")
+	c, e := dialAt(setup, base, "/v1/carrier/"+credential.Fleet, credential.Secret, "", dialAddress)
 	cancel()
 	if e != nil {
 		return e
@@ -285,10 +304,20 @@ func hostSession(ctx context.Context, base string, credential Credential, target
 			return e
 		}
 		var open struct {
-			Ticket string `json:"ticket"`
+			Ticket  string `json:"ticket"`
+			Service string `json:"service"`
 		}
 		if json.Unmarshal(raw, &open) != nil || len(open.Ticket) != 64 {
 			return errors.New("invalid carrier message")
+		}
+		selected := target
+		if open.Service == "https" {
+			selected = httpsTarget
+		} else if open.Service != "" && open.Service != "ssh" {
+			return errors.New("unknown carrier service")
+		}
+		if selected == "" {
+			continue
 		}
 		select {
 		case slots <- struct{}{}:
@@ -296,14 +325,14 @@ func hostSession(ctx context.Context, base string, credential Credential, target
 			continue
 		}
 		wg.Add(1)
-		go func(ticket string) {
+		go func(ticket, target string) {
 			defer wg.Done()
 			defer func() { <-slots }()
-			_ = attach(session, base, credential, target, ticket)
-		}(open.Ticket)
+			_ = attach(session, base, credential, target, ticket, dialAddress)
+		}(open.Ticket, selected)
 	}
 }
-func attach(ctx context.Context, base string, credential Credential, target, ticket string) error {
+func attach(ctx context.Context, base string, credential Credential, target, ticket, dialAddress string) error {
 	setup, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	local, e := (&net.Dialer{}).DialContext(setup, "tcp", target)
@@ -311,7 +340,7 @@ func attach(ctx context.Context, base string, credential Credential, target, tic
 		return e
 	}
 	defer local.Close()
-	c, e := dial(setup, base, "/v1/attach/"+credential.Fleet, credential.Secret, ticket)
+	c, e := dialAt(setup, base, "/v1/attach/"+credential.Fleet, credential.Secret, ticket, dialAddress)
 	if e != nil {
 		return e
 	}

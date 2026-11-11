@@ -32,6 +32,8 @@ func run() error {
 	enrollment := flags.String("enrollment-file", "", "private one-time enrollment token file")
 	credential := flags.String("credential-file", "", "private host reconnect credential file")
 	target := flags.String("target", "", "loopback fleet SSH host:port")
+	httpsTarget := flags.String("https-target", "", "optional loopback fleet HTTPS host:port; TLS terminates only there")
+	dialAddress := flags.String("relay-dial-address", "", "optional loopback relay dial override; TLS hostname verification is unchanged")
 	out := flags.String("out", "", "new private enrollment output file")
 	if e := flags.Parse(os.Args[2:]); e != nil {
 		return e
@@ -45,7 +47,7 @@ func run() error {
 	case "enroll":
 		return relayclient.Enroll(ctx, *base, *fleet, *enrollment, *credential)
 	case "host":
-		return relayclient.Host(ctx, *base, *credential, *target)
+		return relayclient.HostHTTPS(ctx, *base, *credential, *target, *httpsTarget, *dialAddress)
 	case "connect":
 		return relayclient.Proxy(ctx, *base, *fleet, *account, os.Stdin, os.Stdout)
 	default:

@@ -25,10 +25,11 @@ type database struct {
 	Enrollments map[string]enrollment `json:"enrollments"`
 }
 type store struct {
-	mu   sync.Mutex
-	path string
-	db   database
-	lock *os.File
+	mu     sync.Mutex
+	path   string
+	db     database
+	lock   *os.File
+	closed bool
 }
 
 func openStore(path string) (*store, error) {
@@ -61,10 +62,22 @@ func openStore(path string) (*store, error) {
 	}
 	return s, nil
 }
-func (s *store) close() { _ = unix.Flock(int(s.lock.Fd()), unix.LOCK_UN); _ = s.lock.Close() }
+func (s *store) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	s.closed = true
+	_ = unix.Flock(int(s.lock.Fd()), unix.LOCK_UN)
+	_ = s.lock.Close()
+}
 func (s *store) update(fn func(*database) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed {
+		return errors.New("relay state closed")
+	}
 	raw, _ := json.Marshal(s.db)
 	var next database
 	_ = json.Unmarshal(raw, &next)
@@ -120,5 +133,5 @@ func (s *store) host(fleet, credential string) bool {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.db.Hosts[fleet] != "" && s.db.Hosts[fleet] == hash(credential)
+	return !s.closed && s.db.Hosts[fleet] != "" && s.db.Hosts[fleet] == hash(credential)
 }

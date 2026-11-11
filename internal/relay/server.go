@@ -10,10 +10,12 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/JohanSardar/lamp/internal/hostedlogin"
 	"github.com/coder/websocket"
 )
 
@@ -37,13 +39,14 @@ type closingConn struct {
 func (c closingConn) Close() error { c.cancel(); return c.Conn.Close() }
 
 type Server struct {
-	config   Config
-	verifier *Verifier
-	state    *store
-	mu       sync.Mutex
-	hosts    map[string]*carrier
-	pending  map[string]*pending
-	slots    chan struct{}
+	config       Config
+	verifier     *Verifier
+	state        *store
+	mu           sync.Mutex
+	hosts        map[string]*carrier
+	pending      map[string]*pending
+	slots        chan struct{}
+	browserLogin *hostedlogin.Client
 }
 
 func New(c Config) (*Server, error) {
@@ -54,7 +57,15 @@ func New(c Config) (*Server, error) {
 	if e != nil {
 		return nil, e
 	}
-	return &Server{config: c, verifier: &Verifier{Issuer: c.Issuer, Audience: c.Audience, Parties: c.Parties, JWKS: c.Issuer + "/.well-known/jwks.json"}, state: state, hosts: map[string]*carrier{}, pending: map[string]*pending{}, slots: make(chan struct{}, 64)}, nil
+	s := &Server{config: c, verifier: &Verifier{Issuer: c.Issuer, Audience: c.Audience, Parties: c.Parties, JWKS: c.Issuer + "/.well-known/jwks.json"}, state: state, hosts: map[string]*carrier{}, pending: map[string]*pending{}, slots: make(chan struct{}, 64)}
+	if b := c.Browser; b != nil {
+		s.browserLogin, e = hostedlogin.New(b.Origin, b.AccountOrigin)
+		if e != nil {
+			state.close()
+			return nil, e
+		}
+	}
+	return s, nil
 }
 func (s *Server) Close() {
 	s.mu.Lock()
@@ -85,7 +96,15 @@ func bearer(r *http.Request) string {
 	return t
 }
 func (s *Server) account(w http.ResponseWriter, r *http.Request, f Fleet, owner bool) (time.Time, bool) {
-	id, expiry, e := s.verifier.Verify(r.Context(), bearer(r))
+	var id Identity
+	var expiry time.Time
+	var e error
+	if grant, ok := s.browserAccount(r); ok {
+		id = grant.Identity
+		expiry = grant.Expires
+	} else {
+		id, expiry, e = s.verifier.Verify(r.Context(), bearer(r))
+	}
 	if e != nil {
 		http.Error(w, "Eilmer account required", 401)
 		return time.Time{}, false
@@ -128,9 +147,23 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	// This service has no browser session, CORS or cookie authentication. Even
 	// same-site sibling origins must not exercise account or websocket authority.
-	if (!s.config.PrivateDevelopment && (r.TLS == nil || r.TLS.ServerName != s.config.Hostname)) || (r.Host != s.config.Hostname && !(s.config.PrivateDevelopment && r.Host == s.config.Listen)) {
+	expectedHost := s.config.Hostname
+	if s.config.Browser != nil {
+		u, _ := url.Parse(s.config.Browser.Origin)
+		expectedHost = u.Host
+	}
+	if (!s.config.PrivateDevelopment && (r.TLS == nil || r.TLS.ServerName != s.config.Hostname)) || (r.Host != expectedHost && !(s.config.PrivateDevelopment && r.Host == s.config.Listen)) {
 		http.Error(w, "wrong host", 421)
 		return
+	}
+	if s.browserLogin != nil && r.URL.RawQuery == "" {
+		if s.browserLogin.Handle(w, r) {
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/" {
+			s.browserLogin.Status(w, r)
+			return
+		}
 	}
 	if r.Header.Get("Origin") != "" || r.URL.RawQuery != "" || r.Header.Get("Cookie") != "" {
 		http.Error(w, "origin, cookie and query credentials are not accepted", 403)
@@ -346,35 +379,9 @@ func (s *Server) attach(w http.ResponseWriter, r *http.Request, fleet string) {
 func (s *Server) connect(w http.ResponseWriter, r *http.Request, fleet string, expiry time.Time) {
 	ctx, cancel := context.WithDeadline(r.Context(), expiry)
 	defer cancel()
-	ticket := secret()
-	p := &pending{fleet: fleet, ctx: ctx, ready: make(chan net.Conn)}
-	s.mu.Lock()
-	p.host = s.hosts[fleet]
-	if p.host == nil {
-		s.mu.Unlock()
-		http.Error(w, "fleet offline", 503)
-		return
-	}
-	s.pending[ticket] = p
-	s.mu.Unlock()
-	defer func() { s.mu.Lock(); delete(s.pending, ticket); s.mu.Unlock() }()
-	stop := context.AfterFunc(p.host.ctx, cancel)
-	defer stop()
-	setup, setupCancel := context.WithTimeout(ctx, 10*time.Second)
-	defer setupCancel()
-	p.host.write.Lock()
-	raw, _ := json.Marshal(map[string]string{"ticket": ticket})
-	e := p.host.conn.Write(setup, websocket.MessageText, raw)
-	p.host.write.Unlock()
+	host, e := s.open(ctx, fleet, "ssh")
 	if e != nil {
-		http.Error(w, "fleet unavailable", 503)
-		return
-	}
-	var host net.Conn
-	select {
-	case host = <-p.ready:
-	case <-setup.Done():
-		http.Error(w, "fleet connection timed out", 503)
+		http.Error(w, "fleet connection unavailable", 503)
 		return
 	}
 	defer host.Close()
@@ -394,7 +401,30 @@ func (s *Server) connect(w http.ResponseWriter, r *http.Request, fleet string, e
 	case <-ctx.Done():
 	}
 }
+func (s *Server) browserAccount(r *http.Request) (hostedlogin.Grant, bool) {
+	if s.browserLogin == nil {
+		return hostedlogin.Grant{}, false
+	}
+	return s.browserLogin.Authenticate(r)
+}
 func (s *Server) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	if b := s.config.Browser; b != nil {
+		for _, address := range []string{b.RawListen, b.PrivateListen} {
+			if address == "" {
+				continue
+			}
+			l, e := net.Listen("tcp", address)
+			if e != nil {
+				return e
+			}
+			defer l.Close()
+			stop := context.AfterFunc(ctx, func() { _ = l.Close() })
+			defer stop()
+			go func() { _ = s.raw(ctx, l); cancel() }()
+		}
+	}
 	server := &http.Server{TLSConfig: &tls.Config{MinVersion: tls.VersionTLS13}, Addr: s.config.Listen, Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16384, ErrorLog: log.New(io.Discard, "", 0)}
 	go func() {
 		<-ctx.Done()

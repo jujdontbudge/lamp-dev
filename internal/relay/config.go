@@ -12,12 +12,22 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/JohanSardar/lamp/internal/hostedlogin"
 )
 
 type Fleet struct {
 	ID      string     `json:"id"`
 	Owner   Identity   `json:"owner"`
 	Members []Identity `json:"members"`
+}
+type Browser struct {
+	Origin        string            `json:"origin"`
+	AccountOrigin string            `json:"account_origin"`
+	RawListen     string            `json:"raw_listen"`
+	PrivateListen string            `json:"private_listen,omitempty"`
+	AccountTarget string            `json:"account_target"`
+	Routes        map[string]string `json:"routes"`
 }
 type Config struct {
 	Listen      string   `json:"listen"`
@@ -29,6 +39,7 @@ type Config struct {
 	Audience    string   `json:"audience,omitempty"`
 	Parties     []string `json:"authorized_parties"`
 	Fleets      []Fleet  `json:"fleets"`
+	Browser     *Browser `json:"browser,omitempty"`
 	// PrivateDevelopment permits only numeric loopback listeners and a local test issuer.
 	// It cannot be used to publish a fixture identity provider or an insecure listener.
 	PrivateDevelopment bool `json:"private_development,omitempty"`
@@ -75,6 +86,30 @@ func (c Config) Validate() error {
 		for _, m := range f.Members {
 			if m.Issuer != c.Issuer || m.Subject == "" {
 				return errors.New("members require Eilmer issuer and subject")
+			}
+		}
+	}
+	if b := c.Browser; b != nil {
+		if c.PrivateDevelopment || !hostedlogin.ValidOrigin(b.Origin, c.Hostname) || !hostedlogin.ValidOrigin(b.AccountOrigin, "account.eilmer.si") {
+			return errors.New("production account and relay browser origins required")
+		}
+		for _, addr := range []string{b.RawListen, b.AccountTarget, c.Listen} {
+			h, _, e := net.SplitHostPort(addr)
+			if e != nil || !loopback(h) {
+				return errors.New("raw ingress and TLS service targets must be numeric loopback")
+			}
+		}
+		if b.PrivateListen != "" {
+			h, _, e := net.SplitHostPort(b.PrivateListen)
+			ip := net.ParseIP(h)
+			if e != nil || ip == nil || ip.To4() == nil || !ip.IsPrivate() {
+				return errors.New("optional direct ingress must bind an explicit RFC1918 IPv4 address")
+			}
+		}
+		for name, fleet := range b.Routes {
+			prefix := strings.TrimSuffix(name, "."+fleet+".fleet.eilmer.si")
+			if !seen[fleet] || prefix == name || !fleetID.MatchString(prefix) || strings.Contains(prefix, ".") {
+				return errors.New("allocated one-label fleet ingress names required")
 			}
 		}
 	}

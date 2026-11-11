@@ -1,12 +1,155 @@
-# T24 hosted side — private implementation evidence, 2026-11-10
+# T24 hosted side — private owner-hardware evidence
 
-**The full ticket Goal is not done.** The private relay journey, immutable token
-identity adapter and separate issuer admission path work. Real shared Eilmer
-sign-in, account cookie isolation, public hosted routing and trusted fleet
-wildcard issuance are not demonstrated. This PR does not turn those gaps green
-or open anything publicly. Operational details: [hosted.md](hosted.md).
+## Current result — 2026-11-11
 
-## Production provisioning follow-up — actual results
+Real shared production Clerk sign-in, code exchange, isolated cookies, trusted
+fleet HTTPS and native ciphertext forwarding are demonstrated on owner hardware.
+**No public Internet route or public signup was opened.** This follows the later
+private-only instruction; it is not evidence of an Internet deployment.
+Operational details: [hosted.md](hosted.md). Earlier failed results remain below,
+explicitly historical, rather than being relabelled by later successes.
+
+### Real Clerk → private relay ingress → fleet browser journey
+
+- [Sign-in observation](evidence/t24/production/alice-signin-observation.jsonl)
+- [Both users' browser journey](evidence/t24/production/browser-journey.jsonl)
+- [Runtime/credential separation](evidence/t24/production/runtime-observations.jsonl)
+- [Private provisioning](evidence/t24/production/private-provisioning.json)
+- [Content screenshot](evidence/t24/production/browser-content.png)
+- Recipes: [sign-in](evidence/t24/production/browser-signin.py),
+  [browser](evidence/t24/production/browser-journey.py),
+  [real control/app startup](evidence/t24/production/start-live-fleet.py),
+  [public README app](evidence/t24/production/public-readme-app.py).
+  Operator credentials/config/storage states remain outside the repository.
+
+The original Eilmer production instance and issuer `https://clerk.eilmer.si`
+were reused. Exactly one provisioning key and two disposable users were created;
+no replacement app or email-based identity merge was performed. Alice and Bea
+both completed actual production email-code sign-in. The account server retains
+Clerk client cookies/JWTs server-side; the browser gets only host-prefixed opaque
+account/product sessions. The original managed Account Portal was disabled,
+access mode is invite-only, and sign-in/sign-out now point at
+`https://account.eilmer.si`; signup points to its `/closed` page. Original Clerk
+DNS names/issuer were not replaced.
+
+M5's **self-hosted** bore 0.6.0 forwards private LAN TCP to Ubuntu; neither
+bore.pub nor any third-party tunnel/edge terminates traffic. The M5 forwarding
+process is sandboxed with a minimal environment and cannot open the actual DNS
+custodian credential. Ubuntu's relay identity cannot read account, ACME, fleet
+TLS or fleet-root keys. Only exact private address records were added. All 19
+original zone records remain byte-for-byte identical in the authenticated final
+snapshot (31 records total: original 19, eight CAA and four private A records).
+
+Both browsers reached real `lampd` fleet `fl_local` and the public
+`octocat/Hello-World` README app through the raw SNI relay and outbound host
+carrier. Chromium used normal certificate validation: TLS 1.3, issuer YE1,
+subject `*.f24demo.fleet.eilmer.si`. Fleet ingress, not the relay/bridge,
+terminates work TLS. The API and random content label are distinct hosts under
+`f24demo.fleet.eilmer.si`, reached on private bridge port 37443. Account uses its
+separate leaf and private canonical port 443.
+
+For each user, auth cookies were Secure, HttpOnly, SameSite Strict and scoped to
+exact account, relay, API and content hosts. There were no JS-visible auth
+cookies. Deliberate parent-domain response cookies were filtered; attempts to
+toss host-prefixed parent cookies did not change account/product sessions. A
+harmless unprefixed parent cookie remained JS-visible but was ignored for auth.
+The content script could not read a credentialed sibling account response due
+to CORS; a separate credentialed HTTP POST with that sibling Origin received
+403. **The browser response listener did not itself observe that status.** The
+app upstream recorded no Cookie names and no Authorization header.
+
+The new browser demonstration allocates **zero VMs**, uses a real control daemon
+and real public project app, and does not claim the app ran inside a guest. The
+earlier native Firecracker journey below separately demonstrates guest access
+and Alice/Bea resource isolation. No private worker RPC was added. Observed relay
+state/log files lacked the public work marker; no memory/packet or comprehensive
+zero-leak measurement is claimed.
+
+Earlier browser iterations failed on Clerk frontend warmup/User-Agent handling,
+actual `sia_` sign-in IDs, nested JWT response extraction, and an Origin lost by
+`no-referrer`. Those paths were corrected and the final executions completed.
+One post-restart inbox fetch returned 429; Alice's old account session correctly
+failed closed, and a fresh email sign-in completed. The initial M5 confinement
+profile also failed admission on unsupported IP matcher syntax and dyld root
+access; the final profile, denied-open observation and browser executions are
+separate results, not relabelled initial successes.
+
+### Provider setup and requested verification
+
+[Google provisioning](evidence/t24/production/google-oauth-observation.json): a
+separate free `eilmer-shared-account` project owns the Web OAuth client, with
+exact callback `https://clerk.eilmer.si/v1/oauth_callback`. Its custom credentials
+were installed in the **existing production Clerk Google connection**, clearing
+"Setup required". Billing is explicitly disabled/unlinked on this new project.
+Google consent remains private Testing with only the owner test user; no public
+Google rollout is claimed. An earlier direct billing read returned 429; the
+subsequent explicit unlink returned `billingEnabled: false`. No phone prompt
+was reached, so this is not reported as a phone-2FA skip.
+
+GitHub's existing `Eilmer` OAuth app 4010008 has the exact same callback and no
+device flow/wildcard. Its fresh email confirmation is still needed to generate
+and install the client secret. No passkey/OS approval was invoked.
+
+The requested **single `make verify` invocation passed** (exit 0): workspace
+Go/Rust/C builds, selected existing smokes, contracts, interoperability and clean
+public codegen. [Full output](evidence/t24/production/make-verify.log). No new unit
+tests, Makefile/CI gates, benchmarks, trial quotas or performance prerequisites
+were added. This is not a release target/zero-leak measurement or public rollout.
+
+## Trusted production certificates — 2026-11-11
+
+[Observations](evidence/t24/production/observations.jsonl) and
+[certificate metadata](evidence/t24/production/certificates.json) record actual
+Let's Encrypt **production**, not staging. A fresh authenticated Cloudflare
+inventory found 19 existing records. All 19 remained identical after issuance;
+only eight new scoped CAA records were added. The apex CAA, root ACME alias,
+mail/DKIM records, existing Clerk names, Apple Bridge delegation and website
+records were preserved. Full zone snapshots stay private outside this repo.
+
+The separate issuer runs as `lamp-t24-issuer` on Ubuntu. Its ACME account URI is
+`https://acme-v02.api.letsencrypt.org/acme/acct/3983124462`. The DNS API token
+remains on M5, behind the real exact-name DNS custodian and a dedicated SSH key
+with `restrict` and a fixed command. The issuer receives no Cloudflare token.
+The live forced-command helper denied an unallocated name, and an allowed
+cleanup with an already absent value was idempotent against the real API.
+
+Both authoritative servers agreed on account-bound ordinary/wildcard CAA and
+DNS-01-only validation at `fleet.eilmer.si` and `f24demo.fleet.eilmer.si`.
+The first wildcard certificate SHA-256 is
+`bcbd098328da7c8ad33c7623cd2b957b0e4d257ecc40c6b6443abc0bd8b6ac3f`.
+A fresh fleet-root proof then forced a replacement using the persisted
+predecessor through ARI. The renewed certificate has a new serial and SHA-256
+`12c6c7f1b1425a40fdccbe333a318701e6c7628fe7b3ba8a00cdbf5a1c938d66`.
+`openssl verify` with the normal system trust store and hostname
+`api.f24demo.fleet.eilmer.si` returned **OK**. Public certificate chains are
+retained beside the metadata; no private key is in evidence.
+
+The [actual first-certificate CT entry](evidence/t24/production/first-ct-inclusion.json)
+was fetched from **Google Argon2027h1**. The observer verified the SCT signature,
+signed tree-head signature and Merkle audit path, and matched the fetched
+`leaf_input` to the issued precertificate. `tools/hosted/ct_evidence.py` records
+this public evidence. The renewal's initial CT observation is separately
+retained as **not yet included in that observed signed tree**; a signed SCT alone
+was not called an inclusion. A later
+[renewal follow-up](evidence/t24/production/renewed-ct-followup.json) independently
+verified its Argon2027h1 SCT, STH, matching fetched entry and Merkle inclusion.
+The initial missing observation remains unchanged. Tiled-only logs are explicitly
+unobserved by this RFC 6962 v1 observer, not passed.
+
+Separate exact-leaf certificates were also issued for `relay.eilmer.si` and
+`account.eilmer.si`, using different keys. Their CAA allows only this ACME
+account's DNS-01 issuance and forbids all service wildcards (`issuewild ";"`).
+Actual OS permission checks showed that `lamp-t24-relay` cannot read the account,
+ACME or fleet TLS keys, and that the issuer cannot read the fleet root key.
+Four production certificates were issued in total, including the one forced
+renewal; no paid plan or quota increase was used. DNS-01 cleanup left no new
+challenge TXT records. No public A/AAAA route or sign-up endpoint was opened.
+
+At the certificate-only checkpoint, account reauthentication and browser
+routing were still incomplete. The later private journey above records their
+actual completion without turning this earlier checkpoint into that result.
+
+## Historical 2026-11-10 provisioning follow-up — failed/partial results
 
 The follow-up request authorizes account-gated public addresses and free
 production Let's Encrypt issuance. There is no need for a paid plan or a CA
@@ -151,7 +294,9 @@ also refused activation. **No public certificate was issued**, no DNS record or
 CAA was changed, and no paid service was used. This does not prove DNS-01 helper
 operation, authoritative policy readiness or actual trusted wildcard issuance.
 
-## Remaining product/provisioning work
+## Historical 2026-11-10 remaining-work snapshot
+
+These were the open items at that checkpoint, not the current status above.
 
 - Use the existing shared Clerk application, complete its relay audience token
   template, account sign-in/code exchange and production provider setup. No
@@ -172,7 +317,7 @@ operation, authoritative policy readiness or actual trusted wildcard issuance.
 - Native/browser HTTPS ingress, per-content origins/cookies and the account
   page are not implemented by this SSH-only relay. Nothing is publicly opened.
 
-## Iteration checks and scope
+## Historical 2026-11-10 iteration checks and scope
 
 Focused Go builds and `go vet` cover the new commands/packages and access
 adapter. No unit tests, Makefile, CI or test-suite files were added or modified;

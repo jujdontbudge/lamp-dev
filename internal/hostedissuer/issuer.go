@@ -47,9 +47,28 @@ type Config struct {
 	AuthoritativeDNS []string `json:"authoritative_dns"`
 	// This is the slice of shared-domain capacity available AFTER reserving
 	// other products' usage and repair capacity. Zero means deferred, not ready.
-	WeeklyCapacity int               `json:"weekly_capacity"`
-	Fleets         map[string]string `json:"fleet_roots"` // base64 Ed25519 public keys
+	WeeklyCapacity int                          `json:"weekly_capacity"`
+	Fleets         map[string]string            `json:"fleet_roots"` // base64 Ed25519 public keys
+	Services       map[string]ServiceAllocation `json:"services,omitempty"`
 }
+
+// ServiceAllocation grants one infrastructure leaf, never an apex/platform wildcard.
+// Account and relay keys remain distinct from each other and from fleet ingress keys.
+type ServiceAllocation struct {
+	Name string `json:"name"`
+	Root string `json:"root"`
+}
+
+func (c Config) allocation(id string) (string, string) {
+	if root := c.Fleets[id]; root != "" {
+		return root, "*." + id + ".fleet.eilmer.si"
+	}
+	if service, ok := c.Services[id]; ok {
+		return service.Root, service.Name
+	}
+	return "", ""
+}
+
 type nonce struct {
 	Value   string    `json:"value"`
 	Expires time.Time `json:"expires"`
@@ -128,6 +147,14 @@ func Open(path string) (*Issuer, error) {
 		if !fleetPattern.MatchString(fleet) || e != nil || len(b) != ed25519.PublicKeySize {
 			return nil, errors.New("invalid enrolled fleet root")
 		}
+	}
+	serviceNames := map[string]bool{}
+	for id, service := range c.Services {
+		root, e := base64.StdEncoding.DecodeString(service.Root)
+		if !fleetPattern.MatchString(id) || c.Fleets[id] != "" || e != nil || len(root) != ed25519.PublicKeySize || (service.Name != "relay.eilmer.si" && service.Name != "account.eilmer.si") || serviceNames[service.Name] {
+			return nil, errors.New("unique exact hosted-service leaf and enrolled root required")
+		}
+		serviceNames[service.Name] = true
 	}
 	if e = os.MkdirAll(c.StateDir, 0700); e != nil {
 		return nil, e
@@ -244,8 +271,8 @@ func (i *Issuer) InitAccount(ctx context.Context) error {
 	return i.save()
 }
 func (i *Issuer) Challenge(fleet string) (string, error) {
-	if i.config.Fleets[fleet] == "" {
-		return "", errors.New("fleet root not enrolled")
+	if root, _ := i.config.allocation(fleet); root == "" {
+		return "", errors.New("fleet or hosted-service root not enrolled")
 	}
 	var random [32]byte
 	if _, e := rand.Read(random[:]); e != nil {
@@ -256,7 +283,8 @@ func (i *Issuer) Challenge(fleet string) (string, error) {
 	return value, i.save()
 }
 func (i *Issuer) Issue(ctx context.Context, r Request) ([]byte, error) {
-	root, e := base64.StdEncoding.DecodeString(i.config.Fleets[r.Fleet])
+	rootText, name := i.config.allocation(r.Fleet)
+	root, e := base64.StdEncoding.DecodeString(rootText)
 	if e != nil || len(root) != 32 || !ed25519.Verify(root, Proof(r), r.Signature) {
 		return nil, errors.New("fleet root proof required")
 	}
@@ -265,9 +293,8 @@ func (i *Issuer) Issue(ctx context.Context, r Request) ([]byte, error) {
 		return nil, errors.New("issuer challenge expired or consumed")
 	}
 	csr, e := x509.ParseCertificateRequest(r.CSR)
-	name := "*." + r.Fleet + ".fleet.eilmer.si"
 	if e != nil || csr.CheckSignature() != nil || len(csr.DNSNames) != 1 || csr.DNSNames[0] != name || len(csr.IPAddresses) != 0 || len(csr.EmailAddresses) != 0 || len(csr.URIs) != 0 || (csr.Subject.CommonName != "" && csr.Subject.CommonName != name) {
-		return nil, errors.New("CSR must name exactly the allocated fleet wildcard")
+		return nil, errors.New("CSR must name exactly the allocated fleet wildcard or hosted-service leaf")
 	}
 	// Reject arbitrary requested extensions; SAN is the only permitted extension.
 	for _, ext := range csr.Extensions {
@@ -366,12 +393,17 @@ func (i *Issuer) query(ctx context.Context, address, name string, kind uint16) (
 	return answer.Answer, nil
 }
 func (i *Issuer) CheckCAA(ctx context.Context, fleet string) error {
-	if !fleetPattern.MatchString(fleet) || i.state.Account.Location == "" {
-		return errors.New("registered account and fleet required")
+	root, allocated := i.config.allocation(fleet)
+	if !fleetPattern.MatchString(fleet) || root == "" || i.state.Account.Location == "" {
+		return errors.New("registered account and allocated resource required")
+	}
+	names := []string{allocated}
+	if strings.HasPrefix(allocated, "*.") {
+		names = []string{"fleet.eilmer.si", fleet + ".fleet.eilmer.si"}
 	}
 	policy := "letsencrypt.org; accounturi=" + i.state.Account.Location + "; validationmethods=dns-01"
 	for _, server := range i.config.AuthoritativeDNS {
-		for _, name := range []string{"fleet.eilmer.si", fleet + ".fleet.eilmer.si"} {
+		for _, name := range names {
 			records, e := i.query(ctx, server, name, dns.TypeCAA)
 			if e != nil {
 				return e
@@ -393,7 +425,11 @@ func (i *Issuer) CheckCAA(ctx context.Context, fleet string) error {
 					}
 				case "issuewild":
 					wild++
-					if c.Value != policy {
+					expected := policy
+					if !strings.HasPrefix(allocated, "*.") {
+						expected = ";"
+					}
+					if c.Value != expected {
 						return errors.New("permissive CAA wildcard policy")
 					}
 				case "iodef":
@@ -415,7 +451,11 @@ type dnsSolver struct {
 }
 
 func (s dnsSolver) run(ctx context.Context, action string, c acme.Challenge) error {
-	expected := "_acme-challenge." + s.fleet + ".fleet.eilmer.si"
+	root, name := s.i.config.allocation(s.fleet)
+	if root == "" {
+		return errors.New("unallocated DNS effect")
+	}
+	expected := "_acme-challenge." + strings.TrimPrefix(name, "*.")
 	if strings.TrimSuffix(c.DNS01TXTRecordName(), ".") != expected {
 		return errors.New("DNS challenge outside fleet allocation")
 	}
