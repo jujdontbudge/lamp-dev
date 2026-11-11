@@ -39,7 +39,7 @@ maximum price zero, and only a short-lived scoped Lamp grant in the job.
 [Native status](evidence/t26/native-status.json) records the matching observation
 metadata. Passed goals are not being rerun. Coding-agent limitations and final
 fixture cleanup are recorded separately. A real
-**stranger's fork PR remains open evidence**, not replaced by an owner PR.
+**stranger's fork PR was dropped by the owner** (2026-11-11, "Skip the fork-PR demo"); the public-PR code stays as built and no second GitHub account was created or used.
 The earlier Claude/Codex limitations below are historical; both actions later
 passed through the host credential broker (rows above).
 
@@ -98,7 +98,7 @@ Clean public-source templates/seeds and historical evidence remain inert.
 
 These are observed cleanup results, not a new certification or release benchmark.
 The full T26 goal is **not** claimed demonstrated: agent inference limitations
-above and the real stranger's fork observation remain explicit.
+above remain explicit; the stranger's fork demonstration was dropped by the owner.
 
 ## Earlier controlled-forge demonstration (historical)
 
@@ -337,3 +337,24 @@ A real Mac sandbox, 2026-11-11, on the M5 with `sudo -n` (no prompts):
 * Then: uninstalled with `--data delete`, the grant revoked, and the disposable
   store, `/usr/local/lib/lamp-t26mac` and the kit removed. No other ticket's
   supervisor or store was used.
+
+## Copilot cloud agent with the firewall reported off (2026-11-11)
+
+The owner reported the repository's Copilot firewall off at about 23:15Z. The
+fixture's trusted actors were extended to the Copilot bot (actor `198982749`), a
+demo config change. Before that, run 43119084944 was refused by Lamp ("Copilot
+source/auth route is not enrolled") because the bot was untrusted, and was then
+cancelled. For this run only, T26's worker ran its allow list without the
+model-broker exception, so Copilot had no broker access. The broker policy was
+restored afterwards.
+
+* [43120268562](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/43120268562)
+  from issue #4. Lamp admitted it as route `copilot_cloud_agent` on fresh sandbox
+  `sb_1e7ef2cdcec98649bd43c49e3afa398d` (Lamp job
+  `jb_23042657f49d1dd2a56deea2eefaca7e`). GitHub's "Validate firewall settings
+  (Linux)" step **failed**: the job still had
+  `COPILOT_AGENT_FIREWALL_ENABLED: true`, and GitHub reported the agent firewall
+  as enabled. The Lamp job ended `failed` and its VM was deleted. **No Copilot
+  model session ran.**
+* Copilot's draft PRs #5 and #6 and issue #4 were closed and their branches
+  deleted. The Copilot cloud agent remains not demonstrated.
