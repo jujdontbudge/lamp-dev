@@ -1,0 +1,8 @@
+{"event": "binaries", "sha256": {"lamp-relay": "4e56d31bdcdb6e2259f97a8552eca81043b4a657770c6e6563ce2d994c63b772", "lamp-relay-client": "ace55a89beee67770c4af85fb06885f45973751ed15eb8a17ef71e2124312ad4"}}
+{"event": "one-time-enrollment", "replay_denied": true, "replay_after_restart_denied": true, "reconnect_secret": "host-generated; relay stores SHA-256 only"}
+{"event": "allocation-admission", "firecracker_count": 1, "available_mib": 26479}
+{"event": "sandbox-created", "sandbox_id": "sb_824f73dc14597307cf121d1f513469b2", "state": "ready"}
+{"event": "ready-for-m5", "root": "/var/tmp/lamp-t24-demo-i1gtbvbu", "relay_port": 53073, "sandbox_id": "sb_824f73dc14597307cf121d1f513469b2", "account_provider": "LOCAL FIXTURE, NOT CLERK", "inbound_host_listeners": "numeric loopback only"}
+{"event": "m5-driver-complete"}
+{"event": "sandbox-released", "state": "deleted"}
+{"event": "cleanup-complete", "firecracker_count": 0, "owner_services": "untouched", "docker": "untouched"}

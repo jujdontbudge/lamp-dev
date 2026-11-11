@@ -1,7 +1,11 @@
 # Dependency and license boundary
 
-Lamp host source and generated bindings in this skeleton are Apache-2.0 (LICENSE).
-A future relay server must be a separate AGPL-3.0 build; none is included here.
+Lamp host source and generated bindings are Apache-2.0 (LICENSE), except the
+optional relay server: `internal/relay` and `cmd/lamp-relay` are AGPL-3.0-only
+(`internal/relay/LICENSE`). Build `lamp-relay` separately. Host/client/issuer
+binaries do not import relay server code and retain the Apache-2.0 boundary.
+Operators must offer corresponding relay source to its network users, including
+local modifications; the repository's private status does not waive that duty.
 Dependencies retain their own licenses. No guest OS, VMM, Docker runtime, guest
 media or third-party source is vendored by T1.
 
@@ -16,6 +20,8 @@ contract verification dependencies are pinned in tools/requirements.txt.
 | gvisor.dev/gvisor (pinned in go.mod) | Private Ethernet TCP/IP endpoint stack; no ambient host bridge | Apache-2.0 |
 | golang.org/x/net | IDNA normalization and DNS-message parsing | BSD-3-Clause |
 | github.com/caddyserver/certmagic | Automatic ACME HTTPS and renewal | Apache-2.0 |
+| github.com/mholt/acmez/v3 | Separate fleet CSR issuer, DNS-01 only | Apache-2.0 |
+| github.com/miekg/dns | Authoritative CAA and DNS-01 policy queries | BSD-3-Clause |
 | github.com/gliderlabs/ssh, golang.org/x/crypto/ssh | Restricted OpenSSH console and fleet certificates | BSD-3-Clause |
 | github.com/coder/websocket | SSH transport over owner HTTPS and tunnel routes | ISC |
 | cloudflared (owner-installed, digest pinned) | Optional named Cloudflare Tunnel connector | Apache-2.0 |

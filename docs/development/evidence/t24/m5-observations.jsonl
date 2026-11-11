@@ -1,0 +1,6 @@
+{"event": "alice-m5-to-ubuntu-guest", "account_subject": "alice", "independently_pinned_host_ca": true, "public_project": "https://github.com/octocat/Hello-World", "stdout": "Hello World!\n\n1e78b1923d9d61e6836f2f9e"}
+{"event": "bea-m5-to-same-fleet", "account_subject": "bea", "independently_pinned_host_ca": true, "authenticated_to_fleet": true, "alice_private_sandbox": "NOT_FOUND", "stderr": "control sandbox_get: NOT_FOUND"}
+{"event": "same-email-not-membership", "account_subject": "outsider", "same_email_claim_as_alice_and_bea": true, "relay_denied": true}
+{"event": "relay-membership-not-fleet-authority", "bea_account_cannot_impersonate_alice_ssh": true}
+{"event": "relay-durable-state", "schema_fields": ["enrollments", "hosts", "version"], "guest_marker_present": false, "public_guest_content_present": false, "qualification": "durable metadata only; no memory or packet capture claimed"}
+{"event": "demonstration-complete", "local_private_state": "/var/folders/rx/w6wxv0p97bv7hpvzqlv9jy7r0000gn/T/lamp-t24-m5-dlr33ek0", "real_clerk_sign_in": "NOT DEMONSTRATED", "public_dns_tls_caa": "NOT ACTIVATED"}

@@ -1,0 +1,11 @@
+{
+  "event": "google-oauth-provisioning",
+  "project_id": "eilmer-shared-account",
+  "billing_enabled": false,
+  "billing_account_attached": false,
+  "web_client_created": true,
+  "production_clerk_custom_credentials_configured": true,
+  "consent_audience": "private Testing; owner test user only",
+  "exact_callback": "https://clerk.eilmer.si/v1/oauth_callback",
+  "secret_recorded_in_evidence": false
+}
