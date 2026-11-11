@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -85,6 +86,10 @@ func (s *Service) kitCall(ctx context.Context, in map[string]any) (map[string]an
 			return nil, reject("HOST_UNAVAILABLE", reason)
 		case "PRIVATE_CONTROL_ACTIVE", "PRIVATE_TYPING_REQUIRED", "PRIVATE_TAKEOVER_REQUIRED", "READY_VM_REQUIRED", "GENERATION_CHANGED", "APPROVAL_REQUIRED", "APPROVAL_PLAN_REQUIRED", "OWNER_SANDBOX_CAPACITY":
 			return nil, reject("SCOPE_DENIED", reason)
+		}
+		// A plain backend code is safe and useful to show; anything else stays generic.
+		if kitReasonCode.MatchString(reason) {
+			return nil, reject("SCOPE_DENIED", "kits action refused ("+reason+"); use private owner control for unsupported forms or locked vaults")
 		}
 		return nil, reject("SCOPE_DENIED", "kits action refused; use private owner control for unsupported forms or locked vaults")
 	}
@@ -557,3 +562,5 @@ func (s *Service) recordKitApproval(a caller, entry *kitResource, result map[str
 	ap.ExpiresAt = pointer(time.Now().Add(55 * time.Second).UTC().Format(time.RFC3339Nano))
 	c.Approvals[ap.Id] = ap
 }
+
+var kitReasonCode = regexp.MustCompile(`^[A-Z][A-Z0-9_]{1,63}(:[a-z][a-z0-9_.]{0,31})?$`)
