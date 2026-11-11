@@ -442,13 +442,18 @@ func (s *Service) triggerHookHTTP(w http.ResponseWriter, r *http.Request, id str
 // ------------------------------------------------------------ schedules --
 
 func (s *Service) scheduleFields(a caller, m, in map[string]any) error {
-	if err := onlyFields(in, "schedule_id owner_id principal_id recipe_id cron timezone dst_policy missed_policy overlap_policy next_run_at enabled"); err != nil {
+	if err := onlyFields(in, "schedule_id owner_id principal_id recipe_id cron timezone dst_policy missed_policy overlap_policy next_run_at enabled fleet_key"); err != nil {
 		return err
 	}
 	if p := textField(in, "principal_id"); p != "" && p != a.Principal {
 		return reject("SCOPE_DENIED", "scheduled work runs as its owner")
 	}
-	for _, k := range []string{"recipe_id", "cron", "timezone", "dst_policy", "missed_policy", "overlap_policy", "enabled"} {
+	// fleet_key names one schedule enrolled on several hosts of a fleet, so
+	// each occurrence is claimed once fleet-wide rather than once per host.
+	if k := textField(in, "fleet_key"); len(k) > 128 || strings.ContainsAny(k, ": \n") {
+		return reject("INVALID_ARGUMENT", "fleet_key is up to 128 characters without ':' or spaces")
+	}
+	for _, k := range []string{"recipe_id", "cron", "timezone", "dst_policy", "missed_policy", "overlap_policy", "enabled", "fleet_key"} {
 		if v, ok := in[k]; ok {
 			m[k] = v
 		}
@@ -644,6 +649,10 @@ func (s *Service) fireSchedule(id, owner string, at, now time.Time) {
 	c, err := parseCron(textField(sc.R, "cron"))
 	loc, lerr := time.LoadLocation(textField(sc.R, "timezone"))
 	policy, missed := textField(sc.R, "dst_policy"), textField(sc.R, "missed_policy")
+	claim := id
+	if k := textField(sc.R, "fleet_key"); k != "" {
+		claim = "fleet-" + k
+	}
 	s.mu.Unlock()
 	if err != nil || lerr != nil {
 		return
@@ -654,7 +663,7 @@ func (s *Service) fireSchedule(id, owner string, at, now time.Time) {
 	run := !late || missed == "run_once"
 	key := at.UTC().Format(time.RFC3339)
 	if run && s.fleet != nil {
-		if s.fleet.command(fleetCommand{HomeKey: "schedule:" + owner + ":" + id + ":" + key, Home: s.hostID()}) != nil {
+		if s.fleet.command(fleetCommand{HomeKey: "schedule:" + owner + ":" + claim + ":" + key, Home: s.hostID()}) != nil {
 			run = false // another host owns this occurrence, or no quorum
 		}
 	}

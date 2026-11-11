@@ -12,6 +12,14 @@ package control
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
+	"sort"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -252,10 +260,20 @@ func TestT29Demonstration(t *testing.T) {
 			t29Report(t, s, id)
 		}
 		if os.Getenv("LAMP_T29_PLUGINS") != "" {
+			if os.Getenv("LAMP_T29_POLICY") != "" {
+				t29Retention(t, s)
+			}
 			t.Logf("forge runners still registered: %d", t29Runners(t, live))
 			return
 		}
 		t29Triggers(t, s, live, root)
+		return
+	}
+	if os.Getenv("LAMP_T29_POLICY") != "" {
+		go t29PolicyObserver(t, s, live)
+	}
+	if os.Getenv("LAMP_T29_ONLY") == "extra" {
+		t29Extra(t, s, live, root, config)
 		return
 	}
 	if os.Getenv("LAMP_T29_ONLY") == "gitlab" {
@@ -502,5 +520,305 @@ func (l *t29Local) Accept() (net.Conn, error) {
 			continue
 		}
 		return c, nil
+	}
+}
+
+// t29PolicyObserver logs, once per CI job, the root-owned network attachment
+// its live VM actually received: the exact private-service exceptions.
+func t29PolicyObserver(t *testing.T, s *Service, live t29Live) {
+	seen := map[string]bool{}
+	for {
+		time.Sleep(time.Second)
+		var todo [][3]string
+		s.readLock()
+		for id, j := range s.life.Jobs {
+			sb := textField(j.R, "sandbox_id")
+			if j.Trigger == "" && sb != "" && !seen[id] && textField(j.R, "state") == "running" {
+				todo = append(todo, [3]string{id, sb, textField(j.R, "trust_class")})
+			}
+		}
+		s.mu.Unlock()
+		for _, x := range todo {
+			seen[x[0]] = true
+			gen := strconv.FormatUint(s.sandboxGeneration(x[1]), 10)
+			raw, err := exec.Command(live.NetworkReader[0], append(append([]string{}, live.NetworkReader[1:]...), x[1], gen)...).Output()
+			var att struct {
+				Exceptions []map[string]any `json:"exceptions"`
+			}
+			json.Unmarshal(raw, &att)
+			var eps []string
+			for _, e := range att.Exceptions {
+				eps = append(eps, fmt.Sprintf("%v:%v", e["address"], e["port"]))
+			}
+			_, j := t29Job(s, func(j *ciJob) bool { return textField(j.R, "id") == x[0] })
+			t.Logf("policy job %s trust=%s attested exceptions (%d) %v err=%v; broker grant issued=%v", x[0], x[2], len(eps), eps, err, j.BrokerGrant != "")
+		}
+	}
+}
+
+// t29Retention reports each CI job's VM fate, then deletes retained VMs.
+func t29Retention(t *testing.T, s *Service) {
+	s.readLock()
+	type kept struct{ job, sb, trust, state string }
+	var all []kept
+	for id, j := range s.life.Jobs {
+		if j.Trigger == "" {
+			sb := textField(j.R, "sandbox_id")
+			all = append(all, kept{id, sb, textField(j.R, "trust_class"), string(s.journal.Sandboxes[sb].State)})
+		}
+	}
+	s.mu.Unlock()
+	for _, k := range all {
+		t.Logf("retention: job %s trust=%s retain_stopped=true sandbox %s is %s", k.job, k.trust, k.sb, k.state)
+		if k.state != "" && k.state != "deleted" {
+			s.readLock()
+			sb := s.journal.Sandboxes[k.sb]
+			s.mu.Unlock()
+			s.internalDelete(sb, "t29-inspected")
+			time.Sleep(5 * time.Second)
+			s.readLock()
+			t.Logf("retention: inspected VM %s then deleted by the owner: %s", k.sb, s.journal.Sandboxes[k.sb].State)
+			s.mu.Unlock()
+		}
+	}
+}
+
+// t29Extra: a Linear delivery, a live cancel of trigger work, and one
+// schedule shared by two fleet hosts.
+func t29Extra(t *testing.T, s *Service, live t29Live, root string, base Config) {
+	code, out := t29Call(t, s, "POST", "/v1/recipes", map[string]any{"name": "t29-extra", "template_id": live.Template, "resources": map[string]any{"vcpus": 2, "memory_mib": 4096, "disk_gib": 20, "pids_max": 4096}}, "")
+	if code >= 300 {
+		t.Fatalf("recipe HTTP %d %v", code, out)
+	}
+	recipe := textField(t29Wait(t, s, out), "recipe_id")
+	secret := filepath.Join(root, "signing-secret")
+	os.WriteFile(secret, []byte(newID("whsec")+newID("x")), 0600)
+	key, _ := os.ReadFile(secret)
+	sign := func(msg string) string {
+		m := hmac.New(sha256.New, []byte(strings.TrimSpace(string(key))))
+		m.Write([]byte(msg))
+		return hex.EncodeToString(m.Sum(nil))
+	}
+	mk := func(plugin, source, agent string) string {
+		code, out := t29Call(t, s, "POST", "/v1/triggers", map[string]any{"plugin_id": plugin, "source_ref": source, "recipe_id": recipe,
+			"verification_policy": map[string]any{"secret_file": secret}, "labels": map[string]any{entrypointLabel: agent}}, "")
+		if code >= 300 {
+			t.Fatalf("trigger HTTP %d %v", code, out)
+		}
+		return textField(t29Wait(t, s, out), "trigger_id")
+	}
+	work := func(trigger string) string {
+		var id string
+		t29Until(t, "work for "+trigger, 20*time.Minute, func() bool {
+			var j ciJob
+			id, j = t29Job(s, func(j *ciJob) bool { return j.Trigger == trigger })
+			return id != "" && ciTerminal(textField(j.R, "state"))
+		})
+		t29Report(t, s, id)
+		return id
+	}
+
+	// 1. Linear: Linear-Signature is hex HMAC-SHA256 of the raw body.
+	agent := `["sh","-c","echo source=$LAMP_TRIGGER_SOURCE job=$LAMP_JOB_ID; cat $LAMP_TRIGGER_EVENT; echo; test ! -e /var/tmp/lamp-previous-job && echo fresh-sandbox; echo agent-done"]`
+	linear := mk("pg_linear", "org-t29", agent)
+	ms := time.Now().UnixMilli()
+	body := []byte(fmt.Sprintf(`{"action":"create","type":"Issue","organizationId":"org-t29","webhookId":"wh-t29","webhookTimestamp":%d,"data":{"title":"Summarize README"}}`, ms))
+	h := map[string]string{"Linear-Signature": sign(string(body)), "Linear-Delivery": "lin-dlv-1"}
+	c1, r1 := t29Hook(s, linear, body, h)
+	c2, r2 := t29Hook(s, linear, body, h) // Linear redelivers the same delivery
+	c3, r3 := t29Hook(s, linear, body, map[string]string{"Linear-Signature": sign(string(body) + "x"), "Linear-Delivery": "lin-dlv-2"})
+	stale := []byte(fmt.Sprintf(`{"action":"create","type":"Issue","organizationId":"org-t29","webhookId":"wh-t29","webhookTimestamp":%d,"data":{}}`, time.Now().Add(-time.Hour).UnixMilli()))
+	c4, r4 := t29Hook(s, linear, stale, map[string]string{"Linear-Signature": sign(string(stale)), "Linear-Delivery": "lin-dlv-3"})
+	t.Logf("linear delivery HTTP %d replayed=%v; redelivery HTTP %d replayed=%v same-operation=%v; forged HTTP %d %v; stale HTTP %d %v",
+		c1, r1["replayed"], c2, r2["replayed"], r1["operation_id"] == r2["operation_id"], c3, r3["error"], c4, r4["error"])
+	lj := work(linear)
+	t29WorkOutput(t, s, lj)
+	n := 0
+	s.readLock()
+	for _, j := range s.life.Jobs {
+		if j.Trigger == linear {
+			n++
+		}
+	}
+	s.mu.Unlock()
+	t.Logf("linear jobs created from 4 deliveries (1 redelivery, 1 forged, 1 stale): %d", n)
+
+	// 2. Cancel live trigger work through Lamp.
+	hook := mk("pg_webhook", "t29-cancel", `["sh","-c","echo started; sleep 900; echo never"]`)
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	cb := []byte(`{"ask":"long task"}`)
+	if c, r := t29Hook(s, hook, cb, map[string]string{"X-Lamp-Timestamp": ts, "X-Lamp-Delivery": "dlv-cancel", "X-Lamp-Signature": "sha256=" + sign(ts+"."+string(cb))}); c != 202 {
+		t.Fatalf("cancel delivery HTTP %d %v", c, r)
+	}
+	var cid string
+	t29Until(t, "cancel work running", 15*time.Minute, func() bool {
+		var j ciJob
+		cid, j = t29Job(s, func(j *ciJob) bool { return j.Trigger == hook })
+		return cid != "" && textField(j.R, "state") == "running"
+	})
+	time.Sleep(5 * time.Second)
+	_, cj := t29Job(s, func(j *ciJob) bool { return textField(j.R, "id") == cid })
+	csb := textField(cj.R, "sandbox_id")
+	t.Logf("cancel: work %s running in %s; cancelling through Lamp", cid, csb)
+	if code, out := t29Call(t, s, "POST", "/v1/jobs/"+cid+":cancel", map[string]any{}, strconv.FormatUint(uintField(cj.R, "revision"), 10)); code >= 300 {
+		t.Fatalf("cancel HTTP %d %v", code, out)
+	}
+	work(hook)
+	s.readLock()
+	sbState, released := s.journal.Sandboxes[csb].State, s.auditReleased[csb]
+	running := 0
+	for _, ex := range s.journal.Execs {
+		if value(ex.SandboxId) == csb && (ex.State == "running" || ex.State == "accepted") {
+			running++
+		}
+	}
+	s.mu.Unlock()
+	t.Logf("cancel: sandbox %s %s; guard audit released=%v; execs still running in it=%d; firecracker on host=%s", csb, sbState, released, running,
+		func() string { b, _ := exec.Command("pgrep", "-c", "firecracker").Output(); return strings.TrimSpace(string(b)) }())
+	s.Close()
+
+	// 3. One schedule on two fleet hosts runs each occurrence once fleet-wide.
+	t29Fleet(t, live, root, base)
+}
+
+func t29WorkOutput(t *testing.T, s *Service, id string) {
+	_, j := t29Job(s, func(j *ciJob) bool { return textField(j.R, "id") == id })
+	for _, a := range stringsField(j.R, "artifact_ids") {
+		s.readLock()
+		art := s.life.Artifacts[a]
+		blob := s.life.Blobs[textField(art.R, "download_blob_id")]
+		s.mu.Unlock()
+		if blob != nil {
+			data, _ := os.ReadFile(s.objectPath(trimDigest(textField(blob.R, "sha256"))))
+			t.Logf("work output:\n%s", strings.TrimSpace(string(data)))
+		}
+	}
+}
+
+// t29Fleet opens two control hosts in one raft fleet (mutual TLS from a
+// throwaway CA), enrolls the same schedule on both under one fleet_key, and
+// counts which host ran each occurrence.
+func t29Fleet(t *testing.T, live t29Live, root string, base Config) {
+	dir := filepath.Join(root, "fleet")
+	os.MkdirAll(dir, 0700)
+	caKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	caTpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "t29 fleet CA"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(48 * time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}
+	caDER, _ := x509.CreateCertificate(rand.Reader, caTpl, caTpl, &caKey.PublicKey, caKey)
+	caCert, _ := x509.ParseCertificate(caDER)
+	os.WriteFile(filepath.Join(dir, "ca.pem"), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}), 0600)
+	port := func() int {
+		l, _ := net.Listen("tcp", "127.0.0.1:0")
+		defer l.Close()
+		return l.Addr().(*net.TCPAddr).Port
+	}
+	ids := []string{"hs_t29a", "hs_t29b"}
+	var hosts []FleetHost
+	for i, id := range ids {
+		k, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		tpl := &x509.Certificate{SerialNumber: big.NewInt(int64(i + 2)), Subject: pkix.Name{CommonName: id}, DNSNames: []string{id}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+			NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(48 * time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}}
+		der, _ := x509.CreateCertificate(rand.Reader, tpl, caCert, &k.PublicKey, caKey)
+		kd, _ := x509.MarshalECPrivateKey(k)
+		os.WriteFile(filepath.Join(dir, id+".pem"), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0600)
+		os.WriteFile(filepath.Join(dir, id+".key"), pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kd}), 0600)
+		hosts = append(hosts, FleetHost{ID: id, API: fmt.Sprintf("https://127.0.0.1:%d", port()), Raft: fmt.Sprintf("127.0.0.1:%d", port()), OS: "linux", Arch: "amd64"})
+	}
+	sum := sha256.Sum256([]byte(newID("bootstrap")))
+	identity := &IdentityConfig{OwnerID: "pr_t29owner", BootstrapSHA256: hex.EncodeToString(sum[:])}
+	owner := caller{Principal: "pr_t29owner"}
+	var svcs []*Service
+	var fleets []*Fleet
+	for i, id := range ids {
+		cfg := base
+		cfg.StateDir = filepath.Join(dir, id, "state")
+		cfg.CI = nil
+		cfg.Identity = identity
+		svc, err := Open(cfg)
+		if err != nil {
+			t.Fatalf("open %s: %v", id, err)
+		}
+		f, err := OpenFleet(svc, FleetConfig{HostID: id, Hosts: hosts, CAFile: filepath.Join(dir, "ca.pem"), CertFile: filepath.Join(dir, id+".pem"), KeyFile: filepath.Join(dir, id+".key"), GuardDir: filepath.Join(dir, id, "guard"), Bootstrap: i == 0})
+		if err != nil {
+			t.Fatalf("fleet %s: %v", id, err)
+		}
+		svcs, fleets = append(svcs, svc), append(fleets, f)
+	}
+	defer func() {
+		for i := range svcs {
+			fleets[i].Close()
+			svcs[i].Close()
+		}
+	}()
+	t29Until(t, "fleet leader", 2*time.Minute, func() bool { return fleets[0].leaderID() != "" && fleets[1].leaderID() != "" })
+	t.Logf("fleet: hosts %v, leader %s", ids, fleets[0].leaderID())
+	startWait := func(svc *Service, name string, in map[string]any) string {
+		in["idempotency_key"] = newID("t29")
+		op, _, err := svc.lifeStart(owner, name, in)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		svc.readLock()
+		done := svc.done[op]
+		svc.mu.Unlock()
+		if done != nil {
+			<-done
+		}
+		svc.readLock()
+		defer svc.mu.Unlock()
+		rec := svc.journal.Operations[op]
+		if rec.Operation.Error != nil {
+			t.Fatalf("%s failed: %s %s", name, rec.Operation.Error.Code, rec.Operation.Error.Message)
+		}
+		return rec.Resource.Id
+	}
+	agent := `["sh","-c","echo fleet occurrence on $(hostname); echo agent-done"]`
+	var scheds []string
+	for _, svc := range svcs {
+		rc := startWait(svc, "recipe_create", map[string]any{"name": "t29-fleet", "template_id": live.Template, "resources": map[string]any{"vcpus": 2, "memory_mib": 4096, "disk_gib": 20, "pids_max": 4096}})
+		sc := startWait(svc, "schedule_create", map[string]any{"recipe_id": rc, "cron": "* * * * *", "timezone": "America/New_York", "fleet_key": "t29-nightly", "labels": map[string]any{entrypointLabel: agent}})
+		scheds = append(scheds, sc)
+	}
+	t.Logf("fleet: schedule fleet_key=t29-nightly enrolled as %s on %s and %s on %s", scheds[0], ids[0], scheds[1], ids[1])
+	// Let two occurrences come due, then stop enrolling more.
+	time.Sleep(time.Until(time.Now().Truncate(time.Minute).Add(2*time.Minute + 20*time.Second)))
+	for i, svc := range svcs {
+		svc.readLock()
+		rev := uintField(svc.life.Schedules[scheds[i]].R, "revision")
+		svc.mu.Unlock()
+		startWait(svc, "schedule_pause", map[string]any{"schedule_id": scheds[i], "expected_revision": jsonNumber(rev)})
+	}
+	t29Until(t, "fleet work to finish", 25*time.Minute, func() bool {
+		for _, svc := range svcs {
+			if id, _ := t29Job(svc, func(j *ciJob) bool { return j.Trigger != "" && !ciTerminal(textField(j.R, "state")) }); id != "" {
+				return false
+			}
+		}
+		return true
+	})
+	occ := map[string][]string{}
+	for i, svc := range svcs {
+		svc.readLock()
+		for id, j := range svc.life.Jobs {
+			if j.Trigger == scheds[i] {
+				at := strings.TrimPrefix(textField(j.R, "external_id"), scheds[i]+"/schedule:")
+				occ[at] = append(occ[at], fmt.Sprintf("%s:%s(%s/%s)", ids[i], id, textField(j.R, "state"), textField(j.R, "result")))
+			}
+		}
+		t.Logf("fleet: %s skipped %d occurrence(s) another host claimed", ids[i], svc.life.Schedules[scheds[i]].Skipped)
+		svc.mu.Unlock()
+	}
+	keys := make([]string, 0, len(occ))
+	for k := range occ {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		t.Logf("fleet: occurrence %s ran %d time(s) fleet-wide: %v", k, len(occ[k]), occ[k])
+	}
+	homes := fleets[0].fsm.snapshot().Homes
+	for k, v := range homes {
+		if strings.Contains(k, "fleet-t29-nightly") {
+			t.Logf("fleet: replicated claim %s -> %s", k, v)
+		}
 	}
 }
