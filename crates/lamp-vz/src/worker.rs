@@ -30,6 +30,7 @@ pub struct Options {
 fn grants(spec: &WorkerSpec, restore: Option<&Path>) -> confine::Grants {
     let mut g = confine::Grants {
         macos_guest: matches!(spec.machine, Machine::Macos { .. }),
+        graphics: spec.devices.display.is_some(),
         read_subpaths: vec![],
         read_literals: spec.read_paths.clone(),
         write_subpaths: std::iter::once(spec.dir.clone())
@@ -93,6 +94,11 @@ fn disks(spec: &WorkerSpec) -> Vec<Disk> {
                 Sync::None => DiskSync::None,
             },
         })
+        .chain(spec.devices.extra_disks.iter().map(|d| Disk {
+            path: spec.devices.extra_disk_path(&spec.dir, d),
+            read_only: false,
+            sync: DiskSync::Full,
+        }))
         .collect()
 }
 
@@ -116,6 +122,7 @@ pub fn config(
             console_log: console,
             machine_identifier: Some(b64_decode(machine_identifier_b64)?),
             nat_network: spec.nat_network,
+            devices: spec.devices.clone(),
         }),
         Machine::Macos {
             hardware_model_b64,
@@ -131,6 +138,7 @@ pub fn config(
             console_log: console,
             nat_network: spec.nat_network,
             display: (1024, 768),
+            devices: spec.devices.clone(),
         }),
     }
 }
@@ -301,6 +309,12 @@ pub fn run(opts: Options) -> Result<(), String> {
     let t0 = Instant::now();
     let text = std::fs::read_to_string(&opts.spec).map_err(|e| format!("spec: {e}"))?;
     let spec: WorkerSpec = serde_json::from_str(&text).map_err(|e| format!("spec: {e}"))?;
+    spec.devices
+        .validate(matches!(spec.machine, Machine::Macos { .. }))?;
+    if opts.restore.is_some() && spec.devices != Devices::default() {
+        return Err("DEVICE_NOT_FORKABLE: optional device state restore is not implemented".into());
+    }
+    crate::admission::Memory::detect()?.admit(spec.memory_mib, 0, 0)?;
     let mut g = grants(&spec, opts.restore.as_deref());
     if matches!(spec.machine, Machine::Macos { .. }) {
         // VZ needs this account's Darwin cache directory for a macOS guest.
@@ -313,6 +327,16 @@ pub fn run(opts: Options) -> Result<(), String> {
         confine::apply(&confine::profile(&g)).map_err(|e| format!("confinement: {e}"))?;
     }
     let confined_us = t0.elapsed().as_micros();
+    for d in &spec.devices.extra_disks {
+        let path = spec.devices.extra_disk_path(&spec.dir, d);
+        let f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|e| format!("extra disk {}: {e}", path.display()))?;
+        f.set_len(d.size_mib << 20)
+            .map_err(|e| format!("size extra disk: {e}"))?;
+    }
     if !vz::supported() {
         return Err("Virtualization.framework is not available to this process".into());
     }
@@ -357,6 +381,7 @@ pub fn run(opts: Options) -> Result<(), String> {
             "confine_us": confined_us,
             "vm_start_us": started_us,
             "restored": opts.restore.is_some(),
+            "devices": spec.devices,
         })
     );
     let _ = std::io::stdout().flush();
@@ -382,6 +407,7 @@ pub fn run(opts: Options) -> Result<(), String> {
         });
     }
     let lock = Arc::new(Mutex::new(()));
+    let optional_devices = spec.devices != Devices::default();
     for s in api.incoming().flatten() {
         let vm = vm.clone();
         let lock = lock.clone();
@@ -411,6 +437,7 @@ pub fn run(opts: Options) -> Result<(), String> {
                             Api::State {} => Ok(serde_json::Value::Null),
                             Api::Pause {} => vm.pause().map(|_| serde_json::Value::Null),
                             Api::Resume {} => vm.resume().map(|_| serde_json::Value::Null),
+                            Api::Save { .. } if optional_devices => Err("DEVICE_NOT_FORKABLE: optional device capture is not implemented".into()),
                             Api::Save { path } => vm.save(path).map(|_| {
                                 serde_json::json!({"bytes": std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)})
                             }),

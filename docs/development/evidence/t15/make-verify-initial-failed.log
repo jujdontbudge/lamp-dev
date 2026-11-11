@@ -1,0 +1,5 @@
+mkdir -p bin
+cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
+go build ./...
+pattern ./...: open target/t15-device-store/captures: permission denied
+make: *** [build] Error 1

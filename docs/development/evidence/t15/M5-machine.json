@@ -1,0 +1,13 @@
+{
+  "captured_at": "2026-11-11T00:24:31.934744+00:00",
+  "hardware": {
+    "model": "Mac17,2",
+    "cpu": "Apple M5",
+    "physical_mib": 24576
+  },
+  "os": {
+    "version": "26.5.2",
+    "build": "25F84",
+    "kernel": "Darwin 25.5.0"
+  }
+}

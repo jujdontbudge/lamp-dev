@@ -54,7 +54,9 @@ pub const ENGINE_NAME: &str = "vz-macos26";
 pub const STATE_ABI: &str = "vz/saved-machine-state";
 pub const DEVICE_GRAPH_LINUX: &str =
     "vz-generic:virtio-blk:vda,virtio-vsock,virtio-console:hvc0,virtio-entropy";
-pub const DEVICE_GRAPH_MACOS: &str = "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy,mac-graphics:1024x768,mac-keyboard,mac-trackpad";
+pub const DEVICE_GRAPH_MACOS: &str =
+    "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy";
+const LEGACY_DEVICE_GRAPH_MACOS: &str = "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy,mac-graphics:1024x768,mac-keyboard,mac-trackpad";
 /// The certified Linux-on-Mac row (fits both lanes, including the 8 GB AIR
 /// with a source and a fork running at once).
 pub const STANDARD: Resources = Resources {
@@ -96,6 +98,7 @@ pub struct Config {
     pub macos_slots: usize,
     /// Apply the worker's Seatbelt profile (always on outside diagnostics).
     pub confine: bool,
+    pub devices: lamp_vz::spec::Devices,
 }
 
 impl Config {
@@ -109,6 +112,7 @@ impl Config {
             trusted_producers: Vec::new(),
             macos_slots: MACOS_SLOTS,
             confine: true,
+            devices: Default::default(),
         }
     }
 }
@@ -925,9 +929,10 @@ impl Engine {
                     .acceleration_variants
                     .iter()
                     .find(|v| {
-                        v.compatibility.engine_digest == self.compat.engine_digest
-                            && v.compatibility.cpu_baseline == self.compat.cpu_baseline
-                            && v.compatibility.state_abi == STATE_ABI
+                        self.cfg.devices != Default::default()
+                            || v.compatibility.engine_digest == self.compat.engine_digest
+                                && v.compatibility.cpu_baseline == self.compat.cpu_baseline
+                                && v.compatibility.state_abi == STATE_ABI
                     })
                     .cloned()
                     .ok_or_else(|| {
@@ -952,13 +957,16 @@ impl Engine {
                 fsutil::verify_object(&dir.join(DISK), &v.disk, "variant disk")?;
                 fsutil::verify_object(&dir.join(STATE_FILE), &v.memory, "variant memory")?;
                 fsutil::verify_object(&dir.join(MACHINE), &v.vmstate, "variant machine")?;
-                Some(v)
+                (self.cfg.devices == Default::default()).then_some(v)
             }
             "macos" => {
                 // No saved-state variant: an owner template always boots
                 // fresh. `kernel` names the auxiliary (boot) storage.
-                if provenance.device_graph_digest
-                    != manifest::sha256_hex(DEVICE_GRAPH_MACOS.as_bytes())
+                if ![DEVICE_GRAPH_MACOS, LEGACY_DEVICE_GRAPH_MACOS]
+                    .iter()
+                    .any(|graph| {
+                        provenance.device_graph_digest == manifest::sha256_hex(graph.as_bytes())
+                    })
                 {
                     return Err(EngineError::new(
                         "DATA_UNAVAILABLE",
@@ -1100,6 +1108,13 @@ impl Engine {
         self.macos_slots.lock().unwrap().remove(sandbox_id);
     }
 
+    fn admit_memory(requested: u64, reserved: u64, pending: u64) -> Result<()> {
+        lamp_vz::admission::Memory::detect()
+            .map_err(EngineError::host)?
+            .admit(requested, reserved, pending)
+            .map_err(|e| EngineError::new("NO_CAPACITY", e.trim_start_matches("NO_CAPACITY: ")))
+    }
+
     /// Reserves the sandbox record. Identity, files and the worker come with
     /// Restore, once the template or capture (and so the guest class) is known.
     pub fn allocate(&self, auth: Authority<'_>, requested: Option<Resources>) -> Result<Outcome> {
@@ -1127,6 +1142,18 @@ impl Engine {
                 auth.sandbox_id
             )));
         }
+        let (mut reserved, mut pending) = (0u64, 0u64);
+        for sb in all.values() {
+            let sb = sb.lock().unwrap();
+            if sb.state != State::Stopped {
+                let charge = sb.resources.memory_mib.saturating_add(256);
+                reserved = reserved.saturating_add(charge);
+                if matches!(sb.state, State::Allocated | State::Suspended) {
+                    pending = pending.saturating_add(charge);
+                }
+            }
+        }
+        Self::admit_memory(resources.memory_mib, reserved, pending)?;
         all.insert(
             auth.sandbox_id.to_string(),
             Arc::new(Mutex::new(Sandbox {
@@ -1199,7 +1226,9 @@ impl Engine {
                 let t = self.template(capture_id)?;
                 match &t.machine {
                     MachineCfg::Linux { resources, .. } => {
-                        if &sb.resources != resources {
+                        if (self.cfg.devices == Default::default() && &sb.resources != resources)
+                            || sb.resources.disk_gib != resources.disk_gib
+                        {
                             return Err(mismatch(resources, &sb.resources));
                         }
                     }
@@ -1448,6 +1477,14 @@ impl Engine {
 
     fn restore_template(&self, sb: &mut Sandbox, t: &Template, t0: Instant) -> Result<Outcome> {
         let mut detail = BTreeMap::new();
+        self.cfg
+            .devices
+            .validate(t.guest_os() == "macos")
+            .map_err(|e| match e.strip_prefix("DEVICE_UNAVAILABLE: ") {
+                Some(message) => EngineError::new("DEVICE_UNAVAILABLE", message),
+                None => EngineError::invalid(e),
+            })?;
+        Self::admit_memory(sb.resources.memory_mib, 0, 0)?;
         self.new_dir(sb)?;
         let disk = sb.dir.join(DISK);
         fsutil::reflink(&t.dir.join(DISK), &disk, 0o600)?;
@@ -1466,6 +1503,7 @@ impl Engine {
                 },
                 cpus: sb.resources.vcpus as usize,
                 memory_mib: sb.resources.memory_mib,
+                devices: self.cfg.devices.clone(),
                 disks: vec![DiskSpec {
                     path: disk,
                     read_only: false,
@@ -1493,6 +1531,7 @@ impl Engine {
                     },
                     cpus: sb.resources.vcpus as usize,
                     memory_mib: sb.resources.memory_mib,
+                    devices: self.cfg.devices.clone(),
                     disks: vec![DiskSpec {
                         path: disk,
                         read_only: false,
@@ -1514,9 +1553,13 @@ impl Engine {
         let state = t
             .variant
             .as_ref()
-            .filter(|_| !locked)
+            .filter(|_| !locked && self.cfg.devices == Default::default())
             .map(|_| t.dir.join(STATE_FILE));
         let mut spec = spec;
+        detail.insert(
+            "devices".into(),
+            serde_json::to_string(&spec.devices).unwrap(),
+        );
         spec.read_paths.extend(state.clone());
         self.spawn(sb, spec, state.as_deref(), &mut detail)?;
         detail.insert(
@@ -1668,6 +1711,7 @@ impl Engine {
             )));
         }
         refuse_if_locked("resuming a suspended sandbox")?;
+        Self::admit_memory(sb.resources.memory_mib, 0, 0)?;
         if sb.guest_os == "macos" {
             // Already holds its slot while suspended.
             self.take_macos_slot(&sb.id)?;
@@ -1959,6 +2003,16 @@ impl Engine {
                 "sandbox is {}",
                 sb.state.name()
             )));
+        }
+        if sb
+            .machine
+            .as_ref()
+            .is_some_and(|m| m.devices != Default::default())
+        {
+            return Err(EngineError::new(
+                "DEVICE_NOT_FORKABLE",
+                "capture/suspend with optional devices is not implemented; no device or extra disk will be silently dropped",
+            ));
         }
         if consistency == "suspend" {
             return self.suspend(&mut sb, t0);

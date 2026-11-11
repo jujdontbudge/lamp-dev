@@ -205,6 +205,7 @@ impl Engine {
             }
             let mid = new_generic_machine_identifier(&self.cfg.worker)?;
             let spec = WorkerSpec {
+                devices: Default::default(),
                 sandbox_id: sb.id.clone(),
                 machine: Machine::Linux {
                     kernel: staging.join(KERNEL),
@@ -358,6 +359,7 @@ impl Engine {
             fsutil::reflink(&vm.join(DISK), &sb.dir.join(DISK), 0o600)?;
             fsutil::reflink(&vm.join(AUX), &sb.dir.join(AUX), 0o600)?;
             let spec = WorkerSpec {
+                devices: Default::default(),
                 sandbox_id: sb.id.clone(),
                 machine: Machine::Macos {
                     hardware_model_b64: hardware_model_b64.clone(),

@@ -16,6 +16,7 @@ OUT=${1:?usage: build-seed-arm64.sh OUT_DIR}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 WORK=${LAMP_SEED_WORK:-$HOME/.cache/lamp-seed-arm64}
 KERNEL_VERSION=6.18.62
+KERNEL_CACHE=$KERNEL_VERSION-vz-devices-v1
 KERNEL_SHA256=490a7aedf1b355c565d3a6c05333ccccb5da82064eca46b590448a7099d7d651
 KCONFIG_URL=https://raw.githubusercontent.com/firecracker-microvm/firecracker/v1.17.0/resources/guest_configs/microvm-kernel-ci-aarch64-6.18.config
 SUITE=resolute
@@ -30,18 +31,20 @@ cd "$WORK"
 
 # 1. Kernel: verified kernel.org source, Firecracker's pinned aarch64 config
 #    (virtio-pci, vsock, ext4, cgroup freezer are already built in).
-if [ ! -f "Image-$KERNEL_VERSION" ]; then
+if [ ! -f "Image-$KERNEL_CACHE" ]; then
   [ -f "linux-$KERNEL_VERSION.tar.xz" ] || curl -fsSLO "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$KERNEL_VERSION.tar.xz"
   echo "$KERNEL_SHA256  linux-$KERNEL_VERSION.tar.xz" | sha256sum -c -
   curl -fsSLo kernel.config "$KCONFIG_URL"
   rm -rf "linux-$KERNEL_VERSION" && tar xf "linux-$KERNEL_VERSION.tar.xz"
   cp kernel.config "linux-$KERNEL_VERSION/.config"
   (cd "linux-$KERNEL_VERSION" &&
-    ./scripts/config -e SERIAL_AMBA_PL011 -e SERIAL_AMBA_PL011_CONSOLE -e VIRTIO_BALLOON -e CGROUP_FREEZER &&
+    ./scripts/config -e SERIAL_AMBA_PL011 -e SERIAL_AMBA_PL011_CONSOLE -e VIRTIO_BALLOON -e CGROUP_FREEZER \
+      -e DRM -e DRM_VIRTIO_GPU -e DRM_FBDEV_EMULATION -e FB -e FRAMEBUFFER_CONSOLE \
+      -e INPUT -e INPUT_EVDEV -e HID_SUPPORT -e HID -e HID_GENERIC -e USB -e USB_XHCI_HCD -e USB_XHCI_PCI -e USB_HID &&
     make olddefconfig >/dev/null &&
     make -j"$(nproc)" Image >"$WORK/kernel-build.log" 2>&1)
-  cp "linux-$KERNEL_VERSION/arch/arm64/boot/Image" "Image-$KERNEL_VERSION"
-  cp "linux-$KERNEL_VERSION/.config" "kernel-$KERNEL_VERSION.config"
+  cp "linux-$KERNEL_VERSION/arch/arm64/boot/Image" "Image-$KERNEL_CACHE"
+  cp "linux-$KERNEL_VERSION/.config" "kernel-$KERNEL_CACHE.config"
 fi
 
 # 2. Guest init, helper and collector: static musl builds from this checkout.
@@ -75,8 +78,8 @@ sudo -n chown "$(id -u):$(id -g)" rootfs.ext4
 sudo -n rm -rf rootdir
 
 cp --sparse=always rootfs.ext4 "$OUT/rootfs.ext4"
-cp "Image-$KERNEL_VERSION" "$OUT/Image"
-cp "kernel-$KERNEL_VERSION.config" "$OUT/kernel.config"
+cp "Image-$KERNEL_CACHE" "$OUT/Image"
+cp "kernel-$KERNEL_CACHE.config" "$OUT/kernel.config"
 cp packages.txt "$OUT/packages.txt"
 python3 - "$OUT" "$KERNEL_VERSION" "$KERNEL_SHA256" "$BIN/lamp-init" "$BIN/lamp-guest-helper" "$BIN/lamp-guard" <<'PY'
 import hashlib, json, os, sys

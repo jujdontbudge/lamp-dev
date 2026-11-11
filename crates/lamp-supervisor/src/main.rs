@@ -357,6 +357,10 @@ fn host(cmd: &str, mut args: Vec<String>) {
     if let Some(w) = take_flag(&mut args, "--worker") {
         cfg.worker = w.into();
     }
+    if let Some(d) = take_flag(&mut args, "--devices") {
+        cfg.devices =
+            serde_json::from_str(&d).unwrap_or_else(|e| die(format!("--devices JSON: {e}")));
+    }
     if let Some(r) = take_flag(&mut args, "--ram-dir") {
         cfg.ram_dir = if r.is_empty() { None } else { Some(r.into()) };
     }

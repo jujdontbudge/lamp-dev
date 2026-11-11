@@ -78,6 +78,7 @@ pub struct LinuxSpec {
     pub machine_identifier: Option<Vec<u8>>,
     /// A data NIC is attached only when networking is requested.
     pub nat_network: bool,
+    pub devices: crate::spec::Devices,
 }
 
 /// A native macOS guest.
@@ -93,6 +94,7 @@ pub struct MacSpec {
     pub nat_network: bool,
     /// Headless display size; the framework still models a graphics device.
     pub display: (isize, isize),
+    pub devices: crate::spec::Devices,
 }
 
 fn disk_attachment(d: &Disk) -> VzResult<Retained<VZStorageDeviceConfiguration>> {
@@ -179,6 +181,7 @@ fn validated(
 }
 
 pub fn linux_config(spec: &LinuxSpec) -> VzResult<Retained<VZVirtualMachineConfiguration>> {
+    spec.devices.validate(false)?;
     // SAFETY: building a fresh configuration on this thread.
     unsafe {
         let boot =
@@ -208,11 +211,37 @@ pub fn linux_config(spec: &LinuxSpec) -> VzResult<Retained<VZVirtualMachineConfi
             spec.console_log.as_deref(),
             spec.nat_network,
         )?;
+        if let Some(d) = &spec.devices.display {
+            let gfx = VZVirtioGraphicsDeviceConfiguration::new();
+            let scanout =
+                VZVirtioGraphicsScanoutConfiguration::initWithWidthInPixels_heightInPixels(
+                    VZVirtioGraphicsScanoutConfiguration::alloc(),
+                    d.width as isize,
+                    d.height as isize,
+                );
+            gfx.setScanouts(&NSArray::from_retained_slice(&[scanout]));
+            cfg.setGraphicsDevices(&NSArray::from_retained_slice(&[Retained::into_super(gfx)]));
+        }
+        if spec.devices.keyboard {
+            cfg.setKeyboards(&NSArray::from_retained_slice(&[Retained::into_super(
+                VZUSBKeyboardConfiguration::new(),
+            )]));
+        }
+        if spec.devices.mouse {
+            cfg.setPointingDevices(&NSArray::from_retained_slice(&[Retained::into_super(
+                VZUSBScreenCoordinatePointingDeviceConfiguration::new(),
+            )]));
+        }
+        if spec.devices != crate::spec::Devices::default() {
+            cfg.validateWithError().map_err(|e| describe(&e))?;
+            return Ok(cfg);
+        }
         validated(cfg)
     }
 }
 
 pub fn mac_config(spec: &MacSpec) -> VzResult<Retained<VZVirtualMachineConfiguration>> {
+    spec.devices.validate(true)?;
     // SAFETY: building a fresh configuration on this thread.
     unsafe {
         let platform = VZMacPlatformConfiguration::new();
@@ -239,20 +268,26 @@ pub fn mac_config(spec: &MacSpec) -> VzResult<Retained<VZVirtualMachineConfigura
         let cfg = VZVirtualMachineConfiguration::new();
         cfg.setBootLoader(Some(&VZMacOSBootLoader::new()));
         cfg.setPlatform(&platform);
-        let gfx = VZMacGraphicsDeviceConfiguration::new();
-        let display =
+        if let Some(d) = &spec.devices.display {
+            let gfx = VZMacGraphicsDeviceConfiguration::new();
+            let display =
             VZMacGraphicsDisplayConfiguration::initWithWidthInPixels_heightInPixels_pixelsPerInch(
                 VZMacGraphicsDisplayConfiguration::alloc(),
-                spec.display.0,
-                spec.display.1,
+                d.width as isize,
+                d.height as isize,
                 80,
             );
-        gfx.setDisplays(&NSArray::from_retained_slice(&[display]));
-        cfg.setGraphicsDevices(&NSArray::from_retained_slice(&[Retained::into_super(gfx)]));
-        let kb = Retained::into_super(VZMacKeyboardConfiguration::new());
-        cfg.setKeyboards(&NSArray::from_retained_slice(&[kb]));
-        let tp = Retained::into_super(VZMacTrackpadConfiguration::new());
-        cfg.setPointingDevices(&NSArray::from_retained_slice(&[tp]));
+            gfx.setDisplays(&NSArray::from_retained_slice(&[display]));
+            cfg.setGraphicsDevices(&NSArray::from_retained_slice(&[Retained::into_super(gfx)]));
+        }
+        if spec.devices.keyboard {
+            let kb = Retained::into_super(VZMacKeyboardConfiguration::new());
+            cfg.setKeyboards(&NSArray::from_retained_slice(&[kb]));
+        }
+        if spec.devices.mouse {
+            let tp = Retained::into_super(VZMacTrackpadConfiguration::new());
+            cfg.setPointingDevices(&NSArray::from_retained_slice(&[tp]));
+        }
         common(
             &cfg,
             spec.cpus,
@@ -261,6 +296,10 @@ pub fn mac_config(spec: &MacSpec) -> VzResult<Retained<VZVirtualMachineConfigura
             spec.console_log.as_deref(),
             spec.nat_network,
         )?;
+        if spec.devices != crate::spec::Devices::default() {
+            cfg.validateWithError().map_err(|e| describe(&e))?;
+            return Ok(cfg);
+        }
         validated(cfg)
     }
 }
