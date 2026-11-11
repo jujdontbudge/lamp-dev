@@ -152,6 +152,24 @@ transcript; only the final complete round trip is counted.
 
 Raw observations remain in `/var/lib/lamp/t21a/outside-evidence.json`.
 
+### Subscription authorization remains pending
+
+Fresh, separate official sign-in flows have been started with isolated Lamp
+HOME/config directories. Codex uses `login --device-auth`; Claude uses
+`setup-token` with private PTY capture and a private code-delivery socket.
+Approval links and one-time codes are delivered only to the coordinator, not
+recorded in this evidence. Returned authorization codes will be read only from
+the owner-provided private file.
+
+The M5's existing Claude Code and Codex credentials have not been copied or
+used for these sign-ins. No browser profile or visible screen was accessed.
+There is not yet a successful subscription model turn for either provider;
+authorization and the two real turns remain outstanding.
+
+Cleanup was requested for the completed API sessions, and their disposable
+sandbox was deleted. The ticket's expired worker grant was renewed with the same one-hour
+lifetime for that cleanup; no audit or authorization limit was changed.
+
 ## 3. T3 Code and Herdr
 
 Both public consoles have now driven real, separate Lamp PTYs headlessly. No
