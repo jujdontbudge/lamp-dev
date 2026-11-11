@@ -34,6 +34,7 @@ maximum price zero, and only a short-lived scoped Lamp grant in the job.
 | Actual untrusted same-repository PR | [42971889992](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42971889992) | Owner-authored [PR #3](https://github.com/JohanSardar/lamp-t26-fixture/pull/3), explicitly empty trusted actor list. Native build and authority checks passed; classified `public_pr`; fresh sandbox `sb_adffa9b5cc87b180b519b5fff82af34d` deleted despite `retain_stopped=true`. No repository/environment model or Lamp secrets. **Not a stranger's fork.** |
 | Claude Code Action, real model reply | [42983320133](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42983320133) | Fresh one-job runner; scoped `claude`/`messages` grant from Lamp's host credential broker to free OpenRouter (`openrouter/free`, provider max price 0; served by `nvidia/nemotron-3.5-super-vl:free`). Reply `LAMP_T26_CLAUDE_FREE_OK` verified from the action's execution file; Lamp job `jb_70a712bc1705bd26eea1f88fcc44ce4c` completed. No owner subscription or new key; GitHub held no model secret. Claude Code's own `costUSD` is its estimate for an unknown model, not a charge. |
 | Codex Action, real model reply | [42987215991](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42987215991) | Fresh one-job runner; scoped `codex`/`responses` grant through the same broker. Reply `LAMP_T26_CODEX_FREE_OK` verified from the action's `final-message`; Lamp job `jb_8586d9302f7561a813f29be66fe19424` completed. Workflow disables Codex's hosted `web_search` tool (broker admits only function tools) and gives the action a pass-through `sudo` (runner is already UID 0 in its task namespace). |
+| Broker grant lasts the whole job | [42988727377](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42988727377) | One trusted job called the broker at 08:39:27 (HTTP 200, `nvidia/nemotron-3.5-super-vl:free`), slept, and called it again 361 s later at 08:45:29 (HTTP 200, `cohere/north-mini-code:free`), past the old fixed 300 s TTL. Broker audit for `sb_d60e69f007d39aedd3e65a764730256c`: grant issued 08:39:22, renewed every 60 s (08:40:22 to 08:45:22), revoked 08:45:34 after the job ended. Lamp job `jb_90acf939854e9aa9719639c4036dfedc` completed. |
 
 [Native status](evidence/t26/native-status.json) records the matching observation
 metadata. Passed goals are not being rerun. Coding-agent limitations and final
@@ -236,3 +237,21 @@ also giving the action `ANTHROPIC_AUTH_TOKEN`; free-model routing was also flaky
 Codex 42983775174 failed on missing `sudo`, 42984094522 on `SCOPE_DENIED` for the
 hosted `web_search` tool, and 42985020769 hung until the job timeout with its log
 lost; the 300 s grant TTL had expired by then. Cause not established.
+
+## Demo broker sources
+
+The Claude Code Action, Codex Action and grant-lifetime runs used the M5 host
+broker built from `cmd/lamp-broker` and `internal/broker` as in this PR:
+T21's native model routes (PR #25, `t3/sessions-console-join` at `706cdaa`,
+carried unchanged in commit "broker: native routes from T21 (PR #25),
+identical"). The Claude and Codex runs used that source alone. The lifetime run
+used that source plus the `/owner/renew` commit on top. Files were compared
+byte for byte with the build sources. The Ubuntu controller for the lifetime run
+was built from this branch with the renewal loop.
+
+Before the passing lifetime run, attempts 42988026084, 42988296883 and
+42988591482 failed before a sandbox existed. The cause was the demo controller's
+own `CONTROL_QUOTA_EXCEEDED` ("retained guard spool reservations exhausted"):
+every T26 sandbox, deleted ones included, keeps an audit spool slot. The demo
+controller's audit quota was raised from 32 GiB to 64 GiB; product behavior
+was not changed.
