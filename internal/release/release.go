@@ -52,6 +52,10 @@ type Manifest struct {
 	CreatedAt  string                 `json:"created_at"`
 	Files      map[string]FileEntry   `json:"files"`
 	Components map[string][]Component `json:"components"`
+	// Engine identifies the VM engine the release runs (worker and VMM
+	// binary digests, snapshot format). Saved machine state is bound to it,
+	// so the updater refuses an engine change while such state exists.
+	Engine map[string]string `json:"engine,omitempty"`
 }
 
 type Revocation struct {
@@ -206,15 +210,40 @@ func ManifestDigest(dir string) (string, error) {
 
 // FindByVersion returns the mirrored release of a version whose signed index
 // verifies.
-func FindByVersion(mirror string, trust ed25519.PublicKey, version string) (Index, error) {
+func FindByVersion(mirror string, trust ed25519.PublicKey, version string) (Index, string, error) {
+	entries, _ := os.ReadDir(mirror)
+	for _, e := range entries {
+		ix, digest, err := VerifyIndex(filepath.Join(mirror, e.Name()), trust)
+		if err == nil && ix.Version == version {
+			return ix, digest, nil
+		}
+	}
+	return Index{}, "", fmt.Errorf("no signed release %s in the host's release mirror", version)
+}
+
+// Revocations gathers the security revocations of every verified index in
+// the mirror: a later release can withdraw an earlier one.
+func Revocations(mirror string, trust ed25519.PublicKey) map[string]Revocation {
+	out := map[string]Revocation{}
 	entries, _ := os.ReadDir(mirror)
 	for _, e := range entries {
 		ix, _, err := VerifyIndex(filepath.Join(mirror, e.Name()), trust)
-		if err == nil && ix.Version == version {
-			return ix, nil
+		if err != nil {
+			continue
+		}
+		for _, r := range ix.Revocations {
+			out[r.Digest] = r
 		}
 	}
-	return Index{}, fmt.Errorf("no signed release %s in the host's release mirror", version)
+	return out
+}
+
+// CheckRevoked refuses a release digest that any verified index revokes.
+func CheckRevoked(mirror string, trust ed25519.PublicKey, digest string) error {
+	if r, ok := Revocations(mirror, trust)[digest]; ok {
+		return fmt.Errorf("release %s is revoked (effective %s): %s", digest, r.EffectiveAt, r.Reason)
+	}
+	return nil
 }
 
 func verifyManifestAt(dir, payload string, trust ed25519.PublicKey, want string) (Manifest, error) {
@@ -295,7 +324,7 @@ func Newest(mirror string, trust ed25519.PublicKey, channel string) (string, Ind
 	for _, e := range entries {
 		dir := filepath.Join(mirror, e.Name())
 		ix, digest, err := VerifyIndex(dir, trust)
-		if err != nil || ix.Channel != channel {
+		if err != nil || ix.Channel != channel || CheckRevoked(mirror, trust, digest) != nil {
 			continue
 		}
 		if bestDir == "" || Newer(ix.Version, best.Version) {

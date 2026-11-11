@@ -52,6 +52,8 @@ type installState struct {
 	Previous       string   `json:"previous,omitempty"`
 	HighestVersion string   `json:"highest_version"`
 	LampdArgs      []string `json:"lampd_args"`
+	// HostID is this host's id; update checks cover only its own work.
+	HostID string `json:"host_id,omitempty"`
 	// Supervisor, when set, is the VZ supervisor this installation runs.
 	Supervisor *supervisorState `json:"supervisor,omitempty"`
 }
@@ -187,6 +189,7 @@ func build(args []string) error {
 	arch := fl.String("arch", runtime.GOARCH, "target architecture")
 	key := fl.String("key", "", "private release signing key file")
 	out := fl.String("out", "", "new release directory")
+	snapshotFormat := fl.String("snapshot-format", "", "with an engine in the payload: the saved-machine-state format it reads and writes")
 	var files multi
 	fl.Var(&files, "file", "payload/path=source (repeatable); bin/lampd and bin/lamp-installer are required")
 	fl.Parse(args)
@@ -241,6 +244,21 @@ func build(args []string) error {
 			m.Components[dst] = cs
 		}
 	}
+	// Sign the engine identity: saved machine state is bound to it.
+	for _, name := range []string{"lamp-vz", "firecracker", "jailer"} {
+		if e, ok := m.Files["bin/"+name]; ok {
+			if m.Engine == nil {
+				m.Engine = map[string]string{}
+			}
+			m.Engine[name+"_sha256"] = e.SHA256
+		}
+	}
+	if m.Engine != nil {
+		if *snapshotFormat == "" {
+			return errors.New("a release shipping an engine needs --snapshot-format")
+		}
+		m.Engine["snapshot_format"] = *snapshotFormat
+	}
 	for _, req := range []string{"bin/lampd", "bin/lamp-installer", "LICENSE", "THIRD_PARTY.md"} {
 		if _, ok := m.Files[req]; !ok {
 			return fmt.Errorf("release needs %s", req)
@@ -291,10 +309,20 @@ func verifyCmd(args []string) error {
 }
 
 // stage copies a verified payload into <prefix>/releases/<version>.
-func stage(prefix, dir string, m manifest) (string, error) {
+func stage(prefix, dir string, m manifest, trust ed25519.PublicKey) (string, error) {
 	target := filepath.Join(prefix, "releases", m.Version)
 	if _, err := os.Stat(target); err == nil {
-		return "", fmt.Errorf("release %s is already staged", m.Version)
+		// Staged by an earlier attempt: reuse it only if it is still exactly
+		// the signed release being applied, else stage it again.
+		want, derr := release.ManifestDigest(filepath.Join(dir, release.Platform()))
+		if derr == nil {
+			if _, verr := release.VerifyStaged(target, trust, want); verr == nil {
+				return target, nil
+			}
+		}
+		if err := os.RemoveAll(target); err != nil {
+			return "", err
+		}
 	}
 	tmp := target + ".staging"
 	os.RemoveAll(tmp)
@@ -582,8 +610,30 @@ func apiGet(prefix, path string) (map[string]any, error) {
 	return out, json.Unmarshal(body, &out)
 }
 
-// inventory is the owner's saved and active work as the API reports it.
+// inventory is this host's saved and active work as the API reports it:
+// sandboxes it runs and resources it holds a copy of. Fleet records without a
+// host are included; activity on other hosts never counts.
 func inventory(prefix string) ([]string, error) {
+	st, _ := loadState(prefix)
+	mine := func(m map[string]any) bool {
+		if st.HostID == "" {
+			return true
+		}
+		h, hasHost := m["host_id"].(string)
+		custody, hasCustody := m["custody_host_ids"].([]any)
+		if !hasHost && !hasCustody {
+			return true
+		}
+		if h == st.HostID {
+			return true
+		}
+		for _, c := range custody {
+			if c == st.HostID {
+				return true
+			}
+		}
+		return false
+	}
 	var rows []string
 	for _, kind := range []string{"sandboxes", "volumes", "caches", "artifacts", "backups", "blobs"} {
 		out, err := apiGet(prefix, "/v1/"+kind+"?limit=500")
@@ -593,17 +643,34 @@ func inventory(prefix string) ([]string, error) {
 		items, _ := out["items"].([]any)
 		for _, it := range items {
 			m, _ := it.(map[string]any)
-			if kind == "sandboxes" {
-				// A running sandbox must still be running; its revision may
-				// advance when the new daemon reconciles it.
-				rows = append(rows, fmt.Sprintf("%s %v %v %v", kind, m["id"], m["state"], m["host_id"]))
+			if !mine(m) {
 				continue
 			}
-			rows = append(rows, fmt.Sprintf("%s %v %v %v %v", kind, m["id"], m["state"], m["revision"], firstOf(m, "manifest_digest", "sha256", "generation_digest")))
+			if kind == "sandboxes" {
+				rows = append(rows, fmt.Sprintf("%s %v %v %v", kind, m["id"], m["host_id"], m["state"]))
+				continue
+			}
+			rows = append(rows, fmt.Sprintf("%s %v %v", kind, m["id"], firstOf(m, "manifest_digest", "sha256", "generation_digest")))
 		}
 	}
 	sort.Strings(rows)
 	return rows, nil
+}
+
+// lost returns the earlier items missing or changed afterwards. New items
+// are fine; an update must only never lose or alter work.
+func lost(before, after []string) []string {
+	have := map[string]bool{}
+	for _, r := range after {
+		have[r] = true
+	}
+	out := []string{}
+	for _, r := range before {
+		if !have[r] {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 func firstOf(m map[string]any, keys ...string) any {
@@ -647,7 +714,7 @@ func install(args []string) error {
 	fl.Var(&supArgs, "supervisor-arg", "run the VZ supervisor as a Lamp component with this serve argument (repeatable; include --socket)")
 	supDir := fl.String("supervisor-dir", "", "root-owned directory for release supervisor copies (default /usr/local/lib/lamp-<name>)")
 	supSystem := fl.String("supervisor-system", "/usr/local/lib/lamp", "supervisor used by releases that ship none")
-	hostID := fl.String("host-id", "", "with --supervisor-arg: this host's fleet id")
+	hostID := fl.String("host-id", "", "this host's id (default: the --fleet-config host_id, else hs_local)")
 	var extra multi
 	fl.Var(&extra, "lampd-arg", "extra lampd argument (repeatable), e.g. enrolled worker or --fleet-config flags")
 	fl.Parse(args)
@@ -709,7 +776,7 @@ func install(args []string) error {
 		lampdArgs = append(lampdArgs, "--worker-socket", filepath.Join(p, "run", "worker.sock"), "--worker-id", "unenrolled", "--worker-boot-id", "unenrolled", "--grant-id", "none", "--worker-uid", strconv.Itoa(os.Getuid()), "--worker-pid", "1")
 	}
 	lampdArgs = append(lampdArgs, extra...)
-	if _, err := stage(p, *release, m); err != nil {
+	if _, err := stage(p, *release, m, key); err != nil {
 		return err
 	}
 	// Keep the signed release in the mirror too, so a later owner rollback
@@ -720,9 +787,22 @@ func install(args []string) error {
 	if err := point(p, m.Version); err != nil {
 		return err
 	}
-	st := installState{Name: *name, Service: *service, Current: m.Version, HighestVersion: m.Version, LampdArgs: lampdArgs}
+	st := installState{Name: *name, Service: *service, Current: m.Version, HighestVersion: m.Version, LampdArgs: lampdArgs, HostID: *hostID}
+	if st.HostID == "" {
+		st.HostID = "hs_local"
+		for i, a := range lampdArgs {
+			if a == "--fleet-config" && i+1 < len(lampdArgs) {
+				var fc struct {
+					HostID string `json:"host_id"`
+				}
+				if readFile(lampdArgs[i+1], &fc) && fc.HostID != "" {
+					st.HostID = fc.HostID
+				}
+			}
+		}
+	}
 	if len(supArgs) > 0 {
-		sup := &supervisorState{Dir: *supDir, System: *supSystem, Args: supArgs, HostID: *hostID}
+		sup := &supervisorState{Dir: *supDir, System: *supSystem, Args: supArgs, HostID: st.HostID}
 		if sup.Dir == "" {
 			sup.Dir = "/usr/local/lib/lamp-" + *name
 		}
@@ -731,8 +811,8 @@ func install(args []string) error {
 				sup.Socket = supArgs[i+1]
 			}
 		}
-		if sup.Socket == "" || sup.HostID == "" {
-			return errors.New("--supervisor-arg needs --socket PATH and --host-id")
+		if sup.Socket == "" {
+			return errors.New("--supervisor-arg needs --socket PATH")
 		}
 		st.Supervisor = sup
 		if err := startSupervisor(p, &st, m.Version); err != nil {
@@ -809,10 +889,13 @@ func update(args []string) error {
 	prefix := fl.String("prefix", "", "installation directory")
 	fl.Parse(args)
 	p, _ := filepath.Abs(*prefix)
-	return applyUpdate(p, *release)
+	return applyUpdate(p, *release, "", "")
 }
 
-func applyUpdate(p, release string) error {
+// applyUpdate applies a release. wantDigest, when set, is the release digest
+// the fleet Update names; channel, when set, is the fleet channel the
+// coordinator checked (else this host's policy channel).
+func applyUpdate(p, relDir string, wantDigest, channel string) error {
 	st, err := loadState(p)
 	if err != nil {
 		return err
@@ -822,13 +905,23 @@ func applyUpdate(p, release string) error {
 	if err != nil {
 		return err
 	}
-	m, err := verifyRelease(release, key)
+	_, m, digest, err := release.VerifyPlatform(relDir, key)
+	if err == nil && wantDigest != "" && digest != wantDigest {
+		err = fmt.Errorf("release digest %s is not the update's %s", digest, wantDigest)
+	}
+	if err == nil {
+		err = release.CheckRevoked(filepath.Join(p, "mirror"), key, digest)
+	}
 	if err != nil {
 		event(p, map[string]any{"event": "update_refused", "reason": err.Error(), "current": st.Current})
 		return fmt.Errorf("refused before apply: %w", err)
 	}
-	if m.Channel != pol.Channel {
-		return fmt.Errorf("refused before apply: release channel %s, host follows %s", m.Channel, pol.Channel)
+	if channel == "" {
+		channel = pol.Channel
+	}
+	if m.Channel != channel {
+		event(p, map[string]any{"event": "update_refused", "reason": "channel " + m.Channel + " is not " + channel, "current": st.Current})
+		return fmt.Errorf("refused before apply: release channel %s, fleet follows %s", m.Channel, channel)
 	}
 	if !newer(m.Version, st.HighestVersion) {
 		event(p, map[string]any{"event": "update_refused", "reason": "anti-rollback: " + m.Version + " is not newer than " + st.HighestVersion, "current": st.Current})
@@ -838,8 +931,12 @@ func applyUpdate(p, release string) error {
 	if err != nil {
 		return fmt.Errorf("host is not healthy before update: %w", err)
 	}
-	if _, err := stage(p, release, m); err != nil {
+	if _, err := stage(p, relDir, m, key); err != nil {
 		return err
+	}
+	if err := engineGuard(p, st.Supervisor, st.Current, m.Version); err != nil {
+		event(p, map[string]any{"event": "update_refused", "reason": err.Error(), "current": st.Current})
+		return fmt.Errorf("refused before apply: %w", err)
 	}
 	event(p, map[string]any{"event": "draining", "from": st.Current, "to": m.Version, "saved_items": len(before)})
 	old := st.Current
@@ -850,8 +947,8 @@ func applyUpdate(p, release string) error {
 	if err == nil {
 		after, err = waitHealthy(p, 90*time.Second)
 	}
-	if err == nil && strings.Join(before, "\n") != strings.Join(after, "\n") {
-		err = fmt.Errorf("saved or active work differs after update (%d items before, %d after)", len(before), len(after))
+	if gone := lost(before, after); err == nil && len(gone) > 0 {
+		err = fmt.Errorf("saved or active work lost or changed after update: %s", strings.Join(gone, "; "))
 	}
 	if err != nil {
 		event(p, map[string]any{"event": "check_failed", "version": m.Version, "reason": err.Error()})
@@ -880,8 +977,8 @@ func revert(p string, st *installState, pol updatePolicy, to string, before []st
 	if err != nil {
 		return err
 	}
-	if before != nil && strings.Join(before, "\n") != strings.Join(after, "\n") {
-		return errors.New("saved or active work differs after rollback")
+	if gone := lost(before, after); len(gone) > 0 {
+		return fmt.Errorf("saved or active work lost or changed after rollback: %s", strings.Join(gone, "; "))
 	}
 	return nil
 }
@@ -901,9 +998,15 @@ func rollbackTo(p, version string) error {
 		return err
 	}
 	dir := filepath.Join(p, "releases", version)
-	ix, err := release.FindByVersion(filepath.Join(p, "mirror"), key, version)
+	ix, digest, err := release.FindByVersion(filepath.Join(p, "mirror"), key, version)
+	if err == nil {
+		err = release.CheckRevoked(filepath.Join(p, "mirror"), key, digest)
+	}
 	if err == nil {
 		_, err = release.VerifyStaged(dir, key, ix.Platforms[release.Platform()])
+	}
+	if err == nil {
+		err = engineGuard(p, st.Supervisor, st.Current, version)
 	}
 	if err != nil {
 		event(p, map[string]any{"event": "rollback_refused", "reason": err.Error(), "current": st.Current})
@@ -961,7 +1064,7 @@ func auto(args []string) error {
 		event("", map[string]any{"event": "auto_skipped", "reason": "automatic updates are disabled"})
 		return nil
 	}
-	return applyUpdate(p, *release)
+	return applyUpdate(p, *release, "", "")
 }
 
 func policy(args []string) error {
@@ -1001,9 +1104,12 @@ func status(args []string) error {
 	inv, ierr := inventory(p)
 	out := map[string]any{"name": st.Name, "service": st.Service, "current": st.Current, "previous": st.Previous, "highest_version": st.HighestVersion, "update_policy": loadPolicy(p), "healthy": ierr == nil, "saved_items": len(inv)}
 	if st.Supervisor != nil {
-		supBin, _, fromRelease := supPaths(p, st.Supervisor, st.Supervisor.Version)
-		sum, _ := fileSum(supBin)
-		out["supervisor"] = map[string]any{"release": st.Supervisor.Version, "from_release": fromRelease, "binary_sha256": sum, "pid": st.Supervisor.PID}
+		paths, fromRelease := componentPaths(p, st.Supervisor, st.Supervisor.Version)
+		sums := map[string]string{}
+		for name, path := range paths {
+			sums[name], _ = fileSum(path)
+		}
+		out["supervisor"] = map[string]any{"release": st.Supervisor.Version, "from_release": fromRelease, "binary_sha256": sums["lamp-supervisor"], "sha256": sums, "pid": st.Supervisor.PID, "alive": supAlive(st.Supervisor)}
 	}
 	raw, _ := json.Marshal(out)
 	say("%s", raw)
@@ -1048,7 +1154,7 @@ func uninstall(args []string) error {
 	}
 	removeService(p, st, lampdJob(p, st))
 	if st.Supervisor != nil {
-		stopSupervisor(&st)
+		stopSupervisor(p, &st)
 		sudo("rm", "-rf", st.Supervisor.Dir)
 	}
 	os.Remove(filepath.Join(p, "run", "api.sock"))
@@ -1126,7 +1232,7 @@ func rollout(args []string) error {
 		event("", map[string]any{"event": "rollout_host", "index": i + 1, "of": len(hosts), "host": alias})
 		var err error
 		if alias == "local" {
-			err = applyUpdate(prefix, rel)
+			err = applyUpdate(prefix, rel, "", "")
 		} else {
 			remote := prefix + "/incoming/" + filepath.Base(rel)
 			if err = run("ssh", alias, "mkdir -p "+shq(prefix+"/incoming")+" && rm -rf "+shq(remote)); err == nil {
@@ -1285,6 +1391,7 @@ type agentRequest struct {
 	ReleaseDigest string `json:"release_digest"`
 	Version       string `json:"version"`
 	Rollback      bool   `json:"rollback,omitempty"`
+	Channel       string `json:"channel"`
 }
 
 type agentResult struct {
@@ -1345,7 +1452,7 @@ func agentCmd(args []string) error {
 			err = rollbackTo(p, req.Version)
 		} else if err == nil {
 			event(p, map[string]any{"event": "agent_applying", "update_id": req.UpdateID, "version": req.Version})
-			err = applyUpdate(p, dir)
+			err = applyUpdate(p, dir, req.ReleaseDigest, req.Channel)
 		}
 		var ex exitErr
 		switch {
@@ -1405,4 +1512,9 @@ func restartCmd(args []string) error {
 	}
 	event(p, map[string]any{"event": "restarted", "service": st.Service, "saved_items_preserved": len(after)})
 	return nil
+}
+
+func readFile(path string, v any) bool {
+	raw, err := os.ReadFile(path)
+	return err == nil && json.Unmarshal(raw, v) == nil
 }

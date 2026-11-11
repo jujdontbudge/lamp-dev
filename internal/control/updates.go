@@ -38,6 +38,9 @@ type updateRequest struct {
 	ReleaseDigest string `json:"release_digest"`
 	Version       string `json:"version"`
 	Rollback      bool   `json:"rollback,omitempty"`
+	// Channel is the fleet channel the coordinator checked the release
+	// against; the host checks the release against it again.
+	Channel string `json:"channel"`
 }
 
 type updateResult struct {
@@ -141,6 +144,9 @@ func (s *Service) newUpdate(owner, digest string, hosts []string) (api.Update, e
 	if _, _, _, err := release.VerifyPlatform(dir, trust); err != nil {
 		return u, reject("INVALID_ARGUMENT", "release trust: "+err.Error())
 	}
+	if err := release.CheckRevoked(filepath.Join(s.installDir, "mirror"), trust, digest); err != nil {
+		return u, reject("INVALID_ARGUMENT", "release trust: "+err.Error())
+	}
 	policy := c.updatePolicy()
 	if ix.Channel != value(policy.Channel) {
 		return u, reject("INVALID_ARGUMENT", "release channel "+ix.Channel+" is not the fleet channel "+value(policy.Channel))
@@ -183,7 +189,7 @@ func (s *Service) newUpdate(owner, digest string, hosts []string) (api.Update, e
 	u.HostIds = &hosts
 	u.CurrentHostId = pointer(hosts[0])
 	u.RollbackRef = pointer(info.Current)
-	u.Labels = api.StringMap{"lamp.version": ix.Version}
+	u.Labels = api.StringMap{"lamp.version": ix.Version, "lamp.channel": ix.Channel}
 	return u, nil
 }
 
@@ -253,6 +259,23 @@ func (s *Service) updateMutation(a caller, verb string, in map[string]any) (api.
 		}
 		if len(back) == 0 || value(old.RollbackRef) == "" {
 			return fail(reject("INVALID_ARGUMENT", "no host completed this update; nothing to roll back"))
+		}
+		// The rollback target must still be trusted: present, signed and not
+		// revoked by any release in the mirror.
+		if s.installDir == "" {
+			return fail(reject("NOT_FOUND", "this host was not installed by lamp-installer; no release mirror"))
+		}
+		trust, err := release.ReadTrust(filepath.Join(s.installDir, "config", "release-trust.pub"))
+		if err != nil {
+			return fail(reject("INVALID_ARGUMENT", "no pinned release key"))
+		}
+		mirror := filepath.Join(s.installDir, "mirror")
+		_, target, err := release.FindByVersion(mirror, trust, value(old.RollbackRef))
+		if err == nil {
+			err = release.CheckRevoked(mirror, trust, target)
+		}
+		if err != nil {
+			return fail(reject("INVALID_ARGUMENT", "rollback target: "+err.Error()))
 		}
 		u = old
 		u.Labels["lamp.phase"] = "rollback"
@@ -399,7 +422,7 @@ func (s *Service) updateStep() {
 		if u.State != "pending" && u.State != "draining" {
 			return
 		}
-		req := updateRequest{UpdateID: id, ReleaseDigest: value(u.ReleaseDigest), Version: u.Labels["lamp.version"]}
+		req := updateRequest{UpdateID: id, ReleaseDigest: value(u.ReleaseDigest), Version: u.Labels["lamp.version"], Channel: u.Labels["lamp.channel"]}
 		if u.Labels["lamp.phase"] == "rollback" {
 			req.Version, req.Rollback = value(u.RollbackRef), true
 		}
