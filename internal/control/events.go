@@ -106,7 +106,10 @@ func (s *Service) addEvents(delta *journal) {
 		delta.Events = append(delta.Events, storedEvent{r.owner, e})
 		// Task-level notification events (OPS-003) follow the state change.
 		derived := ""
+		entered := s.eventStates[k] != r.state
+		s.eventStates[k] = r.state
 		switch {
+		case !entered:
 		case r.kind == "task" && (r.state == "stopped" || r.state == "completed"):
 			derived = "task.done"
 		case r.kind == "task" && r.state == "blocked":
@@ -391,6 +394,7 @@ func (s *Service) indexEventRevisions() {
 		}
 		for id, r := range c.Tasks {
 			s.eventRevisions["task/"+id] = r.Revision
+			s.eventStates["task/"+id] = string(r.State)
 		}
 	}
 	for id, r := range s.journal.Operations {
@@ -415,5 +419,12 @@ func (s *Service) indexEventRevisions() {
 	}
 	for id, r := range c.Approvals {
 		s.eventRevisions["approval/"+id] = r.Revision
+	}
+	for id, session := range c.Sessions {
+		state := textField(session.Resource, "state")
+		if textField(session.Resource, "status") == "blocked" && state == "active" {
+			state = "blocked"
+		}
+		s.eventStates["session/"+id] = state
 	}
 }

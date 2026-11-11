@@ -161,8 +161,11 @@ func (s *Service) notifyMutation(a caller, op api.OperationDescriptor, in map[st
 			if n.State == "acknowledged" {
 				return fail("INVALID_ARGUMENT", "acknowledged notifications are closed")
 			}
+			// A manual retry starts a fresh backoff round; the attempt
+			// history (r.Attempts) is kept.
 			n.State = "pending"
 			n.NextAttemptAt = pointer(timestamp())
+			n.AttemptCount = pointer(uint64(0))
 		default:
 			return fail("NOT_FOUND", "operation not installed")
 		}
@@ -208,6 +211,11 @@ func (s *Service) notifyMutation(a caller, op api.OperationDescriptor, in map[st
 		}
 		if _, ok := s.notifyConfig.Destinations[value(sink.DestinationRef)]; !ok {
 			return fail("SCOPE_DENIED", "destination_ref is not an enrolled destination")
+		}
+		// Enrolled destinations are the host owner's (their phone, their pager):
+		// another principal cannot route signed Lamp notifications to them.
+		if a.Principal != s.journal.Control.OwnerID {
+			return fail("SCOPE_DENIED", "enrolled notification destinations belong to the owner")
 		}
 		if sink.EventTypes == nil || len(*sink.EventTypes) == 0 {
 			sink.EventTypes = &[]string{"task.done", "task.stuck", "task.needs_decision"}

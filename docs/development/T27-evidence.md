@@ -37,6 +37,17 @@ Two runs of `tools/dashboard_demo.py` on the Ubuntu laptop (LX), 2026-11-11. Bot
   - Two fixes this needed: the fleet cache now keeps a sleeping host's suspended sandbox as `suspended` instead of `unavailable`, and the page re-reads its lists every 10 s, because a sleeping peer cannot emit an event.
   - Remaining gap: the retention end date for the stranded state shows "—" on hs_b, because the countdown fields are computed on the sandbox's home host and are not in the fleet-merged copy.
 
+## Review fixes at 9fe33ce (one short run, `tools/notification_review_proof.py`, `transcript-review-fixes.jsonl`)
+
+This was a standalone lampd on LX with the T27 supervisor (no sandboxes) and a local signed receiver. A "phone" destination took task.done and task.stuck; a "pager" destination answered 503.
+
+1. **Watchdog.** A task now counts as `blocked` only when there has been no progress (task updates or its sandboxes' activity) for `block_after_ms` before its deadline. `block_after_ms` no longer clamps the wall time. Every other stop stays `stopped`, and its sandboxes are stopped either way. Result: the task whose 4 s budget ran out under a 60 s watchdog ended `stopped` and sent `task.done`; the task with no progress for 4 s, inside a 120 s budget, ended `blocked` and sent `task.stuck`.
+2. **Transitions only.** `task.done`, `task.stuck` and `task.needs_decision` are derived only when the state changes into that state, and the last state is indexed at startup. Result: a further revision bump on the stopped task (a repeated stop, revision 2 → 3) produced no second `task.done` event and no second phone notification (still 2 deliveries).
+3. **Manual retry.** A retry starts a fresh backoff round (`attempt_count` back to 0) and keeps the attempt history. Result: the pager made attempts at 09.87 and 11.86 s, with the next one due 5 s later. After the retry it made attempts at 14.99 s (immediately) and 16.86 s, with the next due 5 s later, and all 4 attempts stayed in the history. This retry was taken from `pending`, because reaching `failed` takes the full 36-minute schedule; retry takes the same path from either state.
+4. **Destination ownership.** Enrolled destinations are owner-only. Result: a team member's sink pointed at `phone_webhook` was refused with `SCOPE_DENIED` ("enrolled notification destinations belong to the owner").
+
+Optional item 5 (the delivery loop going silent after a failed `save`) was not changed.
+
 ## Not shown live
 
 - Nothing further. The earlier gaps (multi-host, stuck and current-build browser) are covered above.

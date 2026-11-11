@@ -107,6 +107,7 @@ type Service struct {
 	protected      map[string]ProtectedAction
 	native         *NativeFallbackConfig
 	eventRevisions map[string]uint64
+	eventStates    map[string]string // last emitted state, so task.* fire on transitions only
 	journal        journal
 	dir            string
 	exportsDir     string
@@ -363,6 +364,7 @@ func Open(config Config) (*Service, error) {
 	}
 	s.protected = config.ProtectedActions
 	s.eventRevisions = map[string]uint64{}
+	s.eventStates = map[string]string{}
 	for _, event := range s.journal.Events {
 		if event.Event.Sequence > s.journal.EventSequence {
 			s.journal.EventSequence = event.Event.Sequence
