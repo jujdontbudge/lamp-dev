@@ -238,13 +238,21 @@ func TestT29Demonstration(t *testing.T) {
 	if os.Getenv("LAMP_T29_ONLY") == "systems" {
 		defer s.Close()
 		// One real native job per further self-hosted system, each on a fresh VM.
-		for _, plugin := range []string{"pg_gitea", "pg_jenkins", "pg_woodpecker"} {
+		plugins := []string{"pg_gitea", "pg_jenkins", "pg_woodpecker"}
+		if only := os.Getenv("LAMP_T29_PLUGINS"); only != "" {
+			plugins = strings.Split(only, ",")
+		}
+		for _, plugin := range plugins {
 			var id string
 			t29Until(t, plugin+" job", 25*time.Minute, func() bool {
 				id, _ = t29Job(s, func(j *ciJob) bool { return j.Plugin == plugin && ciTerminal(textField(j.R, "state")) })
 				return id != ""
 			})
 			t29Report(t, s, id)
+		}
+		if os.Getenv("LAMP_T29_PLUGINS") != "" {
+			t.Logf("forge runners still registered: %d", t29Runners(t, live))
+			return
 		}
 		t29Triggers(t, s, live, root)
 		return
