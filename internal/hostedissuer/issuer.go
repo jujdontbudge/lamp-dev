@@ -299,6 +299,20 @@ func (i *Issuer) Issue(ctx context.Context, r Request) ([]byte, error) {
 	if hex.EncodeToString(sum[:]) != i.config.DNSHelperSHA256 {
 		return nil, errors.New("DNS helper digest mismatch")
 	}
+	params := acmez.OrderParameters{Identifiers: []acme.Identifier{{Type: "dns", Value: name}}, CSR: acmez.StaticCSR(csr)}
+	// A fresh fleet-root proof authorizes each renewal, including key rotation.
+	// Bind the replacement order to the persisted predecessor using ACME ARI.
+	// Never silently treat a corrupt predecessor as a new certificate request.
+	if previous := i.state.Certificates[r.Fleet]; len(previous) != 0 {
+		block, _ := pem.Decode(previous)
+		if block == nil {
+			return nil, errors.New("invalid persisted renewal predecessor")
+		}
+		params.Replaces, e = x509.ParseCertificate(block.Bytes)
+		if e != nil || len(params.Replaces.DNSNames) != 1 || params.Replaces.DNSNames[0] != name {
+			return nil, errors.New("renewal predecessor outside fleet allocation")
+		}
+	}
 	delete(i.state.Nonces, r.Fleet)
 	i.state.Attempts = append(recent, time.Now())
 	if e = i.save(); e != nil {
@@ -308,7 +322,8 @@ func (i *Issuer) Issue(ctx context.Context, r Request) ([]byte, error) {
 	account.PrivateKey = i.key
 	solver := dnsSolver{i: i, fleet: r.Fleet}
 	client := &acmez.Client{Client: &acme.Client{Directory: i.config.Directory}, ChallengeSolvers: map[string]acmez.Solver{acme.ChallengeTypeDNS01: solver}}
-	certs, e := client.ObtainCertificate(ctx, acmez.OrderParameters{Account: account, Identifiers: []acme.Identifier{{Type: "dns", Value: name}}, CSR: acmez.StaticCSR(csr)})
+	params.Account = account
+	certs, e := client.ObtainCertificate(ctx, params)
 	if e != nil || len(certs) == 0 {
 		return nil, errors.New("ACME issuance failed; capacity reservation retained")
 	}

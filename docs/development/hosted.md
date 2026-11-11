@@ -11,6 +11,7 @@ owner's existing Clerk application, tailnet, Docker resources or other products.
 go build -o lamp-relay ./cmd/lamp-relay
 go build -o lamp-relay-client ./cmd/lamp-relay-client
 go build -o lamp-issuer ./cmd/lamp-issuer
+go build -o lamp-dns-cloudflare ./cmd/lamp-dns-cloudflare
 ```
 
 The relay server is a separate AGPL-3.0-only binary. The host/client, shared JWT
@@ -168,7 +169,8 @@ Private issuer config fields:
   executable with permission only for the allocated DNS-01 challenge records.
   It receives JSON `{action:present|cleanup,name,value}` on stdin; cleanup must
   remove only the matching value and be idempotent. No shell or captured helper
-  output is used. A working Cloudflare helper/credential is **not** supplied.
+  output is used. `cmd/lamp-dns-cloudflare` supplies the Cloudflare helper;
+  its production credential and custodian deployment are not yet provisioned.
 
 ```sh
 lamp-issuer init-account --config /private/issuer.json  # account URI is public
@@ -189,6 +191,24 @@ permissive policies are refused. Domain administration must separately inventory
 all descendants, delegations and aliases before activation; this CLI does not
 claim a whole-zone audit or CT monitor. Do **not** change apex CAA used by other
 Eilmer products. Inspect their records/usage before assigning any capacity.
+
+For Cloudflare, run the helper under a separate DNS-custodian identity with
+private config `{zone_id,token_file,records}`. `records` must explicitly enumerate
+names such as `_acme-challenge.f123.fleet.eilmer.si`; arbitrary suffix grants are
+not accepted. Use a zone-limited DNS-edit API token. Keep that token on the DNS
+custodian, **not** the issuer. A dedicated SSH authorized key with `restrict`
+and a fixed `command="/path/lamp-dns-cloudflare --config /private/dns.json"` can
+expose only the JSON effect protocol to the issuer. Do not reuse the owner's
+unrestricted SSH key. The helper lists only the exact TXT name, preserves other
+values, and deletes only matching challenge values. Neither CAA nor other DNS
+record types can be requested through this helper.
+
+To force renewal, obtain a fresh issuer challenge and submit a fresh fleet-root
+proof for the CSR through the same `issue` command. If a certificate is already
+persisted for that fleet, the ACME order binds `replaces` to it using ARI. A corrupt
+or foreign-fleet predecessor fails closed. Capacity reservations remain
+conservative even for replacements. This path still needs its production run;
+a build is not renewal evidence.
 
 An absent policy, exhausted allocation or ACME failure never returns a ready
 certificate or falls back to plaintext. Successful chains are checked against

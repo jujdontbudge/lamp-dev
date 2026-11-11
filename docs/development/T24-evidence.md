@@ -6,6 +6,69 @@ sign-in, account cookie isolation, public hosted routing and trusted fleet
 wildcard issuance are not demonstrated. This PR does not turn those gaps green
 or open anything publicly. Operational details: [hosted.md](hosted.md).
 
+## Production provisioning follow-up — actual results
+
+The follow-up request authorizes account-gated public addresses and free
+production Let's Encrypt issuance. There is no need for a paid plan or a CA
+quota increase for this demonstration. **It is still not completed:** the real
+account reauthentication steps below require credentials/codes not available to
+this session. No failure is being represented as successful production setup.
+[Recorded observations](evidence/t24/provisioning-followup.jsonl).
+
+- Repeated the prescribed headless Cloudflare procedure on the Air, using a
+  scratch profile and filtered cookie backup, not the owner's visible browser.
+  Cloudflare sent it to sign-in. Its authenticated user API returned HTTP 403,
+  error **9300**. The copied Google session also shows signed-out accounts.
+  The M5 has no usable Cloudflare sign-in either. The known cloudflared/wrangler
+  credential locations contain no credential. Secure password requests timed
+  out without a response; no password reset was attempted. Consequently no
+  authenticated whole-zone inventory or DNS/CAA mutation was performed.
+- The M5's copied Clerk session likewise needs sign-in. The working GitHub
+  session signs into another Clerk workspace, which does not contain the
+  production Eilmer application. It was **not** joined by email and no
+  replacement Eilmer app was created. The existing app owner's actual Clerk
+  sign-in advertises `email_code`; that factor was prepared. Secure code
+  delivery failed at the tool transport, and no code was received. The
+  existing production instance was not modified.
+- **Created the real GitHub OAuth app `Eilmer`, application `4010008`**, in the
+  existing owner GitHub account. Homepage is `https://eilmer.si`; the exact
+  callback is `https://clerk.eilmer.si/v1/oauth_callback`, with no callback
+  wildcard or device flow. GitHub requires sudo-mode confirmation before
+  generating the client secret. Its email-code flow was selected, without
+  invoking a passkey/OS approval or phone prompt. The secure code request
+  timed out. The secret has **not** been generated or installed in Clerk.
+- The Google Cloud credentials page reaches the signed-out account chooser;
+  no production Google OAuth client was created. No phone prompt was reached,
+  so this is **not** reported as a phone-2FA skip.
+- Ubuntu currently has only RFC1918 Wi-Fi IPv4 and link-local/private-tailnet
+  IPv6. No new publicly reachable entry point has been configured. The owner's
+  main tailnet and existing listeners remain untouched. A DNS record pointing
+  at a private address, or TLS termination of browser work at a third-party
+  edge, was not substituted for the required ciphertext-only route.
+
+Two implementation changes are ready for the authenticated provisioning work:
+
+1. `lamp-dns-cloudflare` implements the real Cloudflare TXT API effects, with an
+   explicit exact-name challenge allowlist, fixed zone, bounded JSON, no
+   redirects, no credentials in URLs, and exact-value/idempotent cleanup. It
+   cannot request CAA, apex, arbitrary-name or zone-deletion effects. It belongs
+   on a separate DNS custodian, invocable by a dedicated SSH forced command;
+   the API credential must not be copied to the issuer or relay. The real
+   executable's [pre-credential rejection observations](evidence/t24/dns-helper-admission.jsonl)
+   cover forbidden requests; **no authenticated DNS effect is claimed**.
+2. A fresh root-signed issuance for a fleet with a stored predecessor now sets
+   ACME ARI `replaces` to that predecessor. It checks the predecessor's exact
+   fleet wildcard before ordering and keeps capacity accounting conservative.
+   This provides the forced-renewal order path, **not evidence of a real
+   production renewal**.
+
+Focused builds and vet for those changes passed. No trusted fleet certificate,
+renewal or CT entry exists from this follow-up. Account code exchange, isolated
+browser ingress and the remaining production journey are still open. All
+scratch Chrome instances, browser tabs and the Air debugging tunnel used here
+were closed; copied browser state was removed. No owner app, Docker resource,
+DNS/CAA record or main-tailnet configuration was changed.
+
 ## Real private M5 → Ubuntu → fleet → Firecracker journey
 
 - [Ubuntu observations](evidence/t24/ubuntu-observations.jsonl)
