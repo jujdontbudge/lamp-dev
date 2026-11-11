@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -192,6 +193,8 @@ func (s *Service) ciController(pending []string) {
 		s.cleanupCI(ctx, id, false)
 		cancel()
 	}
+	s.wg.Add(1)
+	go s.ciRetryCleanup()
 	seconds := s.github.Config.PollSeconds
 	if seconds == 0 {
 		<-s.context().Done()
@@ -220,6 +223,58 @@ func (s *Service) ciController(pending []string) {
 					s.lifeStart(caller{Principal: owner}, "job_create", map[string]any{"plugin_id": "pg_github", "external_id": fmt.Sprintf("%s/%d", r.Name, j.ID), "idempotency_key": fmt.Sprintf("github:%d:%d", r.ID, j.ID)})
 				}
 			}
+		}
+	}
+}
+
+// ciRetryCleanup keeps retrying jobs whose revoke, deregistration, VM delete or
+// guard-spool release failed, with per-job exponential backoff (30 s up to
+// 30 min), so a leftover VM or authority never waits for a manual reconcile.
+// Jobs left in cleanup_failed by a previous controller are picked up here too.
+func (s *Service) ciRetryCleanup() {
+	defer s.wg.Done()
+	type backoff struct {
+		next  time.Time
+		delay time.Duration
+	}
+	waits := map[string]backoff{}
+	tick := time.NewTicker(30 * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-s.context().Done():
+			return
+		case <-tick.C:
+		}
+		var failed []string
+		s.readLock()
+		for id, j := range s.life.Jobs {
+			if textField(j.R, "state") == "cleanup_failed" {
+				failed = append(failed, id)
+			}
+		}
+		s.mu.Unlock()
+		now := time.Now()
+		for id := range waits {
+			if !slices.Contains(failed, id) {
+				delete(waits, id)
+			}
+		}
+		for _, id := range failed {
+			w := waits[id]
+			if now.Before(w.next) {
+				continue
+			}
+			ctx, cancel := context.WithTimeout(s.context(), 2*time.Minute)
+			err := s.cleanupCI(ctx, id, false)
+			cancel()
+			if err == nil {
+				delete(waits, id)
+				continue
+			}
+			w.delay = min(max(2*w.delay, 30*time.Second), 30*time.Minute)
+			w.next = time.Now().Add(w.delay)
+			waits[id] = w
 		}
 	}
 }
@@ -674,6 +729,9 @@ shutil.rmtree(root)`)
 					releaseErr = errors.New("CI sandbox cleanup is not complete")
 				}
 			}
+		}
+		if sb.State == "deleted" {
+			releaseErr = errors.Join(releaseErr, s.releaseGuardAudit(ctx, sandbox))
 		}
 		s.readLock()
 		if t, exists := s.journal.Accountability.Tasks[value(sb.TaskId)]; exists {

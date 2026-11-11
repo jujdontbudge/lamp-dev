@@ -253,5 +253,32 @@ Before the passing lifetime run, attempts 42988026084, 42988296883 and
 42988591482 failed before a sandbox existed. The cause was the demo controller's
 own `CONTROL_QUOTA_EXCEEDED` ("retained guard spool reservations exhausted"):
 every T26 sandbox, deleted ones included, keeps an audit spool slot. The demo
-controller's audit quota was raised from 32 GiB to 64 GiB; product behavior
-was not changed.
+controller's audit quota was briefly raised from 32 GiB to 64 GiB; that bump
+was undone once deleted sandboxes stopped holding slots (below).
+
+## Deleted sandboxes release their guard-spool slot
+
+Review finding: the retained-spool quota counted every sandbox ever created,
+so a host eventually refused all `sandbox_create`. Now a deleted sandbox's guard
+spools are captured into the controller's state (`guard-audit/<sandbox>.ndjson`),
+removed by the trusted `--audit-release` command (`tools/guard-audit-release.py`
+via `sudo -n`), and only then stop holding a reservation. The demo controller
+runs at the original 32 GiB audit quota.
+
+* On restart, the sweep released all 32 earlier T26 sandboxes: 43 MB of records
+  captured, 0 spool directories left on the host.
+* Single real job [42990912422](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42990912422)
+  (Lamp job `jb_72a1bba9b93df9b173ea8a70a6d279e0`, sandbox
+  `sb_2eb6249614be82d93e4262b93045fcbd`): before it, 33 released and 0 spool
+  directories; while it ran, 1 spool directory; after delete, 34 released and
+  0 spool directories. The job completed.
+* The attempt before it, [42990788731](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42990788731),
+  also had its slot freed, but the job failed: its workflow was not enrolled for
+  the host's model-broker network exception (`SCOPE_DENIED`). Recorded as failed.
+
+The same review also changed two things that were not run for real here: only
+`push`, `workflow_dispatch`, `schedule`, `merge_group` and `dynamic` count as
+trusted events, and every other event is `public_pr` in both `Verify` and OIDC
+`VerifyIdentity`. `cleanup_failed` jobs are now retried by the controller with
+30 s to 30 min backoff, including jobs left over from a previous controller.
+The controlled-forge test `internal/control/ci_demo_test.go` was deleted.

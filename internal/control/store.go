@@ -71,9 +71,15 @@ type Config struct {
 	StateAdmin  []string
 	Quotas      Quotas
 	AuditReader string
+	// AuditRelease is the trusted argv prefix that, given `capture <sandbox>`,
+	// prints a deleted sandbox's guard spool records and, given `remove
+	// <sandbox>`, deletes those spools. Empty keeps every spool and its slot.
+	AuditRelease []string
 }
 type Service struct {
 	auditReservationBytes uint64
+	auditRelease          []string
+	auditReleased         map[string]bool
 	github                *ci.GitHub
 	native                *NativeFallbackConfig
 	clockWall             time.Time
@@ -218,7 +224,7 @@ func Open(config Config) (*Service, error) {
 	if reservation == 0 {
 		reservation = 24 << 20
 	}
-	s := &Service{auditReservationBytes: reservation, fleetEnabled: config.Fleet != nil, quotas: defaultQuotas(config.Quotas), auditReader: config.AuditReader, dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
+	s := &Service{auditReservationBytes: reservation, fleetEnabled: config.Fleet != nil, quotas: defaultQuotas(config.Quotas), auditReader: config.AuditReader, auditRelease: config.AuditRelease, dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
 	s.journal = journal{Version: 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
 	path := filepath.Join(s.dir, "journal.json")
 	data, err := os.ReadFile(path)
@@ -415,6 +421,10 @@ func Open(config Config) (*Service, error) {
 	}
 	s.durableOps = cloneOperations(s.journal.Operations)
 	s.rootContext, s.cancel = context.WithCancel(context.Background())
+	if err := s.loadReleasedGuardAudit(); err != nil {
+		lock.Close()
+		return nil, err
+	}
 	if err := s.initLifecycle(config.StateAdmin); err != nil {
 		lock.Close()
 		return nil, err
@@ -430,6 +440,10 @@ func Open(config Config) (*Service, error) {
 			s.wg.Add(1)
 			go s.reconcileSandbox(rec.Resource.Id, rec.Operation.Id)
 		}
+	}
+	if len(s.auditRelease) > 0 {
+		s.wg.Add(1)
+		go s.sweepGuardAudit()
 	}
 	if s.github != nil {
 		var pending []string

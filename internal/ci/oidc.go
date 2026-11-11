@@ -101,7 +101,8 @@ func (g *GitHub) VerifyIdentity(ctx context.Context, jwt, audience string) (map[
 	}
 	// Visibility is issuer evidence, not bootstrap input. A PR or an unknown
 	// visibility can never receive a Lamp key, even with a trusted base ref.
-	if claims["repository_visibility"] != "private" || claims["event_name"] == "pull_request" || claims["event_name"] == "pull_request_target" {
+	event, _ := claims["event_name"].(string)
+	if claims["repository_visibility"] != "private" || !TrustedEvent(event) {
 		return nil, denied
 	}
 	return claims, nil

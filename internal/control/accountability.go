@@ -375,7 +375,15 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 		return reject("RESOURCE_IN_USE", "command queue quota reached")
 	}
 	if name == "sandbox_create" || name == "sandbox_fork" {
-		if uint64(len(s.journal.Sandboxes)+1) > q.AuditBytes/s.auditReservationBytes {
+		// Deleted sandboxes keep their slot until their spools are captured and
+		// removed; live and unreleased sandboxes each hold one reservation.
+		held := 0
+		for id, x := range s.journal.Sandboxes {
+			if x.State != "deleted" || !s.auditReleased[id] {
+				held++
+			}
+		}
+		if uint64(held+1) > q.AuditBytes/s.auditReservationBytes {
 			return reject("CONTROL_QUOTA_EXCEEDED", "retained guard spool reservations exhausted")
 		}
 		if retains && sb.Resources != nil {
@@ -978,15 +986,23 @@ func (s *Service) readGuardAudit(a caller, in map[string]any) ([]any, error) {
 	}
 	records := []any{}
 	if s.auditReader != "" {
-		ctx, cancel := context.WithTimeout(s.context(), 10*time.Second)
-		defer cancel()
-		cmd := exec.CommandContext(ctx, s.auditReader, id, strconv.FormatUint(value(sb.Generation), 10))
-		var out limitedAuditBuffer
-		cmd.Stdout = &out
-		if err := cmd.Run(); err != nil {
-			return nil, reject("AUDIT_UNAVAILABLE", "guard audit reader failed")
+		var text string
+		captured, fromCapture := s.capturedGuardAudit(id)
+		if fromCapture {
+			// Spools were removed after capture; serve the captured copy.
+			text = string(captured)
+		} else {
+			ctx, cancel := context.WithTimeout(s.context(), 10*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, s.auditReader, id, strconv.FormatUint(value(sb.Generation), 10))
+			var out limitedAuditBuffer
+			cmd.Stdout = &out
+			if err := cmd.Run(); err != nil {
+				return nil, reject("AUDIT_UNAVAILABLE", "guard audit reader failed")
+			}
+			text = out.String()
 		}
-		for _, line := range strings.Split(out.String(), "\n") {
+		for _, line := range strings.Split(text, "\n") {
 			if strings.TrimSpace(line) == "" {
 				continue
 			}
@@ -995,7 +1011,13 @@ func (s *Service) readGuardAudit(a caller, in map[string]any) ([]any, error) {
 				return nil, reject("AUDIT_UNAVAILABLE", "invalid guard record")
 			}
 			attr, _ := v["attribution"].(map[string]any)
-			if textField(attr, "sandbox_id") != id || fmt.Sprint(attr["generation"]) != strconv.FormatUint(value(sb.Generation), 10) {
+			if textField(attr, "sandbox_id") != id {
+				return nil, reject("AUDIT_UNAVAILABLE", "guard attribution mismatch")
+			}
+			if fmt.Sprint(attr["generation"]) != strconv.FormatUint(value(sb.Generation), 10) {
+				if fromCapture {
+					continue // the capture spans every generation
+				}
 				return nil, reject("AUDIT_UNAVAILABLE", "guard attribution mismatch")
 			}
 			records = append(records, v)

@@ -241,7 +241,7 @@ func (g *GitHub) Verify(ctx context.Context, r Repository, id int64) (Demand, er
 	if d.Run.Event == "pull_request_target" || d.Run.Event == "workflow_run" {
 		return d, errors.New("privileged trigger cannot execute CI head code")
 	}
-	d.Public = !d.Run.Repository.Private || d.Run.Event == "pull_request"
+	d.Public = !d.Run.Repository.Private || !TrustedEvent(d.Run.Event)
 	if r.TrustedActorIDs != nil {
 		trusted := false
 		for _, id := range r.TrustedActorIDs {
@@ -501,4 +501,16 @@ func (g *GitHub) QueuedInProgress(ctx context.Context, r Repository) ([]Job, err
 		}
 	}
 	return all, nil
+}
+
+// TrustedEvent reports whether a workflow event runs only code that a trusted
+// repository writer chose. Every other event (pull_request, the PR review and
+// comment events, issue_comment, and any event GitHub adds later) may run or be
+// steered by a stranger's pull request and is handled as public_pr.
+func TrustedEvent(event string) bool {
+	switch event {
+	case "push", "workflow_dispatch", "schedule", "merge_group", "dynamic":
+		return true
+	}
+	return false
 }

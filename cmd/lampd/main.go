@@ -69,6 +69,7 @@ func run() error {
 	pid := flags.Int("worker-pid", 0, "assigned supervisor OS PID (required)")
 	grant := flags.String("grant-id", "", "supervisor-installed control grant ID")
 	timeout := flags.Duration("worker-timeout", 30*time.Second, "absolute operation deadline (max 1m)")
+	auditRelease := flags.String("audit-release", "", "JSON argv of the trusted guard-spool release command (given capture|remove and a sandbox ID)")
 	stateAdmin := flags.String("state-admin", "", "JSON argv of the supervisor's root-only state administration, used to discard saved state")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		return err
@@ -80,6 +81,12 @@ func run() error {
 	if *stateAdmin != "" {
 		if err := json.Unmarshal([]byte(*stateAdmin), &admin); err != nil || len(admin) == 0 {
 			return fmt.Errorf("--state-admin must be a JSON argv")
+		}
+	}
+	var release []string
+	if *auditRelease != "" {
+		if err := json.Unmarshal([]byte(*auditRelease), &release); err != nil || len(release) == 0 {
+			return fmt.Errorf("--audit-release must be a JSON argv")
 		}
 	}
 	if *profileDir != "" {
@@ -165,7 +172,7 @@ func run() error {
 			return e
 		}
 	}
-	service, err := control.Open(control.Config{AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin})
+	service, err := control.Open(control.Config{AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release})
 	if err != nil {
 		return err
 	}
