@@ -126,6 +126,22 @@ Focused checks both passed, exit 0:
 No VM, full-suite or benchmark run was added for this import-only resolution.
 The source hash manifest was refreshed; the feature limitations below remain.
 
+## Main merge including T24/T20 — 2026-11-11
+
+Merged `origin/main` at `3a36215`. The sole conflict was the sandbox-create
+JSON field allowlist in `internal/control/http.go`. The resolution accepts both
+main's `devices` and T22's `labels`; device validation, custody-label authorization
+and all incoming relay/device behavior are retained.
+
+Focused checks passed, exit **0**:
+
+- `test -z "$(gofmt -l internal/control/http.go)"`
+- `go build ./cmd/lamp ./cmd/lampd`
+- PR-relative `git diff --cached --check origin/main`
+
+No new tests, VM demonstrations, passed-demo reruns or full suites were run.
+The source manifest was refreshed; this merge does not complete remaining goals.
+
 ## Incremental public API/CLI checkpoint — 2026-11-11
 
 This checkpoint publishes the compiling integration, not a new passing browser,

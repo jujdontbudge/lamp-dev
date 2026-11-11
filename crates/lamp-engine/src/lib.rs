@@ -11,6 +11,7 @@ pub mod custody_store;
 pub mod definition;
 pub mod error;
 pub mod manifest;
+pub mod select;
 
 #[cfg(target_os = "linux")]
 pub mod build;
@@ -30,6 +31,8 @@ pub mod fc;
 pub mod fsutil;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod guest;
+#[cfg(target_os = "linux")]
+pub mod gvisor;
 #[cfg(target_os = "linux")]
 pub mod memimg;
 #[cfg(target_os = "linux")]

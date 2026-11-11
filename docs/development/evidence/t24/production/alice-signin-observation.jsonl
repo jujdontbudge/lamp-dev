@@ -1,0 +1,2 @@
+{"actor": "alice", "signed_in": true, "issuer": "https://clerk.eilmer.si", "subject": "user_3LwLjd8Vsn7muj8m2uVdPT24Iz6", "url": "https://relay.eilmer.si:37443/", "cookies": [{"name": "__Host-eilmer_account", "domain": "account.eilmer.si", "secure": true, "httpOnly": true, "sameSite": "Strict"}, {"name": "__Host-lamp_session", "domain": "relay.eilmer.si", "secure": true, "httpOnly": true, "sameSite": "Strict"}], "javascript_visible_cookie_names": []}
+{"actor": "alice", "opaque_relay_token_saved_privately": true, "clerk_bearer_shared_with_product_browser": false}
