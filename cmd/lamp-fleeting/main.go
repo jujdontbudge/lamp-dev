@@ -202,8 +202,8 @@ func (g *Group) startAgent(id string, it *instance) {
 		return
 	}
 	data := z.Bytes()
-	for off, n := 0, 0; off < len(data); off, n = off+48<<10, n+1 {
-		chunk := base64.StdEncoding.EncodeToString(data[off:min(off+48<<10, len(data))])
+	for off, n := 0, 0; off < len(data); off, n = off+32<<10, n+1 {
+		chunk := base64.StdEncoding.EncodeToString(data[off:min(off+32<<10, len(data))])
 		if err = g.runWait(it.Sandbox, []string{"python3", "-c", "import base64,sys;open(sys.argv[1],'ab').write(base64.b64decode(sys.argv[2]))", path + ".gz", chunk}, fmt.Sprintf("fleeting-up:%s:%d", id, n)); err != nil {
 			g.log.Error("guest upload failed", "instance", id, "err", err)
 			return

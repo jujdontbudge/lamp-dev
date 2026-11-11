@@ -291,8 +291,8 @@ func runStage(c *client, job, script, stage string) int {
 	if _, err = execute(c, sandbox, []string{"sh", "-c", "mkdir -p /var/tmp/lamp-ci && : > " + target}, "gl:"+job+":"+stage+":init:"+nonce, false); err != nil {
 		return systemFailure(err)
 	}
-	for off, n := 0, 0; off < len(body); off, n = off+48<<10, n+1 {
-		chunk := base64.StdEncoding.EncodeToString(body[off:min(off+48<<10, len(body))])
+	for off, n := 0, 0; off < len(body); off, n = off+32<<10, n+1 {
+		chunk := base64.StdEncoding.EncodeToString(body[off:min(off+32<<10, len(body))])
 		code, err := execute(c, sandbox, []string{"python3", "-c", "import base64,sys;open(sys.argv[1],'ab').write(base64.b64decode(sys.argv[2]))", target, chunk}, fmt.Sprintf("gl:%s:%s:%s:%d", job, stage, nonce, n), false)
 		if err != nil || code != 0 {
 			return systemFailure(fmt.Errorf("script upload failed: %v", err))
