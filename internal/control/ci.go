@@ -28,6 +28,8 @@ type ciJob struct {
 	Registering bool           `json:"registration_attempted,omitempty"`
 	Cancel      bool           `json:"cancel"`
 	Retain      bool           `json:"retain"`
+	Workflow    string         `json:"workflow,omitempty"`
+	BrokerGrant string         `json:"broker_grant,omitempty"`
 }
 
 func init() {
@@ -347,8 +349,8 @@ func (s *Service) ciCreateSandbox(ctx context.Context, id string, r ci.Repositor
 			} `json:"allow"`
 		} `json:"policy_ceiling"`
 	}
-	if json.Unmarshal(raw, &policy) != nil || !policy.Require || len(policy.Exceptions) > 0 || len(policy.Domains) > 0 {
-		return sandbox, reject("SCOPE_DENIED", "CI requires an immutable allowlist without credential or private-service exceptions")
+	if json.Unmarshal(raw, &policy) != nil || !policy.Require || !s.ciBrokerNetwork(id, r, policy.Exceptions) || len(policy.Domains) > 0 {
+		return sandbox, reject("SCOPE_DENIED", "CI requires an immutable allowlist; only an exact enrolled trusted model-broker exception is permitted")
 	}
 	if policy.AuditReservation > s.auditReservationBytes {
 		return sandbox, reject("CONTROL_QUOTA_EXCEEDED", "installed audit allowance exceeds the enrolled per-sandbox reservation")
@@ -391,6 +393,7 @@ func (s *Service) runCIJob(ctx context.Context, id string) (err error) {
 	}
 	if err = s.ciUpdate(id, func(j *ciJob) {
 		j.Run = demand.Run.ID
+		j.Workflow = demand.Run.Path
 		labels := object(j.R["labels"])
 		labels["route"] = demand.Route
 		j.R["labels"] = labels
@@ -446,6 +449,10 @@ os.chmod(dst,0o700)
 		s.github.Deregister(ctx, r, runner)
 		return err
 	}
+	modelEnv, err := s.ciModelEnvironment(ctx, id, r)
+	if err != nil {
+		return err
+	}
 	req := s.workerRequest(ctx, "ci-runner", sandbox, s.sandboxGeneration(sandbox))
 	command := req.Context.OperationId
 	if err = s.ciUpdate(id, func(j *ciJob) { j.Command = command }); err != nil {
@@ -455,6 +462,9 @@ os.chmod(dst,0o700)
 jit=os.environ.pop('LAMP_JIT_CONFIG')
 os.environ['HOME']='/tmp'
 os.execv('./run.sh',['./run.sh','--jitconfig',jit])`}, Env: map[string]string{"LAMP_JIT_CONFIG": jit, "PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp", "RUNNER_ALLOW_RUNASROOT": "1", "TAR_OPTIONS": "--no-same-owner"}}}
+	for k, v := range modelEnv {
+		req.GetStart().Env[k] = v
+	}
 	// The protected collector presents UID 0 inside its task user namespace,
 	// mapped to an unprivileged guest UID. This skips only the runner's cosmetic
 	// UID check; it grants no host, supervisor or outer-guest authority. GNU
@@ -555,6 +565,7 @@ func (s *Service) cleanupCI(ctx context.Context, id string, allowRetain bool) er
 	if j.Run != 0 && result == "" {
 		s.github.Cancel(ctx, r, j.Run)
 	}
+	brokerErr := s.ciRevokeModel(ctx, id, r)
 	var deregErr error
 	if j.Registering || j.Runner != 0 {
 		deregErr = s.github.DeregisterJob(ctx, r, "lamp-"+id, j.Runner)
@@ -674,7 +685,7 @@ shutil.rmtree(root)`)
 		}
 		s.mu.Unlock()
 	}
-	if deregErr != nil || releaseErr != nil {
+	if brokerErr != nil || deregErr != nil || releaseErr != nil {
 		s.ciState(id, "cleanup_failed")
 		return errors.New("CI authority or VM cleanup needs reconciliation")
 	}

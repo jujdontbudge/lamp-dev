@@ -12,9 +12,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +28,15 @@ const GitHubIssuer = "https://token.actions.githubusercontent.com"
 
 // Repository is host-enrolled policy, not workflow input. IDs survive renames.
 // Public workflow bytes must be explicitly reviewed and pinned by the owner.
+// ModelBroker is trusted host enrollment. Workflows select exact broker
+// connection/operation scopes; neither labels nor workflow input can enroll it.
+type ModelBroker struct {
+	OwnerSocket string                         `json:"owner_socket"`
+	Endpoint    string                         `json:"endpoint"`
+	CAFile      string                         `json:"ca_file"`
+	PeerIP      string                         `json:"peer_ip"`
+	Workflows   map[string]map[string][]string `json:"workflows"`
+}
 type Repository struct {
 	Name            string            `json:"name"`
 	ID              int64             `json:"id"`
@@ -37,8 +48,9 @@ type Repository struct {
 	RetainStopped   bool              `json:"retain_stopped"`
 	// Nil preserves reviewed-private-workflow trust. An explicit empty list
 	// trusts no actor; PR events remain untrusted even for an enrolled actor.
-	TrustedActorIDs []int64 `json:"trusted_actor_ids"`
-	EnableCopilot   bool    `json:"enable_copilot"`
+	TrustedActorIDs []int64      `json:"trusted_actor_ids"`
+	EnableCopilot   bool         `json:"enable_copilot"`
+	ModelBroker     *ModelBroker `json:"model_broker,omitempty"`
 }
 type Config struct {
 	TokenFile      string       `json:"token_file"`
@@ -72,6 +84,31 @@ func New(config Config) (*GitHub, error) {
 	for _, r := range config.Repositories {
 		if len(strings.Split(r.Name, "/")) != 2 || strings.ContainsAny(r.Name, " ?#%\\\r\n") || r.ID <= 0 || r.OwnerID <= 0 || r.Label == "" || r.TemplateID == "" || !strings.HasPrefix(r.RunnerDirectory, "/") || seen[r.Name] {
 			return nil, errors.New("invalid CI repository enrollment")
+		}
+		if b := r.ModelBroker; b != nil {
+			u, e := url.Parse(b.Endpoint)
+			if e != nil || u == nil {
+				return nil, errors.New("invalid model broker endpoint")
+			}
+			ip := net.ParseIP(u.Hostname())
+			if u.Scheme != "https" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || ip == nil || !ip.IsPrivate() || u.Port() == "" || !filepath.IsAbs(b.OwnerSocket) || !filepath.IsAbs(b.CAFile) || net.ParseIP(b.PeerIP) == nil || len(b.Workflows) == 0 {
+				return nil, errors.New("model broker needs an enrolled private HTTPS endpoint, CA and owner socket")
+			}
+			for path, connections := range b.Workflows {
+				if r.WorkflowSHA256[path] == "" || len(connections) == 0 {
+					return nil, errors.New("model broker workflow must be reviewed and scoped")
+				}
+				for name, ops := range connections {
+					if name == "" || len(ops) == 0 {
+						return nil, errors.New("model broker needs exact connections and operations")
+					}
+					for _, op := range ops {
+						if op != "messages" && op != "responses" && op != "chat" {
+							return nil, errors.New("CI model grant cannot authorize other broker operations")
+						}
+					}
+				}
+			}
 		}
 		seen[r.Name] = true
 	}
