@@ -1,0 +1,32 @@
+[
+  {
+    "kind": "devin",
+    "official_binary": "~/lamp-t25/devinhome/lamp-t25/devinhome/.local/share/devin/cli/_versions/3000.12.43/bin/devin",
+    "version": [
+      "devin 3000.12.43 (517d03d73926)"
+    ],
+    "route": "official subscription route held on this custody host",
+    "model": "",
+    "public_repository": "octocat/Hello-World",
+    "turn1": {
+      "success": true,
+      "observed": "\n \u2713 Logged in as <owner account>.\n \u2713 Organization: <owner org>\n \u25b2 Restart your shell or run: \u001b[1msource /tmp/t25dev3/devin/home/.bashrc\u001b[0m. Then run \u001b[1mdevin\u001b[0m to get started.\nREADY\n",
+      "continuation_ref": "prickle-textbook"
+    },
+    "turn2": {
+      "success": true,
+      "observed": "\n \u2713 Logged in as <owner account>.\n \u2713 Organization: <owner org>\n \u25b2 Restart your shell or run: \u001b[1msource /tmp/t25dev3/devin-moved/home/.bashrc\u001b[0m. Then run \u001b[1mdevin\u001b[0m to get started.\nLAMP557A9A\n",
+      "continuation_ref": "prickle-textbook"
+    },
+    "codeword_recalled": true,
+    "moved": {
+      "from": "/tmp/t25dev3/devin/work",
+      "to": "/tmp/t25dev3/devin-moved/work",
+      "artifact_bytes": 31247,
+      "original_deleted": true
+    },
+    "same_native_session": true,
+    "native_fork_of": null,
+    "continued": true
+  }
+]

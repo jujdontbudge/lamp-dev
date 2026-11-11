@@ -22,6 +22,7 @@ NATIVE_STATE = {
     "copilot": ["copilot/session-state", "copilot/session-store.db", "copilot/session-store.db-wal", "copilot/session-store.db-shm"],
     "droid": [".factory/sessions"],
     "cursor": ["config/chats"],
+    "devin": ["devin-sessions"],
     # Amp threads live on ampcode.com; only the thread ID (lamp-native.json) moves.
     "amp": [],
 }

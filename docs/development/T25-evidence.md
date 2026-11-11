@@ -194,6 +194,24 @@ keychain and printed a warning when that failed. No prompt appeared. Keychain
 writes are not allowed on the owner's Macs, so the recorded run is on Ubuntu,
 which has no keychain. The catalogue lists this as a limitation.
 
+## 7. Devin on the owner's device login (Ubuntu)
+
+The owner approved `devin auth login --force-manual-token-flow`, which ran in
+an isolated home on the Ubuntu laptop that uses it. Lamp pasted the code from
+the owner's file and never printed it. Devin 3000.12.43 reads its login only from
+`$XDG_DATA_HOME/devin/credentials.toml`. Setting `WINDSURF_API_KEY` alone was
+observed as `Not logged in`. The adapter therefore points `XDG_DATA_HOME` at
+the login in place (it is never copied) and sets `DEVIN_SESSIONS_DIR` to the
+session's own home, so the native store (`cli/sessions.db`) travels with the
+continuation artifact. Print mode cannot show Devin's workspace-trust prompt,
+so the adapter passes `--respect-workspace-trust false`.
+
+`--move`: turn one answered `READY`. The session store was packed, restored
+under a new directory, and the original was deleted. `--resume
+prickle-textbook` recalled `LAMP557A9A` in the same native session. The
+account email and organisation are redacted. Raw:
+`evidence/t25-devin-relocation.json`.
+
 ## Routes not yet exercised, and why
 
 These adapters are built and their argv was accepted by the real binaries.
@@ -201,9 +219,8 @@ Each needs a vendor account sign-in that only the owner can complete:
 
 | Harness | What is needed |
 | --- | --- |
-| amp | An Amp access token. The supplied token file holds an SSH key, not an Amp token, so Amp rejected it (`Invalid or missing API key`). |
+| amp | Not run: the owner dropped it on 2026-11-11. The adapter (thread-ID continuation) and catalogue entry stay as built. An earlier attempt with a wrong token file was rejected by Amp (`Invalid or missing API key`). |
 | gemini_cli | Not run: the owner dropped it on 2026-11-11. The adapter and catalogue entry stay as built. |
-| devin | `devin auth login --force-manual-token-flow` approval. Cloud (`--cloud`) sessions are not relocated or presented as local. |
 | copilot_cli subscription, droid Factory models | Copilot device-login approval, or a Factory API key. The BYOK routes above already work without them. |
 
 Claude Code and Codex subscription sign-ins stay T21's custody path. They

@@ -428,9 +428,18 @@ class Devin:
         env["DEVIN_DISABLE_AUTOUPDATE"] = "1"
         if c["auth"] == "api_key":
             env["WINDSURF_API_KEY"] = secret(c)
+        elif c["auth"] == "subscription":
+            # Devin reads its device login only from $XDG_DATA_HOME/devin/
+            # credentials.toml, so it is used in place, never copied. The
+            # session store goes to this session's own home.
+            login = Path(c["credential_file"]).resolve()
+            if login.name != "credentials.toml" or login.parent.name != "devin":
+                raise ValueError("Devin subscription credential must be the login's devin/credentials.toml")
+            env["XDG_DATA_HOME"] = str(login.parent.parent)
+        env["DEVIN_SESSIONS_DIR"] = str(home / "devin-sessions")
 
     def argv(self, c, state, prompt):
-        argv = [c["binary"], "--permission-mode", "dangerous"]
+        argv = [c["binary"], "--respect-workspace-trust", "false", "--permission-mode", "dangerous"]
         if state.get("session_id"):
             argv += ["--resume", state["session_id"]]
         if c.get("model"):

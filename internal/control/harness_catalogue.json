@@ -315,7 +315,8 @@
     "limitations": [
       "Cloud sessions (--cloud) run on Devin's machines; Lamp does not relocate them into a sandbox and does not present a cloud session as local.",
       "Headless output is plain text only.",
-      "Use speed:standard; Devin's daily quota is shared."
+      "Use speed:standard; Devin's daily quota is shared.",
+      "Devin reads its device login only from $XDG_DATA_HOME/devin/credentials.toml and does not take the login's key from WINDSURF_API_KEY, so Lamp runs it with that login in place on its own host. DEVIN_SESSIONS_DIR keeps sessions in the Lamp session home. Print mode needs --respect-workspace-trust false."
     ]
   },
   {
