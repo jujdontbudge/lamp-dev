@@ -3,6 +3,7 @@ package control
 import (
 	"bytes"
 	"context"
+	"crypto/ecdh"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -75,6 +76,16 @@ type Config struct {
 	// prints a deleted sandbox's guard spool records and, given `remove
 	// <sandbox>`, deletes those spools. Empty keeps every spool and its slot.
 	AuditRelease []string
+	// RecoveryPublicKey is the owner's offline data-recovery public key file;
+	// every new backup is also wrapped to it.
+	RecoveryPublicKey string
+	// RecoveryKeyFile and RecoveryImportDir import sealed archives on a
+	// replacement host with the owner's recovery material (recovery.go).
+	RecoveryKeyFile   string
+	RecoveryImportDir string
+	// InstallDir is the lamp-installer prefix: release mirror, pinned release
+	// key and the updater agent's request/result files (updates.go).
+	InstallDir string
 }
 type Service struct {
 	auditReservationBytes uint64
@@ -111,6 +122,9 @@ type Service struct {
 	broken                bool
 	keys                  map[string]string
 	logRecords            int
+	recoveryPublic        *ecdh.PublicKey
+	installDir            string
+	wantFleet             bool
 	// changed is closed (and replaced) whenever a journal change becomes
 	// durable, waking long-polling readers instead of having them spin.
 	changed chan struct{}
@@ -425,6 +439,12 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	if config.RecoveryPublicKey != "" {
+		if s.recoveryPublic, err = readRecoveryPublic(config.RecoveryPublicKey); err != nil {
+			lock.Close()
+			return nil, err
+		}
+	}
 	if err := s.initLifecycle(config.StateAdmin); err != nil {
 		lock.Close()
 		return nil, err
@@ -432,6 +452,16 @@ func Open(config Config) (*Service, error) {
 	if err := s.initCI(config.CI); err != nil {
 		s.Close()
 		return nil, err
+	}
+	s.installDir = config.InstallDir
+	s.wantFleet = config.Fleet != nil
+	s.wg.Add(1)
+	go s.updateDriver()
+	if config.RecoveryKeyFile != "" {
+		if err := s.importRecovered(config.RecoveryKeyFile, config.RecoveryImportDir); err != nil {
+			s.Close()
+			return nil, err
+		}
 	}
 	s.wg.Add(1)
 	go s.watchAccountability()

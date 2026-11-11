@@ -44,6 +44,8 @@ type controlState struct {
 	Memberships  map[string]api.Membership `json:"memberships"`
 	Keys         map[string]storedKey      `json:"keys"`
 	Approvals    map[string]api.Approval   `json:"approvals"`
+	// Updates are fleet-wide rollouts (HST-005), replicated with authority.
+	Updates map[string]api.Update `json:"updates,omitempty"`
 }
 type caller struct{ Principal, KeyID string }
 type callerContext struct{}

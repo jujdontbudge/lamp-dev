@@ -578,6 +578,11 @@ impl Server {
                 .insert(format!("template.{}", t.id), t.manifest.name.clone());
         }
         o.detail.insert("engine".into(), ENGINE_NAME.into());
+        // The Lamp release this supervisor binary was built for.
+        o.detail.insert(
+            "supervisor_release".into(),
+            option_env!("LAMP_RELEASE_VERSION").unwrap_or("dev").into(),
+        );
         o.detail.insert(
             "engine_digest".into(),
             self.engine.compat.engine_digest.clone(),

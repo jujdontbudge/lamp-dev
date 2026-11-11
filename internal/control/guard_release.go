@@ -72,13 +72,13 @@ func (s *Service) releaseGuardAudit(ctx context.Context, sandbox string) error {
 	if err = os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	if err = writeDurable(dir, sandbox+".ndjson", records); err != nil {
+	if err = writeDurable(filepath.Join(dir, sandbox+".ndjson"), records); err != nil {
 		return err
 	}
 	if _, err = run("remove"); err != nil {
 		return errors.New("guard audit spool removal failed")
 	}
-	if err = writeDurable(dir, sandbox+".released", nil); err != nil {
+	if err = writeDurable(filepath.Join(dir, sandbox+".released"), nil); err != nil {
 		return err
 	}
 	s.readLock()
@@ -97,32 +97,6 @@ func (s *Service) capturedGuardAudit(sandbox string) ([]byte, bool) {
 	}
 	data, err := os.ReadFile(filepath.Join(s.dir, guardAuditDir, sandbox+".ndjson"))
 	return data, err == nil
-}
-
-func writeDurable(dir, name string, data []byte) error {
-	tmp, err := os.CreateTemp(dir, ".tmp-*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp.Name())
-	if _, err = tmp.Write(data); err == nil {
-		err = tmp.Sync()
-	}
-	if e := tmp.Close(); err == nil {
-		err = e
-	}
-	if err != nil {
-		return err
-	}
-	if err = os.Rename(tmp.Name(), filepath.Join(dir, name)); err != nil {
-		return err
-	}
-	d, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	defer d.Close()
-	return d.Sync()
 }
 
 // sweepGuardAudit releases the spools of every deleted sandbox still holding a

@@ -144,6 +144,8 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 	if op.Name == "fleet_get" || op.Name == "fleet_list" {
 		s.readLock()
 		fleet := s.journal.Control.Fleet
+		policy := s.journal.Control.updatePolicy()
+		fleet.UpdatePolicy = &policy
 		fleet.CoordinatorHostId = pointer(f.leaderID())
 		fleet.CoordinationState = pointer(api.FleetCoordinationStateDegraded)
 		if f.raft.State().String() == "Leader" {
@@ -173,7 +175,7 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		}
 	}
 	kind, _, _ := strings.Cut(op.Scope, ".")
-	global := op.Mutation && (kind == "fleet" || kind == "key" || kind == "membership" || kind == "principal")
+	global := op.Mutation && (kind == "fleet" || kind == "key" || kind == "membership" || kind == "principal" || kind == "update")
 	if global {
 		leader := f.leaderID()
 		if leader == "" {

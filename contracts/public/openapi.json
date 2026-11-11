@@ -53399,8 +53399,7 @@
         "properties": {
           "automatic": {
             "type": "boolean",
-            "default": false,
-            "const": false
+            "default": false
           },
           "max_unavailable": {
             "type": "integer",
