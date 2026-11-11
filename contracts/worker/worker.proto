@@ -64,6 +64,12 @@ message Restore { string capture_id = 1; Compatibility compatibility = 2; repeat
 message Inspect { string command_operation_id = 1; }
 message Cancel { string target_operation_id = 1; }
 message Release {}
+message Rebuild {
+  string source_id = 1;
+  string destination_principal = 2;
+  string purpose = 3;
+  bool clean_rebuild = 4;
+}
 message Request {
   Context context = 1;
   oneof command {
@@ -75,6 +81,7 @@ message Request {
     Inspect inspect = 15;
     Cancel cancel = 16;
     Release release = 17;
+    Rebuild rebuild = 18;
   }
 }
 message WorkerError { string code = 1; string message = 2; bool retryable = 3; }

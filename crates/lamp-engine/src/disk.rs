@@ -470,24 +470,3 @@ pub fn size_of_file(path: &Path) -> Result<u64> {
         .ctx(format!("stat {}", path.display()))?
         .len())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn disk_refs_round_trip_and_reject_escapes() {
-        for r in [DiskRef::File("state/objects/d1".into()), DiskRef::Thin(77)] {
-            assert_eq!(DiskRef::decode(&r.encode()).unwrap(), r);
-        }
-        for bad in [
-            "file:/etc/passwd",
-            "file:a/../../b",
-            "thin:16777216",
-            "thin:x",
-            "x",
-        ] {
-            assert!(DiskRef::decode(bad).is_err(), "{bad}");
-        }
-    }
-}

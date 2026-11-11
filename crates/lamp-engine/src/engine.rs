@@ -88,6 +88,8 @@ pub struct Config {
     /// Guard network and protected-process audit. `None` leaves sandboxes
     /// with an unconnected link and unaudited commands (diagnostic only).
     pub network: Option<crate::net::Policy>,
+    pub subscription: Option<crate::subscription::SubscriptionPolicy>,
+    pub exports_dir: Option<PathBuf>,
     /// Disk backend: `auto` (reflink on XFS/btrfs, dm-thin otherwise),
     /// `reflink` or `thin`.
     pub disk_backend: String,
@@ -111,6 +113,8 @@ impl Config {
             host_id: hostname(),
             trusted_producers: Vec::new(),
             network: None,
+            subscription: None,
+            exports_dir: None,
             disk_backend: "auto".into(),
             thin: crate::disk::ThinConfig::default(),
         }
@@ -246,6 +250,7 @@ pub struct Sandbox {
     /// source's capture during a fork); Restore joins it. Carries its guard
     /// UID so a failed or abandoned attachment frees it.
     pub pending_net: Option<PendingNet>,
+    pub network_policy: Option<crate::net::Policy>,
 }
 
 pub type PendingNet = std::thread::JoinHandle<(u32, Result<crate::net::Attachment>)>;
@@ -316,7 +321,7 @@ pub struct Engine {
     trusted: HashMap<String, VerifyingKey>,
     templates: RwLock<HashMap<String, Arc<Template>>>,
     sandboxes: Mutex<HashMap<String, Arc<Mutex<Sandbox>>>>,
-    captures: Mutex<HashMap<String, Arc<CaptureRec>>>,
+    pub(crate) captures: Mutex<HashMap<String, Arc<CaptureRec>>>,
     uids: Mutex<BTreeSet<u32>>,
     pub disk: disk::Backend,
     pub state: durable::Store,
@@ -324,6 +329,9 @@ pub struct Engine {
     template_disks: RwLock<HashMap<String, DiskRef>>,
     /// Host addresses and on-link prefixes every guard denies.
     pub inventory: Vec<String>,
+    pub custody: Option<Mutex<crate::custody_store::CustodyStore>>,
+    pub(crate) bridges: Mutex<HashMap<String, crate::subscription_bridge::Bridge>>,
+    pub(crate) bridge_task: Mutex<Option<String>>,
     /// Exclusive store ownership while this engine may change the store.
     _lock: Option<std::fs::File>,
 }
@@ -523,6 +531,28 @@ impl Engine {
         }
         let compat = HostCompat::detect(&cfg.bins)?;
         let cfg_network = cfg.network.is_some() && mode == Mode::Daemon;
+        let custody = if mode == Mode::ReadOnly {
+            None
+        } else {
+            let directory = cfg.store.join("custody");
+            std::fs::create_dir_all(&directory)?;
+            fsutil::chmod(&directory, 0o700)?;
+            let owner = cfg
+                .subscription
+                .as_ref()
+                .map_or("pr_local", |policy| policy.owner_id.as_str());
+            let hosts = cfg.subscription.as_ref().map_or_else(
+                || vec![cfg.host_id.clone()],
+                |policy| policy.custody_host_ids.clone(),
+            );
+            let store = crate::custody_store::CustodyStore::open(
+                &directory.join("graph.json"),
+                owner,
+                &cfg.host_id,
+                &hosts,
+            )?;
+            Some(Mutex::new(store))
+        };
         // Read-only listings never touch the pool or the state journal.
         let backend = if mode == Mode::ReadOnly {
             disk::Backend::Reflink
@@ -552,6 +582,9 @@ impl Engine {
                 Vec::new()
             },
             _lock: lock,
+            custody,
+            bridges: Mutex::new(HashMap::new()),
+            bridge_task: Mutex::new(None),
         };
         match mode {
             Mode::Daemon => {
@@ -953,7 +986,7 @@ impl Engine {
         .inspect_err(|_| self.free_uid(uid))
     }
 
-    fn sandbox(&self, id: &str) -> Result<Arc<Mutex<Sandbox>>> {
+    pub(crate) fn sandbox(&self, id: &str) -> Result<Arc<Mutex<Sandbox>>> {
         self.sandboxes
             .lock()
             .unwrap()
@@ -1012,12 +1045,18 @@ impl Engine {
                 auth.sandbox_id
             )));
         }
+        self.custody
+            .as_ref()
+            .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
+            .lock()
+            .unwrap()
+            .transact(|graph| graph.create(auth.sandbox_id))?;
         let jail = self.new_jail(&jail_id(auth.sandbox_id))?;
         let uid = jail.uid;
         // Build the guard network now, in the background: for a fork the
         // caller captures the source next, and the two overlap.
         let pending_net = match &self.cfg.network {
-            Some(policy) => {
+            Some(policy) if self.cfg.subscription.is_none() => {
                 let guard_uid = self.alloc_uid()?;
                 let (policy, inventory, host) = (
                     policy.clone(),
@@ -1051,7 +1090,7 @@ impl Engine {
                     (guard_uid, attached)
                 }))
             }
-            None => None,
+            _ => None,
         };
         all.insert(
             auth.sandbox_id.to_string(),
@@ -1073,6 +1112,7 @@ impl Engine {
                 commands: Arc::default(),
                 net: None,
                 pending_net,
+                network_policy: self.cfg.network.clone(),
             })),
         );
         Ok(Outcome {
@@ -1087,10 +1127,73 @@ impl Engine {
     /// signature, compatibility, object digests) before anything parses it,
     /// and may be restored any number of times.
     pub fn restore(&self, auth: Authority<'_>, capture_id: &str) -> Result<Outcome> {
+        self.restore_with_registration(auth, capture_id, true)
+    }
+
+    /// Only the builder's fresh-template boot probe bypasses login registration.
+    pub(crate) fn restore_build_probe(
+        &self,
+        auth: Authority<'_>,
+        template_id: &str,
+    ) -> Result<Outcome> {
+        self.restore_with_registration(auth, template_id, false)
+    }
+
+    fn restore_with_registration(
+        &self,
+        auth: Authority<'_>,
+        capture_id: &str,
+        register_subscription: bool,
+    ) -> Result<Outcome> {
         let t0 = Instant::now();
         let sb = self.sandbox(auth.sandbox_id)?;
         let mut sb = sb.lock().unwrap();
         Self::check(&sb, auth)?;
+        if !register_subscription && sb.state != State::Allocated {
+            return Err(EngineError::new(
+                "SCOPE_DENIED",
+                "a builder probe requires a newly allocated sandbox",
+            ));
+        }
+        if sb.state == State::Stopped {
+            let source = self
+                .captures
+                .lock()
+                .unwrap()
+                .get(capture_id)
+                .cloned()
+                .ok_or_else(|| EngineError::not_found("resume capture"))?;
+            if source.source_sandbox != sb.id || source.source_generation != sb.generation {
+                return Err(EngineError::new(
+                    "SCOPE_DENIED",
+                    "resume capture belongs to another execution",
+                ));
+            }
+            self.custody
+                .as_ref()
+                .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
+                .lock()
+                .unwrap()
+                .graph()?
+                .authorize(
+                    capture_id,
+                    crate::custody::Destination {
+                        principal: self.custody_owner(),
+                        host: &self.cfg.host_id,
+                        online: true,
+                    },
+                    crate::custody::CapturePurpose::OwnerPrivate,
+                )?;
+            if let Some(uid) = sb.teardown() {
+                self.free_uid(uid);
+            }
+            self.free_uid(sb.uid);
+            let jail = self.new_jail(&jail_id(&sb.id))?;
+            sb.uid = jail.uid;
+            sb.jail = Some(jail);
+            sb.network_policy = self.cfg.network.clone();
+            sb.state = State::Allocated;
+        }
         if sb.state != State::Allocated {
             return Err(EngineError::in_use(format!(
                 "sandbox is {}, not allocated",
@@ -1105,9 +1208,18 @@ impl Engine {
             .get(capture_id)
             .filter(|c| *c.restores.lock().unwrap() == CAPTURE_AVAILABLE || !c.durable)
             .cloned();
+        let durable = self.state.get(capture_id);
+        let is_capture = capture.is_some() || durable.is_some();
+        if !register_subscription && is_capture {
+            return Err(EngineError::new(
+                "SCOPE_DENIED",
+                "a builder probe must restore a fresh template, not a capture",
+            ));
+        }
+        self.prepare_subscription_restore(&mut sb, capture_id, is_capture, register_subscription)?;
         let (source, resources) = match &capture {
             Some(c) => (Source::Capture(c.clone()), c.resources.clone()),
-            None => match self.state.get(capture_id) {
+            None => match durable {
                 Some(e) => {
                     let r = e.manifest.resources.clone();
                     (Source::Durable(Box::new(e)), r)
@@ -1347,7 +1459,7 @@ impl Engine {
         sb.parent = parent;
         detail.insert("prepare_us".into(), us(t0.elapsed()));
         let t = Instant::now();
-        match &self.cfg.network {
+        match &sb.network_policy {
             Some(policy) => {
                 let (guard_uid, attached) = match sb.pending_net.take() {
                     Some(pending) => pending
@@ -1419,6 +1531,15 @@ impl Engine {
         detail.insert("machine_id".into(), ack.machine_id.clone());
         sb.barrier = Some(ack);
         sb.state = State::Running;
+        detail.insert("capture_trust".into(), self.capture_trust(&sb.id)?.into());
+        detail.insert(
+            "custody_host_ids".into(),
+            serde_json::to_string(&self.cfg.subscription.as_ref().map_or_else(
+                || vec![self.cfg.host_id.clone()],
+                |policy| policy.custody_host_ids.clone(),
+            ))
+            .unwrap(),
+        );
         Ok(Outcome {
             state: "restored".into(),
             detail,
@@ -1480,7 +1601,8 @@ impl Engine {
         if argv.is_empty() {
             return Err(EngineError::invalid("argv is empty"));
         }
-        let (vsock, commands, vmm_alive, audited) = {
+        self.authorize_subscription_command(auth.sandbox_id, &argv, &cwd, &env)?;
+        let (vsock, commands, vmm_alive, audited, subscription_run) = {
             let sb = self.sandbox(auth.sandbox_id)?;
             let sb = sb.lock().unwrap();
             Self::check(&sb, auth)?;
@@ -1496,12 +1618,26 @@ impl Engine {
                     format!("{MAX_RUNNING} commands are already running in this sandbox"),
                 ));
             }
+            let subscription_run = if self.capture_trust(auth.sandbox_id)? == "owner_private" {
+                crate::subscription::native_run(&argv)
+            } else {
+                None
+            };
+            if let Some(sign_in) = subscription_run {
+                self.custody
+                    .as_ref()
+                    .unwrap()
+                    .lock()
+                    .unwrap()
+                    .transact(|graph| graph.begin_run(auth.sandbox_id, operation_id, sign_in))?;
+            }
             let jail = sb.jail.as_ref().unwrap();
             (
                 jail.path(fc::VSOCK),
                 sb.commands.clone(),
                 jail.liveness(),
                 sb.net.is_some(),
+                subscription_run.is_some(),
             )
         };
         let request = GuestRequest::Exec(Exec {
@@ -1518,21 +1654,37 @@ impl Engine {
                 task_uid: crate::net::TASK_UID,
             }),
         });
-        let mut conn = guest::send(&vsock, &request)?;
-        let started = match conn.next(Some(Duration::from_secs(10)))? {
-            GuestResponse::ExecStarted(s) => s,
-            GuestResponse::Error { code, message } if code == "GENERATION_MISMATCH" => {
-                return Err(EngineError::new("REVISION_CONFLICT", message));
-            }
-            // Refused before exec (spawn failure): nothing ran.
-            GuestResponse::Error { code, message } => {
-                return Err(EngineError::invalid(format!("{code}: {message}")));
-            }
-            other => {
-                return Err(EngineError::new(
+        let admission = (|| {
+            let mut conn = guest::send(&vsock, &request)?;
+            match conn.next(Some(Duration::from_secs(10)))? {
+                GuestResponse::ExecStarted(s) => Ok(s),
+                GuestResponse::Error { code, message } if code == "GENERATION_MISMATCH" => {
+                    Err(EngineError::new("REVISION_CONFLICT", message))
+                }
+                // Refused before exec (spawn failure): nothing ran.
+                GuestResponse::Error { code, message } => {
+                    Err(EngineError::invalid(format!("{code}: {message}")))
+                }
+                other => Err(EngineError::new(
                     "OUTCOME_UNKNOWN",
                     format!("exec: unexpected reply {other:?}"),
-                ));
+                )),
+            }
+        })();
+        let started = match admission {
+            Ok(started) => started,
+            Err(error) => {
+                if subscription_run {
+                    self.custody
+                        .as_ref()
+                        .unwrap()
+                        .lock()
+                        .unwrap()
+                        .transact(|graph| {
+                            graph.finish_run(auth.sandbox_id, operation_id, false, false)
+                        })?;
+                }
+                return Err(error);
             }
         };
         remember(
@@ -1649,6 +1801,23 @@ impl Engine {
                 sb.state.name()
             )));
         }
+        self.custody
+            .as_ref()
+            .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
+            .lock()
+            .unwrap()
+            .transact(|graph| {
+                graph.derive(
+                    &sb.id,
+                    capture_id,
+                    crate::custody::Destination {
+                        principal: self.custody_owner(),
+                        host: &self.cfg.host_id,
+                        online: true,
+                    },
+                    crate::custody::CapturePurpose::OwnerPrivate,
+                )
+            })?;
         let cdir = self.cfg.store.join("captures").join(capture_id);
         if self.captures.lock().unwrap().contains_key(capture_id)
             || cdir.exists()
@@ -1872,7 +2041,9 @@ impl Engine {
             .insert(capture_id.into(), Arc::new(rec));
         detail.insert("total_us".into(), us(t0.elapsed()));
         // A sandbox that forked keeps one image ready for its next fork.
-        if let Some(jail) = sb.jail.as_ref().filter(|_| self.cfg.capture_spare) {
+        if self.cfg.subscription.is_none()
+            && let Some(jail) = sb.jail.as_ref().filter(|_| self.cfg.capture_spare)
+        {
             fc::prepare_spare(jail, sb.resources.memory_mib * 1024 * 1024);
         }
         Ok(Outcome {
@@ -2375,6 +2546,18 @@ impl Engine {
         detail.insert("generation".into(), sb.generation.to_string());
         detail.insert("source".into(), sb.source.clone());
         detail.insert("boundary".into(), "vm".into());
+        detail.insert(
+            "capture_trust".into(),
+            self.capture_trust(sandbox_id)?.into(),
+        );
+        detail.insert(
+            "custody_host_ids".into(),
+            serde_json::to_string(&self.cfg.subscription.as_ref().map_or_else(
+                || vec![self.cfg.host_id.clone()],
+                |policy| policy.custody_host_ids.clone(),
+            ))
+            .unwrap(),
+        );
         detail.insert("engine".into(), ENGINE_NAME.into());
         detail.insert("vcpus".into(), sb.resources.vcpus.to_string());
         detail.insert("memory_mib".into(), sb.resources.memory_mib.to_string());
@@ -2394,7 +2577,7 @@ impl Engine {
                 table.0.get(command_operation_id).cloned().ok_or_else(|| {
                     EngineError::not_found(format!("command {command_operation_id}"))
                 })?;
-            let (state, done) = match (&rec.done, &rec.lost) {
+            let (state, mut done) = match (&rec.done, &rec.lost) {
                 (Some(d), _) => ("exited", d.clone()),
                 (None, Some(why)) => {
                     detail.insert("command_lost".into(), why.clone());
@@ -2402,6 +2585,12 @@ impl Engine {
                 }
                 (None, None) => ("running", pending(&rec.started)),
             };
+            self.finish_subscription_report(
+                sandbox_id,
+                command_operation_id,
+                &mut done,
+                rec.lost.is_some(),
+            )?;
             detail.insert("command_state".into(), state.into());
             Some(done)
         };
@@ -2416,6 +2605,7 @@ impl Engine {
     /// Kills every sandbox (supervisor shutdown).
     /// Stops every sandbox and returns once each VMM has fully exited.
     pub fn shutdown(&self) -> usize {
+        self.bridges.lock().unwrap().clear();
         let all: Vec<_> = self.sandboxes.lock().unwrap().drain().collect();
         let n = all.len();
         for (_, sb) in all {
@@ -2486,121 +2676,4 @@ fn sparse_copy(src: &Path, dst: &Path) -> Result<()> {
     }
     d.sync_all()?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::{Read, Write};
-    use std::os::unix::net::UnixListener;
-
-    /// A fake guest channel: each connection gets the next scripted reply
-    /// (`None` drops the connection after reading the request). Returns the
-    /// requests it received.
-    fn fake_guest(
-        tag: &str,
-        replies: Vec<Option<GuestResponse>>,
-    ) -> (PathBuf, std::thread::JoinHandle<Vec<GuestRequest>>) {
-        let path = std::env::temp_dir().join(format!("lamp-eng-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_file(&path);
-        let listener = UnixListener::bind(&path).unwrap();
-        let server = std::thread::spawn(move || {
-            let mut got = Vec::new();
-            for reply in replies {
-                let (mut s, _) = listener.accept().unwrap();
-                let mut line = [0_u8; 13];
-                s.read_exact(&mut line).unwrap();
-                s.write_all(b"OK 1024\n").unwrap();
-                got.push(lamp_init::read_frame::<GuestRequest>(&mut s).unwrap());
-                if let Some(r) = reply {
-                    lamp_init::write_frame(&mut s, &r).unwrap();
-                }
-            }
-            got
-        });
-        (path, server)
-    }
-
-    /// R4: a freeze whose reply is lost may still have applied, so it is
-    /// followed by a thaw; a confirmed thaw leaves the sandbox usable.
-    #[test]
-    fn uncertain_freeze_is_thawed() {
-        let (path, server) = fake_guest("freeze-lost", vec![None, Some(GuestResponse::Thawed)]);
-        let (e, thaw_failed) = freeze_guest(&path).unwrap_err();
-        assert_eq!(e.code, "OUTCOME_UNKNOWN");
-        assert!(thaw_failed.is_none(), "thaw confirmed");
-        let got = server.join().unwrap();
-        assert_eq!(
-            got,
-            vec![GuestRequest::Freeze(Empty {}), GuestRequest::Thaw(Empty {})]
-        );
-        let _ = std::fs::remove_file(path);
-    }
-
-    /// R4: when no thaw can be confirmed the caller is told, so it marks
-    /// the sandbox failed instead of running with frozen tasks.
-    #[test]
-    fn unconfirmed_thaw_after_uncertain_freeze_is_reported() {
-        let wrong = Some(GuestResponse::Pong(lamp_init::Status {
-            sandbox_id: String::new(),
-            generation: 0,
-            kernel_boot_id: String::new(),
-        }));
-        let (path, server) = fake_guest("thaw-lost", vec![wrong, None, None, None]);
-        let (_, thaw_failed) = freeze_guest(&path).unwrap_err();
-        assert!(thaw_failed.is_some());
-        let got = server.join().unwrap();
-        assert_eq!(
-            got.iter()
-                .filter(|r| **r == GuestRequest::Thaw(Empty {}))
-                .count(),
-            3
-        );
-        let _ = std::fs::remove_file(path);
-    }
-
-    fn rec() -> CommandRec {
-        CommandRec {
-            started: ExecStarted {
-                pid: 1,
-                started_unix_ns: 1,
-            },
-            done: None,
-            lost: None,
-        }
-    }
-
-    /// R2: a long-running command stays observable however many short
-    /// commands complete after it; only completed ones are forgotten.
-    #[test]
-    fn running_commands_are_never_evicted() {
-        let mut table = CommandTable::default();
-        remember(&mut table, "op_dev_server", rec());
-        for i in 0..COMMAND_MEMORY * 2 {
-            let op = format!("op_short_{i}");
-            remember(&mut table, &op, rec());
-            // Its completion arrives, as the waiter records it.
-            table.0.get_mut(&op).unwrap().done = Some(pending(&ExecStarted {
-                pid: 2,
-                started_unix_ns: 2,
-            }));
-            forget_old_completed(&mut table);
-        }
-        assert!(table.0.contains_key("op_dev_server"));
-        assert!(!table.0["op_dev_server"].completed());
-        assert_eq!(running(&table), 1);
-        assert_eq!(table.0.len(), COMMAND_MEMORY + 1);
-        assert_eq!(table.1.len(), COMMAND_MEMORY + 1);
-        // The newest completed commands are the ones kept.
-        assert!(
-            table
-                .0
-                .contains_key(&format!("op_short_{}", COMMAND_MEMORY * 2 - 1))
-        );
-        assert!(!table.0.contains_key("op_short_0"));
-        // Once the long command completes it ages out like any other.
-        table.0.get_mut("op_dev_server").unwrap().lost = Some("vmm gone".into());
-        forget_old_completed(&mut table);
-        assert!(!table.0.contains_key("op_dev_server"));
-    }
 }

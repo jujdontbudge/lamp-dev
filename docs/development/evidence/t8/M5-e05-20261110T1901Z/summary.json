@@ -1,0 +1,1 @@
+lamp-supervisor: HOST_UNAVAILABLE: worker did not start: lamp-vz: restore: VZErrorDomain 12: An error occurred while restoring the virtual machine. The virtual machine failed to restore with error “permission denied”. (The virtual machine failed to restore with error “permission denied”.)

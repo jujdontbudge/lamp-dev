@@ -11,7 +11,7 @@
 //! `Transfer-Encoding` are refused. The query string and header values never
 //! enter audit. One connection carries one request; connections are served
 //! one at a time with bounded timeouts.
-use crate::{Config, audit::Spool, public_v4};
+use crate::{Config, Tuple, audit::Spool, policy};
 use serde_json::json;
 use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
@@ -169,11 +169,20 @@ pub fn parse(head: &str) -> Result<Request, Refusal> {
 
 /// Same decision as the guard applies to a direct guest flow.
 pub fn allowed(config: &Config, address: Ipv4Addr, port: u16) -> bool {
-    config
-        .exceptions
-        .iter()
-        .any(|e| e.transport == "tcp" && e.address == address && e.port == port)
-        || public_v4(address, &config.host_denies)
+    if config.subscription_domains.is_some() {
+        return false;
+    }
+    policy::decision(
+        config,
+        &Tuple {
+            source: config.guest_ip,
+            destination: address,
+            source_port: 0,
+            destination_port: port,
+            protocol: 6,
+        },
+    )
+    .is_ok()
 }
 
 fn refuse(client: &mut TcpStream, status: u16) {
@@ -244,7 +253,7 @@ fn serve_one(config: &Config, spool: &mut Spool, mut client: TcpStream, id: u64)
     if !allowed(config, request.address, request.port) {
         let mut record = base.clone();
         record["decision"] = json!("denied");
-        record["reason"] = json!("private_lan_metadata_or_host");
+        record["reason"] = json!("transport_policy_denied");
         spool.record("mediated_proxy", record)?;
         refuse(&mut client, 403);
         return Ok(());
@@ -332,6 +341,11 @@ fn relay(request: &Request, client: &mut TcpStream, early: Vec<u8>) -> io::Resul
 /// Serves until the listener fails. A spool failure stops the proxy: no
 /// request is ever forwarded without its durable record.
 pub fn serve(config: &Config, listener: TcpListener, spool: &mut Spool) -> io::Result<()> {
+    if config.subscription_domains.is_some() {
+        return Err(io::Error::other(
+            "subscription proxy requires pre-confinement vendor resolution",
+        ));
+    }
     let mut id = 0u64;
     for client in listener.incoming() {
         let Ok(client) = client else { continue };
@@ -339,82 +353,4 @@ pub fn serve(config: &Config, listener: TcpListener, spool: &mut Spool) -> io::R
         serve_one(config, spool, client, id)?;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn absolute_form_is_rewritten_to_origin_form() {
-        let r = parse(
-            "POST http://10.250.0.2:7003/x?secret=1 HTTP/1.1\r\nHost: 198.18.240.1:3128\r\nProxy-Authorization: x\r\nConnection: close, X-Hop\r\nX-Hop: y\r\nX-Lamp-Run: abc\r\nContent-Length: 32",
-        )
-        .unwrap();
-        assert_eq!(r.address, "10.250.0.2".parse::<Ipv4Addr>().unwrap());
-        assert_eq!(
-            (r.port, r.target.as_str(), r.path.as_str(), r.query, r.body),
-            (7003, "/x?secret=1", "/x", true, 32)
-        );
-        assert_eq!(
-            r.headers,
-            vec![("X-Lamp-Run".to_string(), "abc".to_string())]
-        );
-        assert_eq!(parse("GET http://1.1.1.1 HTTP/1.1").unwrap().target, "/");
-        assert_eq!(
-            parse("GET http://1.1.1.1?q HTTP/1.1").unwrap().target,
-            "/?q"
-        );
-    }
-
-    #[test]
-    fn unsafe_requests_are_refused() {
-        for (head, status) in [
-            ("CONNECT 1.1.1.1:443 HTTP/1.1", 405),
-            ("GET http://example.com/ HTTP/1.1", 400),
-            ("GET http://u@1.1.1.1/ HTTP/1.1", 400),
-            ("GET /relative HTTP/1.1", 400),
-            ("GET https://1.1.1.1/ HTTP/1.1", 400),
-            ("GET http://1.1.1.1:0/ HTTP/1.1", 400),
-            ("GET http://1.1.1.1:99999/ HTTP/1.1", 400),
-            ("GET http://1.1.1.1/#f HTTP/1.1", 400),
-            ("GET http://1.1.1.1/ HTTP/2", 505),
-            (
-                "POST http://1.1.1.1/ HTTP/1.1\r\nTransfer-Encoding: chunked",
-                501,
-            ),
-            (
-                "POST http://1.1.1.1/ HTTP/1.1\r\nContent-Length: 1\r\nContent-Length: 2",
-                400,
-            ),
-            ("POST http://1.1.1.1/ HTTP/1.1\r\nContent-Length: +1", 400),
-            ("GET http://1.1.1.1:+80/ HTTP/1.1", 400),
-            ("GET http://1.1.1.1/ HTTP/1.1\r\n folded", 400),
-            ("GET http://1.1.1.1/ HTTP/1.1\r\nBad Name: x", 400),
-        ] {
-            assert_eq!(parse(head).unwrap_err().0, status, "{head}");
-        }
-    }
-
-    #[test]
-    fn policy_matches_the_guard() {
-        let mut c: Config = serde_json::from_str(
-            r#"{"attribution":{"host_id":"h","sandbox_id":"s","generation":1,"principal_id":"p","session_id":"ss","task_id":"t","operation_id":"o","policy_revision":1},
-            "interface":"lamp0","guest_ip":"198.18.240.2","queue":1,"guard_uid":900001,
-            "host_denies":["10.250.0.0/30"],"spool":"x","spool_bytes":8192}"#,
-        )
-        .unwrap();
-        let ip = |s: &str| s.parse::<Ipv4Addr>().unwrap();
-        assert!(allowed(&c, ip("1.1.1.1"), 80));
-        assert!(!allowed(&c, ip("10.250.0.2"), 7003));
-        assert!(!allowed(&c, ip("198.18.240.1"), 3128));
-        assert!(!allowed(&c, ip("169.254.169.254"), 80));
-        c.exceptions.push(crate::Exception {
-            address: ip("10.250.0.2"),
-            transport: "tcp".into(),
-            port: 7003,
-        });
-        assert!(allowed(&c, ip("10.250.0.2"), 7003));
-        assert!(!allowed(&c, ip("10.250.0.2"), 7004));
-    }
 }

@@ -31,7 +31,9 @@ fixtures; they are not production workers.
 | `pkg/workerpb`, `crates/lamp-worker-protocol` | Generated worker messages plus bounded framing helpers | T1; shared T2/T3 boundary |
 | `crates/lamp-engine`, `crates/lamp-supervisor`, `crates/lamp-init` | Rust engine, privileged service, guest-init seams | T2 |
 | `cmd/lamp`, `cmd/lampd`, `internal/control` | Go CLI, service, operation/admission state | T3, then T10 |
-| `internal/guard`, `crates/lamp-guard` | Guard integration boundary; Linux packet/process collectors and host spool. [T4 integration contract](T4-guard.md) | T4 |
+| `internal/network`, `cmd/lamp-network` | Host-owned exit/member/private-Ethernet service, scoped dev URLs/shares and directed links. [T12 evidence](T12-evidence.md) | T12 |
+| `cmd/lamp-broker`, `internal/broker` | Standalone owner credential proxy, scoped adapters and selected-path settings return | T17 |
+| `internal/guard`, `crates/lamp-guard` | Guard integration boundary; Linux packet/process collectors and host spool. [T4 integration contract](T4-guard.md); [T12 host networking, demonstrations and integration limits](T12-network.md) | T4 |
 | `tests/` (outside `tests/contracts`), `benchmarks/` | Independent oracles and benchmark harness; create subdirectories as needed | T5 |
 | `tools/`, `tests/contracts`, workspace manifests, CI | Shared build/codegen/conformance infrastructure | T1; coordinate modifications |
 
@@ -100,7 +102,15 @@ and [T2-evidence.md](T2-evidence.md). T6 joins the parallel tickets and runs
 the gate on lane LX; the measured result (failed) is in
 [T6-evidence.md](T6-evidence.md). T7's durable local captures and their E04
 storage proof (ext4 at 1,000 forks, XFS-reflink at 100) are in
-[T7-evidence.md](T7-evidence.md).
+[T7-evidence.md](T7-evidence.md). The Mac engine (T8: Linux guests with
+memory fork and native macOS guests on Virtualization.framework, M5 and AIR)
+is in [T8-evidence.md](T8-evidence.md); the installer and the guest build are
+in `infra/mac/`.
+
+The standalone [owner broker](T17-broker.md) keeps provider credentials and signing
+keys host-side. [T17 evidence](T17-evidence.md) records the real LX sandbox,
+canary-free full capture, host CLI work and explicit remaining integration/account
+gaps; it does not claim the entire ticket is complete.
 
 ## CI on owner machines
 

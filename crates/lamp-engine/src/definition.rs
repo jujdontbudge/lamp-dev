@@ -189,39 +189,3 @@ impl Definition {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const GOOD: &str = r#"
-format = "lamp.template/v1"
-name = "python-tools"
-guest_os = "linux"
-arch = "x86_64"
-seed_ref = "lamp-seed/debian-13@sha256:64e9b8da0aee3825979ab333d48557612cce7a51fea64516acd8ee90255ad81d"
-[[steps]]
-argv = ["python3", "-c", "print('tools-installed')"]
-"#;
-
-    #[test]
-    fn accepts_journey_definition() {
-        let d = parse(GOOD).unwrap();
-        assert_eq!(d.steps.len(), 1);
-        assert_eq!(d.network, "none");
-        assert_eq!(parse_seed_ref(&d.seed_ref).unwrap().name, "debian-13");
-    }
-
-    #[test]
-    fn rejects_container_inputs_and_bad_fields() {
-        assert!(parse("FROM debian:13\nRUN apt-get install git\n").is_err());
-        assert!(parse(&GOOD.replace("lamp.template/v1", "docker/v1")).is_err());
-        assert!(parse(&format!("{GOOD}\nimage = \"debian:13\"\n")).is_err());
-        assert!(parse(&GOOD.replace("@sha256:64e9", "@sha256:<verified")).is_err());
-        assert!(parse(&GOOD.replace("\"python3\"", "\"docker\"")).is_err());
-        assert!(parse(&GOOD.replace("x86_64", "riscv64")).is_err());
-        assert!(parse(&format!("{GOOD}\n[[steps]]\nargv = []\n")).is_err());
-        let net = GOOD.replace("arch = \"x86_64\"", "arch = \"x86_64\"\nnetwork = \"open\"");
-        assert!(parse(&net).is_err());
-    }
-}

@@ -106,7 +106,8 @@ func (s *Service) planSuspend(a caller, in map[string]any) (lifePlan, error) {
 	capture := "cp_" + suffix
 	captured := false
 	released := false
-	return lifePlan{ref: lifeRef("sandbox", id), ids: []string{id}, timeout: 5 * time.Minute,
+	snapID := "sn_" + suffix
+	return lifePlan{ref: lifeRef("sandbox", id), ids: []string{id, snapID}, timeout: 5 * time.Minute,
 		run: func(ctx context.Context) (map[string]any, error) {
 			gen := s.sandboxGeneration(id)
 			r := s.workerRequest(ctx, "capture", id, gen)
@@ -137,7 +138,8 @@ func (s *Service) planSuspend(a caller, in map[string]any) (lifePlan, error) {
 			switch {
 			case err == nil:
 				sb.State = "suspended"
-				sb.SnapshotId = pointer("sn_" + suffix)
+				sb.SnapshotId = pointer(snapID)
+				s.recordSuspendSnapshot(sb, snapID, capture)
 				sb.Durability = pointer(api.SandboxDurabilityLocal)
 				sb.SuspendEligibility = nil
 				l.Capture = capture
@@ -193,7 +195,11 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 	s.busy[id] = true
 	resources := sb.Resources
 	engine := value(sb.EngineId)
-	return lifePlan{ref: lifeRef("sandbox", id), ids: []string{id}, timeout: 5 * time.Minute,
+	ids := []string{id}
+	if sb.SnapshotId != nil {
+		ids = append(ids, *sb.SnapshotId)
+	}
+	return lifePlan{ref: lifeRef("sandbox", id), ids: ids, timeout: 5 * time.Minute,
 		run: func(ctx context.Context) (map[string]any, error) {
 			gen := s.sandboxGeneration(id)
 			r := s.workerRequest(ctx, "allocate", id, gen)
@@ -233,6 +239,7 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 			l := s.lifeSB(id)
 			if err == nil {
 				sb.State = "ready"
+				s.retireSnapshot(sb.SnapshotId)
 				sb.SnapshotId = nil
 				s.life.Discards[capture] = "resumed"
 				l.Capture = ""
@@ -633,11 +640,18 @@ func (s *Service) lifeMonitor() {
 // is not left behind until the next start.
 func (s *Service) finalDiscard() {
 	s.readLock()
+	var retired []string
 	for id, l := range s.life.Sandboxes {
-		if l.Capture != "" && s.journal.Sandboxes[id].State == "deleted" {
+		if sb := s.journal.Sandboxes[id]; l.Capture != "" && sb.State == "deleted" {
 			s.life.Discards[l.Capture] = "sandbox deleted"
 			l.Capture = ""
+			if snap := s.retireSnapshot(sb.SnapshotId); snap != "" {
+				retired = append(retired, snap)
+			}
 		}
+	}
+	if len(retired) > 0 && !s.broken {
+		s.save(retired...)
 	}
 	s.mu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -657,6 +671,7 @@ func (s *Service) lifeTickOnce() {
 	var candidates []idleCandidate
 	var expiredDelete []api.Sandbox
 	var hardStop []idleCandidate
+	var retired []string
 	s.readLock()
 	if s.broken {
 		s.mu.Unlock()
@@ -695,11 +710,17 @@ func (s *Service) lifeTickOnce() {
 			if l != nil && l.Capture != "" {
 				s.life.Discards[l.Capture] = "sandbox deleted"
 				l.Capture = ""
+				if snap := s.retireSnapshot(sb.SnapshotId); snap != "" {
+					retired = append(retired, snap)
+				}
 			}
 		}
 	}
 	s.sweepStorage(now)
 	if s.saveLife() != nil {
+		s.broken = true
+	}
+	if len(retired) > 0 && s.save(retired...) != nil {
 		s.broken = true
 	}
 	s.mu.Unlock()
@@ -828,4 +849,32 @@ func (s *Service) discardCaptures(ctx context.Context) {
 		}
 		s.mu.Unlock()
 	}
+}
+
+// recordSuspendSnapshot publishes the suspend capture as a Snapshot, readable
+// with snapshot_get, until the capture is discarded. Under mu.
+func (s *Service) recordSuspendSnapshot(sb api.Sandbox, id, capture string) {
+	now := timestamp()
+	trust := api.SnapshotCaptureTrustOwnerPrivate
+	if t := value(sb.CaptureTrust); t != "" {
+		trust = api.SnapshotCaptureTrust(t)
+	}
+	s.journal.Snapshots[id] = savedSnapshot{CaptureID: capture, Snapshot: api.Snapshot{Id: id, Kind: "snapshot", FleetId: "fl_local", OwnerId: sb.OwnerId, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "ready", Labels: api.StringMap{}, Visibility: "private", SandboxId: pointer(sb.Id), Generation: sb.Generation, PreservesMemory: pointer(true), CaptureTrust: &trust, Durability: pointer("local"), CustodyHostIds: &[]string{s.hostID()}, Consistency: pointer(api.SnapshotConsistencyApplication)}}
+}
+
+// retireSnapshot marks a suspend snapshot deleted once its capture is no
+// longer held, and returns its id for saving ("" when there is none). Under mu.
+func (s *Service) retireSnapshot(id *string) string {
+	if id == nil {
+		return ""
+	}
+	snap, ok := s.journal.Snapshots[*id]
+	if !ok || snap.Snapshot.State == "deleted" {
+		return ""
+	}
+	snap.Snapshot.State = "deleted"
+	snap.Snapshot.Revision++
+	snap.Snapshot.UpdatedAt = timestamp()
+	s.journal.Snapshots[*id] = snap
+	return *id
 }

@@ -191,6 +191,8 @@ def part_a():
     api.op('sandbox_update', dict(sandbox_id=sb, expected_revision=rev('sandbox', sb), lifecycle=dict(idle_grace_seconds=15)))
     s = wait_state(sb, ['suspended'])
     note('suspended automatically after the idle grace', state=s['state'], snapshot_id=s.get('snapshot_id'), budget=budget(), captures=[c['capture_id'] for c in env.captures()])
+    snap = s['snapshot_id']
+    note('suspend snapshot', snapshot=api.get('snapshot', snap))
 
     # Full restart of the control plane and the root worker while suspended.
     env.stop_daemon(); env.stop_worker(); env.start_worker(); env.start_daemon()
@@ -204,6 +206,7 @@ def part_a():
     assert got['nonce_from_memory'] == nonce, (got, nonce)
     s = api.get('sandbox', sb)
     note('woken by exec, RAM preserved', state=s['state'], generation=s.get('generation'), nonce_before=nonce, harness_reply=got, uptime_s=out.splitlines()[-1])
+    note('suspend snapshot after resume', state=api.get('snapshot', snap)['state'])
 
     # LIF-003 retention: a suspended sandbox past its retention is deleted
     # and its saved state discarded.

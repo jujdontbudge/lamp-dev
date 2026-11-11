@@ -1,0 +1,149 @@
+[
+  {
+    "event": "start",
+    "root": "/var/tmp/lamp-t12-demonstration-gfnjizhe",
+    "available_mib": 25857,
+    "network_sha256": "dec7087e92c3d57071fdfebd2ac04835180e4b8a3c41f7167548b4a7473aa252"
+  },
+  {
+    "event": "ready",
+    "addresses": [
+      "100.127.240.1",
+      "fd7a:115c:a1e0:ffff::1"
+    ],
+    "port": 18880
+  },
+  {
+    "event": "ready",
+    "addresses": [
+      "100.127.240.2",
+      "fd7a:115c:a1e0:ffff::2"
+    ],
+    "port": 18880
+  },
+  {
+    "event": "exit_ready",
+    "listener": "127.0.0.1:33893",
+    "pid": 906729,
+    "state": "ready"
+  },
+  {
+    "event": "network_ready",
+    "sandboxes": [
+      {
+        "generation": 1,
+        "member_addresses": [
+          "100.127.240.3",
+          "fd7a:115c:a1e0:ffff::3"
+        ],
+        "sandbox_id": "sb_demo_a"
+      },
+      {
+        "generation": 1,
+        "member_addresses": [
+          "100.127.240.4",
+          "fd7a:115c:a1e0:ffff::4"
+        ],
+        "sandbox_id": "sb_demo_b"
+      }
+    ]
+  },
+  {
+    "event": "private_identity",
+    "state": "allowed",
+    "protocol": "tcp",
+    "sha256": "a193bdfaf727bc97ea2720100f1500ebb04ee8826928814484b808ccd286b474"
+  },
+  {
+    "event": "observed",
+    "hostname": "lamp-demo-sandbox-a.lamp-t12.test",
+    "node_id": "3",
+    "protocol": "tcp",
+    "sha256": "a193bdfaf727bc97ea2720100f1500ebb04ee8826928814484b808ccd286b474",
+    "source_ip": "100.127.240.3"
+  },
+  {
+    "event": "private_identity",
+    "state": "allowed",
+    "protocol": "udp",
+    "sha256": "a193bdfaf727bc97ea2720100f1500ebb04ee8826928814484b808ccd286b474"
+  },
+  {
+    "event": "observed",
+    "hostname": "lamp-demo-sandbox-a.lamp-t12.test",
+    "node_id": "3",
+    "protocol": "udp",
+    "sha256": "a193bdfaf727bc97ea2720100f1500ebb04ee8826928814484b808ccd286b474",
+    "source_ip": "100.127.240.3"
+  },
+  {
+    "event": "explicit_deny",
+    "state": "blocked",
+    "protocol": "tcp",
+    "sha256": ""
+  },
+  {
+    "event": "exit_https",
+    "returncode": 0,
+    "bytes": 577,
+    "sha256": "25ddf2c883e0d1958ea971d279a7e4f0fd446724ee3db7db19dadabd4a62e484",
+    "diagnostic": ""
+  },
+  {
+    "event": "action",
+    "protocol": "tcp",
+    "response_sha256": "4a2a2ddaf0f8c4527e5e00cdd07900e37769b081fc9d866c00a07a8a22ba8209",
+    "state": "allowed"
+  },
+  {
+    "event": "action",
+    "protocol": "udp",
+    "response_sha256": "4a2a2ddaf0f8c4527e5e00cdd07900e37769b081fc9d866c00a07a8a22ba8209",
+    "state": "allowed"
+  },
+  {
+    "event": "published_port",
+    "id": "po_400fcae8a9413ee9a07c16a837668d45",
+    "subject": {
+      "sandbox_id": "sb_demo_a",
+      "generation": 1
+    },
+    "port": 8080,
+    "origin": "https://p-400fcae8a9413ee9a07c16a837668d45.lamp-t12.test:18443"
+  },
+  {
+    "event": "https",
+    "state": "unavailable"
+  },
+  {
+    "event": "https",
+    "state": "unavailable"
+  },
+  {
+    "event": "share_created",
+    "grant_id": "pg_FlsOc7zKeMONvg_7y0ppIz",
+    "expires_at": "2026-11-10T18:19:46.134207489-05:00",
+    "secret_available": true
+  },
+  {
+    "event": "https",
+    "state": "unavailable"
+  },
+  {
+    "event": "https",
+    "state": "unavailable"
+  },
+  {
+    "event": "https",
+    "state": "unavailable"
+  },
+  {
+    "event": "incomplete",
+    "error": "RuntimeError",
+    "detail": "service readiness unavailable: 906580"
+  },
+  {
+    "event": "cleanup",
+    "failures": []
+  }
+]

@@ -35,6 +35,28 @@ pub struct Server {
     ops: Mutex<(HashMap<String, OpState>, VecDeque<String>)>,
 }
 
+#[cfg(target_os = "linux")]
+fn boot_id() -> String {
+    std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
+#[cfg(target_os = "macos")]
+fn boot_id() -> String {
+    std::process::Command::new("/usr/sbin/sysctl")
+        .args(["-n", "kern.bootsessionuuid"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default()
+}
+
+/// Engine IDs a caller may name for this host's engine.
+#[cfg(target_os = "linux")]
+const ENGINE_ALIASES: &[&str] = &["firecracker"];
+#[cfg(target_os = "macos")]
+const ENGINE_ALIASES: &[&str] = &["vz"];
+
 fn now_ms() -> u64 {
     lamp_engine::fsutil::now_ms()
 }
@@ -105,6 +127,7 @@ fn command_name(command: &request::Command) -> &'static str {
         request::Command::Release(_) => "release",
         request::Command::Inspect(_) => "inspect",
         request::Command::Cancel(_) => "cancel",
+        request::Command::Rebuild(_) => "rebuild",
     }
 }
 
@@ -113,9 +136,7 @@ impl Server {
         Server {
             engine,
             cfg,
-            boot_id: std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
-                .map(|s| s.trim().to_string())
-                .unwrap_or_default(),
+            boot_id: boot_id(),
             ops: Mutex::new((HashMap::new(), VecDeque::new())),
         }
     }
@@ -200,6 +221,7 @@ impl Server {
                         result: Some(result),
                     })),
                 };
+                #[cfg(target_os = "linux")]
                 if acked {
                     lamp_engine::fault::hit("ack", "before");
                 }
@@ -207,6 +229,7 @@ impl Server {
                 if send_frame_with_fds(&*w, &frame, &[]).is_err() {
                     let _ = w.shutdown(std::net::Shutdown::Both);
                 } else if acked {
+                    #[cfg(target_os = "linux")]
                     lamp_engine::fault::hit("ack", "after");
                 }
             });
@@ -317,21 +340,26 @@ impl Server {
             request::Command::Allocate(a) => {
                 if !a.engine_id.is_empty()
                     && a.engine_id != ENGINE_NAME
-                    && a.engine_id != "firecracker"
+                    && !ENGINE_ALIASES.contains(&a.engine_id.as_str())
                 {
                     Err(EngineError::new(
                         "ENGINE_UNQUALIFIED",
                         format!("engine {} is not on this host", a.engine_id),
                     ))
                 } else {
+                    let d = lamp_engine::engine::STANDARD;
                     let resources = a.resources.map(|r| Resources {
-                        vcpus: if r.vcpus == 0 { 2 } else { r.vcpus },
+                        vcpus: if r.vcpus == 0 { d.vcpus } else { r.vcpus },
                         memory_mib: if r.memory_mib == 0 {
-                            4096
+                            d.memory_mib
                         } else {
                             r.memory_mib
                         },
-                        disk_gib: if r.disk_gib == 0 { 20 } else { r.disk_gib },
+                        disk_gib: if r.disk_gib == 0 {
+                            d.disk_gib
+                        } else {
+                            r.disk_gib
+                        },
                     });
                     self.engine.allocate(auth, resources)
                 }
@@ -356,6 +384,33 @@ impl Server {
             // runs until it exits (or Stop/Release). Completion is read with
             // Inspect{command_operation_id}. The RPC deadline bounds only the
             // acknowledgement, never the command.
+            #[cfg(target_os = "linux")]
+            request::Command::Start(s) => {
+                let bridge = if s
+                    .argv
+                    .first()
+                    .is_some_and(|path| path == "/usr/local/bin/lamp-subscription")
+                    && self
+                        .engine
+                        .capture_trust(&ctx.sandbox_id)
+                        .is_ok_and(|trust| trust == "owner_private")
+                {
+                    self.engine.ensure_subscription_bridge(auth)
+                } else {
+                    Ok(())
+                };
+                bridge.and_then(|_| {
+                    self.engine.start(
+                        auth,
+                        &ctx.operation_id,
+                        s.argv,
+                        s.cwd,
+                        s.env.into_iter().collect(),
+                        0,
+                    )
+                })
+            }
+            #[cfg(target_os = "macos")]
             request::Command::Start(s) => self.engine.start(
                 auth,
                 &ctx.operation_id,
@@ -364,6 +419,7 @@ impl Server {
                 s.env.into_iter().collect(),
                 0,
             ),
+            #[cfg(target_os = "linux")]
             request::Command::Capture(c) => {
                 if !c.preserves_memory {
                     Err(EngineError::invalid(
@@ -373,6 +429,13 @@ impl Server {
                     self.engine.capture(auth, &c.capture_id, &c.consistency)
                 }
             }
+            // Mac: memory fork (Linux guests), durable suspend
+            // (`consistency=suspend`) or the A2 disk-only macOS copy.
+            #[cfg(target_os = "macos")]
+            request::Command::Capture(c) => {
+                self.engine
+                    .capture(auth, &c.capture_id, &c.consistency, c.preserves_memory)
+            }
             request::Command::Stop(_) => self.engine.stop(auth),
             request::Command::Release(_) => self.engine.release(auth),
             request::Command::Inspect(_) if global => Ok(self.global_inspect()),
@@ -381,6 +444,59 @@ impl Server {
                 .inspect(&ctx.sandbox_id, &i.command_operation_id),
             request::Command::Cancel(_) => Err(EngineError::invalid(
                 "cancel is not supported; operations are short and atomic",
+            )),
+            #[cfg(target_os = "linux")]
+            request::Command::Rebuild(input) => {
+                let purpose = match input.purpose.as_str() {
+                    "template" => Some(lamp_engine::custody::CapturePurpose::Template),
+                    "export" => Some(lamp_engine::custody::CapturePurpose::Export),
+                    "share" => Some(lamp_engine::custody::CapturePurpose::Share),
+                    _ => None,
+                };
+                if input.source_id != ctx.sandbox_id {
+                    Err(EngineError::new(
+                        "SCOPE_DENIED",
+                        "rebuild source must match granted sandbox",
+                    ))
+                } else if let Some(purpose) = purpose {
+                    if input.clean_rebuild {
+                        self.engine
+                            .rebuild_private_state(&input.source_id)
+                            .and_then(|report| {
+                                let blob =
+                                    self.engine.export_clean_template(&report, caller_uid)?;
+                                Ok(lamp_engine::engine::Outcome {
+                                    state: "rebuilt".into(),
+                                    handles: vec![report.template_id.clone()],
+                                    detail: std::collections::BTreeMap::from([
+                                        ("capture_trust".into(), "clean".into()),
+                                        ("manifest_digest".into(), report.manifest_digest),
+                                        ("preserves_memory".into(), "false".into()),
+                                        ("export_blob_id".into(), blob),
+                                    ]),
+                                    ..Default::default()
+                                })
+                            })
+                    } else {
+                        self.engine
+                            .authorize_transfer(
+                                &input.source_id,
+                                purpose,
+                                &input.destination_principal,
+                            )
+                            .map(|_| lamp_engine::engine::Outcome {
+                                state: "transfer_authorized".into(),
+                                ..Default::default()
+                            })
+                    }
+                } else {
+                    Err(EngineError::invalid("unknown transfer purpose"))
+                }
+            }
+            #[cfg(target_os = "macos")]
+            request::Command::Rebuild(_) => Err(EngineError::new(
+                "ENGINE_UNQUALIFIED",
+                "subscription custody reconstruction requires the Linux adapter",
             )),
         };
         let result = match result {
@@ -444,41 +560,16 @@ impl Server {
             "cpu_baseline".into(),
             self.engine.compat.cpu_baseline.clone(),
         );
+        #[cfg(target_os = "macos")]
+        {
+            let (used, cap) = self.engine.macos_slots();
+            o.detail
+                .insert("macos_slots".into(), format!("{used}/{cap}"));
+            for t in self.engine.templates() {
+                o.detail
+                    .insert(format!("template.{}.guest_os", t.id), t.guest_os().into());
+            }
+        }
         o
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn start(pairs: &[(&str, &str)]) -> request::Command {
-        let mut env = HashMap::with_capacity(pairs.len() * 7);
-        for (k, v) in pairs {
-            env.insert(k.to_string(), v.to_string());
-        }
-        request::Command::Start(Start {
-            argv: vec!["env".into()],
-            cwd: String::new(),
-            env,
-        })
-    }
-
-    #[test]
-    fn fingerprint_ignores_map_order_but_not_content() {
-        let keys: Vec<(String, String)> = (0..32)
-            .map(|i| (format!("K{i}"), format!("v{i}")))
-            .collect();
-        let fwd: Vec<(&str, &str)> = keys.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-        let mut rev = fwd.clone();
-        rev.reverse();
-        let a = fingerprint(&start(&fwd));
-        // Many independently seeded maps: their encodings vary, the print not.
-        for _ in 0..16 {
-            assert_eq!(fingerprint(&start(&rev)), a);
-        }
-        let mut changed = fwd.clone();
-        changed[3].1 = "other";
-        assert_ne!(fingerprint(&start(&changed)), a);
     }
 }

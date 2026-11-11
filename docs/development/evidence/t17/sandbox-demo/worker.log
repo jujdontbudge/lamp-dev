@@ -1,0 +1,16 @@
+lamp-supervisor: store open, 1 verified template(s) in 4191 ms
+lamp-supervisor: serving lamp.worker/1 on /home/johan/lamp-t17/sandbox-demo-3/private/worker.sock
+lamp-supervisor: op op_bcaaf5f7422647784e35fdfb30eb9465.allocate sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=1356
+lamp-supervisor: op op_bcaaf5f7422647784e35fdfb30eb9465.restore sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=53386 attach_us=26099 barrier_us=5695 load_us=3729 net_build_us=31940 net_guard_us=12718 net_proxy_us=12724 net_tap_us=16263 net_total_us=31911 net_uplink_us=15464 prepare_us=2150 spawn_us=15651 total_us=53369
+lamp-supervisor: op op_bcaaf5f7422647784e35fdfb30eb9465.start sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=16680
+lamp-supervisor: op op_58f8b8a5b8eb64b2b947854cc34788d1.start sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=15913
+lamp-supervisor: op op_d36f529490dede9d203779961b529cfb.start sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=13404
+lamp-supervisor: op op_9fd64c01f87a9872475d3557578046e9.start sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=7165
+lamp-supervisor: op op_24398467ddadd8dbfdeb6a6e6c160125.start sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=22572
+lamp-supervisor: op op_9aae2172ca1b_1 sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=1157850 disk_seal_us=1268 freeze_us=1989 full_write_us=1127736 memory_bytes=4294967296 publish_us=426 source_pause_us=1153875 spare=0 thaw_us=1234 total_us=1157688
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_b9b7d8291722003f961b0a86aefd48ce.stop sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=30839
+lamp-supervisor: op op_b9b7d8291722003f961b0a86aefd48ce.release sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=129157
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

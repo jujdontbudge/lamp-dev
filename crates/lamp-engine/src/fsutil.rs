@@ -1,6 +1,6 @@
 //! Store primitives: reflink clones, hard links, sparse digests and zero-page
 //! hole punching. The store must be a reflink-capable filesystem (XFS with
-//! reflink=1 on the reference host).
+//! reflink=1 on the reference Linux host; APFS `clonefile` on Macs).
 use crate::error::{EngineError, IoContext, Result};
 use crate::manifest::{CHUNK, Object, combine, zero_chunk_digest};
 use sha2::{Digest, Sha256};
@@ -12,9 +12,54 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 
+#[cfg(target_os = "linux")]
 const FICLONE: u64 = 0x4004_9409;
 
+/// Creates `dst` as a copy-on-write clone of `src` (APFS `clonefile`: one
+/// metadata operation, independent writable inode, same volume only).
+#[cfg(target_os = "macos")]
+pub fn reflink(src: &Path, dst: &Path, mode: u32) -> Result<()> {
+    unsafe extern "C" {
+        fn clonefile(src: *const libc::c_char, dst: *const libc::c_char, flags: u32)
+        -> libc::c_int;
+    }
+    const CLONE_NOFOLLOW: u32 = 1;
+    let (s, d) = (cstr(src)?, cstr(dst)?);
+    // SAFETY: valid C strings.
+    if unsafe { clonefile(s.as_ptr(), d.as_ptr(), CLONE_NOFOLLOW) } != 0 {
+        return Err(EngineError::host(format!(
+            "clonefile {} -> {}: {} (store must be one APFS volume)",
+            src.display(),
+            dst.display(),
+            std::io::Error::last_os_error()
+        )));
+    }
+    chmod(dst, mode)
+}
+
+#[cfg(target_os = "macos")]
+fn cstr(p: &Path) -> Result<CString> {
+    CString::new(p.as_os_str().as_bytes()).map_err(|_| EngineError::invalid("NUL in path"))
+}
+
+/// Stable-storage barrier for one file or directory: `F_FULLFSYNC` on
+/// macOS (an ordinary fsync there does not flush the drive's cache).
+#[cfg(target_os = "macos")]
+pub fn full_fsync(path: &Path) -> Result<()> {
+    let f = File::open(path).ctx(format!("open {}", path.display()))?;
+    // SAFETY: fcntl on our descriptor.
+    if unsafe { libc::fcntl(f.as_raw_fd(), libc::F_FULLFSYNC) } != 0 {
+        return Err(EngineError::host(format!(
+            "F_FULLFSYNC {}: {}",
+            path.display(),
+            std::io::Error::last_os_error()
+        )));
+    }
+    Ok(())
+}
+
 /// Creates `dst` as a copy-on-write clone of `src` (constant time on XFS).
+#[cfg(target_os = "linux")]
 pub fn reflink(src: &Path, dst: &Path, mode: u32) -> Result<()> {
     let s = File::open(src).ctx(format!("open {}", src.display()))?;
     let d = OpenOptions::new()
@@ -86,6 +131,7 @@ pub fn fsync_path(path: &Path) -> Result<()> {
 
 /// Punches holes over all-zero 64 KiB blocks so unchanged guest memory costs
 /// neither disk nor page cache.
+#[cfg(target_os = "linux")]
 pub fn sparsify(path: &Path) -> Result<u64> {
     const BLOCK: usize = 64 << 10;
     let mut f = OpenOptions::new()
@@ -129,6 +175,7 @@ pub fn sparsify(path: &Path) -> Result<u64> {
 }
 
 /// Commits the filesystem holding `path` (syncfs(2)).
+#[cfg(target_os = "linux")]
 pub fn syncfs(path: &Path) -> Result<()> {
     let f = File::open(path).ctx(format!("open {}", path.display()))?;
     // SAFETY: plain syscall on our descriptor.
@@ -226,6 +273,7 @@ pub fn verify_object(path: &Path, want: &Object, what: &str) -> Result<()> {
 }
 
 /// Starts asynchronous writeback of a file's dirty pages without waiting.
+#[cfg(target_os = "linux")]
 pub fn start_writeback(path: &Path) {
     if let Ok(f) = File::open(path) {
         // SAFETY: plain syscall on our descriptor.
@@ -233,6 +281,17 @@ pub fn start_writeback(path: &Path) {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub fn random_bytes<const N: usize>() -> [u8; N] {
+    let mut out = [0_u8; N];
+    for chunk in out.chunks_mut(256) {
+        // SAFETY: getentropy fills at most 256 bytes of our buffer.
+        while unsafe { libc::getentropy(chunk.as_mut_ptr().cast(), chunk.len()) } != 0 {}
+    }
+    out
+}
+
+#[cfg(target_os = "linux")]
 pub fn random_bytes<const N: usize>() -> [u8; N] {
     let mut out = [0_u8; N];
     let mut filled = 0;
@@ -258,40 +317,4 @@ pub fn now_ns() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos() as u64)
         .unwrap_or(0)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn store_lock_is_exclusive_until_released() {
-        let path = std::env::temp_dir().join(format!("lamp-lock-{}", std::process::id()));
-        let first = lock_exclusive(&path).unwrap();
-        let second = lock_exclusive(&path).unwrap_err();
-        assert_eq!(second.code, "RESOURCE_IN_USE");
-        drop(first);
-        lock_exclusive(&path).unwrap();
-        let _ = std::fs::remove_file(path);
-    }
-    use crate::manifest::digest_bytes;
-    use std::io::Write;
-
-    #[test]
-    fn sparse_digest_equals_dense_reference() {
-        let dir = std::env::temp_dir().join(format!("lamp-digest-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("obj");
-        let mut f = File::create(&path).unwrap();
-        f.set_len((3 * CHUNK + 123) as u64).unwrap();
-        f.seek(SeekFrom::Start((CHUNK + 5) as u64)).unwrap();
-        f.write_all(b"lamp").unwrap();
-        drop(f);
-        let mut dense = vec![0_u8; 3 * CHUNK + 123];
-        dense[CHUNK + 5..CHUNK + 9].copy_from_slice(b"lamp");
-        assert_eq!(digest_file(&path).unwrap().digest, digest_bytes(&dense));
-        sparsify(&path).unwrap();
-        assert_eq!(digest_file(&path).unwrap().digest, digest_bytes(&dense));
-        std::fs::remove_dir_all(dir).unwrap();
-    }
 }

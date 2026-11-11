@@ -1,0 +1,30 @@
+PASS guard drops root, retains only net-admin and enforces no-new-privileges/seccomp/assigned FDs
+PASS public TCP/UDP allowed; private, metadata, fleet, host and public-numbered LAN denied
+PASS guest root firewall changes and source spoof cannot bypass guard
+PASS host spool contains attributed, ordered allow/deny and bidirectional byte records
+PASS tcp_rst_then_reconnect: same local port gets two fresh, durably admitted connection identities
+PASS fork-without-exec, rapid parent/child death, exec identity, credentials and thread exclusion audited
+PASS task root cannot access tracer/audit FD; CLONE_UNTRACED denied and clone3 forced to traced fallback
+PASS background job outlives its command (0.032s status, 1.041s collector exit) and stays audited
+PASS audited task gets exactly the requested environment up to the contract maximum; invalid requests run nothing
+PASS host audit receiver is unprivileged, capability-free and descriptor/seccomp confined
+PASS host ACK loss kills CPU-only task tree through EXITKILL in 0.265s (<5s)
+PASS SIGKILL of the tracer cannot leave an unobserved task tree running
+PASS fin_then_peer_data_guard_kill_remains_unterminated
+PASS guard death closes existing and new flows with nft rules left installed
+PASS restart cannot merge into or replace an existing generation's nft table
+PASS idle audit spool exhaustion closes established and new traffic without another admission
+EVIDENCE /var/tmp/lamp-t4-6rwqc5a7
+Artifacts: /var/tmp/lamp-t4-6rwqc5a7
+Child stderr: /dev/stdin:1:19-28: Error: Could not process rule: File exists
+create table inet lamp_guard {
+                  ^^^^^^^^^^
+lamp-guard: nft policy install failed
+
+Child stderr: lamp-guard: failed to fill whole buffer
+
+Child stderr: lamp-guard: File exists (os error 17)
+
+Child stderr: lamp-guard: File exists (os error 17)
+
+Child stderr: lamp-guard: File exists (os error 17)

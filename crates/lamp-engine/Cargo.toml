@@ -4,10 +4,11 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "Lamp Linux engine: Firecracker microVM create, memory fork and lamp.template/v1 builds."
+description = "Lamp engines: Linux Firecracker microVMs and Apple Silicon Virtualization.framework guests (create, memory fork, suspend, lamp.template/v1)."
 
 [dependencies]
 lamp-init = { path = "../lamp-init" }
+lamp-guard = { path = "../lamp-guard" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -16,6 +17,10 @@ toml.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc.workspace = true
+lamp-vz = { path = "../lamp-vz" }
 
 [features]
 # E04 crash/omitted-barrier injection. Never in a production build.

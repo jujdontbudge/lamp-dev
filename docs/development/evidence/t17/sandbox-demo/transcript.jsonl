@@ -1,0 +1,12 @@
+{"step": "artifacts", "value": {"host": "ubuntu-server", "sha256": {"/home/johan/lamp-t17/lamp-broker-t17-linux": "7ff5894b6a3f55ea5f5d4207eb38d3b643d6908a1a463b935df1961cf84703eb", "/home/johan/lamp-t17/lampd-t17-linux": "cd1f2adac9637a45da9fe66983e88a6be5a79bdde61a9c87b8a118d16ae85f6b", "/var/lib/lamp/t17-broker/bin/lamp-guard": "f3a4e5520eb6445db042fd44ea66d7acd4f06631f95177e474cefce521cf14e2", "/var/lib/lamp/t17-broker/bin/lamp-supervisor": "ff8359869cb007129997e1e17e99961b5e03e166499d640befcf2e68d9e4a6f3"}, "vendor_boundary": "authenticated model and MCP fixtures, not external provider certification"}}
+{"step": "allocation admission", "value": {"available_mib": 25909, "firecracker_count": 0, "free_m": "total        used        free      shared  buff/cache   available\nMem:           31140        5231        4145        1561       23781       25909\nSwap:           8191        3688        4503"}}
+{"step": "real sandbox", "value": {"id": "sb_456e2f3ad448593aca47a76eb65b691c", "state": "ready", "template": "tp_8a6922170222418fabafdc0c95"}}
+{"step": "guest harness through model fixture", "value": {"status": 200, "useful_code_output": "55"}}
+{"step": "guest authenticated MCP gateway", "value": {"data": {"content": [{"text": "[\"initial\"]", "type": "text"}]}}}
+{"step": "guest settings proposed", "value": {"base_revision": "b10315aff0dc9d2eed3c8fd58e28bab45e8028131810a25d3cbb6c2ab151849e", "settings_change_id": "d43d5d847ca26641a023005f3780a30d70d14ec700a5a034b4e4ede288bccb12", "state": "proposed"}}
+{"step": "owner selected-path apply", "value": {"selected_applied": true, "source_unchanged_before_approval": true, "unselected_unchanged": true}}
+{"step": "guest real service effect", "value": {"data": {"count": 2}}}
+{"step": "full memory and disk capture", "value": {"capture_id": "cp_t17_456e2f3ad448593aca47a76eb65b691c", "state": "captured"}}
+{"step": "independent guest RAM disk capture scan", "value": {"allocated_bytes_scanned": 4799963923, "files": 4, "logical_bytes": 25769825043, "raw_provider_canary_occurrences": 0}}
+{"step": "sandbox released", "value": {"state": "deleted"}}
+{"step": "scan", "value": {"guest_ram_disk_capture_scan": "one full snapshot scanned independently", "raw_provider_canary_occurrences_in_published_output_and_logs": 0}}

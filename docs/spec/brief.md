@@ -60,14 +60,14 @@ Both modes are fully supported, and the caller picks:
 
 ## 7. Speed and quality targets
 
-| Target | Value | Where it's a hard target |
+| Target | Value | Release measurement |
 |---|---|---|
 | Create from a template | p50 under 500 ms, from API call to a command actually running | Linux |
 | Fork a running sandbox, memory included | under 1 s | Linux |
 | Speed inside a sandbox | at least 97% of the host's native speed, measured separately for computation, disk and network | Linux |
-| Security attack suite | 0 leaks of API keys, passwords and browser cookies | Everywhere |
+| Secret protection | 0 leaks of API keys, passwords and browser cookies | Everywhere |
 
-These targets are hard for a **standard sandbox**: 2 vCPU, 4 GiB RAM and 20 GiB disk, with up to 1 GiB of recently written memory at fork time. Larger sizes are measured and published, but aren't hard targets. Mac targets are set after measuring the supported hypervisors. Subscription tokens are a documented exception to the leak target ([ADR 0004](../adr/0004-subscription-logins-stay-on-user-hosts.md)). Exposures the owner explicitly opts into don't count either: a secret injected into a sandbox, cookies copied into one, or the weak-boundary override for secrets. They're flagged on the dashboard and recorded in the audit log.
+Owner amendment, 2026-11-10: measure these speed targets and the zero-leak goal once at release and publish the results honestly. They never block implementation, merge or release. There is no required attack suite, trial count or outlier rule. The speed measurements use a **standard sandbox**: 2 vCPU, 4 GiB RAM and 20 GiB disk, with up to 1 GiB of recently written memory at fork time. Larger sizes are measured and published without timing prerequisites. Mac targets are set after measuring the supported hypervisors. Subscription tokens are a documented exception to the leak target ([ADR 0004](../adr/0004-subscription-logins-stay-on-user-hosts.md)). Exposures the owner explicitly opts into don't count either: a secret injected into a sandbox, cookies copied into one, or the weak-boundary override for secrets. They're flagged on the dashboard and recorded in the audit log.
 
 ## 8. Templates and recipes
 
@@ -214,28 +214,20 @@ The first release includes everything in this brief.
 
 ## 21. Proving it
 
-A public, reproducible benchmark suite runs on every change. It compares Lamp with Cloudroom, E2B Embed, Docker Sandboxes, microsandbox and SmolVM on the targets in section 7, plus time-to-agent-ready, fork time, density, reliability and the security attack suite. Until the first public release, it runs on every PR in private CI. Results are published from the first public release.
+Owner amendment, 2026-11-10: take and publish reproducible measurements once at release, including the section 7 targets and comparisons with Cloudroom, E2B Embed, Docker Sandboxes, microsandbox and SmolVM. Report time-to-agent-ready, fork time, density, reliability and secret protection honestly from the available observations. No benchmark runs on every change or PR, and no measurement is a blocker. Build features with almost no new tests and show one real end-to-end demonstration per ticket.
 
 ## 22. Engineering rules and constraints
 
-- **Owner decision, 2026-11-09: “skip windows for everything.”** Windows hosts, native guests, test lanes, CLI builds and CI runner rows are outside release one. O10 now means Linux 5.10+ and macOS 26+ on Apple Silicon. The nine test lanes are `LX`, `LX22`, `D12`, `F40`, `L510`, `LA`, `M5`, `AIR` and `NV`; `W11`, `WS22S` and `WS22D` are retired.
+- **Owner decision, 2026-11-09: “skip windows for everything.”** Windows hosts, native guests, test lanes, CLI builds and CI runner rows are outside release one. O10 now means Linux 5.10+ and macOS 26+ on Apple Silicon.
 
-- **Build order:** the engine comes first. A Linux sandbox that starts and forks within the targets has to work before anything else. It doesn't need Docker images.
+- **Build order:** the engine comes first. A Linux sandbox that starts and forks has to work before anything else; the 2026-11-10 amendment removes speed as a prerequisite. It doesn't need Docker images.
 - **Reuse rule** ([ADR 0003](../adr/0003-reuse-open-source-only-for-security-or-speed.md)): Lamp writes its own components, and reuses open source only when it's needed for security or is very likely the fastest option.
 - **Language:** the architecture decides. The trade-off: Firecracker, Cloud Hypervisor and libkrun are Rust, while Tailscale's embeddable library (`tsnet`) and GitHub's runner scale-set client are Go.
 - **Test machines:**
   - an Apple M5 Mac with 10 cores and 24 GB, on macOS 26
   - an Ubuntu laptop
   - a MacBook Air
-- **No money is spent on testing.** Every test, benchmark and dev relay runs on the owner's three machines. This replaces the earlier plan to rent machines (owner decision, 2026-11-08). Vendor tests use the owner's existing paid accounts and subscriptions, which cover everything the tests need. Nothing new is bought, and pay-per-use API keys run under a hard spend limit (owner decision, 2026-11-09). The test lanes:
-
-  | Lane | Machine | Notes |
-  |---|---|---|
-  | `LX`: Linux x86_64, native: hard speed targets | Ubuntu laptop: Intel Core Ultra 9 288V, 8 cores, 30 GB, Ubuntu 26.04, KVM with nested virtualization enabled | Also hosts the dev relay, since it's always on |
-  | `LX22`, `D12`, `F40`, `L510`: Ubuntu 22.04, Debian 12, Fedora 40 and a separate Linux 5.10 boundary | VMs on the Ubuntu laptop | Uses nested KVM |
-  | `LA`: Linux arm64 | A Linux VM on the M5 Mac with nested virtualization (supported on M3 and later Macs) | Labeled nested. Native arm64 speed targets are certified only when someone runs the open benchmark on native arm64 hardware |
-  | `M5`, `AIR`: macOS on Apple Silicon | The M5 Mac (24 GB) and the MacBook Air (M2, 8 GB, fanless) | The Air is the low-end, heat-limited lane |
-  | `NV`: host without virtualization | A Linux VM with nested virtualization turned off | Tests gVisor; Mac process fallback is tested separately on `M5` and `AIR` with virtualization access denied |
+- **No money is spent on testing.** Every test, benchmark and dev relay runs on the owner's three machines. This replaces the earlier plan to rent machines (owner decision, 2026-11-08). Vendor tests use the owner's existing paid accounts and subscriptions, which cover everything the tests need. Nothing new is bought, and pay-per-use API keys run under a hard spend limit (owner decision, 2026-11-09).
 
   Both Macs run macOS 26, and a macOS guest can't run Lamp's engine inside it. So **macOS 26 is the certified minimum** for the first release, replacing macOS 14 (owner said "you decide", 2026-11-08). Older macOS versions are uncertified.
 - **Never test against the owner's own projects,** such as Ozi, Apple Bridge or money-bridge, and don't build special integrations for them. Use public third-party harnesses, consoles and MCP servers.

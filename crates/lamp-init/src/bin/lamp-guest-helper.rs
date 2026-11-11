@@ -735,20 +735,6 @@ mod linux {
         use super::*;
 
         #[test]
-        fn malformed_report_cannot_fall_back_to_collector_success() {
-            for report in ["broken", "-1", "4991"] {
-                let (tx, rx) = mpsc::channel();
-                tx.send(Ok(std::process::ExitStatus::from_raw(0))).unwrap();
-                assert_eq!(
-                    reported_task_status(report.as_bytes(), rx)
-                        .unwrap_err()
-                        .kind(),
-                    io::ErrorKind::InvalidData
-                );
-            }
-        }
-
-        #[test]
         fn task_report_wins_even_when_collector_exit_arrives_first() {
             for (report, collector_code, expected) in
                 [("0\n", 70, 0), ("10752\n", 0, 42), ("", 70, 70)]

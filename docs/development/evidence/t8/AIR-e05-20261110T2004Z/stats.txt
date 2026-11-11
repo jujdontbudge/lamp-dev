@@ -1,0 +1,11 @@
+measured 154 ok 154 state_bad 0 clock_bad 0 iso_bad 0
+fork_ms: n=154 p50=4547 p95=10407 p99=13687 max=18001
+pause_ms: n=154 p50=3039 p95=7695 p99=9060 max=13839
+full_write_ms: n=154 p50=3031 p95=7675 p99=9035 max=13822
+skew_src_ms: n=154 p50=28 p95=75 p99=112 max=138
+skew_fork_ms: n=154 p50=16 p95=43 p99=69 max=190
+rss_fork: n=154 p50=152 p95=288 p99=321 max=368
+rss_src: n=154 p50=55 p95=57 p99=79 max=162
+under1000 0
+lost_acked 0
+modes {'memory'}

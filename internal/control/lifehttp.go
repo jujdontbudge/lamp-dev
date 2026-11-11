@@ -306,6 +306,27 @@ func (s *Service) lifeOperationAllowed(a caller, rec *record) bool {
 	return s.current(a) && s.own(a, rec.Operation.OwnerId)
 }
 
+// cleanExportRead reports whether a template or blob read names one of the
+// clean exports kept by custody (T9) rather than a T19 resource.
+func (s *Service) cleanExportRead(name string, selectors map[string]any) bool {
+	if name != "template_get" && name != "blob_get" && name != "blob_download" {
+		return false
+	}
+	s.readLock()
+	defer s.mu.Unlock()
+	if name == "template_get" {
+		_, ok := s.journal.Templates[textField(selectors, "template_id")]
+		return ok
+	}
+	blob := textField(selectors, "blob_id")
+	for _, t := range s.journal.Templates {
+		if t.BlobID == blob {
+			return true
+		}
+	}
+	return false
+}
+
 // lifeRespond mirrors respond, with the operation's canonical scope.
 func (s *Service) lifeRespond(w http.ResponseWriter, r *http.Request, requestID, id string, replayed bool, wait uint64) {
 	s.mu.Lock()

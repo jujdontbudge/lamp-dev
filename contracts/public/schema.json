@@ -37864,7 +37864,7 @@
     "TOKEN_HOME_UNAVAILABLE": 503,
     "AUDIT_UNAVAILABLE": 503
   },
-  "x-lamp-spec-sha256": "aa7ee3c2306809776dffcdcf8f2a4e3e267f911bf35141d5fe6de00b11f26015",
+  "x-lamp-spec-sha256": "eac0931282d28acd196c9ae56456ccc537fef5900eac330b0da7abfd68332595",
   "x-lamp-limits": {
     "worker_control_bytes": 1048576,
     "stream_payload_bytes": 65536,

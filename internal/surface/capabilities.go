@@ -9,6 +9,8 @@ func init() {
 	for _, name := range []string{
 		"api_describe", "docs_read", "event_list",
 		"sandbox_create", "sandbox_get", "sandbox_list", "sandbox_fork", "sandbox_delete",
+		"sandbox_suspend", "sandbox_resume", "snapshot_create", "snapshot_get",
+		"share_create", "share_get", "template_get", "blob_get", "blob_download",
 		"exec_create", "exec_get", "exec_list", "exec_watch",
 		"operation_get", "operation_list", "operation_wait", "operation_cancel",
 		"fleet_get", "fleet_list", "fleet_update",
