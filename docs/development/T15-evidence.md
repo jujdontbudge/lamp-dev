@@ -1,5 +1,65 @@
 # T15 — Mac devices and restricted native tasks
 
+## PR review corrections after `fcdaa8c`
+
+Merged `origin/main`, retaining quotas, audit, sharing and state administration
+alongside native fallback configuration. No tests were added and the full suite
+was not rerun for this review.
+
+- Native job-origin refusal now applies only to `/internal/native-tasks`.
+  Existing login/protected-connection restrictions remain. The real control
+  service admitted and completed VM creation for **both a public-CI token and
+  an owner scoped key**, then released both VMs. Public-CI native execution
+  remained HTTP 403 / `VM_REQUIRED`.
+- Every completed native request removes its temporary `native-task-*/Task.app`
+  directory. The demonstration observed zero retained bundles after success,
+  packaging failure, executable-start failure and both successful retries.
+  A reservation is removed and the directory synced when the launcher never
+  started. After a launcher has started, an uncertain effect remains consumed;
+  it is not blindly re-executed.
+- Audio flags require an explicit `guest_transport.helper`, pointing to the
+  trusted, guest-platform `lamp-guest-devices` artifact. The engine pins the
+  bounded helper bytes, uploads and starts the broker in the private guest,
+  then checks its status before returning successful creation with audio
+  enabled. Missing helpers fail with `DEVICE_UNAVAILABLE` before any guest
+  directory exists. Raw VZ worker audio flags are refused; its ready JSON
+  correctly reports no attached hardware audio. Only the engine's successfully
+  activated transport reports enabled guest audio.
+- Extra disks are limited to 16, each 1–1,048,576 MiB. Primary and extra disk
+  logical sizes must fit `disk_gib`, which is charged by control-plane quotas.
+  The Linux 20 GiB primary plus 64 MiB extra therefore requests 21 GiB; the
+  macOS 48 GiB primary plus that extra needs 49 GiB, without resizing either
+  primary disk. Existing regular extra disks are reopened without following
+  symlinks and only when their size matches; they are never truncated.
+
+Review records:
+
+- [Real native refusals, two authorised VM paths, cleanup and same-key retries](evidence/t15/review-native-requests/result.json)
+- [Request-activated Linux audio, real PCM round trip and 21 GiB quota](evidence/t15/review-linux-audio-auto/result.json)
+- [Oversized and over-quota requests refused before extra-disk creation](evidence/t15/review-disk-restart/result.json)
+- [Second actual worker start preserving the same 64 MiB disk and marker](evidence/t15/review-disk-restart-recovered/result.json)
+- [Unavailable audio/helper and mismatched existing disk refusals](evidence/t15/review-device-refusals/result.json)
+
+The audio run did not manually upload or start the broker: the creation request
+did so and returned its checked endpoint. Recording/playback returned 9,600
+identical PCM bytes, SHA-256
+`69645c5d481174d63fe759c3b0b41e1f05c1c4db8b9c84676652ddcad2e5fc51`.
+Both standalone worker starts were confined. The second retained the marker
+and exact 67,108,864-byte extra disk. All review guests and fixture daemons were
+stopped. Initial standalone-fixture mistakes (a read-only primary clone and
+the nonexistent `shutdown` operation instead of `exit`) are retained, not
+counted as product failures or successful demonstrations.
+
+Commands run successfully for the changed code:
+
+```sh
+cargo clippy -p lamp-engine -p lamp-vz -p lamp-supervisor --all-targets --locked -- -D warnings
+go vet ./internal/control ./cmd/lampd
+python3 -m py_compile infra/mac/demo-devices.py infra/mac/demo-native-control.py
+cargo build --locked -p lamp-vz -p lamp-supervisor
+go build -o target/t15-review-bin/lampd ./cmd/lampd
+```
+
 ## Coordinator follow-up: real device and trusted-origin demonstrations
 
 The four requested follow-up demonstrations now work. Public SDK/per-sandbox
@@ -15,7 +75,7 @@ used generated fixtures and released their disposable guests.
 | Native macOS display | actual guest display ID 1, 640 × 480 pixels; AppKit image below | remains refused under current memory headroom |
 | Native macOS disk/GPU | 4,096-byte extra-disk round trip; Metal on `Apple Paravirtual device`, 64 verified computed values, last value 196 | no claim of an admitted native guest |
 | Native macOS keyboard/mouse | guest AppKit queue delivered key code 0 down/up, typed `a`, pointer `(123,234)` | native guest correctly remains refused |
-| Trusted public-CI refusal | authenticated public job refused through real control service, including forged owner/private claims | same |
+| Trusted public-CI native refusal | authenticated public job refused on native route, including forged owner/private claims; review additionally proves VM creation allowed | native refusal demonstrated before review; VM path not rerun on Air |
 
 Final raw records:
 
@@ -31,7 +91,9 @@ Final raw records:
 
 Audio is fixed-format mono signed 16-bit little-endian PCM at 48 kHz.
 `lamp-guest-devices` creates input/output FIFOs only when requested. Lamp's
-private vsock command channel streams a generated tone into the guest, a
+engine activates it from the explicitly configured `guest_transport.helper`;
+absent or unusable transports are refused rather than reported as attached.
+The private vsock command channel streams a generated tone into the guest, a
 guest recorder reads the input FIFO into `recording.wav`, and a guest player
 writes the WAV's samples to the output FIFO. The host drains and checks the
 returned samples. All three final guest runs recorded and played 9,600 bytes,
@@ -80,14 +142,15 @@ available memory, not enough for the 4 GiB guest plus VMM allowance.
 authority document without following symlinks. It binds credential SHA-256 to
 immutable job ID and repository visibility. The service copies that configuration
 at startup; request `origin`/visibility fields are not authority. Unknown job
-credentials fail closed. Public-job mutations, including ordinary sandbox
-creation, are refused before dispatch; the internal native-task route applies
-the same policy.
+credentials fail closed on the native route. Public-job native requests are
+refused before dispatch. Ordinary VM mutations keep their normal authority
+checks and do not inherit native fallback restrictions.
 
 On each Mac a valid enrolled public-job credential successfully read fleet
-metadata, then received HTTP 403 / `VM_REQUIRED` for both forged-owner native
-execution and ordinary sandbox creation. The message identifies
-`jb_public_fixture (public)`. **Zero public-CI sandboxes were created.**
+metadata, then received HTTP 403 / `VM_REQUIRED` for forged-owner native
+execution. The message identifies `jb_public_fixture (public)`. The older
+records also refused ordinary VM creation; that was the reviewed authority
+bug, corrected and demonstrated by successful VM creation above.
 An owner-authorized task on the same service ran system SQLite and returned
 `42`, explicitly reporting `app_sandbox_process` / `weaker_than_vm`.
 Login and protected-connection flags remain refused; networking is denied.
@@ -186,11 +249,11 @@ Raw observations:
 
 ## Missing at the first partial snapshot (superseded above)
 
-- **Audio input/output:** not implemented. Requests explicitly fail with
-  `DEVICE_UNAVAILABLE`. The public VZ host audio source/sink uses the host's
-  *default* microphone/speakers, with no dedicated-device selector. Those
-  attachments are deliberately never constructed. A guest-side virtual
-  audio transport or dedicated-device adapter remains to be built.
+- **Audio input/output:** the original partial PR had no transport.
+  That gap is superseded by the demonstrated guest-vsock PCM transport above.
+  Requests without a configured, available helper fail with
+  `DEVICE_UNAVAILABLE`. VZ host-default microphone/speaker attachments remain
+  deliberately unused.
 - **Keyboard/mouse delivery:** opt-in VZ configuration is present, but real
   input events are not delivered by this implementation. Linux shows the
   requested xHCI controller and USB root hubs but no attached input devices.

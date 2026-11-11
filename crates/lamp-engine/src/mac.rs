@@ -40,7 +40,7 @@ use ed25519_dalek::{SigningKey, VerifyingKey};
 use lamp_init::{Barrier, Empty, Exec, ExecDone, ExecStarted, GuestRequest, GuestResponse};
 use lamp_vz::spec::{Api, ApiReply, DiskSpec, Machine, Sync as DiskSync, WorkerSpec};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -391,6 +391,7 @@ pub struct Engine {
     pub cfg: Config,
     pub compat: HostCompat,
     producer: SigningKey,
+    guest_transport: Option<Vec<u8>>,
     trusted: HashMap<String, VerifyingKey>,
     templates: RwLock<HashMap<String, Arc<Template>>>,
     sandboxes: Mutex<HashMap<String, Arc<Mutex<Sandbox>>>>,
@@ -675,10 +676,36 @@ impl Engine {
             trusted.insert(manifest::key_id(k), *k);
         }
         let compat = HostCompat::detect(&cfg.worker)?;
+        let guest_transport = cfg
+            .devices
+            .guest_transport
+            .as_ref()
+            .map(|transport| {
+                let mut binary = Vec::new();
+                let file = std::fs::File::open(&transport.helper).map_err(|e| {
+                    EngineError::new("DEVICE_UNAVAILABLE", format!("guest transport helper: {e}"))
+                })?;
+                if !file.metadata()?.is_file() {
+                    return Err(EngineError::new(
+                        "DEVICE_UNAVAILABLE",
+                        "guest transport helper must be a regular executable",
+                    ));
+                }
+                file.take((8 << 20) + 1).read_to_end(&mut binary)?;
+                if binary.is_empty() || binary.len() > 8 << 20 {
+                    return Err(EngineError::new(
+                        "DEVICE_UNAVAILABLE",
+                        "guest transport helper must contain 1..=8388608 bytes",
+                    ));
+                }
+                Ok(binary)
+            })
+            .transpose()?;
         let engine = Engine {
             cfg,
             compat,
             producer,
+            guest_transport,
             trusted,
             templates: RwLock::new(HashMap::new()),
             sandboxes: Mutex::new(HashMap::new()),
@@ -1135,6 +1162,10 @@ impl Engine {
                 "memory_mib must be ≥256 and disk_gib ≥1",
             ));
         }
+        resources
+            .disk_gib
+            .checked_mul(1 << 30)
+            .ok_or_else(|| EngineError::invalid("disk_gib overflows byte accounting"))?;
         let mut all = self.sandboxes.lock().unwrap();
         if all.contains_key(auth.sandbox_id) {
             return Err(EngineError::in_use(format!(
@@ -1227,7 +1258,15 @@ impl Engine {
                 match &t.machine {
                     MachineCfg::Linux { resources, .. } => {
                         if (self.cfg.devices == Default::default() && &sb.resources != resources)
-                            || sb.resources.disk_gib != resources.disk_gib
+                            || sb.resources.disk_gib
+                                < resources
+                                    .disk_gib
+                                    .checked_mul(1 << 30)
+                                    .and_then(|n| {
+                                        n.checked_add(self.cfg.devices.extra_disk_bytes())
+                                    })
+                                    .ok_or_else(|| EngineError::invalid("disk size overflow"))?
+                                    .div_ceil(1 << 30)
                         {
                             return Err(mismatch(resources, &sb.resources));
                         }
@@ -1251,10 +1290,15 @@ impl Engine {
                         let disk_gib = std::fs::metadata(t.dir.join(DISK))
                             .ctx("template disk")?
                             .len()
+                            .checked_add(self.cfg.devices.extra_disk_bytes())
+                            .ok_or_else(|| EngineError::invalid("disk size overflow"))?
                             .div_ceil(1 << 30);
-                        if sb.resources.disk_gib != disk_gib {
+                        if sb.resources.disk_gib < disk_gib
+                            || (self.cfg.devices.extra_disks.is_empty()
+                                && sb.resources.disk_gib != disk_gib)
+                        {
                             return Err(EngineError::invalid(format!(
-                                "this macOS template's disk is {disk_gib} GiB; asked for {} GiB (macOS guest disks are not resized)",
+                                "this macOS template and its extra disks require {disk_gib} GiB; asked for {} GiB (macOS guest disks are not resized)",
                                 sb.resources.disk_gib
                             )));
                         }
@@ -1470,6 +1514,19 @@ impl Engine {
         detail.insert("machine_id".into(), ack.machine_id.clone());
         detail.insert("audit".into(), "none".into());
         sb.barrier = Some(ack);
+        if let Some(binary) = &self.guest_transport {
+            self.start_guest_transport(sb, binary, detail)
+                .map_err(|e| {
+                    EngineError::new(
+                        "DEVICE_UNAVAILABLE",
+                        format!("guest transport activation: {}", e.message),
+                    )
+                })?;
+        }
+        detail.insert(
+            "devices".into(),
+            serde_json::to_string(&self.cfg.devices).unwrap(),
+        );
         sb.state = State::Running;
         sb.last_start = detail.clone();
         Ok(())
@@ -1503,7 +1560,8 @@ impl Engine {
                 },
                 cpus: sb.resources.vcpus as usize,
                 memory_mib: sb.resources.memory_mib,
-                devices: self.cfg.devices.clone(),
+                disk_limit_gib: Some(sb.resources.disk_gib),
+                devices: self.cfg.devices.hardware(),
                 disks: vec![DiskSpec {
                     path: disk,
                     read_only: false,
@@ -1531,7 +1589,8 @@ impl Engine {
                     },
                     cpus: sb.resources.vcpus as usize,
                     memory_mib: sb.resources.memory_mib,
-                    devices: self.cfg.devices.clone(),
+                    disk_limit_gib: Some(sb.resources.disk_gib),
+                    devices: self.cfg.devices.hardware(),
                     disks: vec![DiskSpec {
                         path: disk,
                         read_only: false,
@@ -2200,6 +2259,10 @@ impl Engine {
     }
 
     fn run_quiet(&self, sb: &Sandbox, argv: &[&str]) -> Result<()> {
+        self.guest_command(sb, argv).map(|_| ())
+    }
+
+    fn guest_command(&self, sb: &Sandbox, argv: &[&str]) -> Result<ExecDone> {
         let w = Self::worker(sb)?;
         let op = format!("op_sync_{}", lamp_init::hex_encode(&random_bytes::<6>()));
         let mut conn = guest::send(
@@ -2226,7 +2289,82 @@ impl Engine {
             Some(Instant::now() + Duration::from_secs(70)),
             alive,
         )
-        .map(|_| ())
+    }
+
+    fn start_guest_transport(
+        &self,
+        sb: &Sandbox,
+        binary: &[u8],
+        detail: &mut BTreeMap<String, String>,
+    ) -> Result<()> {
+        let root = format!(
+            "/tmp/lamp-io-{}",
+            lamp_init::hex_encode(&random_bytes::<8>())
+        );
+        let helper = format!("{root}/bridge");
+        let directory = format!("{root}/io");
+        let run = |argv: &[&str]| -> Result<ExecDone> {
+            let done = self.guest_command(sb, argv)?;
+            if done.exit_code != 0 || done.signal != 0 || done.timed_out {
+                return Err(EngineError::new(
+                    "DEVICE_UNAVAILABLE",
+                    format!(
+                        "guest device command failed: exit {}, signal {}, stderr {}",
+                        done.exit_code,
+                        done.signal,
+                        lamp_vz::macos::b64_decode(&done.stderr_b64)
+                            .map(|s| String::from_utf8_lossy(&s).into_owned())
+                            .unwrap_or_default()
+                    ),
+                ));
+            }
+            Ok(done)
+        };
+        run(&["/bin/mkdir", "-m", "700", &root])?;
+        let decode = if sb.guest_os == "macos" { "-D" } else { "-d" };
+        for chunk in binary.chunks(30_000) {
+            let data = lamp_vz::macos::b64_encode(chunk);
+            run(&[
+                "/bin/sh",
+                "-c",
+                &format!("umask 077; printf %s '{data}' | base64 {decode} >> {helper}"),
+            ])?;
+        }
+        run(&["/bin/chmod", "700", &helper])?;
+        let devices = &self.cfg.devices;
+        let config=serde_json::json!({"audio_input":devices.audio_input,"audio_output":devices.audio_output,"keyboard":devices.keyboard,"mouse":devices.mouse,"input_endpoint":devices.guest_transport.as_ref().and_then(|t|t.input_endpoint.as_ref())}).to_string();
+        run(&[&helper, "start", &directory, &config])?;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let done =
+                self.guest_command(sb, &[&helper, "request", &directory, "{\"op\":\"status\"}"])?;
+            if done.exit_code == 0 {
+                let bytes =
+                    lamp_vz::macos::b64_decode(&done.stdout_b64).map_err(EngineError::host)?;
+                let status: serde_json::Value =
+                    serde_json::from_slice(&bytes).map_err(|e| EngineError::host(e.to_string()))?;
+                if status["devices"]["audio_input"].as_bool() != Some(devices.audio_input)
+                    || status["devices"]["audio_output"].as_bool() != Some(devices.audio_output)
+                {
+                    return Err(EngineError::new(
+                        "DEVICE_UNAVAILABLE",
+                        "guest transport did not activate requested audio",
+                    ));
+                }
+                detail.insert("guest_transport_status".into(), status.to_string());
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err(EngineError::new(
+                    "DEVICE_UNAVAILABLE",
+                    "guest transport never became ready",
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        detail.insert("guest_transport_binary".into(), helper);
+        detail.insert("guest_transport_directory".into(), directory);
+        Ok(())
     }
 
     /// Durable suspend: tasks frozen (Linux), machine paused, full state

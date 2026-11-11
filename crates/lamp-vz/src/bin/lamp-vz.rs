@@ -166,6 +166,7 @@ fn install(args: &mut Vec<String>, flag: impl Fn(&mut Vec<String>, &str) -> Opti
         },
         cpus,
         memory_mib,
+        disk_limit_gib: Some(disk_gib),
         disks: vec![DiskSpec {
             path: disk,
             read_only: false,

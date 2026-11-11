@@ -105,6 +105,9 @@ fn disks(spec: &WorkerSpec) -> Vec<Disk> {
 pub fn config(
     spec: &WorkerSpec,
 ) -> Result<objc2::rc::Retained<objc2_virtualization::VZVirtualMachineConfiguration>, String> {
+    if spec.devices.audio_input || spec.devices.audio_output {
+        return Err("DEVICE_UNAVAILABLE: the VZ worker attaches no host audio; guest audio must be activated by the engine".into());
+    }
     let console = Some(spec.dir.join("console.log"));
     match &spec.machine {
         Machine::Linux {
@@ -327,15 +330,54 @@ pub fn run(opts: Options) -> Result<(), String> {
         confine::apply(&confine::profile(&g)).map_err(|e| format!("confinement: {e}"))?;
     }
     let confined_us = t0.elapsed().as_micros();
+    let primary_bytes = spec.disks.iter().try_fold(0u64, |bytes, disk| {
+        std::fs::metadata(&disk.path)
+            .map_err(|e| e.to_string())
+            .and_then(|m| {
+                bytes
+                    .checked_add(m.len())
+                    .ok_or("INVALID_ARGUMENT: disk size overflow".into())
+            })
+    })?;
+    let limit = match spec.disk_limit_gib {
+        Some(gib) => gib
+            .checked_mul(1 << 30)
+            .ok_or("INVALID_ARGUMENT: disk limit overflow")?,
+        None => primary_bytes,
+    };
+    if primary_bytes
+        .checked_add(spec.devices.extra_disk_bytes())
+        .is_none_or(|n| n > limit)
+    {
+        return Err("NO_CAPACITY: primary and extra disks exceed disk_gib".into());
+    }
     for d in &spec.devices.extra_disks {
         let path = spec.devices.extra_disk_path(&spec.dir, d);
-        let f = std::fs::OpenOptions::new()
+        let created = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(&path)
-            .map_err(|e| format!("extra disk {}: {e}", path.display()))?;
-        f.set_len(d.size_mib << 20)
-            .map_err(|e| format!("size extra disk: {e}"))?;
+            .open(&path);
+        match created {
+            Ok(f) => f
+                .set_len(d.size_mib << 20)
+                .map_err(|e| format!("size extra disk: {e}"))?,
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                use std::os::unix::fs::OpenOptionsExt;
+                let f = std::fs::OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .custom_flags(libc::O_NOFOLLOW)
+                    .open(&path)
+                    .map_err(|e| e.to_string())?;
+                let metadata = f.metadata().map_err(|e| e.to_string())?;
+                if !metadata.is_file() || metadata.len() != d.size_mib << 20 {
+                    return Err(
+                        "INVALID_ARGUMENT: existing extra disk has a different type or size".into(),
+                    );
+                }
+            }
+            Err(e) => return Err(format!("extra disk {}: {e}", path.display())),
+        }
     }
     if !vz::supported() {
         return Err("Virtualization.framework is not available to this process".into());

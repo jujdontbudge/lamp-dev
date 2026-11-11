@@ -180,9 +180,16 @@ func (s *Service) nativeHTTP(w http.ResponseWriter, r *http.Request, id string) 
 	marker := filepath.Join(s.dir, "native-request-"+bearerHash(r.Header.Get("Authorization")+"\n"+keys[0]))
 	reserved, err := os.OpenFile(marker, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
-		writeError(w, id, "OUTCOME_UNKNOWN", "native request was already consumed; inspect its retained task", nil)
+		writeError(w, id, "OUTCOME_UNKNOWN", "native request may have executed; reconcile before retrying", nil)
 		return
 	}
+	started := false
+	defer func() {
+		if !started {
+			os.Remove(marker)
+			syncDirectory(s.dir)
+		}
+	}()
 	if err := reserved.Sync(); err != nil {
 		reserved.Close()
 		writeError(w, id, "DATA_UNAVAILABLE", err.Error(), nil)
@@ -198,6 +205,7 @@ func (s *Service) nativeHTTP(w http.ResponseWriter, r *http.Request, id string) 
 		writeError(w, id, "HOST_UNAVAILABLE", err.Error(), nil)
 		return
 	}
+	defer os.RemoveAll(dir)
 	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(task.TimeoutSeconds+10)*time.Second)
 	defer cancel()
 	app := filepath.Join(dir, "Task.app")
@@ -218,6 +226,7 @@ func (s *Service) nativeHTTP(w http.ResponseWriter, r *http.Request, id string) 
 	command.Env = []string{"PATH=/usr/bin:/bin"}
 	command.Stdin = bytes.NewReader(input)
 	output, err := command.Output()
+	started = command.Process != nil
 	if err != nil {
 		writeError(w, id, "HOST_UNAVAILABLE", "native task failed: "+err.Error(), nil)
 		return

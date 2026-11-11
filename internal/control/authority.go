@@ -432,9 +432,6 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, id, "SCOPE_DENIED", "action not permitted", nil)
 		return
 	}
-	if s.native != nil && op.Mutation && s.nativeRefusal(w, r, id, a) {
-		return
-	}
 	if s.native != nil && op.Mutation && (strings.HasPrefix(op.Name, "login_") || op.Name == "connection_invoke") {
 		writeError(w, id, "VM_REQUIRED", "logins and protected connections require VM isolation", nil)
 		return

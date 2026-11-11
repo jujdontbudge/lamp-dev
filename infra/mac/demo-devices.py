@@ -47,7 +47,9 @@ def main():
         "extra_disks": [{"id": "demo", "size_mib": 64}],
     }
     if a.guest_bridge:
-        devices.update(audio_input=True, audio_output=True)
+        transport={"helper":str(a.guest_bridge.resolve())}
+        if a.guest=="macos" and a.mac_input_observer:transport["input_endpoint"]="/tmp/lamp-input-observer/input.sock"
+        devices.update(audio_input=True, audio_output=True,guest_transport=transport)
     sup = str(a.bin / "lamp-supervisor")
     socket = str(runtime / "control.sock")
     log = (a.output / "supervisor.log").open("w")
@@ -83,10 +85,13 @@ def main():
         env["LAMP_GRANT_ID"] = json.loads(grant.stdout)["grant_id"]
         ctl("oversized", "create", template.name, "sb_t15_oversized", "2", "32768", "20")
         results["oversized_directory_created"] = (store / "sb/sb_t15_oversized").exists()
-        disk_gib = 48 if a.guest == "macos" else 20
+        disk_gib = 49 if a.guest == "macos" else 21
         created = ctl("create", "create", template.name, sid, "2", str(a.memory_mib), str(disk_gib))
         if created.returncode:
             return
+        activation=json.loads(created.stdout)["detail"]
+        if a.guest_bridge:
+            results["automatic_transport"]=json.loads(activation["guest_transport_status"])
         spec_path = store / "sb" / sid / "spec.json"
         spec = json.loads(spec_path.read_text())
         results["worker_spec"] = spec
@@ -189,19 +194,12 @@ def main():
             observer=ctl("observer_ready","exec",sid,"--","/bin/sh","-c","i=0; until test -f /tmp/lamp-input-observer/events.json; do i=$((i+1)); test $i -lt 600 || { launchctl print gui/501; cat /tmp/lamp-observer.log; exit 1; }; sleep .2; done; cat /tmp/lamp-input-observer/events.json")
             if observer.returncode:raise RuntimeError("guest input observer did not start")
         if a.guest_bridge:
-            bridge="/tmp/lamp-guest-devices"
-            ctl("bridge_init","exec",sid,"--","/bin/sh","-c",f"umask 077; : > {bridge}")
-            binary=a.guest_bridge.read_bytes()
-            for offset in range(0,len(binary),30000):
-                payload=base64.b64encode(binary[offset:offset+30000]).decode()
-                decode="-D" if a.guest=="macos" else "-d"
-                r=ctl(f"bridge_upload_{offset}","exec",sid,"--","/bin/sh","-c",f"printf %s '{payload}' | base64 {decode} >> {bridge}")
-                if r.returncode: raise RuntimeError("guest bridge upload failed")
-            ctl("bridge_mode","exec",sid,"--","/bin/chmod","700",bridge)
-            directory="/tmp/lamp-devices"
-            bridge_config=dict(devices)
-            if a.guest=="macos" and a.mac_input_observer:bridge_config["input_endpoint"]="/tmp/lamp-input-observer/input.sock"
-            ctl("bridge_start","exec",sid,"--",bridge,"start",directory,json.dumps(bridge_config))
+            bridge=activation["guest_transport_binary"]
+            directory=activation["guest_transport_directory"]
+            if a.guest=="macos" and a.mac_input_observer:
+                directory += "-reboot"
+                bridge_config=dict(devices,input_endpoint="/tmp/lamp-input-observer/input.sock")
+                ctl("bridge_restart_after_guest_reboot","exec",sid,"--",bridge,"start",directory,json.dumps(bridge_config))
             def request(label,data):
                 return ctl(label,"exec",sid,"--",bridge,"request",directory,json.dumps(data))
             for attempt in range(50):

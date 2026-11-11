@@ -1,0 +1,5 @@
+{
+  "fixture_error": "The primary clone was writable and the first worker started, but the fixture sent the nonexistent shutdown operation rather than exit and timed out waiting for process termination.",
+  "cleanup": "The owned worker at PID 15649 was stopped via its verified exit API; the subsequent worker was also stopped.",
+  "replacement_record": "../review-disk-restart-recovered/result.json"
+}

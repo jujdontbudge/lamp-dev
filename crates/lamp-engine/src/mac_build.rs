@@ -215,6 +215,7 @@ impl Engine {
                 },
                 cpus: resources.vcpus as usize,
                 memory_mib: resources.memory_mib,
+                disk_limit_gib: Some(resources.disk_gib),
                 disks: vec![DiskSpec {
                     path: sb.dir.join(DISK),
                     read_only: false,
@@ -368,6 +369,7 @@ impl Engine {
                 },
                 cpus: default.vcpus as usize,
                 memory_mib: default.memory_mib,
+                disk_limit_gib: Some(default.disk_gib),
                 disks: vec![DiskSpec {
                     path: sb.dir.join(DISK),
                     read_only: false,
