@@ -749,7 +749,9 @@ func t29Fleet(t *testing.T, live t29Live, root string, base Config) {
 			svcs[i].Close()
 		}
 	}()
-	t29Until(t, "fleet leader", 2*time.Minute, func() bool { return fleets[0].leaderID() != "" && fleets[1].leaderID() != "" })
+	t29Until(t, "fleet leader and authority leases", 2*time.Minute, func() bool {
+		return fleets[0].leaderID() != "" && fleets[1].leaderID() != "" && fleets[0].leaseValid() && fleets[1].leaseValid()
+	})
 	t.Logf("fleet: hosts %v, leader %s", ids, fleets[0].leaderID())
 	startWait := func(svc *Service, name string, in map[string]any) string {
 		in["idempotency_key"] = newID("t29")
