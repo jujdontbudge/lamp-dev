@@ -94,6 +94,7 @@ fleeting:
   <<: *build
   tags: [lamp-fleeting]
 '''
+(work / 'wd').mkdir()
 runner_log = (work / 'runner.log').open('w')
 runner = subprocess.Popen([str(bin / 'gitlab-runner'), 'run', '--config', str(cfg), '--working-directory', str(work / 'wd')],
                           stdout=runner_log, stderr=subprocess.STDOUT, env=dict(os.environ, PATH=f"{bin}:{os.environ['PATH']}"))
