@@ -36,17 +36,19 @@ type storedKey struct {
 	SHA256 string  `json:"sha256"`
 }
 type controlState struct {
-	OwnerID       string                     `json:"owner_id"`
-	Credentialed  bool                       `json:"credentialed"`
-	CursorSecret  string                     `json:"cursor_secret"`
-	Fleet         api.Fleet                  `json:"fleet"`
-	Principals    map[string]api.Principal   `json:"principals"`
-	Memberships   map[string]api.Membership  `json:"memberships"`
-	Keys          map[string]storedKey       `json:"keys"`
-	Approvals     map[string]api.Approval    `json:"approvals"`
-	Sessions      map[string]*managedSession `json:"sessions"`
-	InputLeases   map[string]map[string]any  `json:"input_leases"`
-	SessionShares map[string]map[string]any  `json:"session_shares"`
+	OwnerID          string                       `json:"owner_id"`
+	Credentialed     bool                         `json:"credentialed"`
+	CursorSecret     string                       `json:"cursor_secret"`
+	Fleet            api.Fleet                    `json:"fleet"`
+	Principals       map[string]api.Principal     `json:"principals"`
+	Memberships      map[string]api.Membership    `json:"memberships"`
+	Keys             map[string]storedKey         `json:"keys"`
+	Approvals        map[string]api.Approval      `json:"approvals"`
+	Sessions         map[string]*managedSession   `json:"sessions"`
+	InputLeases      map[string]map[string]any    `json:"input_leases"`
+	SessionShares    map[string]map[string]any    `json:"session_shares"`
+	SessionTransfers map[string]*sessionTransfer  `json:"session_transfers,omitempty"`
+	ChangeSets       map[string]*sessionChangeSet `json:"change_sets,omitempty"`
 }
 type caller struct{ Principal, KeyID string }
 type callerContext struct{}

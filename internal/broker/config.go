@@ -34,6 +34,7 @@ type Connection struct {
 	Region            string               `json:"region,omitempty"`
 	KeyFile           string               `json:"key_file,omitempty"`
 	Models            []string             `json:"models,omitempty"`
+	FreeOnly          bool                 `json:"free_only,omitempty"`
 	Operations        map[string]Operation `json:"operations"`
 }
 type Operation struct {
@@ -158,8 +159,8 @@ func (c Config) Validate() error {
 			if v.Kind == "git_sign" && (name != "sign_commit" || !op.Write) {
 				return errors.New("only approved commit signing is supported")
 			}
-			if v.Kind == "model" && (name != "chat" || !op.Write) {
-				return errors.New("model supports only chat (write)")
+			if v.Kind == "model" && ((name != "chat" && name != "messages" && name != "responses") || !op.Write) {
+				return errors.New("model supports chat, messages or responses (write)")
 			}
 		}
 	}

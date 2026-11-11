@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os/exec"
 	"strconv"
@@ -21,7 +22,15 @@ import (
 )
 
 //go:embed session_runner.py
-var sessionRunner string
+var sessionRunnerPTY string
+
+//go:embed session_artifact.py
+var sessionArtifacts string
+
+var sessionRunner = sessionArtifacts + "\n" + sessionRunnerPTY
+
+//go:embed native_harness.py
+var nativeHarness string
 
 func (s *Service) isSessionShare(r *http.Request, selectors map[string]any) bool {
 	if r.Method == "GET" {
@@ -41,22 +50,50 @@ func (s *Service) isSessionShare(r *http.Request, selectors map[string]any) bool
 }
 
 type SessionHarness struct {
-	OwnerID   string            `json:"owner_id"`
-	Argv      []string          `json:"argv"`
-	Cwd       string            `json:"cwd"`
-	Env       map[string]string `json:"env"`
-	AuthModes []string          `json:"auth_modes"`
+	OwnerID    string            `json:"owner_id"`
+	Argv       []string          `json:"argv"`
+	Cwd        string            `json:"cwd"`
+	Env        map[string]string `json:"env"`
+	AuthModes  []string          `json:"auth_modes"`
+	Native     *NativeHarness    `json:"native,omitempty"`
+	Repository string            `json:"repository,omitempty"`
+}
+
+type NativeHarness struct {
+	Kind           string                   `json:"kind"`
+	Binary         string                   `json:"binary"`
+	Model          string                   `json:"model,omitempty"`
+	Endpoint       string                   `json:"endpoint,omitempty"`
+	CredentialFile string                   `json:"credential_file,omitempty"`
+	MCPConfig      string                   `json:"mcp_config,omitempty"`
+	MCPCommand     []string                 `json:"mcp_command,omitempty"`
+	Profiles       map[string]NativeProfile `json:"profiles,omitempty"`
+}
+
+type NativeProfile struct {
+	Binary         string   `json:"binary,omitempty"`
+	Endpoint       string   `json:"endpoint,omitempty"`
+	CredentialFile string   `json:"credential_file,omitempty"`
+	CAFile         string   `json:"ca_file,omitempty"`
+	MCPCommand     []string `json:"mcp_command,omitempty"`
 }
 
 type SessionHost struct {
 	OwnerID string   `json:"owner_id"`
 	Command []string `json:"command"`
 	Root    string   `json:"root"`
+	Socket  string   `json:"socket,omitempty"`
 }
 
 type SessionConfig struct {
 	Harnesses map[string]SessionHarness `json:"harnesses"`
 	Hosts     map[string]SessionHost    `json:"hosts"`
+	Recipes   map[string]SessionRecipe  `json:"recipes,omitempty"`
+}
+
+type SessionRecipe struct {
+	HarnessID string `json:"harness_id"`
+	AuthMode  string `json:"auth_mode"`
 }
 
 type sessionWork struct {
@@ -70,26 +107,32 @@ type sessionWork struct {
 }
 
 type managedSession struct {
-	Resource  map[string]any    `json:"resource"`
-	Pending   []sessionWork     `json:"pending,omitempty"`
-	Cancelled []sessionWork     `json:"cancelled,omitempty"`
-	Next      map[string]uint64 `json:"next"`
-	Offset    uint64            `json:"offset"`
-	Frames    []api.Frame       `json:"frames"`
-	Bytes     uint64            `json:"bytes"`
-	More      bool              `json:"more,omitempty"`
-	Failure   string            `json:"failure,omitempty"`
+	Resource    map[string]any    `json:"resource"`
+	Pending     []sessionWork     `json:"pending,omitempty"`
+	Cancelled   []sessionWork     `json:"cancelled,omitempty"`
+	Next        map[string]uint64 `json:"next"`
+	Offset      uint64            `json:"offset"`
+	Frames      []api.Frame       `json:"frames"`
+	Bytes       uint64            `json:"bytes"`
+	More        bool              `json:"more,omitempty"`
+	EventOffset uint64            `json:"event_offset,omitempty"`
+	Failure     string            `json:"failure,omitempty"`
+	GitBusy     bool              `json:"git_busy,omitempty"`
+	Checkpoint  string            `json:"checkpoint,omitempty"`
 }
 
 func (s *Service) initSessions(config SessionConfig) error {
 	for id, h := range config.Harnesses {
-		if id == "" || h.OwnerID == "" || len(h.Argv) == 0 || !strings.HasPrefix(h.Cwd, "/") {
+		if id == "" || h.OwnerID == "" || len(h.Argv) == 0 || !strings.HasPrefix(h.Cwd, "/") && !strings.HasPrefix(h.Cwd, "{session_dir}/") {
 			return fmt.Errorf("session harnesses require an owner, argv and absolute cwd")
 		}
 		for _, mode := range h.AuthModes {
 			if mode != "none" && mode != "api_key" && mode != "subscription" && mode != "delegated" {
 				return fmt.Errorf("unsupported session authentication mode")
 			}
+		}
+		if h.Native != nil && (h.Native.Kind != "claude" && h.Native.Kind != "codex" || !strings.HasPrefix(h.Native.Binary, "/")) {
+			return fmt.Errorf("native session harness requires claude or codex and an enrolled absolute official binary")
 		}
 		for name := range h.Env {
 			switch name {
@@ -100,7 +143,7 @@ func (s *Service) initSessions(config SessionConfig) error {
 		}
 	}
 	for id, host := range config.Hosts {
-		if id == "" || host.OwnerID == "" || len(host.Command) == 0 || !strings.HasPrefix(host.Root, "/") {
+		if id == "" || host.OwnerID == "" || len(host.Command) == 0 && host.Socket == "" || !strings.HasPrefix(host.Root, "/") {
 			return fmt.Errorf("session hosts require an owner, runner command and private absolute root")
 		}
 	}
@@ -113,6 +156,12 @@ func (s *Service) initSessions(config SessionConfig) error {
 	}
 	if s.journal.Control.SessionShares == nil {
 		s.journal.Control.SessionShares = map[string]map[string]any{}
+	}
+	if s.journal.Control.SessionTransfers == nil {
+		s.journal.Control.SessionTransfers = map[string]*sessionTransfer{}
+	}
+	if s.journal.Control.ChangeSets == nil {
+		s.journal.Control.ChangeSets = map[string]*sessionChangeSet{}
 	}
 	for _, session := range s.journal.Control.Sessions {
 		if textField(session.Resource, "state") == "active" || textField(session.Resource, "state") == "starting" {
@@ -185,6 +234,11 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 			if err := acceptFields(in, "sandbox_id harness_id auth_mode task_id parent_session_id agent_mode location"); err != nil {
 				return api.ResourceRef{}, nil, nil, nil, err
 			}
+			if parent := textField(in, "parent_session_id"); parent != "" {
+				if p := c.Sessions[parent]; p == nil || textField(p.Resource, "owner_id") != a.Principal || !s.sessionAllowed(a, p.Resource, "session.get") {
+					return fail("NOT_FOUND", "parent session not found")
+				}
+			}
 			harness, ok := s.sessions.Harnesses[textField(in, "harness_id")]
 			if !ok || harness.OwnerID != a.Principal {
 				return fail("NOT_FOUND", "enrolled session harness not found")
@@ -193,7 +247,7 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 			if auth == "" {
 				auth = "none"
 			}
-			if auth != "none" {
+			if auth != "none" && harness.Native == nil {
 				return fail("AUTH_TRANSPORT_UNSUPPORTED", "model authentication requires a dedicated broker or native custody adapter, not a general PTY")
 			}
 			allowed := false
@@ -298,6 +352,9 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 		}
 		switch verb {
 		case "attach", "input", "resize":
+			if work.GitBusy {
+				return fail("RESOURCE_IN_USE", "git changes are being applied")
+			}
 			lease := c.InputLeases[textField(in, "lease_id")]
 			if !s.sessionAllowed(a, m, "session.input") || lease == nil || textField(lease, "holder_id") != a.Principal || textField(lease, "resource_id") != textField(m, "id") || textField(lease, "state") != "active" || sessionExpired(lease) || uintField(lease, "location_epoch") != uintField(m, "location_epoch") {
 				return fail("SCOPE_DENIED", "a live input lease and explicit session.input grant are required")
@@ -560,13 +617,24 @@ func (s *Service) driveSessions() {
 			if s.fleetEnabled && (s.fleet == nil || resourceHome(id) != s.hostID() || !s.fleet.leaseValid()) {
 				continue
 			}
-			if work.Failure == "" && (textField(work.Resource, "state") == "active" || textField(work.Resource, "state") == "starting" || len(work.Pending) > 0 || work.More) {
+			if work.Failure == "" && (textField(work.Resource, "state") == "active" || textField(work.Resource, "state") == "starting" || textField(work.Resource, "state") == "moving" || len(work.Pending) > 0 || work.More) {
 				ids = append(ids, id)
 			}
 		}
 		s.mu.Unlock()
 		for _, id := range ids {
 			s.driveSession(id)
+		}
+		s.readLock()
+		transfers := []string{}
+		for id, transfer := range s.journal.Control.SessionTransfers {
+			if transfer.Phase != "done" && transfer.OperationID != "" && (!s.fleetEnabled || s.fleet != nil && resourceHome(id) == s.hostID() && s.fleet.leaseValid()) {
+				transfers = append(transfers, id)
+			}
+		}
+		s.mu.Unlock()
+		for _, id := range transfers {
+			s.driveSessionTransfer(id)
 		}
 	}
 }
@@ -582,6 +650,10 @@ func (s *Service) driveSession(id string) {
 		return
 	}
 	work := s.journal.Control.Sessions[id]
+	if transfer := s.journal.Control.SessionTransfers[id]; transfer != nil && transfer.Kind == "spawn" && transfer.Phase != "start" && transfer.Phase != "done" {
+		s.mu.Unlock()
+		return
+	}
 	m := work.Resource
 	action := sessionWork{Action: "read"}
 	if len(work.Pending) > 0 {
@@ -594,6 +666,11 @@ func (s *Service) driveSession(id string) {
 	sb := s.journal.Sandboxes[textField(m, "sandbox_id")]
 	owner := textField(m, "owner_id")
 	offset, epoch := work.Offset, uintField(m, "location_epoch")
+	moving := textField(m, "state") == "moving"
+	if transfer := s.journal.Control.SessionTransfers[id]; transfer != nil && moving {
+		epoch = transfer.SourceEpoch
+	}
+	eventOffset := work.EventOffset
 	if harness.OwnerID != owner || native && (!enrolled || host.OwnerID != owner) {
 		s.mu.Unlock()
 		s.failSession(id, "enrolled runner is unavailable")
@@ -602,6 +679,7 @@ func (s *Service) driveSession(id string) {
 	s.mu.Unlock()
 	request := object(action)
 	request["id"], request["epoch"], request["offset"] = id, epoch, offset
+	request["event_offset"] = eventOffset
 	if action.Action == "input" {
 		request["sequence"] = action.Sequence
 	}
@@ -611,6 +689,19 @@ func (s *Service) driveSession(id string) {
 	}
 	if action.Action == "start" {
 		request["argv"], request["cwd"], request["env"] = harness.Argv, harness.Cwd, harness.Env
+		request["repository"] = harness.Repository
+		if harness.Native != nil {
+			config := object(harness.Native)
+			config["auth"] = textField(m, "auth_mode")
+			config["agent_mode"] = textField(m, "agent_mode")
+			config["session_id"], config["sandbox_id"] = id, textField(m, "sandbox_id")
+			if profile, exists := harness.Native.Profiles[textField(location, "kind")+":"+textField(location, "host_id")]; exists {
+				for key, value := range object(profile) {
+					config[key] = value
+				}
+			}
+			request["native"], request["native_source"] = config, nativeHarness
+		}
 	}
 	raw, _ := json.Marshal(request)
 	encoded := base64.StdEncoding.EncodeToString(raw)
@@ -618,7 +709,20 @@ func (s *Service) driveSession(id string) {
 	defer cancel()
 	var reply map[string]any
 	var err error
-	if native {
+	if native && host.Socket != "" {
+		var connection net.Conn
+		connection, err = (&net.Dialer{}).DialContext(ctx, "unix", host.Socket)
+		if err == nil {
+			connection.SetDeadline(time.Now().Add(10 * time.Second))
+			err = json.NewEncoder(connection).Encode(request)
+			if err == nil {
+				decoder := json.NewDecoder(io.LimitReader(connection, 128<<10))
+				decoder.UseNumber()
+				err = decoder.Decode(&reply)
+			}
+			connection.Close()
+		}
+	} else if native {
 		argv := append(append([]string{}, host.Command[1:]...), "-c", sessionRunner, encoded)
 		var data []byte
 		data, err = exec.CommandContext(ctx, host.Command[0], argv...).Output()
@@ -658,6 +762,21 @@ func (s *Service) driveSession(id string) {
 			work.Bytes += uint64(len(data))
 		}
 		work.More = work.Offset < uintField(reply, "size")
+		if events, ok := reply["events"].([]any); ok {
+			for _, value := range events {
+				event := object(value)
+				raw, _ := json.Marshal(event)
+				work.Frames = append(work.Frames, api.Frame{StreamId: id, Sequence: uint64(len(work.Frames)), Channel: "control", DataBase64: base64.StdEncoding.EncodeToString(raw), ByteOffset: strconv.FormatUint(work.Offset, 10), LocationEpoch: epoch})
+				if textField(event, "type") == "status" {
+					m["status"] = textField(event, "status")
+					editResource(m)
+				}
+				if ref := textField(event, "continuation_ref"); ref != "" {
+					m["continuation_ref"] = ref
+				}
+			}
+		}
+		work.EventOffset = uintField(reply, "event_offset")
 		if action.Action != "read" && len(work.Pending) > 0 && work.Pending[0].ID == action.ID {
 			work.Pending = work.Pending[1:]
 		}
@@ -665,7 +784,9 @@ func (s *Service) driveSession(id string) {
 		if action.Action == "end" {
 			state = "ended"
 		}
-		if state != "active" && state != "ended" && state != "failed" {
+		if moving && (state == "active" || state == "fenced") {
+			m["observation_state"] = "fresh"
+		} else if state != "active" && state != "ended" && state != "failed" {
 			work.Failure = "invalid runner state"
 		} else {
 			changed := textField(m, "state") != state || textField(m, "observation_state") != "fresh"
@@ -680,7 +801,7 @@ func (s *Service) driveSession(id string) {
 		m["state"], m["observation_state"], m["status_reason"] = "failed", "unknown", work.Failure
 		editResource(m)
 	}
-	if len(data) > 0 || action.Action != "read" || textField(m, "state") != "active" {
+	if len(data) > 0 || work.EventOffset != eventOffset || action.Action != "read" || textField(m, "state") != "active" {
 		if err := s.save("$control"); err != nil {
 			if errors.Is(err, errAuthorityConflict) {
 				s.journal.Control = before

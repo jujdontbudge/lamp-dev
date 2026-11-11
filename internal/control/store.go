@@ -344,6 +344,10 @@ func Open(config Config) (*Service, error) {
 			}
 			s.keys[r.Key] = id
 			ch := make(chan struct{})
+			if transfer := s.journal.Control.SessionTransfers[r.Resource.Id]; transfer != nil && transfer.OperationID == id && transfer.Phase != "done" && !terminal(r.Operation.State) {
+				s.done[id] = ch
+				continue
+			}
 			close(ch)
 			s.done[id] = ch
 			if !terminal(r.Operation.State) {

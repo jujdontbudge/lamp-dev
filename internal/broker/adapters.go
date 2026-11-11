@@ -25,6 +25,40 @@ func validateInvocation(c Connection, in Invocation) error {
 		if !contains(c.Models, model) {
 			return invalid
 		}
+		if c.FreeOnly && model != "openrouter/free" && !strings.HasSuffix(model, ":free") {
+			return invalid
+		}
+		if in.Operation == "messages" || in.Operation == "responses" {
+			if tools, ok := in.Arguments["tools"].([]any); ok {
+				for _, value := range tools {
+					tool, ok := value.(map[string]any)
+					if !ok {
+						return invalid
+					}
+					if kind, exists := tool["type"]; exists && kind != "function" && kind != "custom" {
+						nested, ok := tool["tools"].([]any)
+						if kind != "namespace" || !ok {
+							return invalid
+						}
+						for _, item := range nested {
+							function, ok := item.(map[string]any)
+							if !ok || function["type"] != "function" && function["type"] != "custom" {
+								return invalid
+							}
+						}
+					}
+				}
+			}
+			if in.Operation == "messages" {
+				messages, ok := in.Arguments["messages"].([]any)
+				if !ok || len(messages) == 0 {
+					return invalid
+				}
+			} else if _, ok := in.Arguments["input"]; !ok {
+				return invalid
+			}
+			return nil
+		}
 		// Only a bounded, non-streaming chat shape is supported. Never silently
 		// downgrade an unsupported client or hand it the credential instead.
 		for k := range in.Arguments {

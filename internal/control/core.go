@@ -276,10 +276,16 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	adapter := api.AdapterDocument(resultRaw)
 	operation := api.Operation{Id: operationID, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "succeeded", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(op.Name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CompletedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Outcome: &api.Outcome{Result: &adapter}}
 	rec := &record{Operation: operation, Hash: hash, Key: key, Resource: ref}
+	async := s.armSessionTransfer(ref.Id, operationID)
+	if async {
+		rec.Operation.State, rec.Operation.CompletedAt = "running", nil
+	}
 	s.journal.Operations[operationID] = rec
 	s.keys[key] = operationID
 	done := make(chan struct{})
-	close(done)
+	if !async {
+		close(done)
+	}
 	s.done[operationID] = done
 	changed = append(changed, operationID)
 	if digest(old) != digest(s.journal.Control) {
@@ -424,6 +430,12 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	items := []map[string]any{}
 	c := s.journal.Control
 	switch kind {
+	case "change_set":
+		for _, change := range c.ChangeSets {
+			if textField(change.Resource, "owner_id") == a.Principal {
+				items = append(items, object(change.Resource))
+			}
+		}
 	case "session":
 		for _, work := range c.Sessions {
 			if s.sessionAllowed(a, work.Resource, "session.get") {
@@ -534,6 +546,9 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 		return ref, nil, nil, nil, reject(code, message)
 	}
 	kind, verb, _ := strings.Cut(op.Scope, ".")
+	if kind == "change_set" || kind == "session" && (verb == "spawn" || verb == "teleport" || verb == "checkpoint") {
+		return s.sessionTransferMutation(a, op, in)
+	}
 	if kind == "budget" || kind == "task" || kind == "audit_record" || kind == "telemetry" {
 		return s.accountMutation(a, op, in)
 	}
