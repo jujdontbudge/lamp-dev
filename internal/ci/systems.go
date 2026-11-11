@@ -1155,7 +1155,7 @@ func (w *Woodpecker) Register(ctx context.Context, r Repository, _ Demand, name 
 	if r.Options["grpc_secure"] == "true" {
 		env["WOODPECKER_GRPC_SECURE"] = "true"
 	}
-	return Agent{ID: a.ID, Argv: []string{"./woodpecker-agent"}, Env: env, Secret: map[string]string{"env:WOODPECKER_AGENT_SECRET": a.Token}}, nil
+	return Agent{ID: a.ID, Argv: []string{"sh", "-c", "mkdir -p /var/tmp/lamp-ci-runner/work && exec ./woodpecker-agent"}, Env: env, Secret: map[string]string{"env:WOODPECKER_AGENT_SECRET": a.Token}}, nil
 }
 func (w *Woodpecker) GetJob(ctx context.Context, r Repository, id int64) (Job, error) {
 	p, err := w.get(ctx, r, id)

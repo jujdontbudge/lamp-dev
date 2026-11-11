@@ -475,6 +475,18 @@ func (s *Service) runCIJob(ctx context.Context, id string) (err error) {
 	// Cleanup has independent authority and a bounded deadline even when a
 	// workflow, caller or controller cancels the execution context.
 	defer func() {
+		if err != nil {
+			// Adapter errors never carry forge bodies or credentials.
+			msg := err.Error()
+			if len(msg) > 300 {
+				msg = msg[:300]
+			}
+			s.ciUpdate(id, func(j *ciJob) {
+				labels := object(j.R["labels"])
+				labels["lamp.error"] = msg
+				j.R["labels"] = labels
+			})
+		}
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
 		defer cancel()
 		e := s.cleanupCI(cleanup, id, err == nil)
