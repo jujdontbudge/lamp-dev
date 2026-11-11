@@ -1,0 +1,4 @@
+{"event": "own-oidc-to-real-fleet", "relay_used": false, "eilmer_account_required": false, "immutable_subject": "alice", "fleet": "fl_local", "provider": "local disposable OIDC signer"}
+{"event": "owner-oidc-binding", "wrong_audience_denied": true, "same_email_different_subject_denied": true}
+{"event": "local-account-with-provider-stopped", "fleet_read": true, "clerk_contacted": false, "oidc_fetch_required": false}
+{"event": "cleanup-complete", "owner_services": "untouched", "vms_created": 0}

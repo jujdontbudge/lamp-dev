@@ -1,0 +1,280 @@
+{
+ "lane": "lx22",
+ "os_release": "Ubuntu 22.04.5 LTS",
+ "kernel": "5.15.0-203-generic",
+ "engines_default": {
+  "choice": {
+   "boundary": "vm",
+   "code": null,
+   "considered": [
+    {
+     "boundary": "vm",
+     "chosen": true,
+     "engine": "firecracker",
+     "isolation": "vm",
+     "refused": null
+    },
+    {
+     "boundary": "vm",
+     "chosen": false,
+     "engine": "vz",
+     "isolation": "vm",
+     "refused": "runs on macos, not linux"
+    },
+    {
+     "boundary": "gvisor_sandbox",
+     "chosen": false,
+     "engine": "gvisor",
+     "isolation": "weaker_than_vm",
+     "refused": null
+    },
+    {
+     "boundary": "app_sandbox_process",
+     "chosen": false,
+     "engine": "app_sandbox",
+     "isolation": "weaker_than_vm",
+     "refused": "runs on macos, not linux"
+    }
+   ],
+   "engine": "firecracker",
+   "isolation": "vm"
+  },
+  "host": {
+   "app_sandbox": false,
+   "arch": "x86_64",
+   "firecracker": true,
+   "gvisor": "/usr/local/lib/lamp/runsc",
+   "kernel": "5.15.0-203-generic",
+   "kernel_supported": true,
+   "kvm": true,
+   "kvm_detail": "KVM API version 12",
+   "os": "linux",
+   "vz": false
+  },
+  "needs": {
+   "capture": false,
+   "devices": [],
+   "engine": null,
+   "guest_os": "",
+   "public_ci": false,
+   "secrets": false
+  }
+ },
+ "engines_secrets_public_ci": {
+  "choice": {
+   "boundary": "vm",
+   "code": null,
+   "considered": [
+    {
+     "boundary": "vm",
+     "chosen": true,
+     "engine": "firecracker",
+     "isolation": "vm",
+     "refused": null
+    },
+    {
+     "boundary": "vm",
+     "chosen": false,
+     "engine": "vz",
+     "isolation": "vm",
+     "refused": "runs on macos, not linux"
+    },
+    {
+     "boundary": "gvisor_sandbox",
+     "chosen": false,
+     "engine": "gvisor",
+     "isolation": "weaker_than_vm",
+     "refused": "public-repository CI requires a VM"
+    },
+    {
+     "boundary": "app_sandbox_process",
+     "chosen": false,
+     "engine": "app_sandbox",
+     "isolation": "weaker_than_vm",
+     "refused": "runs on macos, not linux"
+    }
+   ],
+   "engine": "firecracker",
+   "isolation": "vm"
+  },
+  "host": {
+   "app_sandbox": false,
+   "arch": "x86_64",
+   "firecracker": true,
+   "gvisor": "/usr/local/lib/lamp/runsc",
+   "kernel": "5.15.0-203-generic",
+   "kernel_supported": true,
+   "kvm": true,
+   "kvm_detail": "KVM API version 12",
+   "os": "linux",
+   "vz": false
+  },
+  "needs": {
+   "capture": false,
+   "devices": [],
+   "engine": null,
+   "guest_os": "",
+   "public_ci": true,
+   "secrets": true
+  }
+ },
+ "engines_capture": {
+  "choice": {
+   "boundary": "vm",
+   "code": null,
+   "considered": [
+    {
+     "boundary": "vm",
+     "chosen": true,
+     "engine": "firecracker",
+     "isolation": "vm",
+     "refused": null
+    },
+    {
+     "boundary": "vm",
+     "chosen": false,
+     "engine": "vz",
+     "isolation": "vm",
+     "refused": "runs on macos, not linux"
+    },
+    {
+     "boundary": "gvisor_sandbox",
+     "chosen": false,
+     "engine": "gvisor",
+     "isolation": "weaker_than_vm",
+     "refused": "cannot fork, suspend or save memory"
+    },
+    {
+     "boundary": "app_sandbox_process",
+     "chosen": false,
+     "engine": "app_sandbox",
+     "isolation": "weaker_than_vm",
+     "refused": "runs on macos, not linux"
+    }
+   ],
+   "engine": "firecracker",
+   "isolation": "vm"
+  },
+  "host": {
+   "app_sandbox": false,
+   "arch": "x86_64",
+   "firecracker": true,
+   "gvisor": "/usr/local/lib/lamp/runsc",
+   "kernel": "5.15.0-203-generic",
+   "kernel_supported": true,
+   "kvm": true,
+   "kvm_detail": "KVM API version 12",
+   "os": "linux",
+   "vz": false
+  },
+  "needs": {
+   "capture": true,
+   "devices": [],
+   "engine": null,
+   "guest_os": "",
+   "public_ci": false,
+   "secrets": false
+  }
+ },
+ "gvisor_task": {
+  "boundary": "gvisor_sandbox",
+  "choice": {
+   "boundary": "vm",
+   "code": null,
+   "considered": [
+    {
+     "boundary": "vm",
+     "chosen": true,
+     "engine": "firecracker",
+     "isolation": "vm",
+     "refused": null
+    },
+    {
+     "boundary": "vm",
+     "chosen": false,
+     "engine": "vz",
+     "isolation": "vm",
+     "refused": "runs on macos, not linux"
+    },
+    {
+     "boundary": "gvisor_sandbox",
+     "chosen": false,
+     "engine": "gvisor",
+     "isolation": "weaker_than_vm",
+     "refused": null
+    },
+    {
+     "boundary": "app_sandbox_process",
+     "chosen": false,
+     "engine": "app_sandbox",
+     "isolation": "weaker_than_vm",
+     "refused": "runs on macos, not linux"
+    }
+   ],
+   "engine": "firecracker",
+   "isolation": "vm"
+  },
+  "error": {
+   "code": "ENGINE_UNQUALIFIED",
+   "message": "firecracker (a VM) is available on this host; the weaker fallback is only for hosts without virtualization"
+  },
+  "isolation": "weaker_than_vm"
+ },
+ "gvisor_task_custodian_override": {
+  "engine": "gvisor-release-20261026.0",
+  "boundary": "gvisor_sandbox",
+  "isolation": "weaker_than_vm",
+  "origin": "owner_task",
+  "network": "none",
+  "memory_mib": 256,
+  "pids_max": 256,
+  "exit_code": 0,
+  "timed_out": false,
+  "stdout": "Linux 4.19.0-gvisor\n65534\n[   0.000000] Starting gVisor...\nno-network\n",
+  "stderr": ""
+ },
+ "gvisor_login_task": {
+  "boundary": "gvisor_sandbox",
+  "choice": {
+   "boundary": "vm",
+   "code": null,
+   "considered": [
+    {
+     "boundary": "vm",
+     "chosen": true,
+     "engine": "firecracker",
+     "isolation": "vm",
+     "refused": null
+    },
+    {
+     "boundary": "vm",
+     "chosen": false,
+     "engine": "vz",
+     "isolation": "vm",
+     "refused": "runs on macos, not linux"
+    },
+    {
+     "boundary": "gvisor_sandbox",
+     "chosen": false,
+     "engine": "gvisor",
+     "isolation": "weaker_than_vm",
+     "refused": "secrets require a VM; the weaker fallback refuses them"
+    },
+    {
+     "boundary": "app_sandbox_process",
+     "chosen": false,
+     "engine": "app_sandbox",
+     "isolation": "weaker_than_vm",
+     "refused": "runs on macos, not linux"
+    }
+   ],
+   "engine": "firecracker",
+   "isolation": "vm"
+  },
+  "error": {
+   "code": "VM_REQUIRED",
+   "message": "logins and protected connections require a VM; the weaker fallback refuses them"
+  },
+  "isolation": "weaker_than_vm"
+ }
+}

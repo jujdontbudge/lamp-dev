@@ -1,0 +1,4 @@
+{"event": "foreign-allocation", "denied_before_credential_read": true, "cloudflare_api_contacted": false}
+{"event": "apex-record", "denied_before_credential_read": true, "cloudflare_api_contacted": false}
+{"event": "unsupported-action", "denied_before_credential_read": true, "cloudflare_api_contacted": false}
+{"event": "injected-record-type", "denied_before_credential_read": true, "cloudflare_api_contacted": false}

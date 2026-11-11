@@ -10,12 +10,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/JohanSardar/lamp/internal/accountidentity"
 )
 
 type User struct {
-	Name           string   `json:"name"`
-	AuthorizedKeys []string `json:"authorized_keys,omitempty"`
-	TokenFile      string   `json:"token_file"`
+	Name           string                    `json:"name"`
+	AuthorizedKeys []string                  `json:"authorized_keys,omitempty"`
+	TokenFile      string                    `json:"token_file"`
+	Identity       *accountidentity.Identity `json:"identity,omitempty"`
 	// Tailnet identities are matched to WhoIs, never HTTP headers or SSH usernames.
 	TailnetLogin string `json:"tailnet_login,omitempty"`
 	TailnetTag   string `json:"tailnet_tag,omitempty"`
@@ -47,6 +50,15 @@ type Cloudflare struct {
 	LauncherSHA256       string `json:"launcher_sha256"`
 	DiagnosticSoftLimits bool   `json:"diagnostic_soft_limits,omitempty"`
 }
+
+// OIDC is optional and owner-operated. It is never constructed for local-only
+// fleets and is not accepted as a substitute for the shared Eilmer relay account.
+type OIDC struct {
+	Issuer   string   `json:"issuer"`
+	Audience string   `json:"audience"`
+	JWKSURL  string   `json:"jwks_url"`
+	Parties  []string `json:"authorized_parties"`
+}
 type Config struct {
 	StateDir   string      `json:"state_dir"`
 	APISocket  string      `json:"api_socket"`
@@ -59,6 +71,7 @@ type Config struct {
 	Tailscale  *Tailscale  `json:"tailscale,omitempty"`
 	Domain     *Domain     `json:"domain,omitempty"`
 	Cloudflare *Cloudflare `json:"cloudflare,omitempty"`
+	OIDC       *OIDC       `json:"oidc,omitempty"`
 }
 
 func Load(path string) (Config, error) {
@@ -98,12 +111,24 @@ func (c Config) Validate() error {
 	if c.HTTPListen != "" && !loopback(c.HTTPListen) {
 		return errors.New("plain HTTP origin must use numeric loopback; use domain HTTPS for remote API access")
 	}
+	if c.OIDC != nil {
+		if e := validateOIDC(*c.OIDC); e != nil {
+			return e
+		}
+	}
 	seen := map[string]bool{}
+	identities := map[accountidentity.Identity]bool{}
 	for _, u := range c.Users {
 		if u.Name == "" || strings.ContainsAny(u.Name, " \t\n/:") || seen[u.Name] || !filepath.IsAbs(u.TokenFile) {
 			return errors.New("unique SSH names and absolute principal token files required")
 		}
 		seen[u.Name] = true
+		if u.Identity != nil {
+			if c.OIDC == nil || u.Identity.Issuer != c.OIDC.Issuer || u.Identity.Subject == "" || identities[*u.Identity] {
+				return errors.New("unique immutable OIDC issuer/subject mappings required")
+			}
+			identities[*u.Identity] = true
+		}
 		if u.TailnetLogin != "" && u.TailnetTag != "" {
 			return errors.New("choose a tailnet login or tag per user")
 		}

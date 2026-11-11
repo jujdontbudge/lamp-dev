@@ -1,0 +1,15 @@
+{
+  "event": "github-social-login-not-configured",
+  "oauth_application_id": "4010008",
+  "reason": "Sudo email verification required; coordinator reported no forwarded code after two requests and more than ten minutes",
+  "email_method_selection_alone_sent_code": false,
+  "followup_verify_via_email_page_confirmed_sent": true,
+  "code_delivery_observed": false,
+  "further_requests_stopped_by_coordinator": true,
+  "client_secret_created": false,
+  "client_secret_installed_in_clerk": false,
+  "ticket_headless_github_tabs_closed": 1,
+  "github_sudo_prompts_remaining": 0,
+  "passkey_or_os_approval_invoked": false,
+  "demonstrated_eilmer_account_route": "Existing production Clerk email-code sign-in"
+}

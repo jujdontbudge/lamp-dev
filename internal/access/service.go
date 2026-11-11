@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JohanSardar/lamp/internal/accountidentity"
 	"github.com/JohanSardar/lamp/internal/surface"
 	"github.com/caddyserver/certmagic"
 	"github.com/coder/websocket"
@@ -32,6 +33,7 @@ type Service struct {
 	ssh         *ssh.Server
 	userCA      xssh.Signer
 	connections chan struct{}
+	oidc        *accountidentity.Verifier
 }
 
 func New(c Config) (*Service, error) {
@@ -64,6 +66,7 @@ func New(c Config) (*Service, error) {
 		return nil, e
 	}
 	s := &Service{config: c, userCA: ca, connections: make(chan struct{}, 64)}
+	s.initOIDC()
 	s.ssh = &ssh.Server{HostSigners: []ssh.Signer{signer}, Handler: s.console, PublicKeyHandler: s.authenticate, IdleTimeout: 10 * time.Minute, MaxTimeout: 4 * time.Hour,
 		ChannelHandlers: map[string]ssh.ChannelHandler{"session": ssh.DefaultSessionHandler}, RequestHandlers: map[string]ssh.RequestHandler{},
 		LocalPortForwardingCallback: func(ssh.Context, string, uint32) bool { return false }, ReversePortForwardingCallback: func(ssh.Context, string, uint32) bool { return false },
@@ -171,6 +174,15 @@ func (s *Service) handler(lc *local.Client) http.Handler {
 		values := r.Header.Values("Authorization")
 		if len(values) != 1 || !strings.HasPrefix(values[0], "Bearer ") || strings.TrimSpace(strings.TrimPrefix(values[0], "Bearer ")) == "" {
 			http.Error(w, "bearer required", 401)
+			return
+		}
+		if s.oidc != nil && (r.Header.Get("Origin") != "" || r.Header.Get("Cookie") != "") {
+			http.Error(w, "OIDC bearer API does not accept browser origins or cookies", 403)
+			return
+		}
+		r, cancel, ok := s.withOIDC(w, r)
+		defer cancel()
+		if !ok {
 			return
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, 4<<20)

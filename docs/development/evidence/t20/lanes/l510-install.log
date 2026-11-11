@@ -1,0 +1,4 @@
+gvisor-x86_64.tar.bz2: OK
+alpine-minirootfs-3.20.3-x86_64.tar.gz: OK
+runsc version release-20261026.0
+gVisor fallback installed; task root /opt/lamp/root

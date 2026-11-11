@@ -348,6 +348,7 @@ impl Server {
                     ))
                 } else {
                     let d = lamp_engine::engine::STANDARD;
+                    let pids_max = a.resources.as_ref().map(|r| r.pids_max).filter(|n| *n != 0);
                     let resources = a.resources.map(|r| Resources {
                         vcpus: if r.vcpus == 0 { d.vcpus } else { r.vcpus },
                         memory_mib: if r.memory_mib == 0 {
@@ -361,7 +362,32 @@ impl Server {
                             r.disk_gib
                         },
                     });
-                    self.engine.allocate(auth, resources)
+                    #[cfg(target_os = "linux")]
+                    {
+                        let devices: Vec<_> = a
+                            .devices
+                            .iter()
+                            .map(|d| lamp_engine::engine::DeviceRequest {
+                                id: d.id.clone(),
+                                kind: d.r#type.clone(),
+                                size_mib: d.size_mib,
+                            })
+                            .collect();
+                        self.engine
+                            .allocate_with(auth, resources, pids_max, &devices)
+                    }
+                    #[cfg(not(target_os = "linux"))]
+                    {
+                        let _ = pids_max;
+                        if a.devices.is_empty() {
+                            self.engine.allocate(auth, resources)
+                        } else {
+                            Err(EngineError::new(
+                                "DEVICE_UNAVAILABLE",
+                                "this engine takes devices from the template's machine configuration",
+                            ))
+                        }
+                    }
                 }
             }
             request::Command::Restore(r) => {

@@ -1,0 +1,46 @@
+[
+  {
+    "certificate": "first",
+    "sha256": "bcbd098328da7c8ad33c7623cd2b957b0e4d257ecc40c6b6443abc0bd8b6ac3f",
+    "serial": "6727e586bc533b00ad91cab58197cf27ec2",
+    "issuer": "CN=YE1,O=Let's Encrypt,C=US",
+    "not_before": "2026-11-10T23:47:51+00:00",
+    "not_after": "2027-02-08T23:47:50+00:00",
+    "names": [
+      "*.f24demo.fleet.eilmer.si"
+    ]
+  },
+  {
+    "certificate": "renewed",
+    "sha256": "12c6c7f1b1425a40fdccbe333a318701e6c7628fe7b3ba8a00cdbf5a1c938d66",
+    "serial": "504aa2dd8d783103c59c312fdba07bf5139",
+    "issuer": "CN=YE1,O=Let's Encrypt,C=US",
+    "not_before": "2026-11-10T23:48:09+00:00",
+    "not_after": "2027-02-08T23:48:08+00:00",
+    "names": [
+      "*.f24demo.fleet.eilmer.si"
+    ]
+  },
+  {
+    "certificate": "relay",
+    "sha256": "431df4c966c8058f36c00da29caf96895a514f7a0340f5e09da7735cbfb699a3",
+    "serial": "6f296f68ccf915b03d462dff64eea252424",
+    "issuer": "CN=YE2,O=Let's Encrypt,C=US",
+    "not_before": "2026-11-10T23:56:13+00:00",
+    "not_after": "2027-02-08T23:56:12+00:00",
+    "names": [
+      "relay.eilmer.si"
+    ]
+  },
+  {
+    "certificate": "account",
+    "sha256": "d8b8fb135ee690b9cc8af52786f658955e97bb180bc4d73c6120287e40a7bef2",
+    "serial": "69569dc40b6db55d6edb6dd25798062bd29",
+    "issuer": "CN=YE1,O=Let's Encrypt,C=US",
+    "not_before": "2026-11-10T23:56:24+00:00",
+    "not_after": "2027-02-08T23:56:23+00:00",
+    "names": [
+      "account.eilmer.si"
+    ]
+  }
+]

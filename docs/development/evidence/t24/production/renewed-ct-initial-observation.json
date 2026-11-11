@@ -1,0 +1,21 @@
+{
+  "certificate_sha256": "12c6c7f1b1425a40fdccbe333a318701e6c7628fe7b3ba8a00cdbf5a1c938d66",
+  "serial": "504aa2dd8d783103c59c312fdba07bf5139",
+  "dns_names": [
+    "*.f24demo.fleet.eilmer.si"
+  ],
+  "observed_at": "2026-11-11T00:48:26.547902+00:00",
+  "entries": [],
+  "not_observed": [
+    {
+      "log_id": "4c63dc98e59c1dab88f61e8a3ddeae8fab44a3377b5f9b94c3fba19cfcc1be26",
+      "log": "Cloudflare Nimbus2027",
+      "reason": "SCT verified; inclusion not yet observed in the current signed tree"
+    },
+    {
+      "log_id": "a2810018734e176e1d47e09540f381ba546697cd63a84350716eb8094edaf10d",
+      "log": "Let's Encrypt Willow2027h1",
+      "reason": "tiled log; this observer implements RFC 6962 v1 endpoints"
+    }
+  ]
+}
