@@ -52,7 +52,7 @@ class Fixture:
         return value
 
     def mutate(self, path, body, revision=None):
-        envelope = self.api("POST", path, dict(body, wait_ms=60000), revision)
+        envelope = self.api("POST", path, body, revision)
         identifier = envelope.get("operation", {}).get("id") or envelope.get("data", {}).get("id")
         if not identifier:
             raise ValueError("public operation ID absent")

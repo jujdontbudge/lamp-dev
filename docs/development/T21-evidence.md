@@ -387,3 +387,52 @@ ticket sandbox was deleted afterward.
 Raw observations are retained in `/var/lib/lamp/t21a/wake-evidence.json` on
 Ubuntu. This is a successful wake/PTY continuation observation, not a claim
 that the remaining laptop/sandbox native handoff is complete.
+
+### Completed Claude Code subscription turn in a real guest
+
+On 2026-11-11 at 23:36 UTC, official Claude Code completed a turn on the
+owner's own Claude subscription inside a Firecracker guest:
+
+```text
+sandbox: sb_08273f90be1e2c0e3098d35f3ef8e92b (template tp_b38c5eb65cac3be3a20a78fcd1)
+exec status/start/turn/proof: all exit 0
+proof: {"ok":true,"signed_in":true,"quiesced":true,"turns":1,
+        "heap_canary_present":false,"disk_canary_present":false}
+```
+
+The `turn` exec succeeds only when the native result is exactly
+`LAMP_SUBSCRIPTION_FORK_OK` and the native tool list contains nothing beyond the
+Lamp bridge.
+
+Custody path:
+
+1. `claude setup-token` ran headless on Ubuntu inside a root-only custody home,
+   with the browser opener captured. The owner signed in through the
+   manual-callback URL. The page code was written to a private file, passed to
+   the native PTY through the custody `auth.sock`, and then shredded on Ubuntu
+   and the M5. The resulting plan credential exists only in that root-only
+   custody home.
+2. After the guest daemon was up, `tools/subscription/auth_channel.py
+   --credential-file ... --harness claude_code` sent the credential over the
+   sandbox's private vsock auth channel (port 5501). It never went through the
+   public API, an exec argv, or an environment variable visible to the host.
+   The guest wrote it into its private `/home/lamp-private` with mode 0600.
+3. Afterwards, an exact-match search for the credential found no occurrence in
+   the fixture observations, run output, controller and worker logs, sign-in
+   manager log, control journal, or audit spool. The sandbox was deleted at
+   23:37 UTC.
+
+Deployment fixes made during this run, with no product behaviour changed:
+
+- The t21a worker grant had expired, so a fresh grant was installed.
+- The custody task policy had an empty bounded task plan, so a one-step plan
+  was added.
+- The old t21a controller had exhausted its retained sandbox-record allowance,
+  so the controller from this branch was run with a larger `audit_bytes` quota.
+- Current lampd rejects `wait_ms=60000` on execs, so `live_fixture.py` no longer
+  sends it.
+
+Before creation, Ubuntu had no live Firecracker process and 22,941 MiB available.
+
+The Codex subscription turn inside the guest remains pending. The owner's
+ChatGPT plan is at its usage limit until about 2026-11-12 19:10 UTC.
