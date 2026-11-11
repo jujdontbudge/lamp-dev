@@ -98,12 +98,13 @@ func (s *Server) rawConnection(parent context.Context, conn net.Conn, releaseHel
 		return
 	}
 	defer target.Close()
-	splice(ctx, conn, target, probe.hello.Bytes())
+	splice(ctx, conn, target, probe.hello.Bytes(), 5*time.Minute)
 }
 
 // Successful traffic in either direction refreshes both endpoints. In
 // particular, an active one-way download must not look like an idle connection.
-// Deadlines also bound blocked writes and the initial ClientHello forwarding.
+// Established ingress gets a generous inactivity budget; authenticated SSH
+// instead relies on account expiry/revocation. Setup has its own short bounds.
 type activeConn struct {
 	net.Conn
 	touch func()
@@ -123,23 +124,32 @@ func (c activeConn) Write(p []byte) (int, error) {
 	}
 	return n, e
 }
-func splice(ctx context.Context, left, right net.Conn, prefix []byte) {
+func splice(ctx context.Context, left, right net.Conn, prefix []byte, idle time.Duration) {
 	var mu sync.Mutex
 	touch := func() {
 		mu.Lock()
 		defer mu.Unlock()
-		deadline := time.Now().Add(30 * time.Second)
+		var deadline time.Time
+		if idle > 0 {
+			deadline = time.Now().Add(idle)
+		}
 		_ = left.SetDeadline(deadline)
 		_ = right.SetDeadline(deadline)
 	}
-	touch()
 	stop := context.AfterFunc(ctx, func() { _ = left.Close(); _ = right.Close() })
 	defer stop()
-	a, b := activeConn{left, touch}, activeConn{right, touch}
+	// Bound initial forwarding without imposing that setup deadline on the
+	// established stream (in particular, never on an idle SSH session).
 	if len(prefix) != 0 {
-		if _, e := io.Copy(b, bytes.NewReader(prefix)); e != nil {
+		_ = right.SetWriteDeadline(time.Now().Add(10 * time.Second))
+		if _, e := io.Copy(right, bytes.NewReader(prefix)); e != nil {
 			return
 		}
+	}
+	touch()
+	a, b := left, right
+	if idle > 0 {
+		a, b = activeConn{left, touch}, activeConn{right, touch}
 	}
 	done := make(chan struct{}, 2)
 	go func() { _, _ = io.Copy(b, a); done <- struct{}{} }()

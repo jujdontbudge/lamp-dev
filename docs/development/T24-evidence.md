@@ -9,7 +9,30 @@ private-only instruction; it is not evidence of an Internet deployment.
 Operational details: [hosted.md](hosted.md). Earlier failed results remain below,
 explicitly historical, rather than being relabelled by later successes.
 
-### Review follow-up after b8670bb
+### Quiet-session correction after 9818e43
+
+The blanket 30-second splice deadline was a regression. `splice` now accepts an
+idle duration: authenticated, expiry-bound SSH `connect` uses none, while
+established ingress uses five minutes. Short setup deadlines remain separate,
+including the initial ClientHello write. Per-fleet caps and API-slot separation
+are unchanged.
+
+The requested [manual OpenSSH check](evidence/t24/production/idle-ssh-observation.json)
+kept the same authenticated connection idle for **125.01 seconds**, with
+`ServerAliveInterval=0`, TCP keepalives off and fresh-connection fallback disabled.
+A post-idle exec channel received the same daemon reply over that connection.
+The disposable older daemon does not implement `session_list`, so its expected
+`control session_list: NOT_FOUND` reply/remote exit 1 proves the SSH round-trip,
+**not successful session listing**. Two initial setup attempts stopped before the
+idle interval because they had expected that unsupported operation to succeed.
+The final observation does not relabel those attempts.
+
+This used real OpenSSH, relay, `lamp-access` and `lampd`, a disposable local
+account signer (not Clerk), no VM and no owner workload. All check processes were
+stopped. The updated Linux relay was cross-built for this check. No tests were
+added or run, and the full verification was not repeated.
+
+### Historical review follow-up at 9818e43
 
 The minor idle-stream admission issue is fixed: attach streams no longer use the
 API request pool, and upgraded carriers/connect streams release their API slots.

@@ -47,9 +47,12 @@ admission pool covers only bounded ClientHello parsing, not established streams.
 Routing (SSH and HTTPS combined) and attachments each have a separate 32-stream
 budget per fleet; account/relay ingress use independent control-origin budgets.
 Long-lived attachments bypass API slots, and upgraded carriers/connect streams
-release their API slots. Splices expire after 30 seconds without byte progress in
-either direction, including blocked writes; active one-way traffic refreshes both
-endpoints. These relay deadlines do not depend on a fleet's own TLS timeout.
+release their API slots. Established ingress splices use a five-minute inactivity
+budget, refreshed by byte progress in either direction. Authenticated SSH
+`connect` splices have no idle deadline: account expiry and revocation still bound
+them, without requiring OpenSSH keepalives. Short deadlines apply only to setup
+(ClientHello parsing, dial/attachment and initial ClientHello forwarding). These
+relay deadlines do not depend on a fleet's own TLS timeout.
 
 ## Account sign-in and origin isolation
 

@@ -429,7 +429,7 @@ func (s *Server) connect(w http.ResponseWriter, r *http.Request, fleet string, e
 	c.SetReadLimit(1 << 20)
 	client := websocket.NetConn(ctx, c, websocket.MessageBinary)
 	defer client.Close()
-	splice(ctx, client, host, nil)
+	splice(ctx, client, host, nil, 0)
 }
 func (s *Server) browserAccount(r *http.Request) (hostedlogin.Grant, bool) {
 	if s.browserLogin == nil {
