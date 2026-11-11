@@ -102,6 +102,25 @@ device, and the fallback refused by default
 These LA records came from the tree before the last fallback fix (the
 `RLIMIT_NPROC` change and the `--firecracker` flag message); they were not rerun.
 
+## Review fix: gVisor task cleanup
+
+The review of `d78ed4f` found that every fallback task left its state
+directory and runsc root on the `/run` tmpfs, and that some failure paths
+left the bundle or a running container behind. Each task now has a private
+directory under the state directory. A guard runs on every exit path: it
+kills and deletes the container and reaps runsc. It also detaches the
+`null-netns` bind mount that runsc `--network=none` leaves in its root and
+never unmounts (the reason the leftovers could not even be removed). Then it
+removes the task directory and the state directory if it is empty.
+
+Before the fix, LX had 7 leaked entries under `/run/lamp-gvisor`, each with a
+busy `null-netns` mount. They were detached and removed. One run of the
+gVisor part through lampd with the fixed supervisor (`167eed35…a0b25a`,
+[`gvisor-cleanup/transcript.jsonl`](evidence/t20/gvisor-cleanup/transcript.jsonl))
+served the owner and private-CI tasks and refused public CI, login and
+protected-connection tasks as before. Afterwards `/run/lamp-gvisor` was empty
+and no mount under it remained.
+
 ## Not run, and why
 
 * **Firecracker sandboxes on Debian, Fedora, Ubuntu 22.04, the 5.10 kernel

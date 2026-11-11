@@ -144,27 +144,28 @@ impl Runtime {
             "lamp-{}",
             lamp_init::hex_encode(&crate::fsutil::random_bytes::<8>())
         );
-        let bundle = self.state.join(&id);
-        std::fs::create_dir(&bundle).ctx("bundle dir")?;
-        let cleanup = |runsc: &Path, root: &Path| {
-            let _ = Command::new(runsc)
-                .arg("--root")
-                .arg(root)
-                .args(["delete", "--force", &id])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-            let _ = std::fs::remove_dir_all(&bundle);
+        // Everything this task creates lives under `dir`; the guard kills and
+        // deletes the container and removes it on every exit path.
+        let dir = self.state.join(&id);
+        std::fs::create_dir(&dir).ctx("task dir")?;
+        let mut task = TaskDir {
+            runsc: self.runsc.clone(),
+            root: dir.join("runsc-root"),
+            bundle: dir.join("bundle"),
+            state: self.state.clone(),
+            dir,
+            id,
+            child: None,
         };
+        std::fs::create_dir(&task.bundle).ctx("bundle dir")?;
         std::fs::write(
-            bundle.join("config.json"),
+            task.bundle.join("config.json"),
             serde_json::to_vec(&oci_spec(t, &self.rootfs, pids)).unwrap(),
         )
         .ctx("write OCI spec")?;
-        let root = self.state.join("runsc-root");
-        let mut child = Command::new(&self.runsc)
+        let child = Command::new(&self.runsc)
             .arg("--root")
-            .arg(&root)
+            .arg(&task.root)
             .args([
                 "--network=none",
                 "--host-uds=none",
@@ -172,43 +173,38 @@ impl Runtime {
                 "run",
                 "--bundle",
             ])
-            .arg(&bundle)
-            .arg(&id)
+            .arg(&task.bundle)
+            .arg(&task.id)
             .env_clear()
             .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| {
-                let _ = std::fs::remove_dir_all(&bundle);
-                EngineError::host(format!("start runsc: {e}"))
-            })?;
+            .map_err(|e| EngineError::host(format!("start runsc: {e}")))?;
+        let child = task.child.insert(child);
         let out = bounded(child.stdout.take().unwrap());
         let err = bounded(child.stderr.take().unwrap());
         let deadline = Instant::now() + Duration::from_secs(t.timeout_seconds);
         let mut timed_out = false;
         let status = loop {
+            let child = task.child.as_mut().unwrap();
             if let Some(s) = child.try_wait().ctx("wait runsc")? {
                 break s;
             }
             if Instant::now() > deadline {
                 timed_out = true;
-                let _ = Command::new(&self.runsc)
-                    .arg("--root")
-                    .arg(&root)
-                    .args(["kill", "--all", &id, "KILL"])
-                    .status();
-                let _ = child.kill();
-                break child.wait().ctx("wait runsc")?;
+                task.kill();
+                break task.child.as_mut().unwrap().wait().ctx("wait runsc")?;
             }
             std::thread::sleep(Duration::from_millis(20));
         };
+        task.child = None;
+        drop(task);
         let (stdout, stderr) = (
             out.join().unwrap_or_default(),
             err.join().unwrap_or_default(),
         );
-        cleanup(&self.runsc, &root);
         use std::os::unix::process::ExitStatusExt;
         Ok(Outcome {
             engine: self.version(),
@@ -223,5 +219,56 @@ impl Runtime {
             stdout,
             stderr,
         })
+    }
+}
+
+/// One task's private files and container. Dropping it kills and deletes
+/// the container, reaps runsc, removes the task's files and then the state
+/// directory if nothing else is in it.
+struct TaskDir {
+    runsc: PathBuf,
+    root: PathBuf,
+    bundle: PathBuf,
+    state: PathBuf,
+    dir: PathBuf,
+    id: String,
+    child: Option<std::process::Child>,
+}
+
+impl TaskDir {
+    fn runsc(&self, args: &[&str]) {
+        let _ = Command::new(&self.runsc)
+            .arg("--root")
+            .arg(&self.root)
+            .args(args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+
+    fn kill(&mut self) {
+        let id = self.id.clone();
+        self.runsc(&["kill", "--all", &id, "KILL"]);
+        if let Some(c) = self.child.as_mut() {
+            let _ = c.kill();
+        }
+    }
+}
+
+impl Drop for TaskDir {
+    fn drop(&mut self) {
+        if self.child.is_some() {
+            self.kill();
+            if let Some(mut c) = self.child.take() {
+                let _ = c.wait();
+            }
+        }
+        let id = self.id.clone();
+        self.runsc(&["delete", "--force", &id]);
+        // runsc --network=none bind-mounts an empty network namespace here
+        // and leaves it mounted; detach it so the directory can go.
+        crate::fc::unmount(&self.root.join("null-netns"));
+        let _ = std::fs::remove_dir_all(&self.dir);
+        let _ = std::fs::remove_dir(&self.state);
     }
 }
