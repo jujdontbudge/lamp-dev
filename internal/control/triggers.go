@@ -839,7 +839,18 @@ func (s *Service) workSandbox(ctx context.Context, id string, a caller, attempt 
 		}
 	}
 	j := s.ciSnapshot(id)
-	code, out := s.internalHTTP(a, "POST", "/v1/sandboxes", map[string]string{"Idempotency-Key": fmt.Sprintf("work-create:%s:%d", id, attempt)}, map[string]any{"recipe_id": textField(j.R, "recipe_id")})
+	// internalHTTP reaches the engine directly, so resolve the recipe here.
+	s.readLock()
+	rc := s.lifeFind(a, "recipe", textField(j.R, "recipe_id"))
+	s.mu.Unlock()
+	if rc == nil || textField(rc, "state") != "active" {
+		return "", reject("NOT_FOUND", "recipe not found")
+	}
+	create := map[string]any{"template_id": textField(rc, "template_id"), "labels": map[string]any{"lamp.job": id}}
+	if res, ok := rc["resources"]; ok {
+		create["resources"] = res
+	}
+	code, out := s.internalHTTP(a, "POST", "/v1/sandboxes", map[string]string{"Idempotency-Key": fmt.Sprintf("work-create:%s:%d", id, attempt)}, create)
 	if code >= 400 {
 		return "", fmt.Errorf("sandbox admission failed (HTTP %d)", code)
 	}
