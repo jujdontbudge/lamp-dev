@@ -586,6 +586,11 @@ func t29Retention(t *testing.T, s *Service) {
 // t29Extra: a Linear delivery, a live cancel of trigger work, and one
 // schedule shared by two fleet hosts.
 func t29Extra(t *testing.T, s *Service, live t29Live, root string, base Config) {
+	if os.Getenv("LAMP_T29_FLEET_ONLY") != "" {
+		s.Close()
+		t29Fleet(t, live, root, base)
+		return
+	}
 	code, out := t29Call(t, s, "POST", "/v1/recipes", map[string]any{"name": "t29-extra", "template_id": live.Template, "resources": map[string]any{"vcpus": 2, "memory_mib": 4096, "disk_gib": 20, "pids_max": 4096}}, "")
 	if code >= 300 {
 		t.Fatalf("recipe HTTP %d %v", code, out)
