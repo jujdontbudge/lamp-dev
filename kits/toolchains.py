@@ -99,6 +99,11 @@ mark('start')
 sock='unix:///tmp/lamp-kit-docker/docker.sock'
 docker_env={'PATH':str(bindir)+':/usr/sbin:/usr/bin:/sbin:/bin','HOME':str(state),
  'XDG_RUNTIME_DIR':str(state)}
+# An unprivileged user namespace cannot create cgroups. runc's rootless cgroup
+# manager ignores that permission error when no limits are requested; every
+# other namespace and the seccomp profile still apply.
+(state/'runc-rootless').write_text('#!/bin/sh\\nexec '+str(bindir/'runc')+' --rootless=true "$@"\\n')
+(state/'runc-rootless').chmod(0o700)
 # Guest init prepares the hard-coded shim directory /run/containerd. Keep
 # containerd's data, state and socket in our private guest prefix; no root
 # helper or host containerd socket is involved.
@@ -131,7 +136,7 @@ mark('containerd ready')
 phase='docker'
 daemon=None
 if not (state/'docker.sock').exists():
- daemon=subprocess.Popen([str(bindir/'dockerd'),'--group=0','--host='+sock,'--data-root='+str(state/'data'),
+ daemon=subprocess.Popen([str(bindir/'dockerd'),'--group=0','--add-runtime=lamp-runc='+str(state/'runc-rootless'),'--default-runtime=lamp-runc','--host='+sock,'--data-root='+str(state/'data'),
   '--containerd='+str(containerd_socket),'--exec-root='+str(state/'exec'),'--pidfile='+str(state/'daemon.pid'),
   '--bridge=none','--iptables=false','--ip6tables=false','--storage-driver=vfs','--debug'],
   stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=runtime_log,start_new_session=True,env=docker_env)

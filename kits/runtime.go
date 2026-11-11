@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -52,10 +53,18 @@ func Start(ctx context.Context, config, root string) (string, func(), error) {
 	done := make(chan error, 1)
 	go func() { done <- command.Wait() }()
 	closeService := func() {
+		// SIGTERM, not SIGINT: a process started from a background shell
+		// inherits SIGINT as ignored, and the service would never exit,
+		// blocking lampd's SIGTERM drain (installer restarts and updates).
 		if command.Process != nil {
-			_ = command.Process.Signal(os.Interrupt)
+			_ = command.Process.Signal(syscall.SIGTERM)
 		}
-		<-done
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			_ = command.Process.Kill()
+			<-done
+		}
 	}
 	for {
 		select {
