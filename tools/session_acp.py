@@ -2,6 +2,8 @@ import argparse
 import base64
 from concurrent.futures import ThreadPoolExecutor
 import json
+import re
+import secrets
 import sys
 import threading
 
@@ -42,13 +44,19 @@ class LampACP:
         return state
 
     def watch(self, identity, state):
-        try:
-            while not self.closed.is_set() and not state["closed"].is_set():
+        while not self.closed.is_set() and not state["closed"].is_set():
+            try:
                 page = self.client.watch(identity, state["cursor"], wait_ms=1000)
                 for frame in page["items"]:
                     data = base64.b64decode(frame["data_base64"])
                     if frame["channel"] in {"stdout", "stderr"}:
-                        self.update(identity, data.decode(errors="replace"))
+                        text = data.decode(errors="replace")
+                        self.update(identity, text)
+                        if marker := state.get("shell_marker"):
+                            state["shell_output"] = (state.get("shell_output", "") + text)[-4096:]
+                            if match := re.search(r"(?:^|\r?\n)" + re.escape(marker) + r":([0-9]+)\r?\n", state["shell_output"]):
+                                state["completion"] = {"success": match[1] == "0"}
+                                state["done"].set()
                     elif frame["channel"] == "control":
                         event = json.loads(data)
                         if event.get("type") == "input_completed" and event.get("input_id") == state.get("pending"):
@@ -59,9 +67,14 @@ class LampACP:
                     state["error"] = "session ended"
                     state["done"].set()
                     return
-        except (PublicSessionError, OSError, ValueError) as error:
-            state["error"] = error.code if isinstance(error, PublicSessionError) else "session observation unavailable"
-            state["done"].set()
+            except (PublicSessionError, OSError, ValueError) as error:
+                if isinstance(error, (OSError, ValueError)) or error.status >= 500:
+                    if self.closed.wait(.25):
+                        return
+                    continue
+                state["error"] = error.code
+                state["done"].set()
+                return
 
     def response(self, identity, state):
         return {"sessionId": identity, "modes": {"currentModeId": state["mode"], "availableModes": [{"id": "watch", "name": "Watch", "description": "Observe without an input lease"}, {"id": "input", "name": "Input", "description": "Acquire the exclusive input lease"}]}}
@@ -88,7 +101,7 @@ class LampACP:
             return self.response(identity, state)
         identity = params["sessionId"]
         if method in {"session/load", "session/resume"}:
-            state = self.adopt(identity, params.get("cwd", self.args.cwd))
+            state = self.adopt(identity, params.get("cwd", self.args.cwd), self.args.join_mode)
             return self.response(identity, state)
         if method == "session/close":
             state = self.sessions.pop(identity, None)
@@ -122,13 +135,23 @@ class LampACP:
                     state["lease"] = self.client.lease(identity)
                     state["sequence"] = 0
                 text = "\n".join(block["text"] for block in params["prompt"])
-                if resource.get("auth_mode", "none") == "none":
-                    self.client.input(identity, state["lease"], state["sequence"], (text + "\n").encode())
-                    state["sequence"] += 1
-                    return {"stopReason": "end_turn"}
                 state["done"].clear()
                 state.pop("completion", None)
                 state["pending"] = state["lease"] + "." + str(state["sequence"])
+                raw = resource.get("auth_mode", "none") == "none"
+                if raw:
+                    if not self.args.shell:
+                        raise ValueError("PTY sessions require the explicit --shell command-agent enrollment for ACP turns")
+                    if self.args.prompt_envelope == "t3" and text.startswith("<t3_code_instructions>"):
+                        match = re.match(r"<t3_code_instructions>[\s\S]*?</t3_code_instructions>\s*<user_request>\n([\s\S]*)\n</user_request>", text)
+                        if match is None:
+                            raise ValueError("unsupported public T3 command envelope")
+                        text = match[1]
+                    if self.args.prompt_envelope == "t3":
+                        text = re.sub(r"(?:\s*<runtime_info>[\s\S]*?</runtime_info>|\s*<pull_request_linking>[\s\S]*?</pull_request_linking>)+\s*$", "", text)
+                    marker = "LAMP_SHELL_" + secrets.token_hex(16)
+                    state["shell_marker"], state["shell_output"] = marker, ""
+                    text = "{\n" + text + "\n}\n_lamp_status=$?; printf '\\n" + marker + ":%s\\n' \"$_lamp_status\"\n"
                 self.client.input(identity, state["lease"], state["sequence"], text.encode())
                 state["sequence"] += 1
                 state["done"].wait()
@@ -158,6 +181,9 @@ def main():
     parser.add_argument("--host-id", required=True)
     parser.add_argument("--sandbox-id")
     parser.add_argument("--cwd", default="/tmp")
+    parser.add_argument("--shell", action="store_true")
+    parser.add_argument("--join-mode", choices=["watch", "input"], default="watch")
+    parser.add_argument("--prompt-envelope", choices=["plain", "t3"], default="plain")
     args = parser.parse_args()
     agent = LampACP(args)
     with ThreadPoolExecutor(max_workers=8) as pool:

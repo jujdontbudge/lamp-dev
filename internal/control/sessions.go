@@ -831,7 +831,7 @@ func (s *Service) driveSession(id string) {
 			}
 		}
 		work.EventOffset = uintField(reply, "event_offset")
-		if action.Action != "read" && len(work.Pending) > 0 && work.Pending[0].ID == action.ID {
+		if action.Action != "read" && reply["input_delivery"] != "pending" && len(work.Pending) > 0 && work.Pending[0].ID == action.ID {
 			work.Pending = work.Pending[1:]
 		}
 		state := textField(reply, "state")

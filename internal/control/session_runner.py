@@ -59,6 +59,7 @@ def serve(directory, endpoint, request):
     state = {"state": "active", "inputs": {}, "size": 0, "epoch": request["epoch"], "events": [], "outstanding": []}
     native = bool(request.get("native"))
     buffered = bytearray()
+    pending_write = None
 
     def capture(chunk):
         nonlocal buffered
@@ -85,6 +86,7 @@ def serve(directory, endpoint, request):
         os.execvpe(request["argv"][0], request["argv"], environment)
     if native:
         tty.setraw(terminal, termios.TCSANOW)
+    os.set_blocking(terminal, False)
     output = (directory / "output").open("ab", buffering=0)
     os.chmod(directory / "output", 0o600)
     listener = socket.socket(socket.AF_UNIX)
@@ -94,7 +96,19 @@ def serve(directory, endpoint, request):
     save(state_path, state)
     try:
         while True:
-            ready, _, _ = select.select([listener, terminal] if terminal >= 0 else [listener], [], [], .1)
+            ready, writable, _ = select.select([listener, terminal] if terminal >= 0 else [listener], [terminal] if pending_write and terminal >= 0 else [], [], .1)
+            if terminal in writable:
+                key, sequence, view = pending_write
+                try:
+                    view = view[os.write(terminal, view[:16384]):]
+                except BlockingIOError:
+                    pass
+                if view:
+                    pending_write = (key, sequence, view)
+                else:
+                    state["inputs"][key]["state"] = "delivered"
+                    pending_write = None
+                    save(state_path, state)
             if terminal in ready:
                 try:
                     chunk = os.read(terminal, 16384)
@@ -143,9 +157,11 @@ def serve(directory, endpoint, request):
                         if previous and previous["sequence"] == sequence:
                             if previous["digest"] != digest:
                                 raise ValueError("IDEMPOTENCY_CONFLICT")
-                            if previous["state"] != "delivered":
+                            if previous["state"] != "delivered" and not (pending_write and pending_write[:2] == (key, sequence)):
                                 raise ValueError("OUTCOME_UNKNOWN")
                         else:
+                            if pending_write:
+                                raise ValueError("RESOURCE_IN_USE")
                             if sequence != (previous["sequence"] + 1 if previous else 0):
                                 raise ValueError("REVISION_CONFLICT")
                             state["inputs"][key] = {"sequence": sequence, "digest": digest, "state": "pending"}
@@ -154,11 +170,7 @@ def serve(directory, endpoint, request):
                                 state["outstanding"].append(input_id)
                                 data = json.dumps({"input_id": input_id, "text": data.decode("utf-8")}).encode() + b"\n"
                             save(state_path, state)
-                            view = memoryview(data)
-                            while view:
-                                view = view[os.write(terminal, view):]
-                            state["inputs"][key]["state"] = "delivered"
-                            save(state_path, state)
+                            pending_write = (key, sequence, memoryview(data))
                     elif action == "resize":
                         if terminal < 0:
                             raise ValueError("RESOURCE_IN_USE")
@@ -210,6 +222,8 @@ def serve(directory, endpoint, request):
                         data = stream.read(32768)
                     event_offset = operation.get("event_offset", 0)
                     reply = {"state": state["state"], "data": base64.b64encode(data).decode(), "offset": offset + len(data), "size": state["size"], "events": state["events"][event_offset:], "event_offset": len(state["events"]), "outstanding": len(state["outstanding"])}
+                    if action == "input":
+                        reply["input_delivery"] = state["inputs"][operation["lease"]]["state"]
                     if action == "snapshot" and not operation.get("wait"):
                         reply.update(artifact_info(directory, operation))
                     if operation.get("wait"):
@@ -217,7 +231,7 @@ def serve(directory, endpoint, request):
                     if "git_result" in operation:
                         reply.update(operation["git_result"])
                 except Exception as error:
-                    reply = {"error": str(error) if str(error) in {"REVISION_CONFLICT", "IDEMPOTENCY_CONFLICT", "OUTCOME_UNKNOWN", "RESOURCE_IN_USE", "CURSOR_EXPIRED", "INVALID_ARGUMENT"} else "DATA_UNAVAILABLE"}
+                    reply = {"error": str(error) if str(error) in {"REVISION_CONFLICT", "IDEMPOTENCY_CONFLICT", "OUTCOME_UNKNOWN", "RESOURCE_IN_USE", "CURSOR_EXPIRED", "INVALID_ARGUMENT"} else "DATA_UNAVAILABLE", "error_type": type(error).__name__, "error_errno": getattr(error, "errno", None)}
                 connection.sendall(json.dumps(reply).encode() + b"\n")
                 if state["state"] != "active" and reply.get("offset") == state["size"]:
                     return
