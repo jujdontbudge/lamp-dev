@@ -1,8 +1,8 @@
 # T22 — kits evidence
 
 Status: **partial: only 1Password and Proton Pass remain (waiting on owner).** The browser/KeePassXC
-journey is real. Containerd's guest runtime-directory fix is demonstrated.
-Docker container execution and three native vault providers remain unproven.
+browser, KeePassXC, Bitwarden, password-field private typing, toolchain and
+Docker container journeys each have one real passing run.
 No benchmark, trial-count, soak or attack gate was used as a completion target.
 
 ## Real demonstrations
