@@ -1,0 +1,85 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:206: enrolled plugins: [pg_forgejo pg_gitea pg_jenkins pg_woodpecker]
+    t29_demo_test.go:231: runner output tail (jb_ab2fbe6a46dfbb1ecdc058723200eef4):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_a35235230ac99ea8db1d7b3290179e03):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_a35235230ac99ea8db1d7b3290179e03):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_a35235230ac99ea8db1d7b3290179e03):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_a35235230ac99ea8db1d7b3290179e03):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_a35235230ac99ea8db1d7b3290179e03):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_a35235230ac99ea8db1d7b3290179e03):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_a35235230ac99ea8db1d7b3290179e03):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_a35235230ac99ea8db1d7b3290179e03):
+        
+        --stderr--
+    t29_demo_test.go:160: job jb_a35235230ac99ea8db1d7b3290179e03 error: runner exited before native job completion (exit 70, signal 0)
+    t29_demo_test.go:167: job jb_a35235230ac99ea8db1d7b3290179e03 plugin=pg_gitea external=lamp-admin/zlib/3 state=failed result= trust=trusted runner=lamp-jb_a35235230ac99ea8db1d7b3290179e03 sandbox=sb_e9c24ce5c0b779c60823e618ee5599f7(deleted) outputs=[gitea-job.log(incomplete,0 bytes)]
+    t29_demo_test.go:167: job jb_ab2fbe6a46dfbb1ecdc058723200eef4 plugin=pg_jenkins external=zlib/3 state=completed result=success trust=trusted runner=lamp-jb_ab2fbe6a46dfbb1ecdc058723200eef4 sandbox=sb_6185899a774343a275cf9649a9d8f826(deleted) outputs=[archive.zip(complete,66629 bytes)]
+    t29_demo_test.go:167: job jb_87fcb5b6e057deb52592583573b7f98b plugin=pg_woodpecker external=lamp-admin/zlib-public/3 state=completed result=success trust=public_pr runner=3 sandbox=sb_46086d25aa0cb26b5c61c8e9b7b356e2(deleted) outputs=[woodpecker-build.log(complete,3238 bytes)]
+    t29_demo_test.go:351: webhook delivery HTTP 202 replayed=false; retry HTTP 202 replayed=true same-operation=true; forged HTTP 401 map[code:UNAUTHENTICATED message:TRIGGER_UNAUTHORIZED: webhook signature mismatch retryable:false]
+    t29_demo_test.go:358: slack event HTTP 202; replayed-old timestamp HTTP 401 map[code:UNAUTHENTICATED message:TRIGGER_UNAUTHORIZED: stale or missing Slack timestamp retryable:false]
+    t29_demo_test.go:167: job jb_7d48bb10992e94590fbc5420f70b5934 plugin=pg_webhook external=tr_3933b144c0e469eb205942fa9f973a8b/webhook:dlv-1 state=completed result=success trust=trigger runner= sandbox=sb_d057742d6eb38d3e5145159bf1d4bd9a(deleted) outputs=[agent-output.log(complete,168 bytes)]
+    t29_demo_test.go:375: work output:
+        source=webhook job=jb_7d48bb10992e94590fbc5420f70b5934
+        {"action":"opened","project":"public-fixture","ask":"summarize README"}
+        fresh-sandbox
+        agent-done
+        
+        --- stderr ---
+    t29_demo_test.go:231: runner output tail (jb_456f6d73d651b3da6f14b65e78b22cdc):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_456f6d73d651b3da6f14b65e78b22cdc):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_456f6d73d651b3da6f14b65e78b22cdc):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_456f6d73d651b3da6f14b65e78b22cdc):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_456f6d73d651b3da6f14b65e78b22cdc):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_456f6d73d651b3da6f14b65e78b22cdc):
+        
+        --stderr--
+    t29_demo_test.go:231: runner output tail (jb_456f6d73d651b3da6f14b65e78b22cdc):
+        
+        --stderr--
+    t29_demo_test.go:167: job jb_a4802345b429815c4431ddf01f1b8591 plugin=pg_slack external=tr_bd9ce2e518490768c66a31e9928df062/slack:Ev0T29 state=completed result=success trust=trigger runner= sandbox=sb_53856cfb9b78f264087a3629a0344a23(deleted) outputs=[agent-output.log(complete,227 bytes)]
+    t29_demo_test.go:375: work output:
+        source=slack job=jb_a4802345b429815c4431ddf01f1b8591
+        {"type":"event_callback","team_id":"T0T29FIXTURE","event_id":"Ev0T29","event":{"type":"app_mention","text":"<@lamp> run the audit"}}
+        fresh-sandbox
+        agent-done
+        
+        --- stderr ---
+    t29_demo_test.go:387: webhook jobs created from 3 deliveries (1 retry, 1 forged): 1
+    t29_demo_test.go:397: 02:30 daily after 2026-03-07T12:00:00Z: shift=2026-03-08T03:30:00-04:00 skip=2026-03-09T02:30:00-04:00
+    t29_demo_test.go:397: 02:30 daily after 2026-03-08T12:00:00Z: shift=2026-03-09T02:30:00-04:00 skip=2026-03-09T02:30:00-04:00
+    t29_demo_test.go:397: 02:30 daily after 2026-10-31T12:00:00Z: shift=2026-11-01T02:30:00-05:00 skip=2026-11-01T02:30:00-05:00
+    t29_demo_test.go:403: 01:30 daily on the fall-back day runs once: 2026-11-01T01:30:00-04:00 then 2026-11-02T01:30:00-05:00
+    t29_demo_test.go:167: job jb_29712132897ccc52dfa783127315a0f7 plugin=pg_schedule external=sc_814bc72843cb16eeddb156c6f9f0bb82/schedule:2026-11-11T18:28:00Z state=completed result=success trust=trigger runner= sandbox=sb_1d31ef069a18cb821309f19b48c0fccb(deleted) outputs=[agent-output.log(complete,190 bytes)]
+    t29_demo_test.go:418: schedule sc_814bc72843cb16eeddb156c6f9f0bb82 next_run_at=2026-11-11T18:32:00Z skipped_overlap=3
+    t29_demo_test.go:434: sandboxes not deleted at end: 0; forge runners still registered: 0
+--- PASS: TestT29Demonstration (1028.82s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	1029.446s
+demonstration_exit 0
+firecracker_remaining 0

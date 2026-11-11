@@ -1,0 +1,9 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:207: enrolled plugins: [pg_gitea pg_jenkins pg_woodpecker pg_forgejo]
+    t29_demo_test.go:168: job jb_8fe92e7e29e13f90396c5c877f8a56d4 plugin=pg_gitea external=lamp-admin/zlib/5 state=completed result=success trust=trusted runner=lamp-jb_8fe92e7e29e13f90396c5c877f8a56d4 sandbox=sb_86d43474b73284330bbddb4c581c6396(deleted) outputs=[gitea-job.log(complete,6578 bytes)]
+    t29_demo_test.go:254: forge runners still registered: 0
+--- PASS: TestT29Demonstration (19.10s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	19.780s
+demonstration_exit 0
+firecracker_remaining 0
