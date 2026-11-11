@@ -212,19 +212,30 @@ prickle-textbook` recalled `LAMP557A9A` in the same native session. The
 account email and organisation are redacted. Raw:
 `evidence/t25-devin-relocation.json`.
 
-## Routes not yet exercised, and why
+## Routes not exercised, and why
 
-These adapters are built and their argv was accepted by the real binaries.
-Each needs a vendor account sign-in that only the owner can complete:
+The owner dropped these signed-in runs on 2026-11-11. Their adapters and
+catalogue entries stay as built.
 
-| Harness | What is needed |
+| Harness or route | Status |
 | --- | --- |
-| amp | Not run: the owner dropped it on 2026-11-11. The adapter (thread-ID continuation) and catalogue entry stay as built. An earlier attempt with a wrong token file was rejected by Amp (`Invalid or missing API key`). |
-| gemini_cli | Not run: the owner dropped it on 2026-11-11. The adapter and catalogue entry stay as built. |
-| copilot_cli subscription, droid Factory models | Copilot device-login approval, or a Factory API key. The BYOK routes above already work without them. |
+| amp | Not run. The adapter continues by thread ID. An earlier attempt used a token file holding an SSH key instead of an Amp token, and Amp rejected it (`Invalid or missing API key`). |
+| gemini_cli | Not run. |
+| copilot_cli subscription | Not run. Four device codes were issued on Ubuntu. The owner approved one, but the CLI's poll never picked it up before it expired, and its log recorded nothing about the poll even at `--log-level all`. The cause was not found. Copilot's official BYOK route is shown in sections 1 and 2. |
+| droid Factory models | Not needed: droid's BYOK route runs on the host and inside a VM (section 3) without a Factory login. |
 
 Claude Code and Codex subscription sign-ins stay T21's custody path. They
 were not rerun here.
+
+## Goal check
+
+| Ticket clause | Evidence |
+| --- | --- |
+| Ship the 11 §9.2 integrations | All 11 have a catalogue entry and an adapter, and `GET /v1/harnesses` lists all 11 (section 2). Nine ran on a real route: claude_code, codex, opencode, pi, goose, droid and copilot_cli through the broker (sections 1–3), cursor_cli on its API key (section 6) and devin on the owner's device login (section 7). amp and gemini_cli are built but were not run because the owner dropped them. |
+| Each uses its official permitted sign-in or API route | Each catalogue entry cites dated vendor permission sources. The runs used only documented routes: vendor BYOK or provider settings, Cursor's `CURSOR_API_KEY`, and Devin's own device login used in place. |
+| Sessions and native sub-agents visible separately | Claude Code's own sub-agents appeared as separate observed child sessions with their own output (section 2). Native sub-agents were shown for Claude Code only. For the other harnesses the catalogue states the sub-agent handling, and Lamp's own spawn is used as in T21. |
+| Continuing work moves between host and sandbox through each harness's mechanism | Nine harnesses continued their native session after a move with the original deleted (sections 1, 6, 7). Seven continued across a `lampd` teleport between hosts (section 2). opencode and droid went host → Firecracker VM → host (section 3). The VM path was shown for those two only. |
+| Vendor limits described honestly; a new prompt with a transcript is not continuation | Each run resumed the harness's own native session ID. Pi's relocation is reported as `forked_from` and is not presented as the same session. Amp threads and Devin cloud sessions are stated as not moved. Model misses and failed attempts are kept. |
 
 ## Limitations stated honestly
 
