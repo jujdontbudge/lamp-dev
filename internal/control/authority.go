@@ -469,6 +469,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
+	// The dashboard shows who is signed in without guessing from lists.
+	w.Header().Set("X-Lamp-Principal", a.Principal)
 	if kitOperation(op.Name) {
 		s.kitsHTTP(w, r, id, op, selectors)
 		return

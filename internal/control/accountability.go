@@ -73,6 +73,7 @@ type accountability struct {
 	Sinks          map[string]api.NotificationSink `json:"notification_sinks,omitempty"`
 	Notifications  map[string]*notificationRecord  `json:"notifications,omitempty"`
 	NotifySequence uint64                          `json:"notify_sequence,omitempty"`
+	NotifyStarted  bool                            `json:"notify_started,omitempty"`
 }
 
 func (s *Service) initAccountability() {

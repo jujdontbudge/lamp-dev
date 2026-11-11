@@ -93,7 +93,11 @@ func (s *Service) notifyState() *accountability {
 	}
 	if c.Notifications == nil {
 		c.Notifications = map[string]*notificationRecord{}
-		// History before notifications existed is not replayed.
+	}
+	if !c.NotifyStarted {
+		// History before notifications existed is not replayed. An explicit
+		// marker: an empty map does not survive the journal's omitempty.
+		c.NotifyStarted = true
 		c.NotifySequence = s.journal.EventSequence
 	}
 	return c

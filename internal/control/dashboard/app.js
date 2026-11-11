@@ -4,7 +4,7 @@
 'use strict';
 
 const LISTS = {
-  fleets: '/v1/fleets', principals: '/v1/principals', hosts: '/v1/hosts', sandboxes: '/v1/sandboxes', sessions: '/v1/sessions',
+  fleets: '/v1/fleets', hosts: '/v1/hosts', sandboxes: '/v1/sandboxes', sessions: '/v1/sessions',
   tasks: '/v1/tasks', budgets: '/v1/budgets', approvals: '/v1/approvals', shares: '/v1/shares',
   leases: '/v1/leases', browsers: '/v1/browsers', kits: '/v1/kits', operations: '/v1/operations',
   audit: '/v1/audit-records', sinks: '/v1/notification-sinks', notifications: '/v1/notifications',
@@ -54,6 +54,8 @@ async function api(method, path, body, revision) {
     if (revision !== undefined) headers['If-Match'] = String(revision);
   }
   const res = await fetch(path, { method, headers, body: method === 'GET' ? undefined : JSON.stringify(body || {}), cache: 'no-store', credentials: 'omit' });
+  const who = res.headers.get('X-Lamp-Principal');
+  if (who) state.me = who;
   let out = null;
   try { out = await res.json(); } catch (_) { out = { error: { code: 'DATA_UNAVAILABLE', message: `HTTP ${res.status} without a JSON body` } }; }
   if (!res.ok || out.error) {
@@ -86,10 +88,6 @@ async function load() {
     }
   }));
   state.loadedAt = new Date();
-  const f = items('fleets')[0];
-  const ps = items('principals');
-  // Members see only their own principal; the owner sees everyone.
-  state.me = ps.length === 1 ? ps[0].id : (f && f.owner_id) || '';
   $('#who').textContent = state.me ? 'signed in as ' + state.me : '';
   render();
 }

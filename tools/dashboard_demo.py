@@ -225,18 +225,23 @@ def main():
         task = call('POST', '/v1/tasks', dict(budget_id=budget, labels=dict(name='Log in to the test site')))['result']['task_id']
         record('task and budget', dict(task=call('GET', '/v1/tasks/' + task)['data'], budget=call('GET', '/v1/budgets/' + budget)['data']))
 
-        record('agent sandbox admission', admission())
-        created = call('POST', '/v1/sandboxes', dict(template_id=args.template, task_id=task, labels=dict(name='agent'),
-                                                    resources=dict(vcpus=2, memory_mib=4096, disk_gib=20, pids_max=4096),
-                                                    lifecycle=dict(idle_action='suspend', idle_grace_seconds=900)))
-        agent = created['resource_ids'][0]['id'] if created.get('resource_ids') else created['result']['sandbox_id']
+        def create_agent():
+            record('agent sandbox admission', admission())
+            created = call('POST', '/v1/sandboxes', dict(template_id=args.template, task_id=task, labels=dict(name='agent'),
+                                                        resources=dict(vcpus=2, memory_mib=4096, disk_gib=20, pids_max=4096),
+                                                        lifecycle=dict(idle_action='suspend', idle_grace_seconds=900)))
+            return created['resource_ids'][0]['id'] if created.get('resource_ids') else created['result']['sandbox_id']
+        agent = create_agent()
         ui('goto', url=dash + '#/sandboxes/' + agent, wait=700)
         shot('02-setup-progress', 'new sandbox while setup is in progress (operation phase, checks)')
-        try:
-            wait(lambda: call('GET', '/v1/sandboxes/' + agent)['data']['state'] == 'ready', 'agent ready', 180)
-        except RuntimeError:
-            record('agent not ready', dict(sandbox=call('GET', '/v1/sandboxes/' + agent)['data'], operations=call('GET', '/v1/operations')['items']))
-            raise
+        state_of = lambda: call('GET', '/v1/sandboxes/' + agent)['data']['state']
+        wait(lambda: state_of() in ('ready', 'failed', 'deleted'), 'agent setup outcome', 180)
+        if state_of() != 'ready':
+            ui('goto', url=dash + '#/sandboxes/' + agent, wait=2500)
+            shot('02b-setup-failure', 'a real failed setup stage with the operational error and retryable flag')
+            record('real setup failure shown', call('GET', '/v1/sandboxes/' + agent)['data'])
+            agent = create_agent()
+            wait(lambda: state_of() == 'ready', 'agent ready after retry', 180)
         time.sleep(3)  # let the idle monitor take its first observation
         ui('goto', url=dash + '#/overview', wait=2500)
         shot('03-overview-ready', 'overview: setup finished, ready sandbox with idle and task-budget countdowns')
@@ -247,11 +252,17 @@ def main():
         call('PATCH', '/v1/fleets/fl_local', dict(mode='team'), fleet['revision'])
         bea = call('POST', '/v1/principals', dict(issuer='t27-demo', subject='bea', display_name='Disposable Bea'))['result']['principal_id']
         call('POST', '/v1/memberships', dict(principal_id=bea, role='member'))
-        session = call('POST', '/v1/sessions', dict(sandbox_id='', harness_id='hr_shell', task_id=task, labels=dict(name='agent shell'), location=dict(kind='host', host_id='hs_local')))['result']['session_id']
+        session = call('POST', '/v1/sessions', dict(sandbox_id='', harness_id='hr_shell', task_id=task, location=dict(kind='host', host_id='hs_local')))['result']['session_id']
         wait(lambda: call('GET', '/v1/sessions/' + session)['data']['state'] == 'active', 'session active', 60)
         sess = call('GET', '/v1/sessions/' + session)['data']
         call('PATCH', '/v1/sessions/' + session, dict(status='blocked', status_reason='Which branch should I push the README fix to: main or a new branch?'), sess['revision'])
-        wait(lambda: any(r['event_type'] == 'task.needs_decision' and r['resource']['kind'] == 'session' for r in received), 'session needs_decision webhook', 20)
+        try:
+            wait(lambda: any(r['event_type'] == 'task.needs_decision' and r['resource']['kind'] == 'session' for r in received), 'session needs_decision webhook', 20)
+        except RuntimeError:
+            procs[1].send_signal(3)
+            time.sleep(1)
+            record('session event diagnostics', dict(session=call('GET', '/v1/sessions/' + session)['data'], events=[(e['type'], e['resource_kind'], e['resource_revision'], e.get('data')) for e in call('GET', '/v1/events?limit=500')['items'] if e['resource_kind'] in ('session', 'notification')], notes=call('GET', '/v1/notifications')['items']))
+            raise
         ui('goto', url=dash + '#/sessions/' + session, wait=2500)
         shot('03b-session-needs-answer', 'session waiting on the person, with the question and an answer box')
         ui('eval', expr=f"document.querySelector('#sessions-{session} [name=answer]').value='echo answer-from-dashboard: new branch'; true")
