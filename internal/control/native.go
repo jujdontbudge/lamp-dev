@@ -21,11 +21,27 @@ type TrustedNativeJob struct {
 	RepositoryVisibility string `json:"repository_visibility"`
 }
 
+// NativeFallbackConfig enrolls the weaker, non-VM fallback. Runtime is
+// "app_sandbox" (macOS, the default) or "gvisor" (Linux: Launcher is the
+// root-run `lamp-supervisor gvisor-task` launcher and Rootfs its read-only
+// task root). Either way the result is labeled weaker than a VM.
 type NativeFallbackConfig struct {
+	Runtime      string                      `json:"runtime,omitempty"`
 	Launcher     string                      `json:"launcher"`
-	HelperBinary string                      `json:"helper_binary"`
-	Packager     string                      `json:"packager"`
+	HelperBinary string                      `json:"helper_binary,omitempty"`
+	Packager     string                      `json:"packager,omitempty"`
+	Rootfs       string                      `json:"rootfs,omitempty"`
+	AllowWithVM  bool                        `json:"allow_with_vm,omitempty"`
 	Jobs         map[string]TrustedNativeJob `json:"jobs"`
+}
+
+func (c *NativeFallbackConfig) gvisor() bool { return c != nil && c.Runtime == "gvisor" }
+
+func (c *NativeFallbackConfig) boundary() string {
+	if c.gvisor() {
+		return "gvisor_sandbox"
+	}
+	return "app_sandbox_process"
 }
 
 func ReadNativeFallback(path string) (*NativeFallbackConfig, error) {
@@ -70,7 +86,15 @@ func (s *Service) initNative(config Config) error {
 	if err := json.Unmarshal(raw, &enrolled); err != nil {
 		return err
 	}
-	for _, path := range []string{enrolled.Launcher, enrolled.HelperBinary, enrolled.Packager} {
+	paths := []string{enrolled.Launcher, enrolled.HelperBinary, enrolled.Packager}
+	switch enrolled.Runtime {
+	case "", "app_sandbox":
+	case "gvisor":
+		paths = []string{enrolled.Launcher, enrolled.Rootfs}
+	default:
+		return errors.New("native runtime must be app_sandbox or gvisor")
+	}
+	for _, path := range paths {
 		if !filepath.IsAbs(path) {
 			return errors.New("native runtime paths must be absolute trusted installation paths")
 		}
@@ -111,7 +135,7 @@ func (s *Service) nativeRefusal(w http.ResponseWriter, r *http.Request, id strin
 	if err == nil {
 		return false
 	}
-	w.Header().Set("X-Lamp-Boundary", "app_sandbox_process")
+	w.Header().Set("X-Lamp-Boundary", s.native.boundary())
 	w.Header().Set("X-Lamp-Isolation", "weaker_than_vm")
 	message := err.Error()
 	if job != nil {
@@ -145,6 +169,7 @@ func (s *Service) nativeHTTP(w http.ResponseWriter, r *http.Request, id string) 
 	var task struct {
 		Argv                []string `json:"argv"`
 		MemoryMiB           uint64   `json:"memory_mib"`
+		PidsMax             uint64   `json:"pids_max"`
 		TimeoutSeconds      uint64   `json:"timeout_seconds"`
 		Login               bool     `json:"login"`
 		ProtectedConnection bool     `json:"protected_connection"`
@@ -208,6 +233,46 @@ func (s *Service) nativeHTTP(w http.ResponseWriter, r *http.Request, id string) 
 	defer os.RemoveAll(dir)
 	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(task.TimeoutSeconds+10)*time.Second)
 	defer cancel()
+	if s.native.gvisor() {
+		s.mu.Lock()
+		current = s.current(a)
+		s.mu.Unlock()
+		if !current {
+			writeError(w, id, "SCOPE_DENIED", "task authority revoked before dispatch", nil)
+			return
+		}
+		fields := map[string]any{"origin": origin, "argv": task.Argv, "memory_mib": task.MemoryMiB, "timeout_seconds": task.TimeoutSeconds, "login": false, "protected_connection": false}
+		if task.PidsMax != 0 {
+			fields["pids_max"] = task.PidsMax
+		}
+		input, _ := json.Marshal(fields)
+		argv := []string{"gvisor-task", "--rootfs", s.native.Rootfs, "--state", filepath.Join("/run/lamp-gvisor", filepath.Base(dir))}
+		if s.native.AllowWithVM {
+			argv = append(argv, "--allow-with-vm")
+		}
+		command := exec.CommandContext(ctx, s.native.Launcher, argv...)
+		command.Env = []string{"PATH=/usr/bin:/bin"}
+		command.Stdin = bytes.NewReader(input)
+		var stderr bytes.Buffer
+		command.Stderr = &stderr
+		output, err := command.Output()
+		started = command.Process != nil
+		var result map[string]any
+		if json.Unmarshal(output, &result) != nil {
+			writeError(w, id, "HOST_UNAVAILABLE", "gvisor task failed: "+err.Error()+": "+stderr.String(), nil)
+			return
+		}
+		w.Header().Set("X-Lamp-Boundary", "gvisor_sandbox")
+		w.Header().Set("X-Lamp-Isolation", "weaker_than_vm")
+		if e, refused := result["error"].(map[string]any); refused {
+			code, _ := e["code"].(string)
+			message, _ := e["message"].(string)
+			writeError(w, id, code, message, nil)
+			return
+		}
+		prepareJSON(w, 200, map[string]any{"boundary": "gvisor_sandbox", "isolation": "weaker_than_vm", "job": job, "result": result, "request_id": id})()
+		return
+	}
 	app := filepath.Join(dir, "Task.app")
 	pack := exec.CommandContext(ctx, "/bin/sh", s.native.Packager, s.native.HelperBinary, app)
 	if out, err := pack.CombinedOutput(); err != nil {

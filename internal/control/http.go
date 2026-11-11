@@ -219,7 +219,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		input = in
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		_, err := decodeInput(w, r, &in, "template_id host_id engine_id resources durability task_id wait_ms")
+		_, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id wait_ms")
 		in.IdempotencyKey = key
 		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "create requires template_id and Idempotency-Key; only demo body fields are admitted", nil)
@@ -235,6 +235,10 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if in.EngineId != nil && *in.EngineId == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "engine_id cannot be empty", nil)
+			return
+		}
+		if _, err := workerDevices(in.Devices); err != nil {
+			writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
 			return
 		}
 		if in.Durability == nil {
@@ -259,6 +263,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		sb.TemplateId = in.TemplateId
 		sb.EngineId = in.EngineId
 		sb.Resources = in.Resources
+		sb.Devices = in.Devices
 		sb.Durability = pointer(api.SandboxDurability(*in.Durability))
 	case strings.HasPrefix(path, "/v1/sandboxes/") && strings.HasSuffix(path, ":fork"):
 		var in api.SandboxForkInput
@@ -646,7 +651,8 @@ func (s *Service) execute(id, source string) {
 	allocate := func() error {
 		r := request("allocate", sb.Id, generation)
 		resources := sb.Resources
-		r.Command = &pb.Request_Allocate{Allocate: &pb.Allocate{Resources: &pb.Resources{Vcpus: uint32(resources.Vcpus), MemoryMib: resources.MemoryMib, DiskGib: resources.DiskGib, PidsMax: resources.PidsMax}, EngineId: value(sb.EngineId)}}
+		devices, _ := workerDevices(sb.Devices)
+		r.Command = &pb.Request_Allocate{Allocate: &pb.Allocate{Resources: &pb.Resources{Vcpus: uint32(resources.Vcpus), MemoryMib: resources.MemoryMib, DiskGib: resources.DiskGib, PidsMax: resources.PidsMax}, EngineId: value(sb.EngineId), Devices: devices}}
 		return s.worker.perform(ctx, r, "allocated")
 	}
 	restore := func(capture string) error {
@@ -1064,4 +1070,31 @@ func (s *Service) watchOutput(w http.ResponseWriter, r *http.Request, requestID 
 		send()
 		return
 	}
+}
+
+// workerDevices maps requested devices to the worker protocol. Only the
+// shape is checked here; the engine refuses devices it cannot attach.
+func workerDevices(in *[]api.Device) ([]*pb.DeviceRequest, error) {
+	if in == nil {
+		return nil, nil
+	}
+	var out []*pb.DeviceRequest
+	for _, d := range *in {
+		if d.Id == "" || d.Type == "" {
+			return nil, errors.New("each device needs id and type")
+		}
+		var opts struct {
+			SizeMiB uint64 `json:"size_mib"`
+		}
+		if d.Options != nil {
+			if err := json.Unmarshal(*d.Options, &opts); err != nil {
+				return nil, errors.New("device options: " + err.Error())
+			}
+		}
+		if d.Type == api.DeviceTypeDisk && opts.SizeMiB == 0 {
+			return nil, errors.New("disk device " + d.Id + " needs options.size_mib")
+		}
+		out = append(out, &pb.DeviceRequest{Id: d.Id, Type: string(d.Type), SizeMib: opts.SizeMiB})
+	}
+	return out, nil
 }

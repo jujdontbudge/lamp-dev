@@ -1,0 +1,121 @@
+{"engines_default":
+{
+  "choice": {
+    "boundary": "gvisor_sandbox",
+    "code": null,
+    "considered": [
+      {
+        "boundary": "vm",
+        "chosen": false,
+        "engine": "firecracker",
+        "isolation": "vm",
+        "refused": "firecracker is not installed"
+      },
+      {
+        "boundary": "vm",
+        "chosen": false,
+        "engine": "vz",
+        "isolation": "vm",
+        "refused": "runs on macos, not linux"
+      },
+      {
+        "boundary": "gvisor_sandbox",
+        "chosen": true,
+        "engine": "gvisor",
+        "isolation": "weaker_than_vm",
+        "refused": null
+      },
+      {
+        "boundary": "app_sandbox_process",
+        "chosen": false,
+        "engine": "app_sandbox",
+        "isolation": "weaker_than_vm",
+        "refused": "runs on macos, not linux"
+      }
+    ],
+    "engine": "gvisor",
+    "isolation": "weaker_than_vm"
+  },
+  "host": {
+    "app_sandbox": false,
+    "arch": "aarch64",
+    "firecracker": false,
+    "gvisor": "/home/johansardar.guest/lamp-t20-la/g/runsc",
+    "kernel": "7.0.0-38-generic",
+    "kernel_supported": true,
+    "kvm": true,
+    "kvm_detail": "KVM API version 12",
+    "os": "linux",
+    "vz": false
+  },
+  "needs": {
+    "capture": false,
+    "devices": [],
+    "engine": null,
+    "guest_os": "",
+    "public_ci": false,
+    "secrets": false
+  }
+}
+,"gvisor_task":
+{"engine":"gvisor-release-20261026.0","boundary":"gvisor_sandbox","isolation":"weaker_than_vm","origin":"owner_task","network":"none","memory_mib":256,"pids_max":256,"exit_code":0,"timed_out":false,"stdout":"Linux 4.19.0-gvisor aarch64\n65534\n[   0.000000] Starting gVisor...\nno-network\n","stderr":""}
+,"secrets_public_ci":
+{
+  "choice": {
+    "boundary": null,
+    "code": "VM_REQUIRED",
+    "considered": [
+      {
+        "boundary": "vm",
+        "chosen": false,
+        "engine": "firecracker",
+        "isolation": "vm",
+        "refused": "firecracker is not installed"
+      },
+      {
+        "boundary": "vm",
+        "chosen": false,
+        "engine": "vz",
+        "isolation": "vm",
+        "refused": "runs on macos, not linux"
+      },
+      {
+        "boundary": "gvisor_sandbox",
+        "chosen": false,
+        "engine": "gvisor",
+        "isolation": "weaker_than_vm",
+        "refused": "public-repository CI requires a VM"
+      },
+      {
+        "boundary": "app_sandbox_process",
+        "chosen": false,
+        "engine": "app_sandbox",
+        "isolation": "weaker_than_vm",
+        "refused": "runs on macos, not linux"
+      }
+    ],
+    "engine": null,
+    "isolation": null
+  },
+  "host": {
+    "app_sandbox": false,
+    "arch": "aarch64",
+    "firecracker": false,
+    "gvisor": "/home/johansardar.guest/lamp-t20-la/g/runsc",
+    "kernel": "7.0.0-38-generic",
+    "kernel_supported": true,
+    "kvm": true,
+    "kvm_detail": "KVM API version 12",
+    "os": "linux",
+    "vz": false
+  },
+  "needs": {
+    "capture": false,
+    "devices": [],
+    "engine": null,
+    "guest_os": "",
+    "public_ci": true,
+    "secrets": true
+  }
+}
+}
