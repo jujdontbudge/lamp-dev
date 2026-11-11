@@ -45,6 +45,11 @@ LOG = open(EVID / ('supervisor-rollback.jsonl' if PHASE == 'supervisor' else 'tr
 HOME = os.path.expanduser('~')
 TEMPLATE = 'tp_12cf5d609585b24c3beee70840'  # Ubuntu 26.04 arm64 in the M5 store
 STORE = '/private/var/lamp/store'
+if os.environ.get('PHASE') == 'supervisor':
+    # A disposable store whose template is qualified for this code's lamp-vz
+    # (a template's saved memory is bound to the worker's digest).
+    STORE = os.environ['DEMO_STORE']
+    TEMPLATE = os.environ['DEMO_TEMPLATE']
 SUP = '/usr/local/lib/lamp/lamp-supervisor'
 H = {
     'hs_lx': dict(ssh='ubuntu-server', goos='linux', goarch='amd64', base='/home/johan/lamp-t28', service='systemd', os='linux', arch='x86_64'),

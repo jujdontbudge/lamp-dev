@@ -280,7 +280,7 @@ func waitState(p, id, want string, timeout time.Duration) error {
 }
 
 // suspendRunning durably suspends every running sandbox on this host.
-func suspendRunning(p, host string) ([]string, error) {
+func suspendRunning(p, host string, drain time.Duration) ([]string, error) {
 	out, err := apiGet(p, "/v1/sandboxes?limit=500")
 	if err != nil {
 		return nil, err
@@ -294,7 +294,20 @@ func suspendRunning(p, host string) ([]string, error) {
 		if m["host_id"] != host || (state != "ready" && state != "running") {
 			continue
 		}
-		resp, err := apiPost(p, "/v1/sandboxes/"+id+":suspend", revisionOf(m), map[string]any{"durability": "local"})
+		// Drain: a command still running in the sandbox blocks suspension;
+		// wait for it up to the policy's drain timeout.
+		var resp map[string]any
+		deadline := time.Now().Add(drain)
+		for {
+			resp, err = apiPost(p, "/v1/sandboxes/"+id+":suspend", revisionOf(m), map[string]any{"durability": "local"})
+			if err == nil || !strings.Contains(err.Error(), "RESOURCE_IN_USE") || time.Now().After(deadline) {
+				break
+			}
+			time.Sleep(2 * time.Second)
+			if cur, gerr := sandboxNow(p, id); gerr == nil {
+				m = cur
+			}
+		}
 		if err == nil {
 			err = waitOp(p, resp, 15*time.Minute)
 		}
@@ -351,7 +364,7 @@ func transition(p string, st *installState, pol updatePolicy, to string, held *[
 		swap = a != b
 		if swap {
 			if _, err := waitHealthy(p, 3*time.Second); err == nil {
-				ids, err := suspendRunning(p, sup.HostID)
+				ids, err := suspendRunning(p, sup.HostID, drain)
 				*held = append(*held, ids...)
 				if err != nil {
 					resumeHeld(p, held)
