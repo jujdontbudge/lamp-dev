@@ -19,6 +19,10 @@ func init() {
 		"key_create", "key_get", "key_list", "key_rotate", "key_delete",
 		"approval_create", "approval_get", "approval_list", "approval_approve", "approval_deny", "approval_revoke",
 		"connection_invoke",
+		"budget_create", "budget_get", "budget_list", "budget_update", "budget_delete",
+		"task_create", "task_get", "task_list", "task_stop", "task_delete",
+		"audit_record_get", "audit_record_list", "audit_record_export",
+		"telemetry_get", "telemetry_update", "telemetry_purge",
 	} {
 		CoreNames[name] = true
 	}

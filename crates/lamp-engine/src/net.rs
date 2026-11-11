@@ -509,6 +509,13 @@ impl Attachment {
                 match listener.accept() {
                     Ok((stream, _)) => {
                         let n = segments.fetch_add(1, Ordering::SeqCst) + 1;
+                        // Charge the entire retained process spool allowance up front.
+                        // Exhaustion refuses only this sandbox's next collector; the
+                        // task cannot start without its collector acknowledgement.
+                        if n > 64 {
+                            drop(stream);
+                            continue;
+                        }
                         let mut c = template.clone();
                         c["spool"] = serde_json::json!(dir.join(format!("process-{n:06}.ndjson")));
                         let cfg = dir.join(format!("process-{n:06}.json"));

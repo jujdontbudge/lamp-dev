@@ -44,8 +44,14 @@ type proposal struct {
 	Expires    time.Time  `json:"expires_at"`
 	Approved   bool       `json:"approved"`
 }
+type flight struct {
+	Grant, Connection string
+	Cancel            context.CancelFunc
+}
 type Broker struct {
+	flights   map[string]flight
 	config    Config
+	slots     chan struct{}
 	mu        sync.Mutex
 	grants    map[string]Grant // keyed by SHA-256, never raw task bearer
 	proposals map[string]*proposal
@@ -71,7 +77,7 @@ func New(c Config, audit *os.File) (*Broker, error) {
 		}
 	}
 	tr := &http.Transport{Proxy: nil, DisableKeepAlives: true, MaxResponseHeaderBytes: 16384, TLSHandshakeTimeout: 10 * time.Second, TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}
-	return &Broker{config: c, grants: map[string]Grant{}, proposals: map[string]*proposal{}, changes: map[string]*settingsChange{}, audit: audit, client: &http.Client{Transport: tr, Timeout: 40 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect denied") }}}, nil
+	return &Broker{flights: map[string]flight{}, slots: make(chan struct{}, 32), config: c, grants: map[string]Grant{}, proposals: map[string]*proposal{}, changes: map[string]*settingsChange{}, audit: audit, client: &http.Client{Transport: tr, Timeout: 40 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect denied") }}}, nil
 }
 func randomID() string {
 	var b [32]byte
@@ -180,6 +186,11 @@ func (b *Broker) owner(w http.ResponseWriter, r *http.Request) {
 		}
 		c.Access = in.Access
 		b.config.Connections[id] = c
+		for _, f := range b.flights {
+			if f.Connection == id {
+				f.Cancel()
+			}
+		}
 		for key, p := range b.proposals {
 			if p.Invocation.Connection == id {
 				delete(b.proposals, key)
@@ -197,7 +208,13 @@ func (b *Broker) owner(w http.ResponseWriter, r *http.Request) {
 		}
 		for k, g := range b.grants {
 			if g.id == in.GrantID {
+				b.log("revoke", g.Sandbox, "revoked")
 				delete(b.grants, k)
+				for _, f := range b.flights {
+					if f.Grant == g.id {
+						f.Cancel()
+					}
+				}
 			}
 		}
 		send(w, 200, map[string]bool{"revoked": true})
@@ -245,6 +262,13 @@ func (b *Broker) expire() {
 	}
 }
 func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
+	select {
+	case b.slots <- struct{}{}:
+		defer func() { <-b.slots }()
+	default:
+		fail(w, "QUEUE_FULL")
+		return
+	}
 	// Holding the lock through dispatch makes revocation a fence: after its owner
 	// response, no old invocation remains running. Upstream effects aren't undone.
 	b.mu.Lock()
@@ -343,11 +367,71 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 		}
 		delete(b.proposals, in.Approval) // consumed BEFORE effect; errors never replay
 	}
-	ctx, cancel := context.WithDeadline(r.Context(), g.expires)
+	var reservationID string
+	expires := g.expires
+	if b.config.AccountabilitySocket != "" {
+		tokens, e := reserveTokens(r.Context(), c, in)
+		if e != nil {
+			fail(w, e.Error())
+			return
+		}
+		reply, e := b.accounting(r.Context(), "reserve", map[string]any{"sandbox_id": g.Sandbox, "tokens": tokens, "type": in.Connection + "." + in.Operation, "exact": c.Kind != "model" || len(c.TokenizerCommand) > 0})
+		if e != nil {
+			fail(w, e.Error())
+			return
+		}
+		reservationID, _ = reply["reservation_id"].(string)
+		if d, ok := reply["deadline_at"].(string); ok {
+			if at, e := time.Parse(time.RFC3339Nano, d); e == nil && at.Before(expires) {
+				expires = at
+			}
+		}
+	}
+	started := time.Now()
+	ctx, cancel := context.WithDeadline(r.Context(), expires)
 	defer cancel()
 	ctx, stop := context.WithTimeout(ctx, 40*time.Second)
 	defer stop()
+	flightID := randomID()
+	b.flights[flightID] = flight{g.id, in.Connection, stop}
+	b.mu.Unlock()
+	finished := make(chan struct{})
+	if reservationID != "" {
+		go func() {
+			ticker := time.NewTicker(250 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-finished:
+					return
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if _, e := b.accounting(ctx, "check", map[string]any{"sandbox_id": g.Sandbox}); e != nil {
+						stop()
+						return
+					}
+				}
+			}
+		}()
+	}
 	result, err := b.execute(ctx, c, in)
+	close(finished)
+	b.mu.Lock()
+	delete(b.flights, flightID)
+	if reservationID != "" {
+		var actual *uint64
+		if err == nil && c.Kind == "model" {
+			actual = modelUsage(result)
+		}
+		settleCtx, settleCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, settleErr := b.accounting(settleCtx, "settle", map[string]any{"sandbox_id": g.Sandbox, "reservation_id": reservationID, "actual_tokens": actual, "duration_ms": time.Since(started).Milliseconds()})
+		settleCancel()
+		if settleErr != nil {
+			fail(w, "ACCOUNTING_UNAVAILABLE")
+			return
+		}
+	}
 	if err != nil {
 		b.log(in.Connection, g.Sandbox, err.Error())
 		fail(w, err.Error())

@@ -32,11 +32,12 @@ type record struct {
 	Custody   *custodyPlan    `json:"custody,omitempty"`
 }
 type journal struct {
-	EventSequence uint64        `json:"event_sequence,omitempty"`
-	EventFloor    uint64        `json:"event_floor,omitempty"`
-	Control       *controlState `json:"control,omitempty"`
-	Events        []storedEvent `json:"events,omitempty"`
-	Sequence      uint64        `json:"sequence,omitempty"`
+	Accountability *accountability `json:"accountability,omitempty"`
+	EventSequence  uint64          `json:"event_sequence,omitempty"`
+	EventFloor     uint64          `json:"event_floor,omitempty"`
+	Control        *controlState   `json:"control,omitempty"`
+	Events         []storedEvent   `json:"events,omitempty"`
+	Sequence       uint64          `json:"sequence,omitempty"`
 	// LogGeneration names the journal.log instance that follows this
 	// snapshot; every compaction starts a new one (see commitMark).
 	LogGeneration uint64                   `json:"log_generation,omitempty"`
@@ -57,9 +58,16 @@ type Config struct {
 	ProtectedActions map[string]ProtectedAction
 	ExportsDir       string
 	SharedReaders    map[uint32]string
+	Quotas           Quotas
+	AuditReader      string
 }
 type Service struct {
+	clockWall      time.Time
+	clockTicks     int64
+	quotas         Quotas
+	auditReader    string
 	fleet          *Fleet
+	fleetEnabled   bool
 	mu             sync.Mutex
 	committing     bool
 	pending        []*pendingCommit
@@ -189,7 +197,7 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, fmt.Errorf("state directory is already in use: %w", err)
 	}
-	s := &Service{dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
+	s := &Service{fleetEnabled: config.Fleet != nil, quotas: defaultQuotas(config.Quotas), auditReader: config.AuditReader, dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
 	s.journal = journal{Version: 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
 	path := filepath.Join(s.dir, "journal.json")
 	data, err := os.ReadFile(path)
@@ -277,6 +285,9 @@ func Open(config Config) (*Service, error) {
 			for id, template := range delta.Templates {
 				s.journal.Templates[id] = template
 			}
+			if delta.Accountability != nil {
+				s.journal.Accountability = delta.Accountability
+			}
 			if delta.Control != nil {
 				s.journal.Control = delta.Control
 			}
@@ -313,6 +324,9 @@ func Open(config Config) (*Service, error) {
 			s.journal.EventSequence = event.Event.Sequence
 		}
 	}
+	s.initAccountability()
+	s.clockWall = time.Now()
+	s.clockTicks, _ = authorityTicks()
 	s.indexEventRevisions()
 	{
 		for id, r := range s.journal.Operations {
@@ -338,6 +352,17 @@ func Open(config Config) (*Service, error) {
 		// Reconcile running guests before declaring them ready again. A durable
 		// suspension stays suspended; resume validates its capture with the worker.
 		for id, sb := range s.journal.Sandboxes {
+			if sb.TaskId == nil && s.sandboxCharged(sb) {
+				a := caller{Principal: sb.OwnerId}
+				for _, r := range s.journal.Operations {
+					if r.Resource.Id == id && r.Caller.Principal != "" {
+						a = r.Caller
+						break
+					}
+				}
+				s.bindDefaultTask(a, &sb)
+				s.journal.Sandboxes[id] = sb
+			}
 			if sb.State != "failed" && sb.State != "deleted" && sb.State != "suspended" {
 				sb.State = "unavailable"
 				sb.Revision++
@@ -365,6 +390,8 @@ func Open(config Config) (*Service, error) {
 	}
 	s.durableOps = cloneOperations(s.journal.Operations)
 	s.rootContext, s.cancel = context.WithCancel(context.Background())
+	s.wg.Add(1)
+	go s.watchAccountability()
 	for _, rec := range s.journal.Operations {
 		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
 			s.wg.Add(1)
@@ -800,6 +827,9 @@ func (s *Service) prepareDelta(ids ...string) ([]byte, journal, error) {
 		}
 	}
 	for _, id := range ids {
+		if id == "$accountability" {
+			delta.Accountability = s.journal.Accountability
+		}
 		if id == "$control" {
 			delta.Control = s.journal.Control
 		}
