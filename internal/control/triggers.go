@@ -846,7 +846,7 @@ func (s *Service) workSandbox(ctx context.Context, id string, a caller, attempt 
 	if rc == nil || textField(rc, "state") != "active" {
 		return "", reject("NOT_FOUND", "recipe not found")
 	}
-	create := map[string]any{"template_id": textField(rc, "template_id"), "labels": map[string]any{"lamp.job": id}}
+	create := map[string]any{"template_id": textField(rc, "template_id")}
 	if res, ok := rc["resources"]; ok {
 		create["resources"] = res
 	}
