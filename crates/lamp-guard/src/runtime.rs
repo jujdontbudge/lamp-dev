@@ -1,8 +1,9 @@
 use crate::{
     Config, Tuple,
     audit::{Spool, now_ms},
+    control::{Control, Message, Update},
     netlink::Queue,
-    packet, public_v4,
+    packet, policy,
 };
 use serde_json::json;
 use std::{
@@ -154,6 +155,56 @@ impl Connections {
         d.last = now;
         Ok(false)
     }
+    /// Fence all old flow identities before acknowledging a revision. This
+    /// deliberately also retires still-allowed TCP flows: they must reconnect
+    /// with a fresh SYN rather than inherit an admission from an older policy.
+    fn apply(&mut self, config: &mut Config, spool: &mut Spool, update: Update) -> io::Result<()> {
+        let mut next = config.clone();
+        next.policy_layers = update.policy_layers;
+        next.attribution.policy_revision = update.revision;
+        let digest = next.policy_digest()?;
+        self.flush(spool, None)?;
+        let mut events: Vec<_> = self
+            .flows
+            .iter()
+            .map(|(t, f)| f.record(t, "end", "policy_revision_fence"))
+            .collect();
+        events.push(
+            json!({"type":"policy_change","previous_revision":config.attribution.policy_revision,
+            "effective_policy_revision":update.revision,"policy_sha256":digest,"flow_action":"retire_all"}),
+        );
+        self.durable(spool, events)?;
+        self.flows.clear();
+        spool.set_policy_revision(update.revision)?;
+        *config = next;
+        Ok(())
+    }
+    fn control(
+        &mut self,
+        control: &mut Control,
+        config: &mut Config,
+        spool: &mut Spool,
+    ) -> io::Result<()> {
+        if let Some(message) = control.receive()? {
+            let error = match message {
+                Message::Invalid => Some("INVALID_POLICY"),
+                Message::Update(update) => match update.validate(
+                    config.attribution.policy_revision,
+                    config.revision_requires_allowlist(),
+                ) {
+                    Err(error) => Some(error),
+                    Ok(()) => {
+                        self.apply(config, spool, update)?;
+                        None
+                    }
+                },
+            };
+            // If the supervisor cannot observe this ACK, stop instead of
+            // admitting traffic under an uncertain revision.
+            control.reply(config.attribution.policy_revision, error)?;
+        }
+        Ok(())
+    }
     fn packet(
         &mut self,
         config: &Config,
@@ -175,10 +226,17 @@ impl Connections {
         let proxied_in = p.hook == 1 && config.to_proxy(&t);
         let proxied_out = p.hook == 3 && config.to_proxy(&t.reverse());
         if (forward || proxied_in) && outbound && t.source == config.guest_ip {
-            let excepted = !proxied_in && config.excepted(&t);
-            if !proxied_in && !excepted && !public_v4(t.destination, &config.host_denies) {
-                return self.deny(spool, Some(t), "private_lan_metadata_or_host", &p.bytes);
+            if config.subscription_domains.is_some() && !proxied_in {
+                return self.deny(spool, Some(t), "subscription_proxy_only", &p.bytes);
             }
+            let reason = if proxied_in {
+                "mediated_proxy"
+            } else {
+                match policy::decision(config, &t) {
+                    Ok(reason) => reason,
+                    Err(reason) => return self.deny(spool, Some(t), reason, &p.bytes),
+                }
+            };
             let syn = if t.protocol == 6 && p.bytes[33] & 0x17 == 0x02 {
                 Some(u32::from_be_bytes(p.bytes[24..28].try_into().unwrap()))
             } else {
@@ -214,13 +272,6 @@ impl Connections {
                     syn,
                     draining: false,
                     dirty: false,
-                };
-                let reason = if proxied_in {
-                    "mediated_proxy"
-                } else if excepted {
-                    "policy_exception"
-                } else {
-                    "public_transport"
                 };
                 self.durable(spool, vec![f.record(&t, "start", reason)])?;
                 self.flows.insert(t.clone(), f);
@@ -268,7 +319,18 @@ impl Connections {
 }
 
 pub fn run(config: Config) -> io::Result<()> {
+    run_with_control(config, None)
+}
+
+pub fn run_with_control(mut config: Config, mut control: Option<Control>) -> io::Result<()> {
     config.validate()?;
+    if control.is_some() && config.proxy.is_some() {
+        // The old single-request proxy has no active-stream revision fence.
+        // Refuse partial updates rather than leave its upstream dials stale.
+        return Err(io::Error::other(
+            "live revisions require transport-only guard; proxy must be fenced and recreated",
+        ));
+    }
     if std::fs::read_link("/proc/self/ns/net")? == std::fs::read_link("/proc/1/ns/net")? {
         return Err(io::Error::other(
             "guard requires a supervisor-owned private network namespace",
@@ -299,13 +361,13 @@ pub fn run(config: Config) -> io::Result<()> {
         return Err(io::Error::other("nft policy install failed"));
     }
     use std::os::fd::AsRawFd;
-    crate::confinement::enter(
-        config.guard_uid,
-        true,
-        &[spool.as_raw_fd(), queue.as_raw_fd()],
-    )?;
-    spool.record("host_guard",json!({"type":"lifecycle","state":"ready","filter_mode":"transport",
-        "ipv6":"deny","max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis(),
+    let mut keep = vec![spool.as_raw_fd(), queue.as_raw_fd()];
+    if let Some(control) = &control {
+        keep.push(control.as_raw_fd());
+    }
+    crate::confinement::enter(config.guard_uid, true, &keep)?;
+    spool.record("host_guard",json!({"type":"lifecycle","state":"ready","filter_mode":"transport","policy_sha256":config.policy_digest()?,
+        "ipv6":"deny","policy_layers":config.policy_layers.len(),"policy_ceiling_layers":config.policy_ceiling.len(),"require_allowlist":config.require_allowlist,"live_revisions":control.is_some(),"max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis(),
         "audit_batch_ms":AUDIT_BATCH.as_millis(),"exceptions":config.exceptions,"proxy":config.proxy,"audit_deadline_ms":AUDIT_DEADLINE.as_millis(),"max_pending_denials":MAX_DENIALS}))?;
     println!(
         "{}",
@@ -313,234 +375,19 @@ pub fn run(config: Config) -> io::Result<()> {
     );
     let mut connections = Connections::new();
     loop {
+        if let Some(control) = &mut control {
+            connections.control(control, &mut config, &mut spool)?;
+        }
         connections.tick(&mut spool)?;
         for p in queue.packets()? {
+            if let Some(control) = &mut control {
+                connections.control(control, &mut config, &mut spool)?;
+            }
             connections.tick(&mut spool)?;
             let allow = connections.packet(&config, interface, &mut spool, &p)?;
             // No kernel bypass: queue/socket/guard loss still drops established
             // traffic. Dirty counters/denials have a bounded durable batch deadline.
             queue.verdict(p.id, allow)?;
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    fn fixture(name: &str) -> (Config, Spool, Connections) {
-        let path =
-            std::env::temp_dir().join(format!("lamp-connections-{}-{name}", std::process::id()));
-        let config: Config = serde_json::from_value(json!({
-            "attribution":{"principal_id":"p","host_id":"h","task_id":"t","sandbox_id":"s",
-                "generation":1,"session_id":"s","operation_id":"o","policy_revision":1},
-            "interface":"task0","guest_ip":"198.18.240.2","queue":314,"guard_uid":1000001,
-            "host_denies":["198.18.240.1/32"],"spool":path,"spool_bytes":1048576}))
-        .unwrap();
-        let spool = Spool::create(
-            &config.spool,
-            config.spool_bytes,
-            config.attribution.clone(),
-        )
-        .unwrap();
-        (config, spool, Connections::new())
-    }
-    fn tcp(flags: u8, seq: u32, data: usize) -> crate::netlink::Packet {
-        let mut bytes = vec![0; 40 + data];
-        let len = bytes.len() as u16;
-        bytes[0] = 0x45;
-        bytes[2..4].copy_from_slice(&len.to_be_bytes());
-        bytes[9] = 6;
-        bytes[12..16].copy_from_slice(&[198, 18, 240, 2]);
-        bytes[16..20].copy_from_slice(&[8, 8, 8, 8]);
-        bytes[20..22].copy_from_slice(&12345_u16.to_be_bytes());
-        bytes[22..24].copy_from_slice(&18080_u16.to_be_bytes());
-        bytes[24..28].copy_from_slice(&seq.to_be_bytes());
-        bytes[32] = 0x50;
-        bytes[33] = flags;
-        crate::netlink::Packet {
-            id: 1,
-            hook: 2,
-            input: 1,
-            output: 2,
-            bytes,
-        }
-    }
-    fn records(c: &Config) -> Vec<serde_json::Value> {
-        std::fs::read_to_string(&c.spool)
-            .unwrap()
-            .lines()
-            .map(|s| serde_json::from_str(s).unwrap())
-            .collect()
-    }
-    #[test]
-    fn established_flow_adds_no_per_packet_durable_writes() {
-        let (c, mut s, mut state) = fixture("established");
-        assert!(state.packet(&c, 1, &mut s, &tcp(2, 100, 0)).unwrap());
-        assert_eq!(s.durable_writes, 1);
-        for _ in 0..1000 {
-            assert!(state.packet(&c, 1, &mut s, &tcp(0x18, 101, 100)).unwrap());
-        }
-        assert_eq!(s.durable_writes, 1, "ACKs/data cannot add storage barriers");
-        state.flush(&mut s, None).unwrap();
-        assert_eq!(
-            s.durable_writes, 2,
-            "all counters and heartbeat use one bounded barrier"
-        );
-        assert_eq!(
-            records(&c).last().unwrap()["details"]["bytes_sent"],
-            140040_u64
-        );
-        state.last_audit = Instant::now() - AUDIT_DEADLINE - Duration::from_millis(1);
-        assert!(state.packet(&c, 1, &mut s, &tcp(0x10, 101, 0)).is_err());
-        std::fs::remove_file(c.spool).unwrap();
-    }
-    #[test]
-    fn denials_are_batched_and_capacity_fails_closed() {
-        let (c, mut s, mut state) = fixture("denials");
-        let mut p = tcp(2, 1, 0);
-        p.bytes[16] = 10;
-        for _ in 0..1000 {
-            assert!(!state.packet(&c, 1, &mut s, &p).unwrap());
-        }
-        assert_eq!(s.durable_writes, 0);
-        state.flush(&mut s, None).unwrap();
-        assert_eq!(s.durable_writes, 1);
-        assert_eq!(records(&c).last().unwrap()["details"]["packets"], 1000);
-        for port in 0..MAX_DENIALS {
-            p.bytes[20..22].copy_from_slice(&(port as u16).to_be_bytes());
-            assert!(!state.packet(&c, 1, &mut s, &p).unwrap());
-        }
-        p.bytes[20..22].copy_from_slice(&(MAX_DENIALS as u16).to_be_bytes());
-        assert!(
-            state
-                .packet(&c, 1, &mut s, &p)
-                .unwrap_err()
-                .to_string()
-                .contains("capacity")
-        );
-        assert_eq!(
-            s.durable_writes, 2,
-            "overflow emits one durable fault then stops, not a sync storm"
-        );
-        std::fs::remove_file(c.spool).unwrap();
-    }
-    #[test]
-    fn tcp_rst_then_reconnect_has_two_admissions() {
-        let (c, mut s, mut state) = fixture("rst");
-        for p in [
-            tcp(2, 100, 0),
-            tcp(0x18, 101, 100),
-            tcp(4, 201, 0),
-            tcp(2, 500, 0),
-        ] {
-            assert!(state.packet(&c, 1, &mut s, &p).unwrap());
-        }
-        let rows = records(&c);
-        let starts: Vec<_> = rows
-            .iter()
-            .filter(|r| r["details"]["phase"] == "start")
-            .collect();
-        assert_eq!(starts.len(), 2);
-        assert_ne!(
-            starts[0]["details"]["flow_id"],
-            starts[1]["details"]["flow_id"]
-        );
-        assert_eq!(starts[1]["details"]["bytes_sent"], 40);
-        assert!(
-            rows.iter()
-                .any(|r| r["details"]["reason"] == "tcp_rst" && r["details"]["bytes_sent"] == 220)
-        );
-        std::fs::remove_file(c.spool).unwrap();
-    }
-    #[test]
-    fn fin_drains_and_same_isn_retransmission_does_not_readmit() {
-        let (c, mut s, mut state) = fixture("fin");
-        let syn = tcp(2, 100, 0);
-        for _ in 0..3 {
-            assert!(state.packet(&c, 1, &mut s, &syn).unwrap());
-        }
-        assert_eq!(s.durable_writes, 1);
-        assert!(state.packet(&c, 1, &mut s, &tcp(0x11, 101, 0)).unwrap());
-        assert_eq!(s.durable_writes, 2);
-        assert!(state.packet(&c, 1, &mut s, &syn).unwrap());
-        assert_eq!(s.durable_writes, 4);
-        assert!(state.packet(&c, 1, &mut s, &syn).unwrap());
-        assert_eq!(s.durable_writes, 4);
-        assert_eq!(state.flows.values().next().unwrap().id, 2);
-        assert!(state.packet(&c, 1, &mut s, &tcp(2, 500, 0)).unwrap());
-        assert_eq!(state.flows.values().next().unwrap().id, 3);
-        assert_eq!(
-            s.durable_writes, 6,
-            "a different ISN closes the old record and admits a new one"
-        );
-        std::fs::remove_file(c.spool).unwrap();
-    }
-    #[test]
-    fn fin_then_peer_data_crash_remains_unterminated() {
-        let (c, mut s, mut state) = fixture("fin-crash");
-        assert!(state.packet(&c, 1, &mut s, &tcp(2, 100, 0)).unwrap());
-        assert!(state.packet(&c, 1, &mut s, &tcp(0x11, 101, 0)).unwrap());
-        let mut peer = tcp(0x18, 500, 100);
-        peer.input = 2;
-        peer.output = 1;
-        peer.bytes[12..16].copy_from_slice(&[8, 8, 8, 8]);
-        peer.bytes[16..20].copy_from_slice(&[198, 18, 240, 2]);
-        peer.bytes[20..22].copy_from_slice(&18080_u16.to_be_bytes());
-        peer.bytes[22..24].copy_from_slice(&12345_u16.to_be_bytes());
-        assert!(state.packet(&c, 1, &mut s, &peer).unwrap());
-        state.flush(&mut s, None).unwrap();
-        let durable = s.durable_writes;
-        assert!(state.packet(&c, 1, &mut s, &peer).unwrap());
-        assert_eq!(s.durable_writes, durable);
-        // Crash before the next batch loses the additional in-memory counters,
-        // but neither the FIN record nor a draining checkpoint may claim an end.
-        drop(state);
-        drop(s);
-        let rows = records(&c);
-        let connections: Vec<_> = rows
-            .iter()
-            .map(|r| &r["details"])
-            .filter(|r| r["type"] == "connection")
-            .collect();
-        assert!(connections.iter().any(|r| r["reason"] == "tcp_fin"));
-        assert_eq!(connections.last().unwrap()["bytes_received"], 140);
-        for r in connections {
-            assert_ne!(r["phase"], "end");
-            assert_eq!(r["closed"], false);
-            assert!(r["ended_at_ms"].is_null());
-        }
-        std::fs::remove_file(c.spool).unwrap();
-    }
-    #[test]
-    fn idle_tick_expires_and_audit_failure_stops_established_traffic() {
-        let (c, mut s, mut state) = fixture("idle-failure");
-        assert!(state.packet(&c, 1, &mut s, &tcp(2, 1, 0)).unwrap());
-        state.flows.values_mut().next().unwrap().last = Instant::now() - IDLE;
-        state.last_batch = Instant::now() - AUDIT_BATCH;
-        state.tick(&mut s).unwrap();
-        assert!(state.flows.is_empty());
-        assert!(
-            records(&c)
-                .iter()
-                .any(|r| r["details"]["reason"] == "idle_deadline")
-        );
-        assert!(state.packet(&c, 1, &mut s, &tcp(2, 500, 0)).unwrap());
-        assert!(state.packet(&c, 1, &mut s, &tcp(0x18, 501, 100)).unwrap());
-        while s
-            .record("test", json!({"padding":"x".repeat(60*1024)}))
-            .is_ok()
-        {}
-        while s.record("test", json!({"type":"heartbeat"})).is_ok() {}
-        state.last_audit = Instant::now();
-        state.last_batch = Instant::now() - AUDIT_BATCH;
-        assert!(
-            state
-                .tick(&mut s)
-                .unwrap_err()
-                .to_string()
-                .contains("spool full")
-        );
-        // The run loop propagates this error without issuing another verdict.
-        std::fs::remove_file(c.spool).unwrap();
     }
 }

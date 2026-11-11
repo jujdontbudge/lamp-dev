@@ -1,0 +1,8 @@
+   Compiling serde v1.0.229
+   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-2d743730-3cbbb9b2ba5d0c31/crates/lamp-worker-protocol)
+   Compiling lamp-vz v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-2d743730-3cbbb9b2ba5d0c31/crates/lamp-vz)
+   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-2d743730-3cbbb9b2ba5d0c31/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-2d743730-3cbbb9b2ba5d0c31/crates/lamp-guard)
+   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-2d743730-3cbbb9b2ba5d0c31/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-2d743730-3cbbb9b2ba5d0c31/crates/lamp-supervisor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.75s

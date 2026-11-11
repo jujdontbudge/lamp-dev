@@ -1,0 +1,50 @@
+{
+  "authorization_received": false,
+  "challenge_type": "chatgptDeviceCode",
+  "demonstration": "real subscription sign-in continuing after fork",
+  "fixture_root": "/var/lib/lamp/t9e07",
+  "fork_attempted": false,
+  "fork_continuation_demonstrated": false,
+  "guard_seccomp_widened": false,
+  "harness": "codex",
+  "headless_authorization_result": "vendor_verification_challenge",
+  "locks": [
+    {
+      "available": true,
+      "path": "/tmp/lamp-lx-timing.lock"
+    },
+    {
+      "available": true,
+      "path": "/tmp/lamp-hard-timing.lock"
+    }
+  ],
+  "native_device_challenge_received": true,
+  "new_tests_added": false,
+  "observed_unix_ns": 1794347210240146327,
+  "release": {
+    "operation_id": "op_bea23047ab0828d52513d38173ede87c",
+    "operation_state": "succeeded",
+    "sandbox_id": "sb_17c535fe8282cee6bdcae41bb4ef7b4c"
+  },
+  "remaining_host_firecracker_processes": 0,
+  "resource_monitor": {
+    "lock_released": true,
+    "maximum_sandboxes": 1,
+    "minimum_available_bytes": 24885805056
+  },
+  "sandbox_id": "sb_17c535fe8282cee6bdcae41bb4ef7b4c",
+  "secure_approval_requests": [
+    "interrupted",
+    "timed_out"
+  ],
+  "signed_in": false,
+  "status": "incomplete",
+  "successful_inference": false,
+  "ticket": "T9",
+  "vendor_provenance": {
+    "archive_sha256": "a0bf572d2f93f056c6712a6da348e96078dc84f3885fd7be67807ef389cb3978",
+    "binary_sha256": "b8a11fedf24b2dfb59a70c9e52b030f9a508dcd49cd2dd0d41956f4c785156b8",
+    "source": "https://github.com/openai/codex/releases/download/rust-v0.166.0/codex-x86_64-unknown-linux-musl.tar.gz",
+    "version": "0.166.0"
+  }
+}

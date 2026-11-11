@@ -1,0 +1,247 @@
+[
+  {
+    "spool": "exit.ndjson",
+    "sequence": 1,
+    "observed_at": "2026-11-10T22:22:11.947006706Z",
+    "event": {
+      "kind": "route_ready",
+      "subject": {
+        "sandbox_id": "sb_exit",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "",
+      "policy_sha256": "d022fad05a7f467ab14b74e9e462f4373ec3cad66ff2b26e99b87632ec85bdec"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 1,
+    "observed_at": "2026-11-10T22:22:14.475026602Z",
+    "event": {
+      "kind": "route_ready",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "",
+      "policy_sha256": "ddb6e33a0d153409aa517a266da201fd9bfb7449ba24d6a1670a8276c6b0a8c3"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 20,
+    "observed_at": "2026-11-10T22:22:19.11622668Z",
+    "event": {
+      "kind": "port_ingress",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "signed_in",
+      "port_id": "po_c2e299186b8912f168219ebac3369e56"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 22,
+    "observed_at": "2026-11-10T22:22:19.258431155Z",
+    "event": {
+      "kind": "port_ingress",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "share",
+      "port_id": "po_c2e299186b8912f168219ebac3369e56",
+      "grant_id": "pg_ImWiIBgNSpUVbkX2yHwUMs"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 23,
+    "observed_at": "2026-11-10T22:22:19.368994735Z",
+    "event": {
+      "kind": "port_ingress",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "share",
+      "port_id": "po_c2e299186b8912f168219ebac3369e56",
+      "grant_id": "pg_ImWiIBgNSpUVbkX2yHwUMs"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 37,
+    "observed_at": "2026-11-10T22:22:22.62420578Z",
+    "event": {
+      "kind": "destination",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "198.19.0.2",
+        "protocol": "tcp",
+        "port": 9090
+      },
+      "decision": "deny",
+      "reason": "policy_or_subject"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 38,
+    "observed_at": "2026-11-10T22:22:22.63791935Z",
+    "event": {
+      "kind": "sandbox_link_attach",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "198.19.0.2",
+        "protocol": "tcp",
+        "port": 9090
+      },
+      "decision": "allow",
+      "reason": "directional_exact_service",
+      "policy_sha256": "6b9858010b760a99798b3b53d05f0d2c0b0e16fc7bf234b4683006e9ffd185a4",
+      "link_id": "cn_5dc8ea3531ae5ecfc2214e7afe9b68a6",
+      "target": {
+        "sandbox_id": "sb_demo_b",
+        "generation": 1
+      }
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 39,
+    "observed_at": "2026-11-10T22:22:22.661884929Z",
+    "event": {
+      "kind": "dial",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "198.19.0.2",
+        "protocol": "tcp",
+        "port": 9090
+      },
+      "decision": "allow",
+      "reason": "numeric_grant"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 40,
+    "observed_at": "2026-11-10T22:22:22.698634703Z",
+    "event": {
+      "kind": "destination",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "198.19.0.2",
+        "protocol": "tcp",
+        "port": 9091
+      },
+      "decision": "deny",
+      "reason": "policy_or_subject"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 42,
+    "observed_at": "2026-11-10T22:22:22.764065756Z",
+    "event": {
+      "kind": "sandbox_link_revoke",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "198.19.0.2",
+        "protocol": "tcp",
+        "port": 9090
+      },
+      "decision": "deny",
+      "reason": "attachment_removed",
+      "link_id": "cn_5dc8ea3531ae5ecfc2214e7afe9b68a6"
+    }
+  },
+  {
+    "spool": "guard-a.ndjson",
+    "sequence": 43,
+    "observed_at": "2026-11-10T22:22:22.78105819Z",
+    "event": {
+      "kind": "destination",
+      "subject": {
+        "sandbox_id": "sb_demo_a",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "198.19.0.2",
+        "protocol": "tcp",
+        "port": 9090
+      },
+      "decision": "deny",
+      "reason": "policy_or_subject"
+    }
+  },
+  {
+    "spool": "guard-b.ndjson",
+    "sequence": 1,
+    "observed_at": "2026-11-10T22:22:16.9976931Z",
+    "event": {
+      "kind": "route_ready",
+      "subject": {
+        "sandbox_id": "sb_demo_b",
+        "generation": 1
+      },
+      "revision": 1,
+      "decision": "allow",
+      "reason": "",
+      "policy_sha256": "ddb6e33a0d153409aa517a266da201fd9bfb7449ba24d6a1670a8276c6b0a8c3"
+    }
+  },
+  {
+    "spool": "guard-b.ndjson",
+    "sequence": 24,
+    "observed_at": "2026-11-10T22:22:22.756161553Z",
+    "event": {
+      "kind": "destination",
+      "subject": {
+        "sandbox_id": "sb_demo_b",
+        "generation": 1
+      },
+      "revision": 1,
+      "destination": {
+        "address": "198.19.0.1",
+        "protocol": "tcp",
+        "port": 9090
+      },
+      "decision": "deny",
+      "reason": "policy_or_subject"
+    }
+  }
+]

@@ -1,0 +1,14 @@
+{"event": "allocation-admission", "firecracker_count": 0, "available_mib": 26333}
+{"event": "sandbox-created", "sandbox_id": "sb_c858d0a7d23f32b4d64acca09e272a8d", "state": "ready"}
+{"event": "local-openssh-guest-shell", "stdout": "4643b57499f9fa5de210c9aa", "host_ca_verified": true}
+{"event": "websocket-openssh-guest-shell", "stdout": "4643b57499f9fa5de210c9aa"}
+{"event": "host-command-denied", "exit": 1, "stderr": "use sessions, attach <session_id>, or shell <sandbox_id>"}
+{"event": "forwarding-denied", "exit": 255, "stderr": "channel 0: open failed: unknown channel type: unsupported channel type\nstdio forwarding failed"}
+{"event": "session-backend-unavailable", "exit": 1, "stderr": "control session_list: NOT_FOUND"}
+{"event": "isolated-tailnet-enrolled", "addresses": ["100.127.240.1", "fd7a:115c:a1e0:ffff::1"], "control": "owner Headscale 0.29.7", "system_tailnet": "untouched"}
+{"event": "tailnet-openssh-guest-shell", "stdout": "4643b57499f9fa5de210c9aa", "system_tun": false}
+{"event": "tailnet-user-certificate", "certificate": "/var/tmp/lamp-t18-demo-gvxx2m6m/user-cert.pub:\n        Type: ssh-ed25519-cert-v01@openssh.com user certificate\n        Public key: ED25519-CERT SHA256:iIlFOlg66sJepw95INeQtHjZnmBifk9of4RD2C8VkjE\n        Signing CA: ED25519 SHA256:6qYiHqBQ3F4InEvg5+y4MKYYKyrsNcea4beG+SoQZQI (using ssh-ed25519)\n        Key ID: \"lamp\"\n        Serial: 2093439752258035402\n        Valid: from 2026-11-10T17:49:26 to 2026-11-10T17:54:56\n        Principals: \n                owner\n        Critical Options: (none)\n        Extensions: \n                permit-pty"}
+{"event": "ephemeral-certificate-openssh-guest-shell", "stdout": "4643b57499f9fa5de210c9aa", "authorized_key_allowlist": false}
+{"event": "demonstration-complete", "root": "/var/tmp/lamp-t18-demo-gvxx2m6m", "features": ["local/offline route", "guest command console", "SSH over WebSocket", "embedded Tailscale/Headscale", "WhoIs-to-SSH user certificate", "fleet SSH host CA", "host shell and forwarding denied"]}
+{"event": "sandbox-released", "state": "deleted"}
+{"event": "cleanup-complete", "firecracker_count": 0, "owner_services": "untouched"}

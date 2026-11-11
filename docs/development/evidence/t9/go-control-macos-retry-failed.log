@@ -1,0 +1,245 @@
+=== RUN   TestJournalCommitLatency
+    journal_latency_test.go:20: set LAMP_JOURNAL_LATENCY_DIR to measure
+--- SKIP: TestJournalCommitLatency (0.00s)
+=== RUN   TestSlowResponseDoesNotHoldServiceMutex
+=== RUN   TestSlowResponseDoesNotHoldServiceMutex/get-exec
+=== RUN   TestSlowResponseDoesNotHoldServiceMutex/get-operation
+=== RUN   TestSlowResponseDoesNotHoldServiceMutex/get-sandbox
+=== RUN   TestSlowResponseDoesNotHoldServiceMutex/get-missing
+=== RUN   TestSlowResponseDoesNotHoldServiceMutex/get-broken
+=== RUN   TestSlowResponseDoesNotHoldServiceMutex/respond
+=== RUN   TestSlowResponseDoesNotHoldServiceMutex/respond-error
+=== RUN   TestSlowResponseDoesNotHoldServiceMutex/respond-broken
+--- PASS: TestSlowResponseDoesNotHoldServiceMutex (0.00s)
+    --- PASS: TestSlowResponseDoesNotHoldServiceMutex/get-exec (0.00s)
+    --- PASS: TestSlowResponseDoesNotHoldServiceMutex/get-operation (0.00s)
+    --- PASS: TestSlowResponseDoesNotHoldServiceMutex/get-sandbox (0.00s)
+    --- PASS: TestSlowResponseDoesNotHoldServiceMutex/get-missing (0.00s)
+    --- PASS: TestSlowResponseDoesNotHoldServiceMutex/get-broken (0.00s)
+    --- PASS: TestSlowResponseDoesNotHoldServiceMutex/respond (0.00s)
+    --- PASS: TestSlowResponseDoesNotHoldServiceMutex/respond-error (0.00s)
+    --- PASS: TestSlowResponseDoesNotHoldServiceMutex/respond-broken (0.00s)
+=== RUN   TestAppendJournalGateScaleReplayAndCompaction
+--- PASS: TestAppendJournalGateScaleReplayAndCompaction (436.15s)
+=== RUN   TestJournalReplaySnapshotBeforeLogTruncation
+--- PASS: TestJournalReplaySnapshotBeforeLogTruncation (1.08s)
+=== RUN   TestJournalRejectsCompleteCorruptRecord
+--- PASS: TestJournalRejectsCompleteCorruptRecord (0.45s)
+=== RUN   TestJournalRefusesDamageBeforeLaterCommits
+--- PASS: TestJournalRefusesDamageBeforeLaterCommits (0.96s)
+=== RUN   TestJournalRefusesDamagedFinalRecord
+--- PASS: TestJournalRefusesDamagedFinalRecord (1.10s)
+=== RUN   TestJournalRefusesNULNewlineAtSectorBoundary
+--- PASS: TestJournalRefusesNULNewlineAtSectorBoundary (6.63s)
+=== RUN   TestJournalRefusesSectorAlignedDamage
+--- PASS: TestJournalRefusesSectorAlignedDamage (1.93s)
+=== RUN   TestJournalDiscardsBytesPastTheCommittedEnd
+--- PASS: TestJournalDiscardsBytesPastTheCommittedEnd (3.92s)
+=== RUN   TestJournalRestartsAfterWriterDiesMidRecord
+--- PASS: TestJournalRestartsAfterWriterDiesMidRecord (7.53s)
+=== RUN   TestJournalRestartsAfterDeathBeforeMarker
+--- PASS: TestJournalRestartsAfterDeathBeforeMarker (0.84s)
+=== RUN   TestJournalRefusesDamagedOrInconsistentMarker
+--- PASS: TestJournalRefusesDamagedOrInconsistentMarker (0.77s)
+=== RUN   TestJournalRestartsAfterWriterProcessIsKilled
+    store_test.go:501: 8 of 8 kills left uncommitted bytes past the committed end
+--- PASS: TestJournalRestartsAfterWriterProcessIsKilled (41.62s)
+=== RUN   TestJournalWriterProcess
+    store_test.go:509: writer child only
+--- SKIP: TestJournalWriterProcess (0.00s)
+=== RUN   TestJournalFirstMarkerSurvivesKillAtEveryStep
+--- PASS: TestJournalFirstMarkerSurvivesKillAtEveryStep (51.23s)
+=== RUN   TestJournalMarkerKillChild
+    store_test.go:629: marker child only
+--- SKIP: TestJournalMarkerKillChild (0.00s)
+=== RUN   TestJournalRefusesEmptyPublishedMarker
+--- PASS: TestJournalRefusesEmptyPublishedMarker (1.90s)
+=== RUN   TestCommitTempCleanupTreatsStateDirLiterally
+--- PASS: TestCommitTempCleanupTreatsStateDirLiterally (7.39s)
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/uid
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/pid
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/protocol
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/worker
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/boot
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/zero-max
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/large-max
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/context
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/negotiated-size
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/no-receipt
+=== RUN   TestWorkerRejectsUnassignedPeerAndBadProtocol/unknown
+--- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol (0.36s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/uid (0.06s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/pid (0.04s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/protocol (0.04s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/worker (0.02s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/boot (0.03s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/zero-max (0.03s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/large-max (0.03s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/context (0.04s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/negotiated-size (0.03s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/no-receipt (0.03s)
+    --- PASS: TestWorkerRejectsUnassignedPeerAndBadProtocol/unknown (0.02s)
+=== RUN   TestWorkerHandshakeHonorsCancellation
+--- PASS: TestWorkerHandshakeHonorsCancellation (0.01s)
+=== RUN   TestWorkerDoesNotSendOversizeNegotiatedRequest
+--- PASS: TestWorkerDoesNotSendOversizeNegotiatedRequest (0.02s)
+=== RUN   TestWorkerMultiplexesOutOfOrderReplies
+--- PASS: TestWorkerMultiplexesOutOfOrderReplies (0.03s)
+=== RUN   TestDurabilityRejectionHasNoEffect
+--- PASS: TestDurabilityRejectionHasNoEffect (9.35s)
+=== RUN   TestDeleteFailedAndUnavailableSandboxes
+=== RUN   TestDeleteFailedAndUnavailableSandboxes/false
+=== RUN   TestDeleteFailedAndUnavailableSandboxes/true
+--- PASS: TestDeleteFailedAndUnavailableSandboxes (4.13s)
+    --- PASS: TestDeleteFailedAndUnavailableSandboxes/false (1.52s)
+    --- PASS: TestDeleteFailedAndUnavailableSandboxes/true (2.61s)
+=== RUN   TestExecCompletionAndOutputQueries
+--- PASS: TestExecCompletionAndOutputQueries (1.42s)
+=== RUN   TestExecLostAfterStart
+--- PASS: TestExecLostAfterStart (1.54s)
+=== RUN   TestExecPollsRunningCommandAndPaginatesOutput
+--- PASS: TestExecPollsRunningCommandAndPaginatesOutput (3.39s)
+=== RUN   TestEndToEndCreateExecFork
+    e2e_test.go:348: real CLI -> HTTP/Unix -> lampd -> framed worker: create=sb_4990d2c6f2f6b749ce78971a46653793 exec=ex_c6440ec1a6cf6dd1c55662fd6316693f fork=sb_d5ff36c702130acb00e6d001a4de2d14; acceptance stayed unready until marker
+--- PASS: TestEndToEndCreateExecFork (1.66s)
+=== RUN   TestIdempotencyValidationAndRevision
+--- PASS: TestIdempotencyValidationAndRevision (1.33s)
+=== RUN   TestUnknownWorkerOutcomeIsNotSuccess
+--- PASS: TestUnknownWorkerOutcomeIsNotSuccess (1.51s)
+=== RUN   TestForkFailureInvalidatesSourceReadiness
+--- PASS: TestForkFailureInvalidatesSourceReadiness (1.42s)
+=== RUN   TestRestartNeverRedeliversAcceptedEffects
+--- PASS: TestRestartNeverRedeliversAcceptedEffects (3.13s)
+=== RUN   TestWorkerRejectionRetainsFailedOperation
+--- PASS: TestWorkerRejectionRetainsFailedOperation (1.65s)
+=== RUN   TestCLIReadPreservesUInt64
+--- PASS: TestCLIReadPreservesUInt64 (1.47s)
+=== RUN   TestJournalFailureDoesNotPublishSuccess
+--- PASS: TestJournalFailureDoesNotPublishSuccess (1.77s)
+=== RUN   TestCLICreateAndReads
+--- PASS: TestCLICreateAndReads (1.63s)
+=== RUN   TestInvalidUTF8IdempotencyKeyRejectedAcrossRestart
+panic: test timed out after 10m0s
+	running tests:
+		TestInvalidUTF8IdempotencyKeyRejectedAcrossRestart (1s)
+
+goroutine 294 [running]:
+testing.(*M).startAlarm.func1()
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2802 +0x2c4
+created by time.goFunc
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/time/sleep.go:215 +0x38
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0x2e6420d866c8, {0x102d9b796?, 0x2e6420d7d988?}, 0x103276568)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2109 +0x3bc
+testing.runTests.func1(0x2e6420d866c8)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2585 +0x38
+testing.tRunner(0x2e6420d866c8, 0x2e6420d7dab8)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
+testing.runTests({0x102d8bd13, 0x1b}, {0x102d9850e, 0x2c}, 0x2e6420d362b8, {0x1032f1ca0, 0x2a, 0x2a}, {0x0?, 0x2e6420c92000?, ...})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2583 +0x3f0
+testing.(*M).Run(0x2e6420d28320)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0x578
+github.com/JohanSardar/lamp/internal/control_test.TestMain(0x2e6420d28320)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:45 +0x2f8
+main.main()
+	_testmain.go:132 +0x88
+
+goroutine 311 [sleep]:
+time.Sleep(0x4c4b40)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/time.go:363 +0x150
+github.com/JohanSardar/lamp/internal/control_test.startDaemonFor(0x2e64210da6c8, {0x2e6420ecedc0, 0x44}, 0x2e64215a7500, {0x2e6420eceeb0, 0x50}, 0x1823b)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:225 +0x4c4
+github.com/JohanSardar/lamp/internal/control_test.startDaemon(0x2e64210da6c8, {0x2e6420ecedc0, 0x44}, 0x2e64215a7500)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:180 +0x78
+github.com/JohanSardar/lamp/internal/control_test.startDemo(0x2e64210da6c8)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:176 +0xe0
+github.com/JohanSardar/lamp/internal/control_test.TestInvalidUTF8IdempotencyKeyRejectedAcrossRestart(0x2e64210da6c8)
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/review_e2e_test.go:32 +0x24
+testing.tRunner(0x2e64210da6c8, 0x103276568)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
+created by testing.(*T).Run in goroutine 1
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2101 +0x3a8
+
+goroutine 313 [IO wait]:
+internal/poll.runtime_pollWait(0x12bf2cc00, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x2e6420ee94a0?, 0x2e6421237600?, 0x1)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x2e6420ee94a0, {0x2e6421237600, 0x200, 0x200})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:165 +0x234
+os.(*File).read(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file_posix.go:29
+os.(*File).Read(0x2e6420ed0508, {0x2e6421237600?, 0x2e64000043ad?, 0x0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file.go:144 +0x68
+bytes.(*Buffer).ReadFrom(0x2e6420fcbad0, {0x10327c368, 0x2e6420ed0508})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bytes/buffer.go:229 +0x90
+io.copyBuffer({0x10327c7a0, 0x2e6420fcbad0}, {0x10327c368, 0x2e6420ed0508}, {0x0, 0x0, 0x0})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/io/io.go:415 +0x14c
+io.Copy(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/io/io.go:388
+os.genericWriteTo(0x2e642110ce01?, {0x10327c7a0?, 0x2e6420fcbad0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file.go:295 +0x44
+os.(*File).WriteTo(0x1032e1ff0?, {0x10327c7a0?, 0x2e6420fcbad0?})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file.go:273 +0x5c
+io.copyBuffer({0x10327c7a0, 0x2e6420fcbad0}, {0x10327c460, 0x2e6420ed0508}, {0x0, 0x0, 0x0})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/io/io.go:411 +0x98
+io.Copy(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/io/io.go:388
+os/exec.(*Cmd).writerDescriptor.func1()
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:602 +0x40
+os/exec.(*Cmd).Start.func2(0x0?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:757 +0x30
+created by os/exec.(*Cmd).Start in goroutine 311
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:756 +0x6c8
+
+goroutine 312 [IO wait]:
+internal/poll.runtime_pollWait(0x12bf2d000, 0x72)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/netpoll.go:351 +0xa0
+internal/poll.(*pollDesc).wait(0x2e64215b4180?, 0x2e6421558f00?, 0x0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x28
+internal/poll.(*pollDesc).waitRead(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0x2e64215b4180)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/poll/fd_unix.go:613 +0x214
+net.(*netFD).accept(0x2e64215b4180)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/fd_unix.go:150 +0x28
+net.(*UnixListener).accept(0x2e6420cf9758?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/unixsock_posix.go:172 +0x20
+net.(*UnixListener).Accept(0x2e6420fcba40)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/unixsock.go:267 +0x2c
+github.com/JohanSardar/lamp/internal/control_test.newWorker.func2()
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:73 +0x50
+created by github.com/JohanSardar/lamp/internal/control_test.newWorker in goroutine 311
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:71 +0x1c0
+
+goroutine 314 [syscall]:
+syscall.syscalln(0x1029fc920, {0x2e6420c6bdc8, 0x6, 0x6})
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/sys_darwin.go:38 +0x20
+syscall.syscall6(0x102a8c210?, 0x1053dfc60?, 0x1053e2a00?, 0x90?, 0x2e6420c6d808?, 0x2e6420d90cf0?, 0x2e6420c6be68?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/syscall/syscall_darwin.go:388 +0x28
+syscall.wait4(0x2e6420c6be98?, 0x102a217ac?, 0x90?, 0x103261b80?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/syscall/zsyscall_darwin_arm64.go:44 +0x4c
+syscall.Wait4(0x2e6420c6bf18?, 0x2e6420c6bed4, 0x2e6420edf0d0?, 0x0?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/syscall/syscall_bsd.go:144 +0x28
+os.(*Process).pidWait.func1(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec_unix.go:64
+os.ignoringEINTR2[...](...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/file_posix.go:266
+os.(*Process).pidWait(0x2e6420eedb00)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec_unix.go:63 +0x9c
+os.(*Process).wait(0x102a8c240?)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec_unix.go:28 +0x24
+os.(*Process).Wait(...)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec.go:346
+os/exec.(*Cmd).Wait(0x2e6420fc91e0)
+	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:930 +0x38
+github.com/JohanSardar/lamp/internal/control_test.startDaemonFor.func1()
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:194 +0x24
+created by github.com/JohanSardar/lamp/internal/control_test.startDaemonFor in goroutine 311
+	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:194 +0x2a4
+FAIL	github.com/JohanSardar/lamp/internal/control	601.030s
+FAIL

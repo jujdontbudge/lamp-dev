@@ -390,6 +390,10 @@ func narrow(parent, child api.Scope) api.Scope {
 	return child
 }
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/internal/accountability/") {
+		s.accountabilityBridge(w, r)
+		return
+	}
 	id := newID("req")
 	w.Header().Set("X-Request-ID", id)
 	if r.Method == "POST" && r.URL.Path == "/internal/native-tasks" {
@@ -401,7 +405,17 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, id, "NOT_FOUND", "unknown route", nil)
 		return
 	}
-	s.mu.Lock()
+	if peer, present := r.Context().Value(peerContextKey{}).(publicPeer); present && !peer.owner {
+		if r.URL.RawQuery != "" || !s.authorizePublicRequest(r.Context(), r.Method, r.URL.Path) {
+			writeError(w, id, "SCOPE_DENIED", "peer has no access to this resource", nil)
+			return
+		}
+		if !s.serveCustody(w, r, id) {
+			writeError(w, id, "NOT_FOUND", "shared projection not found", nil)
+		}
+		return
+	}
+	s.readLock()
 	a, authenticated := s.authenticate(r)
 	allowed := authenticated && s.can(a, op.Scope)
 	broken := s.broken
@@ -430,8 +444,28 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
+	if s.cleanExportRead(op.Name, selectors) {
+		// T9's clean-export templates and blobs keep their own read path.
+		s.engineHTTP(w, r)
+		return
+	}
+	if lifeOperation(op.Name) {
+		s.lifeHTTP(w, r, id, op, selectors)
+		return
+	}
+	if op.Name == "sandbox_delete" && !s.deleteKeepsWrites(w, id, textField(selectors, "sandbox_id")) {
+		return
+	}
+	if op.Name == "exec_create" && !s.wakeForExec(w, r, id) {
+		return
+	}
+	if op.Name == "sandbox_create" && s.lifeCreate(w, r, id) {
+		return
+	}
 	switch op.Name {
-	case "sandbox_create", "sandbox_fork", "sandbox_delete", "exec_create", "sandbox_get", "exec_get", "exec_watch", "operation_get":
+	case "sandbox_create", "sandbox_fork", "sandbox_delete", "exec_create", "sandbox_get", "exec_get", "exec_watch", "operation_get",
+		"sandbox_suspend", "sandbox_resume", "snapshot_create", "snapshot_get",
+		"share_create", "share_get", "template_get", "blob_get", "blob_download":
 		s.engineHTTP(w, r)
 	default:
 		s.coreHTTP(w, r, id, op, selectors)

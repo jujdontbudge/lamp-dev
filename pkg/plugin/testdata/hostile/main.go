@@ -13,8 +13,6 @@ import (
 
 func send(m plugin.Message) { raw, _ := json.Marshal(m); _ = plugin.WriteFrame(os.Stdout, raw) }
 
-var allocated []byte
-
 func main() {
 	for {
 		raw, err := plugin.ReadFrame(os.Stdin)
@@ -36,58 +34,6 @@ func main() {
 		var input map[string]string
 		_ = json.Unmarshal(call.Input, &input)
 		switch input["mode"] {
-		case "crash":
-			os.Exit(79)
-		case "hang":
-			for {
-				time.Sleep(time.Hour)
-			}
-		case "oversize":
-			_, _ = os.Stdout.Write([]byte{0, 16, 0, 1})
-			for {
-				time.Sleep(time.Hour)
-			}
-		case "memory":
-			allocated = make([]byte, 128<<20)
-			for i := 0; i < len(allocated); i += 4096 {
-				allocated[i] = 1
-			}
-			for {
-				time.Sleep(time.Hour)
-			}
-		case "stderr":
-			_, _ = os.Stderr.Write(make([]byte, 2<<20))
-			for {
-				time.Sleep(time.Hour)
-			}
-		case "malformed":
-			_, _ = os.Stdout.Write([]byte{0, 0, 0, 2, '{', 'x'})
-			for {
-				time.Sleep(time.Hour)
-			}
-		case "flood":
-			for {
-				send(plugin.Message{JSONRPC: "2.0", ID: "unsolicited", Result: json.RawMessage(`{}`)})
-			}
-		case "replay", "forge":
-			e := plugin.Effect{CallID: m.ID, GrantID: call.Grant.ID, Kind: call.Grant.Kind, ResourceID: call.Grant.ResourceID, Binding: call.Binding, Input: call.Input}
-			if input["mode"] == "forge" {
-				e.ResourceID = "neighbor"
-				e.Kind = "ram"
-			}
-			params, _ := json.Marshal(e)
-			request := plugin.Message{JSONRPC: "2.0", ID: "p-duplicate", Method: "host.effect", Params: params}
-			send(request)
-			if _, err := plugin.ReadFrame(os.Stdin); err != nil {
-				return
-			}
-			if input["mode"] == "replay" {
-				send(request)
-				if _, err := plugin.ReadFrame(os.Stdin); err != nil {
-					return
-				}
-			}
-			send(plugin.Message{JSONRPC: "2.0", ID: m.ID, Result: json.RawMessage(`{}`)})
 		case "probe":
 			found := map[string]bool{}
 			_, err := os.ReadFile(input["path"])

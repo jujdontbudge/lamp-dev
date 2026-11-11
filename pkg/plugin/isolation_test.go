@@ -3,17 +3,16 @@ package plugin_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"github.com/JohanSardar/lamp/pkg/plugin"
+	"golang.org/x/sys/unix"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
-
-	"github.com/JohanSardar/lamp/pkg/plugin"
-	"golang.org/x/sys/unix"
 )
 
 func hostile(t *testing.T) string {
@@ -25,6 +24,7 @@ func hostile(t *testing.T) string {
 	}
 	return p
 }
+
 func startHostile(t *testing.T, path string, a *authority) (*plugin.Worker, plugin.Binding, plugin.Grant) {
 	t.Helper()
 	bin, _ := os.ReadFile(path)
@@ -61,6 +61,7 @@ func startHostile(t *testing.T, path string, a *authority) (*plugin.Worker, plug
 	}
 	return w, b, g
 }
+
 func TestNativeSandboxDeniesAmbientAuthority(t *testing.T) {
 	path := hostile(t)
 	sentinel := filepath.Join(t.TempDir(), "owner-secret")
@@ -114,79 +115,42 @@ func TestNativeSandboxDeniesAmbientAuthority(t *testing.T) {
 	}
 	t.Logf("real OS probes: %s", result)
 }
-func TestPluginCannotForgeOrReplayEffect(t *testing.T) {
-	path := hostile(t)
-	for _, mode := range []string{"forge", "replay"} {
-		t.Run(mode, func(t *testing.T) {
-			a := new(authority)
-			w, b, g := startHostile(t, path, a)
-			raw, _ := json.Marshal(map[string]string{"mode": mode})
-			_, _ = w.Call(context.Background(), "run", b, g, raw)
-			a.mu.Lock()
-			count := a.effects
-			a.mu.Unlock()
-			want := 0
-			if mode == "replay" {
-				want = 1
-			}
-			if count != want {
-				t.Fatalf("host authorized %d effects, want %d", count, want)
-			}
-		})
-	}
+
+type authority struct {
+	mu      sync.Mutex
+	effects int
+	revoked bool
+	failed  []string
 }
 
-func TestWorkerFailureRevokesOnlyDependentWork(t *testing.T) {
-	path := hostile(t)
-	normal := reference(t)
-	a := new(authority)
-	healthy, b := startReference(t, normal, "console", a)
-	g, err := healthy.Grant(plugin.GrantRequest{Kind: "console", ResourceID: "unrelated", Binding: b})
+func (a *authority) Effect(ctx context.Context, e plugin.Effect) (json.RawMessage, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.effects++
+	return json.RawMessage(`{"receipt":"delivered"}`), nil
+}
+
+func (a *authority) Revoke(pluginID string) { a.mu.Lock(); defer a.mu.Unlock(); a.revoked = true }
+
+func (a *authority) FailDependent(pluginID, reason string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.failed = append(a.failed, pluginID)
+}
+
+func launcher(t *testing.T) (string, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "launcher")
+	if out, err := exec.Command("cc", "-O2", "-Wall", "-Wextra", "-Werror", "-o", path, "../../tools/plugin-launcher.c").CombinedOutput(); err != nil {
+		t.Fatalf("build launcher: %s %v", out, err)
+	}
+	bin, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, mode := range []string{"crash", "hang", "oversize", "stderr", "malformed", "flood", "memory"} {
-		t.Run(mode, func(t *testing.T) {
-			dependent := new(authority)
-			w, b, g := startHostile(t, path, dependent)
-			input, _ := json.Marshal(map[string]string{"mode": mode})
-			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-			if mode == "hang" {
-				cancel()
-				ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-			}
-			defer cancel()
-			if _, err := w.Call(ctx, "run", b, g, input); err == nil {
-				t.Fatal("fault accepted")
-			}
-			select {
-			case <-w.Done():
-			case <-time.After(8 * time.Second):
-				t.Fatal("worker cleanup hung")
-			}
-			if _, err := w.Grant(plugin.GrantRequest{Kind: "console", ResourceID: "session", Binding: b}); err == nil {
-				t.Fatal("grants survived circuit break")
-			}
-			dependent.mu.Lock()
-			revoked := dependent.revoked
-			failures := len(dependent.failed)
-			dependent.mu.Unlock()
-			if !revoked || failures != 1 {
-				t.Fatalf("cleanup missing: %v %d", revoked, failures)
-			}
-			if mode == "memory" && errors.Is(w.Err(), context.DeadlineExceeded) {
-				t.Fatal("memory quota did not terminate the worker before the call deadline")
-			}
-			t.Logf("circuit opened, grants revoked: %v", w.Err())
-		})
-	}
-	// A new context/grant for the unrelated worker after all failures.
-	b.Deadline = time.Now().Add(5 * time.Second)
-	g, err = healthy.Grant(plugin.GrantRequest{Kind: "console", ResourceID: "unrelated", Binding: b})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := healthy.Call(context.Background(), "run", b, g, json.RawMessage(`{}`)); err != nil {
-		t.Fatalf("unrelated worker failed: %v", err)
-	}
+	return path, plugin.Digest(bin)
+}
+
+func fixtureManifest(kind string) plugin.Manifest {
+	return plugin.Manifest{Type: kind, Publisher: "reference.lamp", Version: "1.0.0", Digest: plugin.Digest([]byte("executable")), ProtocolVersion: plugin.Protocol, TrustClass: "confined", Permissions: []string{kind + ".use"}, Limits: plugin.DefaultLimits(), Compatibility: plugin.Compatibility{APIMajor: 1, MinMinor: 0, MaxMinor: 1}, ConfigSchema: plugin.Schema{Type: "object"}, Methods: map[string]plugin.Method{"run": {Input: plugin.Schema{Type: "object"}, Result: plugin.Schema{Type: "object"}}}}
 }

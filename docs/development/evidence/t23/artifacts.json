@@ -1,0 +1,19 @@
+{
+  "git_head": "7dd55787db4055de257a6db35159b1dd333a55b3",
+  "source_sha256": {
+    "internal/control/accountability.go": "7276c1ab47ead9d4992b65f97b4510934a676c1ba30a5bb3f94dcc1286bb881c",
+    "internal/control/revocation.go": "bd3d92c4d25ce590d7435bf804a0f53ae66cfff29667d6b91a731c7c259c4032",
+    "internal/broker/accountability.go": "bcfbe5a1dc4c35b5c0496b5982f891348b66cb5a84f60edf4369f602ee070721",
+    "internal/broker/broker.go": "9de92af2b8d026fdcc6291cb3da63c1e272885661ae1a87a8a515d37ace90334",
+    "crates/lamp-engine/src/net.rs": "f11f3f77f1568e403598f04461c466363f5ec9de409815f409a39cc2c0998276",
+    "tools/accountability_demo.py": "95ca761949f621ff6c1515a2bfee5228e1316af2302509ad5d42b9dadbb7424d",
+    "tools/accountability_fleet_demo.py": "e4a2aa06cc2418db95e199f1f5ad47f25a43d01f3ac98eca429dd3b2f5550c93"
+  },
+  "binary_sha256": {
+    "/tmp/lamp-t23-build/lampd-linux": "0eaf4fdf900e10f6ad1b3e7fa0e2ad48fdd31288dea7e7f3e48956efd4e32917",
+    "/tmp/lamp-t23-build/lamp-linux": "bd1c5cab5f17811899ff0e013eb58cb3e4c280ab35209ac3cf1f3a847589ab28",
+    "/tmp/lamp-t23-build/lamp-broker-linux": "bbc3693b54e27debc6e8051f6fe9e8df4985758a68b68b973e6d9efd41b05f16",
+    "/tmp/lamp-t23-build/lampd-darwin": "ce6b1a50c203805ebac9de416f4610ef419b0c2d7a516577a1ed965a1c66ae88",
+    "/tmp/lamp-t23-build/lamp-darwin": "be4b7e744f33bf44ef674ef3f5d7bc85caa09a77abe9dfeddc9f44ab715d5dcd"
+  }
+}

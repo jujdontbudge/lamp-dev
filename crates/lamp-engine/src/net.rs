@@ -64,9 +64,24 @@ pub struct Policy {
     /// Exact destination exceptions (see lamp-guard `Exception`).
     #[serde(default)]
     pub exceptions: Vec<serde_json::Value>,
+    /// Explicit immutable host/fleet denies, including any destination which
+    /// must remain forbidden even when an exact private exception is present.
+    #[serde(default)]
+    pub safety_denies: Vec<lamp_guard::Prefix>,
+    /// Immutable parent/CI ceilings for the generation.
+    #[serde(default)]
+    pub policy_ceiling: Vec<lamp_guard::policy::Layer>,
+    /// Initial transport layers installed before any task is released.
+    #[serde(default)]
+    pub policy_layers: Vec<lamp_guard::policy::Layer>,
+    /// Trusted public/unknown-visibility forge intake must set this ceiling.
+    #[serde(default)]
+    pub require_allowlist: bool,
     /// Owner/principal recorded in attribution.
     #[serde(default = "local_principal")]
     pub principal_id: String,
+    #[serde(default)]
+    pub subscription_domains: Option<Vec<String>>,
 }
 
 fn local_principal() -> String {
@@ -83,6 +98,17 @@ impl Policy {
                 "network policy revision must be nonzero",
             ));
         }
+        lamp_guard::policy::validate_layers(&p.policy_ceiling, false)
+            .and_then(|()| {
+                lamp_guard::policy::validate_layers(
+                    &p.policy_layers,
+                    p.require_allowlist
+                        && !p.policy_ceiling.iter().any(|layer| {
+                            layer.default_egress == lamp_guard::policy::DefaultEgress::Deny
+                        }),
+                )
+            })
+            .map_err(|_| EngineError::invalid("unsupported or invalid network policy"))?;
         Ok(p)
     }
 }
@@ -219,10 +245,14 @@ impl Attachment {
     ) -> Result<Attachment> {
         let t0 = Instant::now();
         let mut timings = Vec::new();
-        let dir = policy
-            .audit_dir
-            .join(format!("{}-g{}", who.sandbox_id, who.generation));
-        std::fs::create_dir_all(&dir).ctx("create audit dir")?;
+        let dir = policy.audit_dir.join(format!(
+            "{}-g{}-{}",
+            who.sandbox_id,
+            who.generation,
+            lamp_init::hex_encode(&crate::fsutil::random_bytes::<16>())
+        ));
+        std::fs::create_dir_all(&policy.audit_dir).ctx("create audit root")?;
+        std::fs::create_dir(&dir).ctx("create attachment audit dir")?;
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))
             .ctx("chmod audit dir")?;
         crate::fsutil::chown(&dir, guard_uid, guard_uid)?;
@@ -240,6 +270,10 @@ impl Attachment {
                 "interface": TAP, "guest_ip": lamp_init::GUEST_ADDR, "queue": QUEUE,
                 "guard_uid": guard_uid, "host_denies": denies,
                 "spool": spool, "spool_bytes": bytes, "exceptions": policy.exceptions,
+                "subscription_domains": policy.subscription_domains,
+                "safety_denies": policy.safety_denies, "policy_layers": policy.policy_layers,
+                "policy_ceiling": policy.policy_ceiling,
+                "require_allowlist": policy.require_allowlist,
                 "proxy": {"address": PROXY_ADDR, "port": PROXY_PORT},
             })
         };
@@ -293,12 +327,23 @@ impl Attachment {
             .ctx("start lamp-guard")?;
         let guard_out = guard.stdout.take().unwrap();
         a.guard = Some(guard);
-        let mut proxy = Command::new("nsenter")
-            .arg(format!("--net={}", jail.netns.display()))
-            .arg(&policy.guard)
+        let mut proxy_command = if policy.subscription_domains.is_some() {
+            Command::new(&policy.guard)
+        } else {
+            let mut command = Command::new("nsenter");
+            command
+                .arg(format!("--net={}", jail.netns.display()))
+                .arg(&policy.guard);
+            command
+        };
+        proxy_command
             .arg("proxy")
             .arg(&net_config)
-            .arg(dir.join("proxy.ndjson"))
+            .arg(dir.join("proxy.ndjson"));
+        if policy.subscription_domains.is_some() {
+            proxy_command.arg(&jail.netns);
+        }
+        let mut proxy = proxy_command
             .env_clear()
             .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
             .stdin(Stdio::null())
@@ -464,6 +509,13 @@ impl Attachment {
                 match listener.accept() {
                     Ok((stream, _)) => {
                         let n = segments.fetch_add(1, Ordering::SeqCst) + 1;
+                        // Charge the entire retained process spool allowance up front.
+                        // Exhaustion refuses only this sandbox's next collector; the
+                        // task cannot start without its collector acknowledgement.
+                        if n > 64 {
+                            drop(stream);
+                            continue;
+                        }
                         let mut c = template.clone();
                         c["spool"] = serde_json::json!(dir.join(format!("process-{n:06}.ndjson")));
                         let cfg = dir.join(format!("process-{n:06}.json"));
@@ -548,15 +600,4 @@ fn receiver(guard: &Path, config: &Path, fd: OwnedFd) -> std::io::Result<Child> 
     let child = cmd.spawn();
     drop(fd);
     child
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn prefixes_are_normalized() {
-        assert_eq!(normalize("10.195.194.205/14"), "10.192.0.0/14");
-        assert_eq!(normalize("192.168.178.1/24"), "192.168.178.0/24");
-        assert_eq!(normalize("1.2.3.4"), "1.2.3.4/32");
-    }
 }

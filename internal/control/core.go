@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -126,6 +128,19 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		s.invokeProtected(w, r, id, in)
 		return
 	}
+	var guardRecords []any
+	if op.Name == "audit_record_export" {
+		var err error
+		guardRecords, err = s.readGuardAudit(requestCaller(r), in)
+		if err != nil {
+			code := "AUDIT_UNAVAILABLE"
+			if e, ok := err.(*coreError); ok {
+				code = e.code
+			}
+			writeError(w, id, code, err.Error(), nil)
+			return
+		}
+	}
 	snapshot := &responseSnapshot{header: w.Header().Clone()}
 	original := w
 	w = snapshot
@@ -171,11 +186,27 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		s.sendCoreMutation(w, id, rec, true, nil)
 		return
 	}
-	if len(s.journal.Operations) >= maxOperations {
+	var charged uint64
+	for _, rec := range s.journal.Operations {
+		if rec.Operation.OwnerId == a.Principal {
+			charged++
+		}
+	}
+	emergency := strings.HasSuffix(op.Name, "_delete") || op.Name == "task_stop" || op.Name == "operation_cancel" || op.Name == "telemetry_purge"
+	limit := s.quotas.Records
+	if emergency {
+		limit *= 2
+	}
+	if charged >= limit || len(s.journal.Operations) >= maxOperations {
 		writeError(w, id, "CONTROL_QUOTA_EXCEEDED", "operation retention limit reached", nil)
 		return
 	}
 	// Stage management state privately; any validation failure discards all edits.
+	oldAccount := s.journal.Accountability
+	accountClone := &accountability{}
+	accountRaw, _ := json.Marshal(oldAccount)
+	json.Unmarshal(accountRaw, accountClone)
+	s.journal.Accountability = accountClone
 	old := s.journal.Control
 	undoCancel := func() {}
 	if s.fleet != nil && op.Name == "operation_cancel" {
@@ -199,15 +230,40 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	b, _ := json.Marshal(old)
 	json.Unmarshal(b, clone)
 	s.journal.Control = clone
+	if op.Name == "audit_record_export" {
+		in["$guard_records"] = guardRecords
+	}
 	ref, result, secret, changed, err := s.coreMutation(a, op, in)
 	if err != nil {
 		s.journal.Control = old
+		s.journal.Accountability = oldAccount
 		code := "INVALID_ARGUMENT"
 		if e, ok := err.(*coreError); ok {
 			code = e.code
 		}
 		writeError(w, id, code, err.Error(), nil)
 		return
+	}
+	// A rejected or failed export must not leave an unreceipted file charging
+	// other sandboxes' export capacity, including a journal commit failure.
+	exportCommitted := false
+	if op.Name == "audit_record_export" {
+		exports := s.journal.Accountability.Exports
+		if len(exports) > 0 {
+			var details struct {
+				Path string `json:"path"`
+			}
+			last := exports[len(exports)-1]
+			if last.Id == ref.Id && last.Details != nil {
+				_ = json.Unmarshal([]byte(*last.Details), &details)
+			}
+			defer func() {
+				if !exportCommitted && details.Path != "" {
+					_ = os.Remove(details.Path)
+					_ = syncDirectory(filepath.Dir(details.Path))
+				}
+			}()
+		}
 	}
 	now := timestamp()
 	operationID := s.resourceID("op")
@@ -221,12 +277,16 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	done := make(chan struct{})
 	close(done)
 	s.done[operationID] = done
-	changed = append(changed, "$control", operationID)
+	changed = append(changed, operationID)
+	if digest(old) != digest(s.journal.Control) {
+		changed = append(changed, "$control")
+	}
 	if err := s.save(changed...); err != nil {
 		if errors.Is(err, errAuthorityConflict) {
 			// Consensus definitively rejected this transaction before save wrote
 			// anything. Discard its receipt and every staged cancellation edit.
 			s.journal.Control = old
+			s.journal.Accountability = oldAccount
 			undoCancel()
 			delete(s.journal.Operations, operationID)
 			delete(s.keys, key)
@@ -238,10 +298,18 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		writeError(w, id, "DATA_UNAVAILABLE", "cannot commit management operation", pointer(operationID))
 		return
 	}
+	exportCommitted = true
+	if op.Name == "telemetry_purge" || op.Name == "telemetry_update" && !value(s.telemetry(a).Enabled) {
+		if err := s.compact(); err != nil {
+			s.broken = true
+			writeError(w, id, "DATA_UNAVAILABLE", "cannot purge usage history", pointer(operationID))
+			return
+		}
+	}
 	s.sendCoreMutation(w, id, rec, false, secret)
 }
 func (s *Service) sendCoreMutation(w http.ResponseWriter, id string, rec *record, replay bool, secret *string) {
-	op := rec.Operation
+	op := s.revocationOperation(rec.Operation)
 	result := op.Outcome.Result
 	if secret != nil {
 		m := object(*result)
@@ -263,6 +331,10 @@ func (s *Service) sendCoreMutation(w http.ResponseWriter, id string, rec *record
 	prepareJSON(w, status, api.MutationEnvelope{OperationId: op.Id, Operation: &op, ResourceIds: []api.ResourceRef{rec.Resource}, RequestId: id, Replayed: replay, Result: result})()
 }
 func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.OperationDescriptor, in map[string]any) {
+	if op.Name == "telemetry_get" {
+		prepareJSON(w, 200, map[string]any{"data": s.telemetry(a), "request_id": id})()
+		return
+	}
 	if op.Name == "api_describe" {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
@@ -348,6 +420,10 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	items := []map[string]any{}
 	c := s.journal.Control
 	switch kind {
+	case "budget", "task", "audit_record":
+		for _, item := range s.accountResources(a, kind) {
+			items = append(items, item)
+		}
 	case "sandbox":
 		for _, v := range s.journal.Sandboxes {
 			if s.sandboxAllowed(a, v) {
@@ -417,6 +493,9 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 		return ref, nil, nil, nil, reject(code, message)
 	}
 	kind, verb, _ := strings.Cut(op.Scope, ".")
+	if kind == "budget" || kind == "task" || kind == "audit_record" || kind == "telemetry" {
+		return s.accountMutation(a, op, in)
+	}
 	if kind == "operation" && verb == "cancel" {
 		return s.cancelOperation(a, in)
 	}

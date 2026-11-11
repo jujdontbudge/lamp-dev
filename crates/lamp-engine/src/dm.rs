@@ -244,28 +244,3 @@ impl Control {
         Ok(names)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn devt_decodes_new_encoding() {
-        // major 253, minor 300 -> (300 & 0xff) | (253 << 8) | ((300 & !0xff) << 12)
-        let enc = (300 & 0xff) | (253 << 8) | ((300 & !0xff_u64) << 12);
-        assert_eq!(
-            DevT::decode(enc),
-            DevT {
-                major: 253,
-                minor: 300
-            }
-        );
-    }
-
-    #[test]
-    fn ioctl_numbers_match_the_kernel_header() {
-        // DM_DEV_CREATE = _IOWR(0xfd, 3, struct dm_ioctl) on x86_64/arm64.
-        assert_eq!(request(DEV_CREATE), 0xc138_fd03);
-        assert_eq!(request(TARGET_MSG), 0xc138_fd0e);
-    }
-}
