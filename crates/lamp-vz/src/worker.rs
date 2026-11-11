@@ -30,6 +30,7 @@ pub struct Options {
 fn grants(spec: &WorkerSpec, restore: Option<&Path>) -> confine::Grants {
     let mut g = confine::Grants {
         macos_guest: matches!(spec.machine, Machine::Macos { .. }),
+        graphics: spec.devices.display.is_some(),
         read_subpaths: vec![],
         read_literals: spec.read_paths.clone(),
         write_subpaths: std::iter::once(spec.dir.clone())
@@ -93,12 +94,20 @@ fn disks(spec: &WorkerSpec) -> Vec<Disk> {
                 Sync::None => DiskSync::None,
             },
         })
+        .chain(spec.devices.extra_disks.iter().map(|d| Disk {
+            path: spec.devices.extra_disk_path(&spec.dir, d),
+            read_only: false,
+            sync: DiskSync::Full,
+        }))
         .collect()
 }
 
 pub fn config(
     spec: &WorkerSpec,
 ) -> Result<objc2::rc::Retained<objc2_virtualization::VZVirtualMachineConfiguration>, String> {
+    if spec.devices.audio_input || spec.devices.audio_output {
+        return Err("DEVICE_UNAVAILABLE: the VZ worker attaches no host audio; guest audio must be activated by the engine".into());
+    }
     let console = Some(spec.dir.join("console.log"));
     match &spec.machine {
         Machine::Linux {
@@ -116,6 +125,7 @@ pub fn config(
             console_log: console,
             machine_identifier: Some(b64_decode(machine_identifier_b64)?),
             nat_network: spec.nat_network,
+            devices: spec.devices.clone(),
         }),
         Machine::Macos {
             hardware_model_b64,
@@ -131,6 +141,7 @@ pub fn config(
             console_log: console,
             nat_network: spec.nat_network,
             display: (1024, 768),
+            devices: spec.devices.clone(),
         }),
     }
 }
@@ -301,6 +312,12 @@ pub fn run(opts: Options) -> Result<(), String> {
     let t0 = Instant::now();
     let text = std::fs::read_to_string(&opts.spec).map_err(|e| format!("spec: {e}"))?;
     let spec: WorkerSpec = serde_json::from_str(&text).map_err(|e| format!("spec: {e}"))?;
+    spec.devices
+        .validate(matches!(spec.machine, Machine::Macos { .. }))?;
+    if opts.restore.is_some() && spec.devices != Devices::default() {
+        return Err("DEVICE_NOT_FORKABLE: optional device state restore is not implemented".into());
+    }
+    crate::admission::Memory::detect()?.admit(spec.memory_mib, 0, 0)?;
     let mut g = grants(&spec, opts.restore.as_deref());
     if matches!(spec.machine, Machine::Macos { .. }) {
         // VZ needs this account's Darwin cache directory for a macOS guest.
@@ -313,6 +330,55 @@ pub fn run(opts: Options) -> Result<(), String> {
         confine::apply(&confine::profile(&g)).map_err(|e| format!("confinement: {e}"))?;
     }
     let confined_us = t0.elapsed().as_micros();
+    let primary_bytes = spec.disks.iter().try_fold(0u64, |bytes, disk| {
+        std::fs::metadata(&disk.path)
+            .map_err(|e| e.to_string())
+            .and_then(|m| {
+                bytes
+                    .checked_add(m.len())
+                    .ok_or("INVALID_ARGUMENT: disk size overflow".into())
+            })
+    })?;
+    let limit = match spec.disk_limit_gib {
+        Some(gib) => gib
+            .checked_mul(1 << 30)
+            .ok_or("INVALID_ARGUMENT: disk limit overflow")?,
+        None => primary_bytes,
+    };
+    if primary_bytes
+        .checked_add(spec.devices.extra_disk_bytes())
+        .is_none_or(|n| n > limit)
+    {
+        return Err("NO_CAPACITY: primary and extra disks exceed disk_gib".into());
+    }
+    for d in &spec.devices.extra_disks {
+        let path = spec.devices.extra_disk_path(&spec.dir, d);
+        let created = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path);
+        match created {
+            Ok(f) => f
+                .set_len(d.size_mib << 20)
+                .map_err(|e| format!("size extra disk: {e}"))?,
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                use std::os::unix::fs::OpenOptionsExt;
+                let f = std::fs::OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .custom_flags(libc::O_NOFOLLOW)
+                    .open(&path)
+                    .map_err(|e| e.to_string())?;
+                let metadata = f.metadata().map_err(|e| e.to_string())?;
+                if !metadata.is_file() || metadata.len() != d.size_mib << 20 {
+                    return Err(
+                        "INVALID_ARGUMENT: existing extra disk has a different type or size".into(),
+                    );
+                }
+            }
+            Err(e) => return Err(format!("extra disk {}: {e}", path.display())),
+        }
+    }
     if !vz::supported() {
         return Err("Virtualization.framework is not available to this process".into());
     }
@@ -357,6 +423,7 @@ pub fn run(opts: Options) -> Result<(), String> {
             "confine_us": confined_us,
             "vm_start_us": started_us,
             "restored": opts.restore.is_some(),
+            "devices": spec.devices,
         })
     );
     let _ = std::io::stdout().flush();
@@ -382,6 +449,7 @@ pub fn run(opts: Options) -> Result<(), String> {
         });
     }
     let lock = Arc::new(Mutex::new(()));
+    let optional_devices = spec.devices != Devices::default();
     for s in api.incoming().flatten() {
         let vm = vm.clone();
         let lock = lock.clone();
@@ -411,6 +479,7 @@ pub fn run(opts: Options) -> Result<(), String> {
                             Api::State {} => Ok(serde_json::Value::Null),
                             Api::Pause {} => vm.pause().map(|_| serde_json::Value::Null),
                             Api::Resume {} => vm.resume().map(|_| serde_json::Value::Null),
+                            Api::Save { .. } if optional_devices => Err("DEVICE_NOT_FORKABLE: optional device capture is not implemented".into()),
                             Api::Save { path } => vm.save(path).map(|_| {
                                 serde_json::json!({"bytes": std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)})
                             }),

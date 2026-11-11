@@ -1,0 +1,47 @@
+{
+  "guest": "macos",
+  "runtime": "/private/var/tmp/lamp-t15-vp_6sl9_",
+  "devices": {
+    "display": {
+      "width": 640,
+      "height": 480
+    },
+    "gpu": true,
+    "keyboard": true,
+    "mouse": true,
+    "extra_disks": [
+      {
+        "id": "demo",
+        "size_mib": 64
+      }
+    ],
+    "audio_input": true,
+    "audio_output": true
+  },
+  "oversized": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: NO_CAPACITY: requested 32768 MiB plus 256 MiB VMM allowance; physical=24576 MiB, available=4493 MiB, host reserve=2048 MiB, reservations=0 MiB, pending=0 MiB\n",
+    "host_started_unix": 1794363703.341256,
+    "host_finished_unix": 1794363703.3476522,
+    "elapsed_s": 0.0063954170036595315
+  },
+  "oversized_directory_created": false,
+  "create": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-supervisor: HOST_UNAVAILABLE: worker did not start: lamp-vz: VZErrorDomain 2: Invalid virtual machine configuration. The process doesn\u2019t have the \u201ccom.apple.security.virtualization\u201d entitlement. (The process doesn\u2019t have the \u201ccom.apple.security.virtualization\u201d entitlement.)\n",
+    "host_started_unix": 1794363703.34774,
+    "host_finished_unix": 1794363703.6971362,
+    "elapsed_s": 0.34939812499214895
+  },
+  "release": {
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "host_started_unix": 1794363703.697194,
+    "host_finished_unix": 1794363703.702249,
+    "elapsed_s": 0.005054250010289252
+  },
+  "worker_directory_released": true
+}

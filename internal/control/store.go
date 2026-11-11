@@ -61,6 +61,7 @@ type Config struct {
 	Worker                WorkerConfig
 	Identity              *IdentityConfig
 	ProtectedActions      map[string]ProtectedAction
+	NativeFallback        *NativeFallbackConfig
 	ExportsDir            string
 	SharedReaders         map[uint32]string
 	// StateAdmin is the trusted argv prefix of the supervisor's root-only
@@ -74,6 +75,7 @@ type Config struct {
 type Service struct {
 	auditReservationBytes uint64
 	github                *ci.GitHub
+	native                *NativeFallbackConfig
 	clockWall             time.Time
 	clockTicks            int64
 	quotas                Quotas
@@ -189,7 +191,7 @@ func Open(config Config) (*Service, error) {
 		}
 	}
 	w := config.Worker
-	if config.Fleet != nil && w.Socket == "" {
+	if (config.Fleet != nil || config.NativeFallback != nil) && w.Socket == "" {
 		w = WorkerConfig{Socket: "/unused-control-only", WorkerID: "control-only", BootID: "control-only", GrantID: "none", UID: os.Geteuid(), PID: os.Getpid()}
 	}
 	if w.Socket == "" || w.WorkerID == "" || w.BootID == "" || w.GrantID == "" || w.UID < 0 || w.PID <= 0 {
@@ -333,6 +335,10 @@ func Open(config Config) (*Service, error) {
 		return nil, err
 	}
 	if err := s.initAuthority(config); err != nil {
+		lock.Close()
+		return nil, err
+	}
+	if err := s.initNative(config); err != nil {
 		lock.Close()
 		return nil, err
 	}

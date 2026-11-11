@@ -15,5 +15,5 @@ libc.workspace = true
 objc2 = "0.6.3"
 block2 = "0.6.2"
 dispatch2 = "0.3.1"
-objc2-foundation = { version = "0.3.2", features = ["NSURL", "NSString", "NSError", "NSArray", "NSData", "NSProgress", "NSDictionary", "NSValue", "NSProcessInfo"] }
+objc2-foundation = { version = "0.3.2", features = ["NSURL", "NSString", "NSError", "NSArray", "NSData", "NSProgress", "NSDictionary", "NSValue", "NSProcessInfo", "NSPathUtilities"] }
 objc2-virtualization = "0.3.2"

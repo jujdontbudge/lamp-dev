@@ -1,0 +1,15 @@
+{
+  "unconfigured_audio": {
+    "exit": 1,
+    "stderr": "lamp-vz: DEVICE_UNAVAILABLE: the VZ worker attaches no host audio; guest audio must be activated by the engine\n"
+  },
+  "missing_helper": {
+    "exit": 1,
+    "stderr": "lamp-supervisor: DEVICE_UNAVAILABLE: guest transport helper: No such file or directory (os error 2)\n",
+    "guest_directories": 0
+  },
+  "mismatched_existing_disk": {
+    "exit": 1,
+    "stderr": "lamp-vz: INVALID_ARGUMENT: existing extra disk has a different type or size\n"
+  }
+}

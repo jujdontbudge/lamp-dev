@@ -12,7 +12,9 @@
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() {
-        die("usage: lamp-vz worker|restore-image|load-image|install|new-ids|profile");
+        die(
+            "usage: lamp-vz worker|native-task|restore-image|load-image|install|new-ids|profile|validate",
+        );
     }
     let cmd = args.remove(0);
     let flag = |args: &mut Vec<String>, name: &str| -> Option<String> {
@@ -44,6 +46,14 @@ fn main() {
             }) {
                 die(e);
             }
+        }
+        "native-task" => {
+            let helper = flag(&mut args, "--helper")
+                .unwrap_or_else(|| die("--helper SIGNED_APP_SANDBOX_HELPER"));
+            let task = lamp_vz::native::read_task().unwrap_or_else(|e| die(e));
+            let status = lamp_vz::native::launch(std::path::Path::new(&helper), &task)
+                .unwrap_or_else(|e| die(e));
+            std::process::exit(status);
         }
         "restore-image" => match lamp_vz::macos::latest_supported() {
             Ok(i) => println!("{}", serde_json::to_string(&i).unwrap()),
@@ -77,6 +87,28 @@ fn main() {
                 "{}",
                 serde_json::json!({"profile": lamp_vz::confine::profile(&g), "inventory": lamp_vz::confine::inventory(&g)})
             );
+        }
+        "validate" => {
+            let path = flag(&mut args, "--spec").unwrap_or_else(|| die("--spec FILE"));
+            let spec: lamp_vz::spec::WorkerSpec =
+                serde_json::from_slice(&std::fs::read(path).unwrap_or_else(|e| die(e)))
+                    .unwrap_or_else(|e| die(e));
+            let cfg = lamp_vz::worker::config(&spec).unwrap_or_else(|e| die(e));
+            unsafe {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "valid": true,
+                        "graphics": cfg.graphicsDevices().len(),
+                        "keyboards": cfg.keyboards().len(),
+                        "pointing": cfg.pointingDevices().len(),
+                        "audio": cfg.audioDevices().len(),
+                        "disks": cfg.storageDevices().len(),
+                        "devices": spec.devices,
+                        "memory": lamp_vz::admission::Memory::detect().unwrap_or_else(|e| die(e)),
+                    })
+                );
+            }
         }
         other => die(format!("unknown command {other}")),
     }
@@ -114,6 +146,16 @@ fn install(args: &mut Vec<String>, flag: impl Fn(&mut Vec<String>, &str) -> Opti
     lamp_vz::macos::create_aux(&aux, &lamp_vz::macos::b64_decode(&hw).unwrap())
         .unwrap_or_else(|e| die(e));
     let spec = WorkerSpec {
+        devices: Devices {
+            display: Some(Display {
+                width: 1024,
+                height: 768,
+            }),
+            keyboard: true,
+            mouse: true,
+            gpu: true,
+            ..Default::default()
+        },
         sandbox_id: "install".into(),
         machine: Machine::Macos {
             hardware_model_b64: hw,
@@ -124,6 +166,7 @@ fn install(args: &mut Vec<String>, flag: impl Fn(&mut Vec<String>, &str) -> Opti
         },
         cpus,
         memory_mib,
+        disk_limit_gib: Some(disk_gib),
         disks: vec![DiskSpec {
             path: disk,
             read_only: false,

@@ -22,6 +22,105 @@ pub struct DiskSpec {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Display {
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ExtraDisk {
+    pub id: String,
+    pub size_mib: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct GuestTransport {
+    pub helper: PathBuf,
+    #[serde(default)]
+    pub input_endpoint: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct Devices {
+    pub display: Option<Display>,
+    pub keyboard: bool,
+    pub mouse: bool,
+    pub gpu: bool,
+    pub audio_input: bool,
+    pub audio_output: bool,
+    pub guest_transport: Option<GuestTransport>,
+    pub extra_disks: Vec<ExtraDisk>,
+}
+
+impl Devices {
+    pub fn validate(&self, macos: bool) -> Result<(), String> {
+        if (self.audio_input || self.audio_output) && self.guest_transport.is_none() {
+            return Err(
+                "DEVICE_UNAVAILABLE: audio requires a configured guest transport helper".into(),
+            );
+        }
+        if let Some(transport) = &self.guest_transport
+            && (!transport.helper.is_absolute()
+                || transport
+                    .input_endpoint
+                    .as_ref()
+                    .is_some_and(|p| !p.starts_with('/') || p.len() > 100 || p.contains('\0')))
+        {
+            return Err("INVALID_ARGUMENT: guest transport requires an absolute helper and a bounded absolute input endpoint".into());
+        }
+        if self.gpu && (!macos || self.display.is_none()) {
+            return Err("DEVICE_UNAVAILABLE: accelerated VZ graphics requires a macOS guest and a requested display; Linux scanout is not accelerated 3D".into());
+        }
+        if macos && self.display.is_some() && !self.gpu {
+            return Err("DEVICE_UNAVAILABLE: VZ macOS displays include accelerated graphics; request gpu explicitly with the display".into());
+        }
+        if let Some(d) = &self.display
+            && (!(64..=4096).contains(&d.width) || !(64..=4096).contains(&d.height))
+        {
+            return Err("INVALID_ARGUMENT: display dimensions must be 64..=4096".into());
+        }
+        let mut ids = std::collections::BTreeSet::new();
+        if self.extra_disks.len() > 16 {
+            return Err("INVALID_ARGUMENT: at most 16 extra disks are supported".into());
+        }
+        for d in &self.extra_disks {
+            if d.id.is_empty()
+                || d.id.len() > 40
+                || !d.id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+                || !ids.insert(&d.id)
+                || !(1..=1_048_576).contains(&d.size_mib)
+            {
+                return Err("INVALID_ARGUMENT: extra disks need unique alphanumeric/underscore ids (1..=40 bytes) and size_mib 1..=1048576".into());
+            }
+        }
+        Ok(())
+    }
+
+    pub fn extra_disk_bytes(&self) -> u64 {
+        self.extra_disks
+            .iter()
+            .map(|d| d.size_mib.saturating_mul(1 << 20))
+            .fold(0, u64::saturating_add)
+    }
+
+    pub fn hardware(&self) -> Self {
+        Self {
+            audio_input: false,
+            audio_output: false,
+            ..self.clone()
+        }
+    }
+
+    pub fn extra_disk_path(&self, dir: &std::path::Path, disk: &ExtraDisk) -> PathBuf {
+        dir.join(format!("device-{}.img", disk.id))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "guest", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Machine {
     Linux {
@@ -48,7 +147,11 @@ pub struct WorkerSpec {
     pub machine: Machine,
     pub cpus: usize,
     pub memory_mib: u64,
+    #[serde(default)]
+    pub disk_limit_gib: Option<u64>,
     pub disks: Vec<DiskSpec>,
+    #[serde(default)]
+    pub devices: Devices,
     /// Private directory: API/vsock sockets, console log, captures.
     pub dir: PathBuf,
     /// A data NIC only when networking was requested.

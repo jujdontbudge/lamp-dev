@@ -1,0 +1,10 @@
+lamp-engine: template tp_c3b43f845457a98727b496713c quarantined: HOST_UNAVAILABLE: read manifest.json: No such file or directory (os error 2)
+lamp-supervisor: store open, 0 verified template(s) in 167 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/tmp/lamp-t15-ax0oebkb/control.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_da3125e7e718_1 sandbox sb_t15_demo handle_us=2588 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_da31266158b3_1 sandbox sb_t15_demo handle_us=16 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

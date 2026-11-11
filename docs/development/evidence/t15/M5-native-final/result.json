@@ -1,0 +1,33 @@
+{
+  "runtime": "/var/folders/rx/w6wxv0p97bv7hpvzqlv9jy7r0000gn/T/lamp-t15-native-ws63vpqo",
+  "fixture": "system SQLite",
+  "launcher_sha256": "0e1ac8a40f8f948a117c6db5e49b053f41458a130baa9858065ff1e581feaee0",
+  "helper_sha256": "6e06b506ec4885df24c439e8554db745b7447ec908b03c9f78f3dd7c543a587b",
+  "native_task": {
+    "exit": 0,
+    "stdout": "{\"boundary\":\"app_sandbox_process\",\"fallback_reason\":\"virtualization_entitlement_absent\",\"isolation\":\"weaker_than_vm\"}\n{\"boundary\":\"app_sandbox_process\",\"isolation\":\"weaker_than_vm\",\"logins\":\"denied\",\"memory\":{\"available_mib\":4953,\"host_reserve_mib\":2048,\"physical_mib\":24576},\"network\":\"denied\",\"protected_connections\":\"denied\",\"public_repository_ci\":\"denied\"}\n{\"boundary\":\"app_sandbox_process\",\"exit_code\":0,\"isolation\":\"weaker_than_vm\",\"stderr\":\"cat: /var/folders/rx/w6wxv0p97bv7hpvzqlv9jy7r0000gn/T/lamp-t15-native-ws63vpqo/outside: Operation not permitted\\n/bin/sh: /var/folders/rx/w6wxv0p97bv7hpvzqlv9jy7r0000gn/T/lamp-t15-native-ws63vpqo/outside: Operation not permitted\\ncurl: (7) Failed to connect to 127.0.0.1 port 51997 after 0 ms: Couldn't connect to server\\n\",\"stdout\":\"42\\noutside_read=denied\\noutside_write=denied\\nnetwork=denied\\n\",\"timed_out\":false,\"truncated\":false}\n",
+    "stderr": ""
+  },
+  "public_ci": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: BOUNDARY_DENIED: public-repository CI is never admitted to the weaker process fallback\n"
+  },
+  "login": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: BOUNDARY_DENIED: logins and protected connections are refused in the weaker process fallback\n"
+  },
+  "protected_connection": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: BOUNDARY_DENIED: logins and protected connections are refused in the weaker process fallback\n"
+  },
+  "reuse": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: BOUNDARY_DENIED: native task bundles are single-use: File exists (os error 17)\n"
+  },
+  "independent_network_connection_observed": false,
+  "outside_fixture_unchanged": true
+}

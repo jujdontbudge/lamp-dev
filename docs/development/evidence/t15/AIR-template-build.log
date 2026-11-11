@@ -1,0 +1,8 @@
+lamp-supervisor: store open, 0 verified template(s) in 211 ms
+booted in 586 ms: {"audit": "none", "barrier_us": "1206", "confined": "true", "helper_ready_us": "293052", "machine_id": "31f1f7970e3eba3258bd81330944ebab", "rng_sample": "989093f7a9702ffd1d3e54e3c57e5d22", "spawn_us": "290482", "vz_start_us": "223311", "worker_identity": "_lampvm13", "worker_pid": "41742"}
+$ sh -c uname -m && python3 --version && cc --version | head -1 && getconf PAGESIZE
+aarch64
+Python 3.14.4
+cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+4096
+{"manifest_digest":"361556d22670667baef619264a7b30ac9743f58c51382d06133a5632289b8947","template_id":"tp_361556d22670667baef619264a"}

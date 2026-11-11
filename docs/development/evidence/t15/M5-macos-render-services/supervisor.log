@@ -1,0 +1,14 @@
+lamp-supervisor: store open, 1 verified template(s) in 31262 ms
+lamp-supervisor: serving lamp.worker/1 on /private/var/tmp/lamp-t15-a0jce8w2/control.sock
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_c21a1fa5bd74_1 sandbox sb_t15_demo handle_us=1799 
+lamp-supervisor: op op_c21a1fa5bd74_2 sandbox sb_t15_demo handle_us=22329341 barrier_us=425704 helper_ready_us=20803129 prepare_us=549193 spawn_us=550918 total_us=22329305 vz_start_us=414554
+lamp-supervisor: op op_c21a1fa5bd74_3 sandbox sb_t15_demo handle_us=54700 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_c2311379353_1 sandbox sb_t15_demo handle_us=29638 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: op op_c234115aa6e7_1 sandbox sb_t15_demo handle_us=5291730 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

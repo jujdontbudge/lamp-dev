@@ -397,6 +397,10 @@ fn host(cmd: &str, mut args: Vec<String>) {
     if let Some(w) = take_flag(&mut args, "--worker") {
         cfg.worker = w.into();
     }
+    if let Some(d) = take_flag(&mut args, "--devices") {
+        cfg.devices =
+            serde_json::from_str(&d).unwrap_or_else(|e| die(format!("--devices JSON: {e}")));
+    }
     if let Some(r) = take_flag(&mut args, "--ram-dir") {
         cfg.ram_dir = if r.is_empty() { None } else { Some(r.into()) };
     }
@@ -542,6 +546,7 @@ struct Ctl {
     /// Store whose grant directory `grant()` installs into (root only).
     store: Option<PathBuf>,
     deadline_ms: u64,
+    command_timeout_ms: u64,
     /// Generation used for sandboxes not in `gens` (`--generation`).
     default_gen: u64,
     /// `--memory-mib`: allocate sandboxes of this guest size (a template
@@ -663,7 +668,9 @@ impl Ctl {
         self.op += 1;
         let op = format!("op_{}_{}", self.tag, self.op);
         let g = self.generation(sandbox);
-        let ctx = self.client.context(&op, sandbox, g, 30_000);
+        let ctx = self
+            .client
+            .context(&op, sandbox, g, self.command_timeout_ms);
         let r = self
             .client
             .receipt(
@@ -762,6 +769,15 @@ fn ctl(mut args: Vec<String>) {
         .unwrap_or(1);
     let memory_mib = take_flag(&mut args, "--memory-mib")
         .map(|m| m.parse().unwrap_or_else(|_| die("bad --memory-mib")));
+    let command_timeout_ms = take_flag(&mut args, "--command-timeout-ms")
+        .map(|v| {
+            v.parse::<u64>()
+                .unwrap_or_else(|_| die("bad --command-timeout-ms"))
+        })
+        .unwrap_or(30_000);
+    if command_timeout_ms == 0 || command_timeout_ms > 900_000 {
+        die("--command-timeout-ms must be 1..=900000");
+    }
     if args.is_empty() {
         die("ctl needs a subcommand");
     }
@@ -777,6 +793,7 @@ fn ctl(mut args: Vec<String>) {
         grants: Default::default(),
         store,
         deadline_ms: 120_000,
+        command_timeout_ms,
         default_gen,
         memory_mib,
     };
@@ -1541,6 +1558,7 @@ fn e06(c: &mut Ctl, args: &[String], socket: &std::path::Path) {
                     grants: Default::default(),
                     store: None,
                     deadline_ms: 900_000,
+                    command_timeout_ms: 30_000,
                     default_gen: 1,
                     memory_mib: None,
                 };

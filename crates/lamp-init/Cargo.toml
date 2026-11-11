@@ -24,3 +24,7 @@ path = "src/bin/lamp-guest-helper.rs"
 [[bin]]
 name = "lamp-mac-guest-helper"
 path = "src/bin/lamp-mac-guest-helper.rs"
+
+[[bin]]
+name = "lamp-guest-devices"
+path = "src/bin/lamp-guest-devices.rs"

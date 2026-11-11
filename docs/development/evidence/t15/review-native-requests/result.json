@@ -1,0 +1,315 @@
+{
+  "valid_job_credential": {
+    "status": 200,
+    "body": {
+      "data": {
+        "authority_epoch": 1,
+        "created_at": "2026-11-11T03:47:23.044199Z",
+        "fleet_id": "fl_local",
+        "id": "fl_local",
+        "kind": "fleet",
+        "labels": {},
+        "mode": "single_owner",
+        "owner_id": "pr_native_fixture",
+        "revision": 1,
+        "state": "active",
+        "updated_at": "2026-11-11T03:47:23.044199Z",
+        "visibility": "private"
+      },
+      "request_id": "req_7c42b075fb1dbe1925380126f13846fa"
+    },
+    "isolation": null
+  },
+  "public_ci_forged_origin": {
+    "status": 403,
+    "body": {
+      "error": {
+        "code": "VM_REQUIRED",
+        "message": "jb_public_fixture (public): public-repository CI requires a VM; weaker native execution is forbidden",
+        "retryable": false
+      },
+      "request_id": "req_20c68e63022c284d94a9a964c51c9a66"
+    },
+    "isolation": "weaker_than_vm"
+  },
+  "public_ci_ordinary_create": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "INVALID_ARGUMENT",
+        "message": "create requires template_id and Idempotency-Key; only demo body fields are admitted",
+        "retryable": false
+      },
+      "request_id": "req_4937f2e230e6d2321cd183933835e298"
+    },
+    "isolation": null
+  },
+  "owner_scoped_ordinary_create": {
+    "status": 400,
+    "body": {
+      "error": {
+        "code": "INVALID_ARGUMENT",
+        "message": "create requires template_id and Idempotency-Key; only demo body fields are admitted",
+        "retryable": false
+      },
+      "request_id": "req_718a0d7c8c3ab178395ae99e00ce7e63"
+    },
+    "isolation": null
+  },
+  "owner_native_task": {
+    "status": 200,
+    "body": {
+      "boundary": "app_sandbox_process",
+      "isolation": "weaker_than_vm",
+      "job": null,
+      "output": "{\"boundary\":\"app_sandbox_process\",\"fallback_reason\":\"virtualization_entitlement_absent\",\"isolation\":\"weaker_than_vm\"}\n{\"boundary\":\"app_sandbox_process\",\"isolation\":\"weaker_than_vm\",\"logins\":\"denied\",\"memory\":{\"available_mib\":5428,\"host_reserve_mib\":2048,\"physical_mib\":24576},\"network\":\"denied\",\"protected_connections\":\"denied\",\"public_repository_ci\":\"denied\"}\n{\"boundary\":\"app_sandbox_process\",\"exit_code\":0,\"isolation\":\"weaker_than_vm\",\"stderr\":\"\",\"stdout\":\"42\\n\",\"timed_out\":false,\"truncated\":false}\n",
+      "request_id": "req_bdd0bfe215a9bdf397b908af844d71c2"
+    },
+    "isolation": null
+  },
+  "bundles_after_success": 0,
+  "enrolled_job": {
+    "job_id": "jb_public_fixture",
+    "repository_visibility": "public",
+    "source": "custodian-owned startup configuration",
+    "caller_mutable": false
+  },
+  "packager_failure": {
+    "status": 503,
+    "body": {
+      "error": {
+        "code": "HOST_UNAVAILABLE",
+        "message": "/bin/sh: /private/var/tmp/lamp-native-control-ie44lmoz/missing-packager: No such file or directory\n",
+        "retryable": false
+      },
+      "request_id": "req_1d873bb395d387db5514d61236371ea7"
+    },
+    "isolation": null
+  },
+  "bundles_after_packager_failure": 0,
+  "packager_retry": {
+    "status": 200,
+    "body": {
+      "boundary": "app_sandbox_process",
+      "isolation": "weaker_than_vm",
+      "job": null,
+      "output": "{\"boundary\":\"app_sandbox_process\",\"fallback_reason\":\"virtualization_entitlement_absent\",\"isolation\":\"weaker_than_vm\"}\n{\"boundary\":\"app_sandbox_process\",\"isolation\":\"weaker_than_vm\",\"logins\":\"denied\",\"memory\":{\"available_mib\":5486,\"host_reserve_mib\":2048,\"physical_mib\":24576},\"network\":\"denied\",\"protected_connections\":\"denied\",\"public_repository_ci\":\"denied\"}\n{\"boundary\":\"app_sandbox_process\",\"exit_code\":0,\"isolation\":\"weaker_than_vm\",\"stderr\":\"\",\"stdout\":\"42\\n\",\"timed_out\":false,\"truncated\":false}\n",
+      "request_id": "req_8f89aebca220c03645d25e4d5aa4ad1d"
+    },
+    "isolation": null
+  },
+  "bundles_after_packager_retry": 0,
+  "launcher_failure": {
+    "status": 503,
+    "body": {
+      "error": {
+        "code": "HOST_UNAVAILABLE",
+        "message": "native task failed: fork/exec /private/var/tmp/lamp-native-control-ie44lmoz/missing-launcher: no such file or directory",
+        "retryable": false
+      },
+      "request_id": "req_fc6b9e49db1446898d6b9bd36f6afb70"
+    },
+    "isolation": null
+  },
+  "bundles_after_launcher_failure": 0,
+  "launcher_retry": {
+    "status": 200,
+    "body": {
+      "boundary": "app_sandbox_process",
+      "isolation": "weaker_than_vm",
+      "job": null,
+      "output": "{\"boundary\":\"app_sandbox_process\",\"fallback_reason\":\"virtualization_entitlement_absent\",\"isolation\":\"weaker_than_vm\"}\n{\"boundary\":\"app_sandbox_process\",\"isolation\":\"weaker_than_vm\",\"logins\":\"denied\",\"memory\":{\"available_mib\":5537,\"host_reserve_mib\":2048,\"physical_mib\":24576},\"network\":\"denied\",\"protected_connections\":\"denied\",\"public_repository_ci\":\"denied\"}\n{\"boundary\":\"app_sandbox_process\",\"exit_code\":0,\"isolation\":\"weaker_than_vm\",\"stderr\":\"\",\"stdout\":\"42\\n\",\"timed_out\":false,\"truncated\":false}\n",
+      "request_id": "req_e5c8832720e288781e2b8e24eb080910"
+    },
+    "isolation": null
+  },
+  "bundles_after_launcher_retry": 0,
+  "public_ci_vm": {
+    "status": 200,
+    "body": {
+      "operation_id": "op_2c013ba5bb782725b1b033f9b646259a",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_7ef915d0a0499eba41e1fcce8a1b046a"
+        }
+      ],
+      "request_id": "req_d0cf224bb2272fcee129764e24e1fa9f",
+      "replayed": false,
+      "operation": {
+        "id": "op_2c013ba5bb782725b1b033f9b646259a",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_native_fixture",
+        "revision": 3,
+        "created_at": "2026-11-11T03:47:25.503297Z",
+        "updated_at": "2026-11-11T03:47:26.025766Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_create",
+        "request_hash": "6c4ff02cd6876c059287062587a402caf23e17c0da2f655f8f7108755e816793",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_7ef915d0a0499eba41e1fcce8a1b046a"
+          }
+        ],
+        "phase": "command",
+        "accepted_at": "2026-11-11T03:47:25.503297Z",
+        "completed_at": "2026-11-11T03:47:26.025766Z",
+        "outcome": {
+          "result": {
+            "sandbox_id": "sb_7ef915d0a0499eba41e1fcce8a1b046a",
+            "session_ids": []
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "volatile"
+      },
+      "result": {
+        "sandbox_id": "sb_7ef915d0a0499eba41e1fcce8a1b046a",
+        "session_ids": []
+      }
+    },
+    "isolation": null
+  },
+  "public_ci_vm_release": {
+    "status": 200,
+    "body": {
+      "operation_id": "op_a83f2c30c3eb6417da59d165b3c44123",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_7ef915d0a0499eba41e1fcce8a1b046a"
+        }
+      ],
+      "request_id": "req_def5c2f2cfe8712d16f63bc8d8caa83e",
+      "replayed": false,
+      "operation": {
+        "id": "op_a83f2c30c3eb6417da59d165b3c44123",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_native_fixture",
+        "revision": 3,
+        "created_at": "2026-11-11T03:47:26.035996Z",
+        "updated_at": "2026-11-11T03:47:26.092735Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_delete",
+        "request_hash": "cf8b78378b457a2a8ed9428b8768b1fe325a4a6f3de7137ba290d8c59ff2720a",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_7ef915d0a0499eba41e1fcce8a1b046a"
+          }
+        ],
+        "phase": "cleanup",
+        "accepted_at": "2026-11-11T03:47:26.035996Z",
+        "completed_at": "2026-11-11T03:47:26.092735Z",
+        "outcome": {
+          "result": {}
+        },
+        "cleanup_state": "not_needed",
+        "durability": "volatile"
+      },
+      "result": {}
+    },
+    "isolation": null
+  },
+  "owner_scoped_vm": {
+    "status": 200,
+    "body": {
+      "operation_id": "op_d99f71944fe62fb713cbb740ca8643f4",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_0cd83e449793d4c7f0ae32ab70b38a19"
+        }
+      ],
+      "request_id": "req_eb222fac9d94b545a5842a17a67cdb4b",
+      "replayed": false,
+      "operation": {
+        "id": "op_d99f71944fe62fb713cbb740ca8643f4",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_native_fixture",
+        "revision": 3,
+        "created_at": "2026-11-11T03:47:26.111951Z",
+        "updated_at": "2026-11-11T03:47:26.608435Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_create",
+        "request_hash": "2018e301038d5d5ed6f2fc89e74099e954543ea164f4b27b041ec6234c6be853",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_0cd83e449793d4c7f0ae32ab70b38a19"
+          }
+        ],
+        "phase": "command",
+        "accepted_at": "2026-11-11T03:47:26.111951Z",
+        "completed_at": "2026-11-11T03:47:26.608435Z",
+        "outcome": {
+          "result": {
+            "sandbox_id": "sb_0cd83e449793d4c7f0ae32ab70b38a19",
+            "session_ids": []
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "volatile"
+      },
+      "result": {
+        "sandbox_id": "sb_0cd83e449793d4c7f0ae32ab70b38a19",
+        "session_ids": []
+      }
+    },
+    "isolation": null
+  },
+  "owner_scoped_vm_release": {
+    "status": 200,
+    "body": {
+      "operation_id": "op_4d3cd23aa72251189d3eaa1a1924b525",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_0cd83e449793d4c7f0ae32ab70b38a19"
+        }
+      ],
+      "request_id": "req_f5d4978f16324478d3cefc79da895021",
+      "replayed": false,
+      "operation": {
+        "id": "op_4d3cd23aa72251189d3eaa1a1924b525",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_native_fixture",
+        "revision": 3,
+        "created_at": "2026-11-11T03:47:26.629573Z",
+        "updated_at": "2026-11-11T03:47:26.670555Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_delete",
+        "request_hash": "afe7b2ca3db29332df05fb5f0698061ae9b9f68752cd0b71a66ca3b929ab2ee4",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_0cd83e449793d4c7f0ae32ab70b38a19"
+          }
+        ],
+        "phase": "cleanup",
+        "accepted_at": "2026-11-11T03:47:26.629573Z",
+        "completed_at": "2026-11-11T03:47:26.670555Z",
+        "outcome": {
+          "result": {}
+        },
+        "cleanup_state": "not_needed",
+        "durability": "volatile"
+      },
+      "result": {}
+    },
+    "isolation": null
+  }
+}

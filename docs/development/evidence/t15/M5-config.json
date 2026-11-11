@@ -1,0 +1,42 @@
+{
+  "linux_default": {
+    "exit": 0,
+    "stdout": "{\"audio\":0,\"devices\":{\"audio_input\":false,\"audio_output\":false,\"display\":null,\"extra_disks\":[],\"gpu\":false,\"keyboard\":false,\"mouse\":false},\"disks\":1,\"graphics\":0,\"keyboards\":0,\"memory\":{\"available_mib\":4979,\"host_reserve_mib\":2048,\"physical_mib\":24576},\"pointing\":0,\"valid\":true}\n",
+    "stderr": ""
+  },
+  "linux_audio_input": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: DEVICE_UNAVAILABLE: VZ audio uses the host's default microphone/speakers; a dedicated audio transport is not implemented\n"
+  },
+  "linux_audio_output": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: DEVICE_UNAVAILABLE: VZ audio uses the host's default microphone/speakers; a dedicated audio transport is not implemented\n"
+  },
+  "linux_gpu_without_display": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: DEVICE_UNAVAILABLE: accelerated VZ graphics requires a macOS guest and a requested display; Linux scanout is not accelerated 3D\n"
+  },
+  "macos_default": {
+    "exit": 0,
+    "stdout": "{\"audio\":0,\"devices\":{\"audio_input\":false,\"audio_output\":false,\"display\":null,\"extra_disks\":[],\"gpu\":false,\"keyboard\":false,\"mouse\":false},\"disks\":1,\"graphics\":0,\"keyboards\":0,\"memory\":{\"available_mib\":4991,\"host_reserve_mib\":2048,\"physical_mib\":24576},\"pointing\":0,\"valid\":true}\n",
+    "stderr": ""
+  },
+  "macos_audio_input": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: DEVICE_UNAVAILABLE: VZ audio uses the host's default microphone/speakers; a dedicated audio transport is not implemented\n"
+  },
+  "macos_audio_output": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: DEVICE_UNAVAILABLE: VZ audio uses the host's default microphone/speakers; a dedicated audio transport is not implemented\n"
+  },
+  "macos_gpu_without_display": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "lamp-vz: DEVICE_UNAVAILABLE: accelerated VZ graphics requires a macOS guest and a requested display; Linux scanout is not accelerated 3D\n"
+  }
+}
