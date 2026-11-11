@@ -97,8 +97,10 @@ fn process_error(pid: i32, observation: &str, error: io::Error) -> io::Error {
 }
 
 fn status(pid: i32) -> io::Result<Value> {
-    let s = fs::read_to_string(format!("/proc/{pid}/status"))
-        .map_err(|error| process_error(pid, "status", error))?;
+    let s = match fs::read_to_string(format!("/proc/{pid}/status")) {
+        Err(e) if vanished(&e) => return Ok(json!({"pid":pid,"vanished":true})),
+        other => other.map_err(|error| process_error(pid, "status", error))?,
+    };
     let field = |name: &str| {
         s.lines()
             .find_map(|l| l.strip_prefix(name))

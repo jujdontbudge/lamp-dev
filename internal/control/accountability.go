@@ -536,6 +536,11 @@ func (s *Service) watchAccountability() {
 		for id, t := range s.journal.Accountability.Tasks {
 			if t.State == "running" && s.taskStopRequired(t, checkAuthority) {
 				t.State = "stopped"
+				// The budget watchdog ended a task that never finished: it is
+				// stuck (OPS-003 task.stuck), and its work is stopped as usual.
+				if b, ok := s.journal.Accountability.Budgets[value(t.BudgetId)]; ok && b.Watchdog != nil && b.Watchdog.BlockAfterMs != nil && s.expired(b.DeadlineAt) {
+					t.State = "blocked"
+				}
 				t.Revision++
 				t.UpdatedAt = timestamp()
 				s.journal.Accountability.Tasks[id] = t

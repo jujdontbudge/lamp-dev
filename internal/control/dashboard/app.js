@@ -36,6 +36,7 @@ try { token = sessionStorage.getItem('lamp.token') || ''; } catch (_) {}
 const state = { data: {}, errors: {}, installed: null, events: [], cursor: '', live: false, leases: {}, views: {}, me: '' };
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const online = (h) => h.state === 'ready' || h.state === 'active';
 const cls = (st) => ({ ready: 'ok', active: 'ok', running: 'ok', delivered: 'ok', succeeded: 'ok', approved: 'ok', consumed: 'ok', agent_control: 'ok', human_control: 'warn', pending: 'warn', blocked: 'warn', preparing: 'warn', starting: 'warn', suspended: 'warn', sleeping: 'warn', stopping: 'warn', failed: 'bad', denied: 'bad', unavailable: 'bad', outcome_unknown: 'bad', expired: 'bad', revoked: 'bad', stopped: 'muted', completed: 'muted', deleted: 'muted', acknowledged: 'muted' }[st] || '');
 const pill = (st) => `<span class="pill ${cls(st)}">${esc(st)}</span>`;
 const short = (id) => `<code title="${esc(id)}">${esc(id)}</code>`;
@@ -243,7 +244,7 @@ function hostsView() {
   }
   for (const h of hosts) {
     const here = sb.filter((s) => s.host_id === h.id);
-    const stranded = here.filter((s) => s.state === 'suspended' && h.state !== 'ready');
+    const stranded = here.filter((s) => s.state === 'suspended' && !online(h));
     const cap = h.capacity || {}, res = h.reserved || {};
     const bar = (k) => cap[k] ? `<div class="row"><span class="muted" style="width:70px">${k}</span><div class="bar sp"><i style="width:${Math.min(100, 100 * (res[k] || 0) / cap[k]).toFixed(0)}%"></i></div><span>${res[k] || 0}/${cap[k]}</span></div>` : '';
     out += `<div class="card" id="hosts-${esc(h.id)}"><div class="row"><h2>${esc(h.name || h.id)}</h2>${pill(h.state)}<span class="sp"></span><span class="muted">${esc([h.os, h.arch].filter(Boolean).join(' / '))}</span></div>
@@ -269,7 +270,7 @@ function sandboxCard(s) {
   const idle = s.idle_countdown || {};
   const task = s.task_id && byId('tasks', s.task_id);
   const host = items('hosts').find((h) => h.id === s.host_id);
-  const stranded = s.state === 'suspended' && host && host.state !== 'ready';
+  const stranded = s.state === 'suspended' && host && !online(host);
   const elig = s.suspend_eligibility;
   return `<div class="card" id="sandboxes-${esc(s.id)}"><div class="row"><h2>${esc(s.labels && s.labels.name || s.id)}</h2>${pill(s.state)}<span class="sp"></span>${s.boundary ? `<span class="pill">${esc(s.boundary)}</span>` : ''}</div>
     <div class="kv"><b>id</b>${short(s.id)}<b>host</b><span>${esc(s.host_id || 'this host')}</span><b>engine</b><span>${esc(s.engine_id || '—')} ${esc(s.guest_os || '')}</span><b>task</b><span>${s.task_id ? `<a href="#/tasks/${esc(s.task_id)}">${esc(s.task_id)}</a>` : '—'}</span><b>created</b>${when(s.created_at)}</div>
@@ -461,6 +462,9 @@ function tick() {
   }
 }
 setInterval(tick, 1000);
+// Host liveness has no event of its own (a sleeping peer cannot announce it),
+// so the lists are also re-read every 10 s while signed in.
+setInterval(() => { if (state.live && !document.hidden) load().catch(() => {}); }, 10000);
 
 window.addEventListener('hashchange', () => { state.scrolled = ''; render(); });
 document.addEventListener('DOMContentLoaded', () => {

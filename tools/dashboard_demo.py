@@ -370,6 +370,15 @@ def main():
         ui('click', selector=f'#tasks-{task} button[data-act=task-stop]', wait=4000)
         wait(lambda: any(r['event_type'] == 'task.done' for r in received), 'task.done webhook', 30)
         record('task after dashboard stop', call('GET', '/v1/tasks/' + task)['data'])
+        # A second task whose budget watchdog blocks it after 20 s without
+        # finishing: Lamp marks it blocked (stuck) and the sinks hear task.stuck.
+        wd = call('POST', '/v1/budgets', dict(wall_time_ms=20000, token_mode='best_effort', watchdog=dict(block_after_ms=20000), labels=dict(name='watchdog budget')))['result']['budget_id']
+        stuck = call('POST', '/v1/tasks', dict(budget_id=wd, labels=dict(name='Agent that never finishes')))['result']['task_id']
+        wait(lambda: call('GET', '/v1/tasks/' + stuck)['data']['state'] == 'blocked', 'task blocked by watchdog', 60)
+        stuck_hook = wait(lambda: next((r for r in received if r['event_type'] == 'task.stuck'), None), 'task.stuck webhook', 30)
+        record('stuck task and webhook', dict(task=call('GET', '/v1/tasks/' + stuck)['data'], webhook=stuck_hook))
+        ui('goto', url=dash + '#/tasks/' + stuck, wait=2500)
+        shot('07b-task-stuck', 'task blocked by its budget watchdog; task.stuck delivered to the phone sink')
         time.sleep(8)  # the offline sink accumulates real failed attempts (1 s, 5 s backoff)
         ui('goto', url=dash + '#/notifications', wait=2500)
         ui('eval', expr="document.querySelectorAll('details').forEach(d=>d.open=true); true")
