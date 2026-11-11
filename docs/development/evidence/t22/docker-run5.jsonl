@@ -1,0 +1,5 @@
+{"operation": "allocation admission", "value": {"available_mib": 27237, "live_firecracker": 0}}
+{"operation": "created disposable VM", "value": {"sandbox_id": "sb_0efc9d434acfa0c7259ba9fc2a350839"}}
+{"operation": "guest boot preparation and confinement", "value": {"host_socket_present": false, "runtime_mode": "0o1777", "uid_map": "0      65537          1"}}
+{"operation": "started VM toolchain installation", "value": {"generation": 1, "job_id": "3315284820bdab4787c6849ccc7802d5", "sandbox_id": "sb_0efc9d434acfa0c7259ba9fc2a350839", "state": "installing"}}
+{"operation": "fixture teardown", "value": {"controller_stopped": true, "live_firecracker": 0}}

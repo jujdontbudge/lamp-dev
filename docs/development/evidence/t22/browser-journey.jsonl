@@ -1,0 +1,18 @@
+{"step": "allocation admission", "value": {"available_mib": 27731, "live_firecracker": 0}}
+{"step": "agent", "value": {"id": "sb_3c9f1afdb6bae858e7077bef7fa10804", "state": "ready"}}
+{"step": "default browser", "value": {"allocation_admission": {"available_mib": 27701, "live_firecracker": 1}, "browser_id": "br_19010934d2fb0354c73a5f47a0a4e9f8", "mode": "external", "private": false, "warning": null}}
+{"step": "per-vault approval proposed", "value": {"approval_id": "423937b0d31e8e4154b2b0318d090461", "plan": {"browser_id": "br_19010934d2fb0354c73a5f47a0a4e9f8", "generation": 1, "item_id": "login", "origin": "https://the-internet.herokuapp.com", "submit": true, "vault_id": "disposable"}, "state": "approval_required"}}
+{"step": "owner reads authoritative approval plan", "value": {"approval_id": "423937b0d31e8e4154b2b0318d090461", "plan": {"browser_id": "br_19010934d2fb0354c73a5f47a0a4e9f8", "generation": 1, "item_id": "login", "origin": "https://the-internet.herokuapp.com", "submit": true, "vault_id": "disposable"}, "state": "approval_required"}}
+{"step": "real KeePassXC fill and submit", "value": {"filled": true, "private": true}}
+{"step": "task fenced during takeover", "value": {"error": "PRIVATE_CONTROL_ACTIVE"}}
+{"step": "private authenticated page", "value": {"login_completed": true}}
+{"step": "owner private view", "value": {"png_received": true}}
+{"step": "safe handback", "value": {"returned": true, "safe_page": "about:blank", "session_policy": "httponly-cookies-only"}}
+{"step": "useful authenticated work", "value": {"secure_area_visible": true, "session_survived_safe_handback": true}}
+{"step": "private typing route", "value": {"private": true, "typed": true}}
+{"step": "copied logins require opt-in", "value": {"error": "COPIED_LOGINS_REQUIRE_EXPLICIT_CONSENT"}}
+{"step": "opt-in browser inside agent VM", "value": {"allocation_admission": null, "browser_id": "br_902e6d2e6bbdf19dd8c6371ab21bdb38", "mode": "copied", "private": false, "warning": "AGENT_CAN_READ_COPIED_LOGINS"}}
+{"step": "copied login useful work", "value": {"real_authenticated_session_inside_agent_vm": true}}
+{"step": "cannot promise privacy inside agent VM", "value": {"error": "PRIVATE_TAKEOVER_REQUIRES_EXTERNAL_BROWSER"}}
+{"step": "toolchain job accepted", "value": {"generation": 1, "job_id": "11d43aa6892714914e77aee94689f2e5", "sandbox_id": "sb_3c9f1afdb6bae858e7077bef7fa10804", "state": "installing"}}
+{"step": "agent released", "value": {"state": "deleted"}}

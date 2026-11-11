@@ -1,0 +1,3 @@
+{"step": "task attempts", "sandbox_id": "sb_993b3f1b8ffe73d24a5a9e27ea856a31", "value": {"own_leaf": "/sys/fs/cgroup/tasks/x-18e6f75edbe58f50-1", "mkdir_tasks_child": "PermissionError:13", "tasks_subtree_control_+pids": "PermissionError:13", "tasks_subtree_control_+memory": "PermissionError:13", "move_child_into_leaf_x": "ok", "move_self_into_leaf_x": "ok", "leaf_subtree_control_+pids": "FileNotFoundError:2", "leaf_subtree_control_+memory": "FileNotFoundError:2", "leaf_subtree_control": ""}}
+{"step": "one more Lamp exec", "value": {"later_exec_ran": true, "later_exec_cgroup": "/tasks/x-18e6f75ee5afd3e7-2", "uid_map": ["0", "65537", "1"]}}
+{"step": "released", "value": true}

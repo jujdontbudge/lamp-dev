@@ -14,7 +14,7 @@ fn main() {
 #[cfg(target_os = "linux")]
 mod linux {
     use std::ffi::CString;
-    use std::os::unix::fs::MetadataExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::process::Command;
     use std::time::{Duration, Instant};
 
@@ -141,6 +141,14 @@ mod linux {
             eprintln!("lamp-init: create tasks cgroup: {e}");
         }
         let _ = std::fs::create_dir_all("/run/lamp");
+        // Containerd uses /run/containerd for shim sockets/FIFOs even with a
+        // custom state directory. Prepare only this guest runtime directory;
+        // confined tasks keep their mapped UID and cannot write the rest of /run.
+        if let Err(e) = std::fs::create_dir_all("/run/containerd").and_then(|()| {
+            std::fs::set_permissions("/run/containerd", std::fs::Permissions::from_mode(0o1777))
+        }) {
+            eprintln!("lamp-init: create containerd runtime directory: {e}");
+        }
         let _ = std::os::unix::fs::symlink("/proc/self/fd", "/dev/fd");
         // SAFETY: plain syscalls with valid arguments.
         unsafe {

@@ -1545,6 +1545,8 @@ type Browser struct {
 	Durability              *BrowserDurability `json:"durability,omitempty"`
 	CustodyHostIds          *[]string          `json:"custody_host_ids,omitempty"`
 	Exposures               *[]string          `json:"exposures,omitempty"`
+	Mode                    *BrowserMode       `json:"mode,omitempty"`
+	Warning                 *string            `json:"warning,omitempty"`
 }
 type BrowserActionCompletion struct {
 	BlobId       *string          `json:"blob_id,omitempty"`
@@ -1582,24 +1584,28 @@ type BrowserCreateCompletion struct {
 	BrowserId string `json:"browser_id"`
 }
 type BrowserCreateInput struct {
-	OwnerId              *string                       `json:"owner_id,omitempty"`
-	TaskId               *string                       `json:"task_id,omitempty"`
-	SandboxId            *string                       `json:"sandbox_id,omitempty"`
-	KitId                *string                       `json:"kit_id,omitempty"`
-	ProfileRef           *string                       `json:"profile_ref,omitempty"`
-	AdapterId            *string                       `json:"adapter_id,omitempty"`
-	NetworkPolicyId      *string                       `json:"network_policy_id,omitempty"`
-	NetworkAttachmentIds *[]string                     `json:"network_attachment_ids,omitempty"`
-	AllowedOrigins       *[]string                     `json:"allowed_origins,omitempty"`
-	ControlLeaseId       *string                       `json:"control_lease_id,omitempty"`
-	ExposureId           *string                       `json:"exposure_id,omitempty"`
-	Durability           *BrowserCreateInputDurability `json:"durability,omitempty"`
-	CustodyHostIds       *[]string                     `json:"custody_host_ids,omitempty"`
-	Exposures            *[]string                     `json:"exposures,omitempty"`
-	Labels               *StringMap                    `json:"labels,omitempty"`
-	Visibility           *BrowserCreateInputVisibility `json:"visibility,omitempty"`
-	IdempotencyKey       string                        `json:"idempotency_key"`
-	WaitMs               *uint64                       `json:"wait_ms,omitempty"`
+	OwnerId                       *string                       `json:"owner_id,omitempty"`
+	TaskId                        *string                       `json:"task_id,omitempty"`
+	SandboxId                     string                        `json:"sandbox_id"`
+	KitId                         *string                       `json:"kit_id,omitempty"`
+	ProfileRef                    *string                       `json:"profile_ref,omitempty"`
+	AdapterId                     *string                       `json:"adapter_id,omitempty"`
+	NetworkPolicyId               *string                       `json:"network_policy_id,omitempty"`
+	NetworkAttachmentIds          *[]string                     `json:"network_attachment_ids,omitempty"`
+	AllowedOrigins                *[]string                     `json:"allowed_origins,omitempty"`
+	ControlLeaseId                *string                       `json:"control_lease_id,omitempty"`
+	ExposureId                    *string                       `json:"exposure_id,omitempty"`
+	Durability                    *BrowserCreateInputDurability `json:"durability,omitempty"`
+	CustodyHostIds                *[]string                     `json:"custody_host_ids,omitempty"`
+	Exposures                     *[]string                     `json:"exposures,omitempty"`
+	Labels                        *StringMap                    `json:"labels,omitempty"`
+	Visibility                    *BrowserCreateInputVisibility `json:"visibility,omitempty"`
+	IdempotencyKey                string                        `json:"idempotency_key"`
+	WaitMs                        *uint64                       `json:"wait_ms,omitempty"`
+	Mode                          *BrowserCreateInputMode       `json:"mode,omitempty"`
+	SourceBrowserId               *string                       `json:"source_browser_id,omitempty"`
+	LoginOrigin                   *string                       `json:"login_origin,omitempty"`
+	AcknowledgeAgentCanReadLogins *bool                         `json:"acknowledge_agent_can_read_logins,omitempty"`
 }
 type BrowserCreateInputDurability string
 
@@ -1608,6 +1614,13 @@ const (
 	BrowserCreateInputDurabilityLocal      BrowserCreateInputDurability = "local"
 	BrowserCreateInputDurabilityReplicated BrowserCreateInputDurability = "replicated"
 	BrowserCreateInputDurabilityBackup     BrowserCreateInputDurability = "backup"
+)
+
+type BrowserCreateInputMode string
+
+const (
+	BrowserCreateInputModeExternal BrowserCreateInputMode = "external"
+	BrowserCreateInputModeCopied   BrowserCreateInputMode = "copied"
 )
 
 type BrowserCreateInputVisibility string
@@ -1651,16 +1664,24 @@ const (
 )
 
 type BrowserFillPasswordCompletion struct {
+	ApprovalId *string          `json:"approval_id,omitempty"`
+	Plan       *AdapterDocument `json:"plan,omitempty"`
+	State      *string          `json:"state,omitempty"`
+	Filled     *bool            `json:"filled,omitempty"`
+	Private    *bool            `json:"private,omitempty"`
 }
 type BrowserFillPasswordInput struct {
-	BrowserId          string  `json:"browser_id"`
-	CredentialSourceId *string `json:"credential_source_id,omitempty"`
-	SecretRef          *string `json:"secret_ref,omitempty"`
-	ActionDigest       *string `json:"action_digest,omitempty"`
-	ApprovalId         *string `json:"approval_id,omitempty"`
-	IdempotencyKey     string  `json:"idempotency_key"`
-	WaitMs             *uint64 `json:"wait_ms,omitempty"`
-	ExpectedRevision   uint64  `json:"expected_revision"`
+	BrowserId          string           `json:"browser_id"`
+	CredentialSourceId *string          `json:"credential_source_id,omitempty"`
+	SecretRef          *string          `json:"secret_ref,omitempty"`
+	ActionDigest       *string          `json:"action_digest,omitempty"`
+	ApprovalId         *string          `json:"approval_id,omitempty"`
+	IdempotencyKey     string           `json:"idempotency_key"`
+	WaitMs             *uint64          `json:"wait_ms,omitempty"`
+	ExpectedRevision   uint64           `json:"expected_revision"`
+	Origin             *string          `json:"origin,omitempty"`
+	Submit             *bool            `json:"submit,omitempty"`
+	Plan               *AdapterDocument `json:"plan,omitempty"`
 }
 type BrowserFillPasswordResult struct {
 	OperationId string                         `json:"operation_id"`
@@ -1693,6 +1714,13 @@ type BrowserListResult struct {
 	NextCursor *string   `json:"next_cursor,omitempty"`
 	RequestId  string    `json:"request_id"`
 }
+type BrowserMode string
+
+const (
+	BrowserModeExternal BrowserMode = "external"
+	BrowserModeCopied   BrowserMode = "copied"
+)
+
 type BrowserReturnControlCompletion struct {
 }
 type BrowserReturnControlInput struct {
@@ -4877,22 +4905,23 @@ const (
 )
 
 type Kit struct {
-	Id                 string        `json:"id"`
-	Kind               KitKind       `json:"kind"`
-	FleetId            string        `json:"fleet_id"`
-	OwnerId            string        `json:"owner_id"`
-	Revision           uint64        `json:"revision"`
-	CreatedAt          string        `json:"created_at"`
-	UpdatedAt          string        `json:"updated_at"`
-	State              KitState      `json:"state"`
-	Labels             StringMap     `json:"labels"`
-	Visibility         KitVisibility `json:"visibility"`
-	Name               *string       `json:"name,omitempty"`
-	Digest             *string       `json:"digest,omitempty"`
-	PluginId           *string       `json:"plugin_id,omitempty"`
-	InstallPlanBlobId  *string       `json:"install_plan_blob_id,omitempty"`
-	DeviceRequirements *[]Device     `json:"device_requirements,omitempty"`
-	StateSchema        *JSONSchema   `json:"state_schema,omitempty"`
+	Id                 string          `json:"id"`
+	Kind               KitKind         `json:"kind"`
+	FleetId            string          `json:"fleet_id"`
+	OwnerId            string          `json:"owner_id"`
+	Revision           uint64          `json:"revision"`
+	CreatedAt          string          `json:"created_at"`
+	UpdatedAt          string          `json:"updated_at"`
+	State              KitState        `json:"state"`
+	Labels             StringMap       `json:"labels"`
+	Visibility         KitVisibility   `json:"visibility"`
+	Name               *string         `json:"name,omitempty"`
+	Digest             *string         `json:"digest,omitempty"`
+	PluginId           *string         `json:"plugin_id,omitempty"`
+	InstallPlanBlobId  *string         `json:"install_plan_blob_id,omitempty"`
+	DeviceRequirements *[]Device       `json:"device_requirements,omitempty"`
+	StateSchema        *JSONSchema     `json:"state_schema,omitempty"`
+	Tools              *[]KitToolsItem `json:"tools,omitempty"`
 }
 type KitCreateCompletion struct {
 	KitId string `json:"kit_id"`
@@ -4908,7 +4937,21 @@ type KitCreateInput struct {
 	Visibility         *KitCreateInputVisibility `json:"visibility,omitempty"`
 	IdempotencyKey     string                    `json:"idempotency_key"`
 	WaitMs             *uint64                   `json:"wait_ms,omitempty"`
+	Tools              []KitCreateInputToolsItem `json:"tools"`
 }
+type KitCreateInputToolsItem string
+
+const (
+	KitCreateInputToolsItemGit     KitCreateInputToolsItem = "git"
+	KitCreateInputToolsItemDocker  KitCreateInputToolsItem = "docker"
+	KitCreateInputToolsItemBrowser KitCreateInputToolsItem = "browser"
+	KitCreateInputToolsItemPython  KitCreateInputToolsItem = "python"
+	KitCreateInputToolsItemNode    KitCreateInputToolsItem = "node"
+	KitCreateInputToolsItemGo      KitCreateInputToolsItem = "go"
+	KitCreateInputToolsItemRust    KitCreateInputToolsItem = "rust"
+	KitCreateInputToolsItemC       KitCreateInputToolsItem = "c"
+)
+
 type KitCreateInputVisibility string
 
 const (
@@ -4947,6 +4990,36 @@ type KitGetResult struct {
 	Data      Kit    `json:"data"`
 	RequestId string `json:"request_id"`
 }
+type KitInstallCompletion struct {
+	State      string `json:"state"`
+	JobId      string `json:"job_id"`
+	SandboxId  string `json:"sandbox_id"`
+	Generation uint64 `json:"generation"`
+}
+type KitInstallInput struct {
+	LeaseId          *string `json:"lease_id,omitempty"`
+	IdempotencyKey   string  `json:"idempotency_key"`
+	WaitMs           *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision uint64  `json:"expected_revision"`
+	KitId            string  `json:"kit_id"`
+	SandboxId        string  `json:"sandbox_id"`
+}
+type KitInstallResult struct {
+	OperationId string                `json:"operation_id"`
+	ResourceIds []ResourceRef         `json:"resource_ids"`
+	RequestId   string                `json:"request_id"`
+	Replayed    bool                  `json:"replayed"`
+	Operation   *Operation            `json:"operation,omitempty"`
+	Result      *KitInstallCompletion `json:"result,omitempty"`
+}
+type KitInstallStatusInput struct {
+	KitId string `json:"kit_id"`
+	JobId string `json:"job_id"`
+}
+type KitInstallStatusResult struct {
+	RequestId string          `json:"request_id"`
+	Data      AdapterDocument `json:"data"`
+}
 type KitKind string
 
 const (
@@ -4969,6 +5042,19 @@ const (
 	KitStateActive   KitState = "active"
 	KitStateDisabled KitState = "disabled"
 	KitStateDeleted  KitState = "deleted"
+)
+
+type KitToolsItem string
+
+const (
+	KitToolsItemGit     KitToolsItem = "git"
+	KitToolsItemDocker  KitToolsItem = "docker"
+	KitToolsItemBrowser KitToolsItem = "browser"
+	KitToolsItemPython  KitToolsItem = "python"
+	KitToolsItemNode    KitToolsItem = "node"
+	KitToolsItemGo      KitToolsItem = "go"
+	KitToolsItemRust    KitToolsItem = "rust"
+	KitToolsItemC       KitToolsItem = "c"
 )
 
 type KitUpdateCompletion struct {
@@ -7460,6 +7546,7 @@ type SandboxCreateInput struct {
 	Durability        *SandboxCreateInputDurability `json:"durability,omitempty"`
 	IdempotencyKey    string                        `json:"idempotency_key"`
 	WaitMs            *uint64                       `json:"wait_ms,omitempty"`
+	Labels            *StringMap                    `json:"labels,omitempty"`
 }
 type SandboxCreateInputAuthMode string
 
@@ -10865,6 +10952,8 @@ var Operations = []OperationDescriptor{
 	{"kit_create", "kit.create", "lamp kit create", "post", "/v1/kits", "KitCreateInput", "KitCreateResult", "authenticated_scope", true},
 	{"kit_delete", "kit.delete", "lamp kit delete", "delete", "/v1/kits/{kit_id}", "KitDeleteInput", "KitDeleteResult", "authenticated_scope", true},
 	{"kit_get", "kit.get", "lamp kit get", "get", "/v1/kits/{kit_id}", "KitGetInput", "KitGetResult", "authenticated_scope", false},
+	{"kit_install", "kit.install", "lamp kit install", "post", "/v1/kits/{kit_id}:install", "KitInstallInput", "KitInstallResult", "authenticated_scope", true},
+	{"kit_install_status", "kit.install_status", "lamp kit install-status", "get", "/v1/kits/{kit_id}/installations/{job_id}", "KitInstallStatusInput", "KitInstallStatusResult", "authenticated_scope", false},
 	{"kit_list", "kit.list", "lamp kit list", "get", "/v1/kits", "KitListInput", "KitListResult", "authenticated_scope", false},
 	{"kit_update", "kit.update", "lamp kit update", "patch", "/v1/kits/{kit_id}", "KitUpdateInput", "KitUpdateResult", "authenticated_scope", true},
 	{"lease_create", "lease.create", "lamp lease create", "post", "/v1/leases", "LeaseCreateInput", "LeaseCreateResult", "authenticated_scope", true},

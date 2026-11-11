@@ -1,0 +1,8 @@
+{"operation": "allocation admission", "value": {"available_mib": 27264, "live_firecracker": 0}}
+{"operation": "created disposable VM", "value": {"sandbox_id": "sb_030b321ec37f5f4cf5271b8e22769205"}}
+{"operation": "guest boot preparation and confinement", "value": {"host_socket_present": false, "runtime_mode": "0o1777", "uid_map": "0      65537          1"}}
+{"operation": "started VM toolchain installation", "value": {"generation": 1, "job_id": "a5a15c5dcb16e4222287ffc950053a2e", "sandbox_id": "sb_030b321ec37f5f4cf5271b8e22769205", "state": "installing"}}
+{"operation": "VM toolchain installation outcome", "value": {"generation": 1, "job_id": "a5a15c5dcb16e4222287ffc950053a2e", "result": {"boundary": "vm", "cached_packages": ["busybox-static", "docker.io"], "docker_host": "unix:///tmp/lamp-kit-docker/docker.sock", "downloaded_packages": [], "installed": ["git", "docker"], "path": "/tmp/lamp-toolchains/bin", "reused_packages": ["ca-certificates", "git"]}, "sandbox_id": "sb_030b321ec37f5f4cf5271b8e22769205", "state": "ready"}}
+{"operation": "real isolated Docker container", "value": {"docker_args": ["run", "--rm", "--network=none", "t22-disposable-busybox", "/bin/busybox", "printf", "lamp-kit-docker-working"], "docker_exit_code": 126, "native_failure": "docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: unable to apply cgroup configuration: mkdir /sys/fs/cgroup/docker: permission denied\n\nRun 'docker run --help' for more information\n"}}
+{"operation": "public release", "value": {"released": true}}
+{"operation": "fixture teardown", "value": {"controller_stopped": true, "live_firecracker": 0}}

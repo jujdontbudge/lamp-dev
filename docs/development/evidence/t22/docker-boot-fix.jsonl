@@ -1,0 +1,7 @@
+{"operation": "allocation admission", "value": {"available_mib": 27483, "live_firecracker": 0}}
+{"operation": "created disposable VM", "value": {"sandbox_id": "sb_edeff4d17783847b5060f653f12a6286"}}
+{"operation": "guest boot preparation and confinement", "value": {"host_socket_present": false, "runtime_mode": "0o1777", "uid_map": "0      65537          1"}}
+{"operation": "started VM toolchain installation", "value": {"generation": 1, "job_id": "645c683885b1a5aeaef6f13567496c8d", "sandbox_id": "sb_edeff4d17783847b5060f653f12a6286", "state": "installing"}}
+{"operation": "VM toolchain installation outcome", "value": {"exception_class": "RuntimeError", "failure_code": "KIT_INSTALL_FAILED", "generation": 1, "job_id": "645c683885b1a5aeaef6f13567496c8d", "phase": "docker", "sandbox_id": "sb_edeff4d17783847b5060f653f12a6286", "state": "failed"}}
+{"operation": "public release", "value": {"released": true}}
+{"operation": "fixture teardown", "value": {"controller_stopped": true, "live_firecracker": 0}}
