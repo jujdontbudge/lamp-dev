@@ -264,7 +264,9 @@ func execute(c *client, sandbox string, argv []string, key string, stream bool) 
 				}
 			}
 		}
-		if next, _ := w["next_cursor"].(string); next != "" {
+		// A finished exec whose output is fully read returns no next cursor.
+		next, _ := w["next_cursor"].(string)
+		if next != "" {
 			cursor = next
 		}
 		g, err := c.do("GET", "/v1/execs/"+id, nil, nil)
@@ -273,7 +275,7 @@ func execute(c *client, sandbox string, argv []string, key string, stream bool) 
 		}
 		d, _ := g["data"].(map[string]any)
 		if st := d["state"]; st == "exited" || st == "failed" || st == "outcome_unknown" {
-			if len(items) > 0 {
+			if len(items) > 0 && next != "" {
 				continue // drain remaining output first
 			}
 			if st != "exited" {
