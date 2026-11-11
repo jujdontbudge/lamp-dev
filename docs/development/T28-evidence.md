@@ -171,6 +171,67 @@ tamper refusal, the broken release and the policy staying off by default.
   unusable until they are prepared again; this demo's releases do not change
   them.
 
+## Review fixes (2026-11-11)
+
+All nine review findings are fixed in `cmd/lamp-installer`, `internal/release` and
+`internal/control/updates.go`. #1, #8 and #9 were shown once each for real. The
+others were built (`go build ./...`) but not run separately. No tests were
+added.
+
+1. **A failed supervisor start no longer leaves the host without a
+   supervisor.** Stopping the supervisor records `version: ""`, and a transition
+   swaps whenever no supervisor is alive. Shown on Ubuntu with signed release
+   5.2.0, whose supervisor exits at start: `supervisor_start_failed`, then
+   `supervisor_swapped from "" to 5.1.0`, `sandbox_resumed` and `rolled_back`.
+   The guest process stayed alive.
+2. **Revocations are enforced.** They are gathered from every verified index in
+   the mirror. They are checked in `update_create`, automatic updates (a
+   revoked release is never chosen as newest), `update_rollback` targets and on
+   the host for updates and rollbacks.
+3. **A failed or rolled-back release can be retried.** A staged release is
+   reused only if it still passes `VerifyStaged`; otherwise it is removed and
+   staged again.
+4. **Only `ready` sandboxes are suspended, and they come back `ready`.** The
+   schema has no `running` state for a sandbox.
+5. **The work check covers this host only.** It looks at sandboxes and
+   resources this host runs or holds a copy of, and it fails only if an
+   earlier item is missing or its digest changed. The host id is now lampd's
+   own: the fleet config's `host_id`, else `hs_local`. It is never a caller
+   flag. An earlier run that passed a mismatching id skipped the suspend and
+   lost that demo's VM. The work check caught it and failed the update, and
+   the flag is gone.
+6. **The channel the coordinator checked travels in `update-request.json`**,
+   and the host checks the release against that channel.
+7. **The agent passes the Update's release digest.** `applyUpdate` refuses if
+   the digest from `VerifyPlatform` differs.
+8. **An engine change cannot strand saved work.** Releases sign their engine
+   identity in the manifest (`engine`: each shipped engine binary's digest and
+   `snapshot_format`, required when an engine is shipped). The updater refuses
+   an engine change while the store holds machine state made by the running
+   engine: templates, captures, or running or suspended sandboxes. It refuses
+   before anything is changed. Shown on the M5
+   (`evidence/t28/review/engine-guard.txt`): 6.0.0 (`lamp-vz` cc0d0222…,
+   format 1) to 6.1.0 (`lamp-vz` 7e3e1128…, format 2) was refused. The error
+   names the sandbox and the template. Afterwards it was the same version, the
+   same supervisor pid, and the sandbox was still `ready`. The other option,
+   keeping the old engine for old snapshots, was not built.
+9. **Linux swaps its supervisor and engine like the Macs.** The supervisor set
+   is per OS: `lamp-vz` on macOS; `firecracker` and `jailer` on Linux. It runs
+   from a root-owned release directory under both systemd and launchd hosts.
+   Shown on the Ubuntu laptop (`evidence/t28/review/linux-supervisor-swap.txt`,
+   script `tools/t28_linux_supervisor_demo.sh`). The demo used a disposable
+   store (`/var/lib/lamp/t28`, own uid range and `/run/t28`) with a template
+   built from a copy of a seed. One sandbox ran; the laptop had 0–1 other
+   firecracker processes and about 26 GiB available. The steps:
+   * Install 5.0.0 under systemd.
+   * Update to 5.1.0: suspend, swap to supervisor 833b0b51…, resume, completed.
+   * Update to 5.2.0: the broken supervisor is reverted as in #1.
+
+   The guest's tmpfs heartbeat kept counting (2, then 4, then 5) and the process
+   stayed alive. The guest boot id here comes from the template snapshot, so the
+   surviving in-memory heartbeat is the evidence. Afterwards the store, units and
+   mounts were removed.
+
 ## Not done or not run (stated plainly)
 
 * **No Apple Developer ID signing, Installer package or notarization.** Creating

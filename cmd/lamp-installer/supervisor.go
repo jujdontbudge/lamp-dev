@@ -179,7 +179,10 @@ func savedState(sup *supervisorState) ([]string, error) {
 		return nil, errors.New("supervisor has no --store")
 	}
 	found := []string{}
-	for _, d := range []string{"templates", "captures", "sb"} {
+	// templates, captures and sandboxes (sb/ on macOS); on Linux running
+	// machines also live under jail/firecracker/ and durable snapshots under
+	// state/objects/.
+	for _, d := range []string{"templates", "captures", "sb", "jail/firecracker", "state/objects"} {
 		out, err := exec.Command("sudo", "-n", "find", filepath.Join(store, d), "-mindepth", "1", "-maxdepth", "1").Output()
 		if err != nil {
 			continue // absent directory

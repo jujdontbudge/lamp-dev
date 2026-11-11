@@ -714,7 +714,6 @@ func install(args []string) error {
 	fl.Var(&supArgs, "supervisor-arg", "run the VZ supervisor as a Lamp component with this serve argument (repeatable; include --socket)")
 	supDir := fl.String("supervisor-dir", "", "root-owned directory for release supervisor copies (default /usr/local/lib/lamp-<name>)")
 	supSystem := fl.String("supervisor-system", "/usr/local/lib/lamp", "supervisor used by releases that ship none")
-	hostID := fl.String("host-id", "", "this host's id (default: the --fleet-config host_id, else hs_local)")
 	var extra multi
 	fl.Var(&extra, "lampd-arg", "extra lampd argument (repeatable), e.g. enrolled worker or --fleet-config flags")
 	fl.Parse(args)
@@ -787,8 +786,11 @@ func install(args []string) error {
 	if err := point(p, m.Version); err != nil {
 		return err
 	}
-	st := installState{Name: *name, Service: *service, Current: m.Version, HighestVersion: m.Version, LampdArgs: lampdArgs, HostID: *hostID}
-	if st.HostID == "" {
+	// lampd's own host id, which its sandboxes carry: the fleet config's
+	// host_id, else the single-host default. Never taken from the caller, so
+	// it cannot disagree with lampd.
+	st := installState{Name: *name, Service: *service, Current: m.Version, HighestVersion: m.Version, LampdArgs: lampdArgs}
+	{
 		st.HostID = "hs_local"
 		for i, a := range lampdArgs {
 			if a == "--fleet-config" && i+1 < len(lampdArgs) {
