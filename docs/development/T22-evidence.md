@@ -539,3 +539,10 @@ daemon. One 300 s bound now covers containerd startup, dockerd startup and
 reuse, and a reused daemon that disappears fails the job. That 300 s bound
 had been lost by an earlier edit; it is back. Build-only check: the generated
 job script compiles.
+
+**Follow-up: parallel exec race (build-only).** The helper serves each
+connection on its own thread, so one exec's sweep could remove another exec's leaf
+between that leaf's `create_dir` and its child's `cgroup.procs` write. A
+mutex-protected in-flight set now holds every leaf from creation until its exec's
+`spawn` returns (or fails). The sweep runs under the same lock and skips those
+leaves. Built on LX (`cargo build --release -p lamp-init --bins`); not rerun.
