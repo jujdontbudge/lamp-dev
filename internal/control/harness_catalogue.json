@@ -41,7 +41,7 @@
     "routes": {
       "api_key": "Official binary with an OPENCODE_CONFIG_CONTENT provider (@ai-sdk/openai-compatible) pointed at the broker's native chat-completions route."
     },
-    "permission_sources": ["https://opencode.ai/docs/providers/", "https://github.com/anomalyco/opencode/blob/dev/packages/web/src/content/docs/network.mdx"],
+    "permission_sources": ["https://opencode.ai/docs/providers/", "https://opencode.ai/docs/network/"],
     "endpoints": ["provider API chosen by the owner"],
     "trust": "NODE_EXTRA_CA_CERTS (CLI and background server)",
     "continuation": "opencode run -s <sessionID>",
@@ -108,7 +108,7 @@
       "api_key": "Direct provider mode (GOOSE_PROVIDER=openai, OPENAI_HOST) pointed at the broker's native chat-completions route.",
       "delegated": "ACP mode delegates sign-in and transport to another official harness; no continuation is claimed for it."
     },
-    "permission_sources": ["https://block.github.io/goose/docs/getting-started/providers", "https://block.github.io/goose/docs/guides/environment-variables"],
+    "permission_sources": ["https://github.com/block/goose/blob/main/documentation/docs/getting-started/providers.md", "https://github.com/block/goose/blob/main/documentation/docs/guides/environment-variables.md"],
     "endpoints": ["provider API chosen by the owner"],
     "trust": "SSL_CERT_FILE",
     "continuation": "goose run --name <name> --resume",
@@ -125,7 +125,7 @@
       "api_key": "Official GEMINI_API_KEY (AI Studio) or Vertex credentials held on the custody host; traffic goes to Google.",
       "subscription": "Google sign-in only where the account's current eligibility allows it; checked per account, not assumed."
     },
-    "permission_sources": ["https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md", "https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/authentication.md"],
+    "permission_sources": ["https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md", "https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/authentication.mdx"],
     "endpoints": ["generativelanguage.googleapis.com", "aiplatform.googleapis.com"],
     "trust": "NODE_EXTRA_CA_CERTS",
     "continuation": "gemini -p --resume <session_id>",

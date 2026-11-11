@@ -175,6 +175,24 @@ class OpenCode:
             config["tools"] = {"bash": False, "edit": False, "write": False, "patch": False}
         env["OPENCODE_CONFIG_CONTENT"] = json.dumps(config)
 
+    def before(self, c, state, env):
+        # opencode records the session's directory; after a move, re-import
+        # its own export at the new workspace (opencode export/import).
+        exported = Path(env["HOME"]) / "opencode-session.json"
+        if state.get("session_id") and state.get("directory") != os.getcwd() and exported.exists():
+            data = json.loads(exported.read_text())
+            data["info"]["directory"] = os.getcwd()
+            moved = exported.with_suffix(".import.json")
+            write_private(moved, data)
+            subprocess.run([c["binary"], "import", str(moved)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120, check=True)
+        state["directory"] = os.getcwd()
+
+    def after(self, c, state, env):
+        if state.get("session_id"):
+            out = subprocess.run([c["binary"], "export", state["session_id"]], env=env, capture_output=True, text=True, timeout=120)
+            if out.returncode == 0 and out.stdout.strip():
+                write_private(Path(env["HOME"]) / "opencode-session.json", out.stdout)
+
     def argv(self, c, state, prompt):
         argv = [c["binary"], "run", "--format", "json"]
         if c.get("model"):
@@ -464,13 +482,16 @@ def main():
         path = home / "lamp-mcp.json"
         path.write_text(json.dumps({"mcpServers": {"lamp": config["mcp"]}}))
         config["mcp_config"] = str(path)
-    adapter.prepare(config, home, environment)
     # Private native event trace for adapter diagnosis; stays in the session home.
     trace = (home / "native-events.jsonl").open("a") if config.get("trace") else None
     for line in sys.stdin:
         request = json.loads(line)
         identity = request["input_id"]
         emit({"type": "status", "status": "working", "input_id": identity})
+        # Re-read short-lived transport grants and custody files every turn.
+        adapter.prepare(config, home, environment)
+        if hasattr(adapter, "before"):
+            adapter.before(config, state, environment)
         argv, stdin = adapter.argv(config, state, request["text"])
         process = subprocess.Popen(argv, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=environment, text=True)
         if stdin is not None:
