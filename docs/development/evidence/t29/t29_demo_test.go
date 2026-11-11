@@ -14,24 +14,24 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
-	"sort"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -43,14 +43,14 @@ import (
 )
 
 type t29Live struct {
-	Worker        WorkerConfig  `json:"worker"`
-	StateAdmin    []string      `json:"state_admin"`
-	NetworkReader []string      `json:"network_reader"`
+	Worker        WorkerConfig    `json:"worker"`
+	StateAdmin    []string        `json:"state_admin"`
+	NetworkReader []string        `json:"network_reader"`
 	Repository    ci.Repository   `json:"repository"`
 	Repositories  []ci.Repository `json:"repositories"`
-	Template      string        `json:"template"`
-	Forge         string        `json:"forge"`
-	TokenFile     string        `json:"token_file"`
+	Template      string          `json:"template"`
+	Forge         string          `json:"forge"`
+	TokenFile     string          `json:"token_file"`
 }
 
 func t29Call(t *testing.T, s *Service, method, path string, body any, rev string) (int, map[string]any) {
@@ -130,6 +130,7 @@ func t29Job(s *Service, pred func(*ciJob) bool) (string, ciJob) {
 	}
 	return "", ciJob{}
 }
+
 var t29Store *Service
 
 func t29Until(t *testing.T, what string, d time.Duration, f func() bool) {
@@ -148,7 +149,10 @@ func t29Until(t *testing.T, what string, d time.Duration, f func() bool) {
 	deadline := time.Now().Add(d)
 	for !f() {
 		if time.Now().After(deadline) {
-			t.Logf("vms on host: %s", func() string { b, _ := exec.Command("pgrep", "-c", "firecracker").Output(); return strings.TrimSpace(string(b)) }())
+			t.Logf("vms on host: %s", func() string {
+				b, _ := exec.Command("pgrep", "-c", "firecracker").Output()
+				return strings.TrimSpace(string(b))
+			}())
 			t.Fatalf("timed out waiting for %s", what)
 		}
 		time.Sleep(time.Second)
@@ -219,6 +223,9 @@ func TestT29Demonstration(t *testing.T) {
 		}
 		return
 	}())
+	if os.Getenv("LAMP_T29_POLICY") != "" {
+		go t29PolicyObserver(t, s, live)
+	}
 
 	// Demo-only observer: the runner's own output tail from inside the VM.
 	go func() {
@@ -269,9 +276,6 @@ func TestT29Demonstration(t *testing.T) {
 		t29Triggers(t, s, live, root)
 		return
 	}
-	if os.Getenv("LAMP_T29_POLICY") != "" {
-		go t29PolicyObserver(t, s, live)
-	}
 	if os.Getenv("LAMP_T29_ONLY") == "extra" {
 		t29Extra(t, s, live, root, config)
 		return
@@ -303,7 +307,9 @@ func TestT29Demonstration(t *testing.T) {
 	t29Forge(t, live, "POST", "/actions/workflows/slow.yml/dispatches", map[string]any{"ref": "main"})
 	var slow string
 	t29Until(t, "slow job running", 20*time.Minute, func() bool {
-		id, j := t29Job(s, func(j *ciJob) bool { return j.Workflow == ".forgejo/workflows/slow.yml" && !ciTerminal(textField(j.R, "state")) })
+		id, j := t29Job(s, func(j *ciJob) bool {
+			return j.Workflow == ".forgejo/workflows/slow.yml" && !ciTerminal(textField(j.R, "state"))
+		})
 		slow = id
 		return id != "" && textField(j.R, "state") == "running"
 	})
@@ -326,7 +332,9 @@ func TestT29Demonstration(t *testing.T) {
 	t29Forge(t, live, "POST", "/actions/workflows/slow.yml/dispatches", map[string]any{"ref": "main"})
 	var lost string
 	t29Until(t, "second slow job running", 20*time.Minute, func() bool {
-		id, j := t29Job(s, func(j *ciJob) bool { return j.Workflow == ".forgejo/workflows/slow.yml" && !ciTerminal(textField(j.R, "state")) })
+		id, j := t29Job(s, func(j *ciJob) bool {
+			return j.Workflow == ".forgejo/workflows/slow.yml" && !ciTerminal(textField(j.R, "state"))
+		})
 		lost = id
 		return id != "" && textField(j.R, "state") == "running"
 	})
@@ -679,7 +687,10 @@ func t29Extra(t *testing.T, s *Service, live t29Live, root string, base Config) 
 	}
 	s.mu.Unlock()
 	t.Logf("cancel: sandbox %s %s; guard audit released=%v; execs still running in it=%d; firecracker on host=%s", csb, sbState, released, running,
-		func() string { b, _ := exec.Command("pgrep", "-c", "firecracker").Output(); return strings.TrimSpace(string(b)) }())
+		func() string {
+			b, _ := exec.Command("pgrep", "-c", "firecracker").Output()
+			return strings.TrimSpace(string(b))
+		}())
 	s.Close()
 
 	// 3. One schedule on two fleet hosts runs each occurrence once fleet-wide.

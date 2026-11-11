@@ -33,7 +33,7 @@ token-like values are redacted.
 | Woodpecker | `pg_woodpecker` | success; public repo classed `public_pr` (public policy) | [08](evidence/t29/logs/demonstration-08-systems.log) |
 | GitLab, Custom executor | `cmd/lamp-gitlab-executor` | success with artifacts, in its own fresh sandbox | [16](evidence/t29/logs/demonstration-16-gitlab.log) |
 | GitLab, Fleeting | `cmd/lamp-fleeting` (+ `lamp-fleeting-guest`) | success with artifacts, in its own instance; the instance is pruned after one use | [14](evidence/t29/logs/demonstration-14-gitlab.log), [16](evidence/t29/logs/demonstration-16-gitlab.log) |
-| Buildkite, CircleCI, Azure Pipelines, Bitbucket | adapters in `internal/ci/systems.go` | **not run**: blocked at account signup, see below | none |
+| Buildkite, CircleCI, Azure Pipelines, Bitbucket | adapters in `internal/ci/systems.go` | **not run**: the owner dropped them (2026-11-11); adapters kept as built. Earlier signups were blocked, see below | none |
 
 Every run ended with 0 sandboxes left undeleted, 0 forge runners still
 registered, and no Firecracker process left by this ticket.
@@ -69,7 +69,8 @@ Playwright's own headless Chromium stopped at a bot check:
 - **Azure Pipelines:** Microsoft account creation shows a HUMAN
   press-and-hold challenge at the email step.
 
-These need the owner to create the accounts, or to pass the challenge once.
+On 2026-11-11 the owner dropped real-job runs for these four. Their adapters
+stay as built, and no further signups were attempted.
 
 The generic GitLab `run-single` forge adapter (`pg_gitlab`) was also not run.
 GitLab was demonstrated through the Custom executor and the Fleeting plugin,
