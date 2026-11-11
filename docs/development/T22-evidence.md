@@ -24,6 +24,7 @@ screenshot is included in the committed evidence.
 | KIT-004 toolchains | Git request returns a guest prefix and executes `git version 2.53.0`; explicitly reported as template reuse, not a new online install | [toolchain journey](evidence/t22/toolchain-journey.jsonl), steps 1–5 |
 | KIT-004 containerd preparation | New guest PID 1 creates `/run/containerd` as `1777`; normal public exec remains mapped `0 -> 65537`; no `/var/run/docker.sock`; containerd starts | [boot fix](evidence/t22/docker-boot-fix.jsonl), [native startup diagnostic](evidence/t22/docker-startup-failure.jsonl) |
 | KIT-005 KeePassXC | Owner reads authoritative vault/item/origin/submit plan; one approval causes real native read, sealed fill and successful form submission | browser journey, steps 4–11 |
+| KIT-005/B3 password-field private typing | Agent typing refused; owner types privately, real login, safe `about:blank` handback | [private typing](evidence/t22/password-private-typing.jsonl) |
 | KIT-005 Bitwarden (Vaultwarden) | Per-vault approval, native Bitwarden CLI read, sealed fill and real login on the public test site | [Bitwarden fill](evidence/t22/bitwarden-fill.jsonl) |
 | KIT-005 1Password / Proton Pass | Not demonstrated | **Not done, waiting on owner** |
 | KIT-004 Docker container | Nested namespace + private `/run` run did not finish installing; no container ran | **Not done**; [latest run](evidence/t22/docker-private-run.jsonl) |
@@ -365,3 +366,29 @@ only after a failed result, so no guest log was captured. Public release returne
 [Transcript](evidence/t22/docker-private-run.jsonl). **No BusyBox container ran.**
 Next step: have the readiness loop give up with a failed result and keep
 the runtime log, then run once more.
+
+## Password-field private typing — 2026-11-11
+
+**PASS.** [Transcript](evidence/t22/password-private-typing.jsonl), run `lamp-browser-bw8` on LX:
+separate external browser VM; the broad agent key was denied read, exec and capture
+of it; ordinary agent typing into `#password` was refused; the owner took over and
+typed the username and password privately through the sealed path, then submitted;
+the page reached `/secure` (`real_login_completed: true`); the rejected probe text
+was absent from every control file; return-control handed back on `about:blank`
+with `httponly-cookies-only`. Both VMs were released and Firecracker count returned
+to 0.
+
+Why the earlier check failed: the demo's login check only retried on `ValueError`.
+After the private submit, the page is mid-navigation, and its debug socket can drop
+or stall, which crashed the check. It now reconnects on each try and reports the
+error class. The run also showed that return-control dropped the guest's
+`safe_page`; `internal/control/kits.go` now passes `safe_page` and `session_policy`
+through.
+
+Failed attempts are kept, not relabeled: `bw6` (login check exceeded the exec
+deadline) and `bw7` (first navigate refused). Both browser VMs logged
+`lamp-guard: NFQUEUE poll/liveness failure`: the host network guard missed its
+1-second liveness deadline and cut the VM's network, as designed. LX swap was
+full (8 GiB, held by long-running owner apps) while 27 GiB RAM was available. I
+did not change the guard. Separately, lampd does not exit on SIGTERM while its
+managed kits backend runs; I killed my own leftover lampd/kits processes by PID.
