@@ -462,6 +462,12 @@ func (s *Service) kitEffect(ctx context.Context, name string, in map[string]any,
 		e.Data["state"] = "human_control"
 	case "browser_return_control":
 		e.Data["state"] = "agent_control"
+		// Report the guest's clean handback page and session policy to the owner.
+		for _, k := range []string{"safe_page", "session_policy"} {
+			if v, ok := out[k].(string); ok {
+				completion[k] = v
+			}
+		}
 	case "browser_delete":
 		e.Data["state"] = "closed"
 	case "browser_fill_password":
