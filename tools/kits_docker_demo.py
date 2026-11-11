@@ -37,7 +37,8 @@ def main():
             return False
         argv = shlex.split(result.stdout)
         assert len(argv) > 1 and Path(argv[1]).name == 'kits_lx_demo_host.py'
-        assert argv[argv.index('--root') + 1] == str(fixture)
+        cwd = Path('/proc') / str(controller) / 'cwd'
+        assert (cwd.resolve() / argv[argv.index('--root') + 1]).resolve() == fixture
         return True
 
     assert controller_alive()

@@ -149,7 +149,8 @@ c.close();print(json.dumps({'real_login_completed':ok}))"""
                 try:
                     argv=(Path('/proc')/str(controller)/'cmdline').read_bytes().split(b'\0')
                     assert any(Path(os.fsdecode(x)).name=='kits_lx_demo_host.py' for x in argv if x)
-                    assert os.fsencode(str(fixture)) in argv
+                    root_arg=os.fsdecode(argv[argv.index(b'--root')+1])
+                    assert ((Path('/proc')/str(controller)/'cwd').resolve()/root_arg).resolve()==fixture
                     os.kill(controller,signal.SIGHUP)
                 except FileNotFoundError:pass
                 transcript.close()

@@ -24,8 +24,9 @@ screenshot is included in the committed evidence.
 | KIT-004 toolchains | Git request returns a guest prefix and executes `git version 2.53.0`; explicitly reported as template reuse, not a new online install | [toolchain journey](evidence/t22/toolchain-journey.jsonl), steps 1–5 |
 | KIT-004 containerd preparation | New guest PID 1 creates `/run/containerd` as `1777`; normal public exec remains mapped `0 -> 65537`; no `/var/run/docker.sock`; containerd starts | [boot fix](evidence/t22/docker-boot-fix.jsonl), [native startup diagnostic](evidence/t22/docker-startup-failure.jsonl) |
 | KIT-005 KeePassXC | Owner reads authoritative vault/item/origin/submit plan; one approval causes real native read, sealed fill and successful form submission | browser journey, steps 4–11 |
-| KIT-005 1Password/Bitwarden/Proton Pass | Native adapter code only; isolated real sessions/account setup and provider-specific no-prompt behavior not demonstrated | **Not done** |
-| KIT-004 Docker container | Original daemon startup fails; nested user/mount namespace correction compiles but its live attempt was refused before allocation at the owner's cap | **Not done**; [capacity refusal](evidence/t22/docker-capacity-block.jsonl) |
+| KIT-005 Bitwarden (Vaultwarden) | Per-vault approval, native Bitwarden CLI read, sealed fill and real login on the public test site | [Bitwarden fill](evidence/t22/bitwarden-fill.jsonl) |
+| KIT-005 1Password / Proton Pass | Not demonstrated | **Not done, waiting on owner** |
+| KIT-004 Docker container | Nested namespace + private `/run` run did not finish installing; no container ran | **Not done**; [latest run](evidence/t22/docker-private-run.jsonl) |
 
 The full browser journey exited **1 at its later Docker step**. The successful
 browser sections are not a passing claim for the whole script/ticket. The
@@ -342,3 +343,25 @@ shown** by this run (the earlier generic private typing result still stands).
 Both VMs were released through the public API, and Firecracker count returned
 to 0. The demo's final host-shutdown check rejected my relative `--root` path and
 lampd did not stop on SIGTERM; I killed my own lampd and kits processes by PID.
+
+## Docker with a private /run — 2026-11-11
+
+Docker 29.1.3's plugin manager uses a hard-coded exec root, `/run/docker/plugins`,
+which the mapped task can't create under guest-root-owned `/run`. That fits the
+earlier panic in plugin-manager init (`daemon.go`, "couldn't create plugin
+manager", hidden by the deferred `Events.Close` nil dereference). The install
+job already runs in its own `unshare --user --map-root-user --mount` namespace,
+so `kits/toolchains.py` now mounts a private tmpfs on `/run` there, creating
+`/run/containerd` and `/run/docker`, before it starts containerd and dockerd.
+No other process sees that mount, and the guard and UID mapping are unchanged.
+
+**One run, not passed.** `tools/kits_docker_demo.py` on a fresh VM (admission:
+0 Firecrackers, 27,259 MiB available) recorded the same boot confinement as
+before, then the install job stayed `installing` with no result until my
+20-minute outer `timeout` stopped the demo. It no longer fails quickly, but this
+run doesn't show whether dockerd came up. The demo's startup-log diagnostic runs
+only after a failed result, so no guest log was captured. Public release returned
+`released: true`, the controller stopped and the Firecracker count was 0.
+[Transcript](evidence/t22/docker-private-run.jsonl). **No BusyBox container ran.**
+Next step: have the readiness loop give up with a failed result and keep
+the runtime log, then run once more.

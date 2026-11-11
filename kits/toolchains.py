@@ -97,6 +97,13 @@ docker_env={'PATH':str(bindir)+':/usr/sbin:/usr/bin:/sbin:/bin','HOME':str(state
 # Guest init prepares the hard-coded shim directory /run/containerd. Keep
 # containerd's data, state and socket in our private guest prefix; no root
 # helper or host containerd socket is involved.
+# Docker's plugin manager hard-codes /run/docker/plugins, which the mapped
+# task cannot create under guest-root-owned /run. This job owns its own user and
+# mount namespace, so give it a private tmpfs /run (visible to nothing else).
+phase='runtime-dir'
+if not pathlib.Path('/run/docker').is_dir():
+ subprocess.run(['mount','-t','tmpfs','-o','mode=755','lamp-kit-run','/run'],check=True,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=runtime_log)
+ for d in ('/run/containerd','/run/docker'):os.makedirs(d,mode=0o711,exist_ok=True)
 phase='containerd'
 containerd=None
 containerd_socket=state/'containerd.sock'
