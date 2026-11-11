@@ -1,0 +1,60 @@
+{
+  "certificate_sha256": "bcbd098328da7c8ad33c7623cd2b957b0e4d257ecc40c6b6443abc0bd8b6ac3f",
+  "serial": "6727e586bc533b00ad91cab58197cf27ec2",
+  "dns_names": [
+    "*.f24demo.fleet.eilmer.si"
+  ],
+  "observed_at": "2026-11-11T00:48:25.416827+00:00",
+  "entries": [
+    {
+      "log": "Google Argon2027h1",
+      "log_id": "d6d58da9d01753f36a4aa0c7574902afebc7dc2cd38cd9f764c80c89191e9f02",
+      "url": "https://ct.googleapis.com/logs/us1/argon2027h1/ct/v1/get-entries?start=974801819&end=974801819",
+      "leaf_index": 974801819,
+      "leaf_hash": "6M/x3UCqYpIHBj7V37cJ22jkYLQ5itUVeapo98vUXrk=",
+      "sct_timestamp": "2026-11-11T00:46:21.424000Z",
+      "sct_signature_verified": true,
+      "sth_signature_verified": true,
+      "inclusion_verified": true,
+      "signed_tree_head": {
+        "tree_size": 974814461,
+        "timestamp": 1794358032323,
+        "sha256_root_hash": "6sF3HnQN9LbNswo9Sc9jHXkzeVdF/aNiAk7Vo4dkIFM=",
+        "tree_head_signature": "BAMASDBGAiEAw0mOjDGxbitSdK8nQ0ZBcVHM9nIQEE6ldeKUOB6kLx4CIQD6KdebdN7zja7wcoGWeIrM8c5Lkyj5ul3GtKeZMDR2Ng=="
+      },
+      "audit_path": [
+        "5frTUlNkofgBGFHI7lptAz4WxqliVCI318i5Rshi280=",
+        "T21iu+g/HZIrbpQMxGuh7cj9aYZIX39fGs6eKex5w9A=",
+        "odeGpWpZiIOglivGJ2GyBL+w7FxxANOSUvYaZl6vj4M=",
+        "5agIo861rIAO/hYcETq24NG+fKScTvbXIjLm81QmC1o=",
+        "161OyYFYE5hvcNmpLlUtG3N5qVduS1KRRVZGFd9stQs=",
+        "w223uL/SSJpiUHeO6pjoVM/MM1PZz+jj0oOgqHTI8xE=",
+        "1gjGPjisjO+ixghtxV5JWDFW7fuxTwfxSfzkMTQVCKA=",
+        "RyrrcOyH8db/U/FAX3eH4FTjtE/c4vZAMXhC2bYtJDA=",
+        "cFIYfuE08vktmNSdmEkzMMQnsP1ZBM3965tXmtBA3G4=",
+        "wvt2Wa8Yr6JTzBHLbsrtghPYj9+XJ1zodm4UURZpA1w=",
+        "2A1eXEvFZbySIHc8cNuOKS0g+QlnKIT4Nzy0HbcHpuI=",
+        "S6OqYS9EZsYl/HeiFz7GW9G5uh5E+VhjEV3/Q9ebtFY=",
+        "od3KOnhRKOthqGGhN+5ou9sRYvk3h7Fwc+29e2i0Z88=",
+        "/zpW0RUeXOV+Y9gfaWBfooSWoe02OEJ3dax32w+wHEI=",
+        "QX/T5e2dEGgpVqeY0Le3U2jT2HT+KmQ0JV8fIJDa6cI=",
+        "37yCO1uvHJIaTLVYygJ4pmaYWtbfTwyTkxtCQchswho=",
+        "ouDWbNkcDgYRVTwTYV0Auo9KRJsbPX4Do8/tvQ88T2E=",
+        "mXfIX3HMA/+MB3NwuYHRKJx7ly22cYsB0YDuq+rhPTI=",
+        "wdxA1n2NxFvHjHDx9eBhko0cZ4oYwVWobB9TNBVgT9U=",
+        "6pIbkGwuc1g+ISxKKR9fBmciDTe4T8DA6auLaoY6U5Q=",
+        "MKiLU0NkBA6A5v+OSEfnZQfbHqxaVvouul2ivUJWm20=",
+        "hhc0zkh5Fb67o7+lMYd/FYbIOdFIkXyql/st+FdYqAs="
+      ],
+      "leaf_input": "AAAAAAGhyBHw8AABbrzvtCELCIZUo4sD/qPX0ccRtPsd3DY6RfmxpOU9oB4AAhowggIWoAMCAQICEgZyflhrxTOwCtkcq1gZfPJ+wjAKBggqhkjOPQQDAzAzMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3MgRW5jcnlwdDEMMAoGA1UEAxMDWUUxMB4XDTI2MTExMDIzNDc1MVoXDTI3MDIwODIzNDc1MFowJDEiMCAGA1UEAwwZKi5mMjRkZW1vLmZsZWV0LmVpbG1lci5zaTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABM4SGS9mV1s3V2DsNlfLo3E5GjjH5tpBxiNXoLyIK+FftiVL1ZjzXnEQbXsTps8Rr0Lb3m6Pfnrwt4NjLI7HlfajggEXMIIBEzAOBgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUlKserE5YcVd5ORg8zOVJQ6RZM2wwHwYDVR0jBBgwFoAUuyDKRwv+1+Wc+Y8JKqOMN0WxvNgwMwYIKwYBBQUHAQEEJzAlMCMGCCsGAQUFBzAChhdodHRwOi8veWUxLmkubGVuY3Iub3JnLzAkBgNVHREEHTAbghkqLmYyNGRlbW8uZmxlZXQuZWlsbWVyLnNpMBMGA1UdIAQMMAowCAYGZ4EMAQIBMC4GA1UdHwQnMCUwI6AhoB+GHWh0dHA6Ly95ZTEuYy5sZW5jci5vcmcvNjcuY3JsAAA=",
+      "log_public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKHRm0H/zUaFA6Idz5cGvGO3tCPQyfGMgJmVBOPyKAP6mGM1IiNXi4CLomOUyYj0YN74p+eGVApFMsM4h/jzCsA=="
+    }
+  ],
+  "not_observed": [
+    {
+      "log_id": "8eca470bacde6af3a206b0a47a84b746fe1fc6bf953e25e69b4ee40248f3c6e8",
+      "log": "Let's Encrypt Sycamore2027h1",
+      "reason": "tiled log; this observer implements RFC 6962 v1 endpoints"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "certificate_sha256": "12c6c7f1b1425a40fdccbe333a318701e6c7628fe7b3ba8a00cdbf5a1c938d66",
+  "serial": "504aa2dd8d783103c59c312fdba07bf5139",
+  "dns_names": [
+    "*.f24demo.fleet.eilmer.si"
+  ],
+  "observed_at": "2026-11-11T03:52:10.240883+00:00",
+  "entries": [
+    {
+      "log": "Cloudflare Nimbus2027",
+      "log_id": "4c63dc98e59c1dab88f61e8a3ddeae8fab44a3377b5f9b94c3fba19cfcc1be26",
+      "url": "https://ct.cloudflare.com/logs/nimbus2027/ct/v1/get-entries?start=971735831&end=971735831",
+      "leaf_index": 971735831,
+      "leaf_hash": "YffOODURPsE/+C9ePJLGcAYO34D3vc9uAlWhVTaMdYo=",
+      "sct_timestamp": "2026-11-11T00:46:39.381000Z",
+      "sct_signature_verified": true,
+      "sth_signature_verified": true,
+      "inclusion_verified": true,
+      "signed_tree_head": {
+        "tree_size": 973593980,
+        "timestamp": 1794367198677,
+        "sha256_root_hash": "molZtr2yECerLngGit9i+CSXB9qLrivyYB5cftwnZM8=",
+        "tree_head_signature": "BAMASDBGAiEA84cEnp32tWgIJG4eOjxXIKuhx5aI11VuAHXkC0XevXACIQDZSqpTA3o2NtUeVZpJKhFU9DpiZS3trWWsTz1B1JHh6w=="
+      },
+      "audit_path": [
+        "cbI0vFjw/qwZsVaDTz3Gnfb8XypguY6TidU/ySbHky8=",
+        "AM6hpRQ09yiqHGxN94pheuynbavLrbUnP+IjVxtYM34=",
+        "OCqTCbTnWcR5QYilOXOY862ppG/RlDZx/bCRvP6V+sw=",
+        "MOhPLM8hGgEGSOP+hbnOGS7b2zMEqR1bnXpqh+RHDdo=",
+        "49SbiRbZX2fz9yNqX7rsUNuu8BGjL8iXvp24GoIvWv8=",
+        "RfQKsAmKlErwSR3i8HiIDnBSSlcYMAWspoYT9e9H9qY=",
+        "E9QvSz+HbCRJE9I7xjpat7VtUYrSS+3WRSstnrVj+58=",
+        "GUo5pP+uzt/Uzz3BEYJyNYSSrKVgyCCdyeOjHU/dsyw=",
+        "OmnvD4RAlxcmPZ+p8Z5PCx1yoBgB2dXdeslxlrmHAAc=",
+        "5gB/c3az44PJJsh/J4ofB6MzTTw1+8R33fNV6h6I6Kk=",
+        "/uLFMhZWdfTRwdYP36TintseETWp/6GHg0fp9oiD3rQ=",
+        "lzMVhYl85nZSV9YAsYJLJESsgxfKwdBinAOH7dPskXo=",
+        "gE/AYnYsWVnOt6Tjiy0DdUXI9p8MPQYNKN4dRRYsuzc=",
+        "jNGzZ/ryPwyFVpJiZJSW0T3n/3j6pCJXmJP2aDX05ps=",
+        "/kn7Rfiy2nqg8M8nsVRx6mqNCV5lPaXu7ZPvkvnYXDQ=",
+        "2jCPxqsHAE6LyH0jnEIt/XOsoUVDVI8TxJqg9EEqcCM=",
+        "9Emm+E/G/q1WtwsFKJ4f3aIYynNkquBXXE5LgV/cdig=",
+        "h3NLqgf1VVEeasjOv+USmWL/wSu1Ql+9eofi2yATcEA=",
+        "6kMEirmxKioI/86rntyc7UZM7YoN5mcrBy6qU0Ns9zU=",
+        "oI+izxHxtbbYAZlgLLeCbU0Ubct3MWeOMHhVagmdrqM=",
+        "Lee/l0/C+GOCzi3dzC/qpJE2q3sGkVYeFwkdLEb1wYA=",
+        "F7yL/CjQOq/BqDVT9dZlPo4AZzyMcOvu2H3mUXhbGjg=",
+        "r/OqBnYExkxUJJKW3pyR9XauDQ8bp1W0HyoYuDM9U6o=",
+        "rvMMDBbDJC5ySyLyuRaeecXhUWw3Mau/mHqABDW2Re8=",
+        "XgUkARS+ryUiJ0bCiHGlIlP2QyJYimLm3hutTsIypSM=",
+        "AeT9uj3YgdAHzWYowe4avV6LCt3gRWmTvLwU83Zd2ZE=",
+        "2iVjuoGuEzWYi56Y962YxCCXYDlGJn+pQM5XOls6gj8=",
+        "0YIOxapOMY4dGY5VZmP92ToOsnVi7sxi+rJm2+hOZhY=",
+        "fqhMeVT+EflSXdRgW7QZyMBYaOf1tXK0YZoKWh00JPs="
+      ],
+      "leaf_input": "AAAAAAGhyBI3FQABbrzvtCELCIZUo4sD/qPX0ccRtPsd3DY6RfmxpOU9oB4AAhowggIWoAMCAQICEgUEqi3Y14MQPFnDEv26B79ROTAKBggqhkjOPQQDAzAzMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3MgRW5jcnlwdDEMMAoGA1UEAxMDWUUxMB4XDTI2MTExMDIzNDgwOVoXDTI3MDIwODIzNDgwOFowJDEiMCAGA1UEAwwZKi5mMjRkZW1vLmZsZWV0LmVpbG1lci5zaTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABM4SGS9mV1s3V2DsNlfLo3E5GjjH5tpBxiNXoLyIK+FftiVL1ZjzXnEQbXsTps8Rr0Lb3m6Pfnrwt4NjLI7HlfajggEXMIIBEzAOBgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUlKserE5YcVd5ORg8zOVJQ6RZM2wwHwYDVR0jBBgwFoAUuyDKRwv+1+Wc+Y8JKqOMN0WxvNgwMwYIKwYBBQUHAQEEJzAlMCMGCCsGAQUFBzAChhdodHRwOi8veWUxLmkubGVuY3Iub3JnLzAkBgNVHREEHTAbghkqLmYyNGRlbW8uZmxlZXQuZWlsbWVyLnNpMBMGA1UdIAQMMAowCAYGZ4EMAQIBMC4GA1UdHwQnMCUwI6AhoB+GHWh0dHA6Ly95ZTEuYy5sZW5jci5vcmcvNTguY3JsAAA=",
+      "log_public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYjd/jE0EoAhNBbfcNhrTb7F0x10KZK8r2SDjx1GdjJ75hJrHx2OCQ+BXRjXi+czoREN1u0j9cWl8d6OoPMPogQ=="
+    }
+  ],
+  "not_observed": [
+    {
+      "log_id": "a2810018734e176e1d47e09540f381ba546697cd63a84350716eb8094edaf10d",
+      "log": "Let's Encrypt Willow2027h1",
+      "reason": "tiled log; this observer implements RFC 6962 v1 endpoints"
+    }
+  ]
+}

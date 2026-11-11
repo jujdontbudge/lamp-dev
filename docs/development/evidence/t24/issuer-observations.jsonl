@@ -1,0 +1,6 @@
+{"event": "separate-real-staging-account", "persisted_private_key": true, "relay_has_account_key": false, "paid_services": 0}
+{"event": "fleet-signed-foreign-name", "denied": true, "acme_order_created": false}
+{"event": "valid-csr-with-no-allocated-capacity", "state": "deferred", "acme_order_created": false, "insecure_fallback": false}
+{"event": "account-alone-not-fleet-authority", "unsigned_or_forged_csr_denied": true}
+{"event": "unconfigured-public-caa", "activation_refused": true, "dns_changed": false, "public_certificate": "NOT ISSUED"}
+{"event": "issuer-demonstration-complete", "private_state": "/var/folders/rx/w6wxv0p97bv7hpvzqlv9jy7r0000gn/T/lamp-t24-issuer-ve01f123", "real_public_certificate": "NOT DEMONSTRATED", "issued_certificates": 0}
