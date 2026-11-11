@@ -358,3 +358,10 @@ restored afterwards.
   model session ran.**
 * Copilot's draft PRs #5 and #6 and issue #4 were closed and their branches
   deleted. The Copilot cloud agent remains not demonstrated.
+
+**Dropped by the owner (2026-11-11 ~23:45Z, "Skip the Copilot demo").** The real
+Copilot cloud-agent demonstration is dropped, like the fork-PR demonstration. The
+`copilot_cloud_agent` route stays as built. Run 43120268562 above stays as it
+happened: GitHub's firewall check failed and no session ran. The Copilot bot was
+removed from the demo's trusted actors again, and the fixture repository was
+re-archived (still private).
