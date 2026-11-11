@@ -72,6 +72,7 @@ check_interval = 3
       callback_addr = "10.219.29.1:3935"
       state_dir = "{work / 'fleeting'}"
       max_size = 1
+      guest_binary = "{bin / 'lamp-fleeting-guest'}"
     [runners.autoscaler.connector_config]
       use_static_credentials = false
     [[runners.autoscaler.policy]]

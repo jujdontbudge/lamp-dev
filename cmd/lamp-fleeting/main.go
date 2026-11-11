@@ -11,15 +11,16 @@
 //	    recipe_id     = "rc_..."           # trusted recipe with openssh-server
 //	    callback_addr = "10.219.29.1:3935" # enrolled private endpoint, guest-reachable
 //	    state_dir     = "/var/lib/lamp-fleeting"
+//	    guest_binary  = "/usr/local/lib/lamp-fleeting-guest" # linux/amd64 build
 //	  [runners.autoscaler.connector_config]
 //	    use_static_credentials = false   # the plugin reports the guest user and key
 //
 // Lamp authority comes from LAMP_SOCKET or LAMP_API_URL with LAMP_TOKEN or
 // LAMP_TOKEN_FILE in the runner's environment.
 //
-// SSH transport: guests accept no inbound connections, so a small agent in
-// each guest dials the plugin's callback address (an exact enrolled network
-// exception) and splices each requested stream to the guest's loopback sshd.
+// SSH transport: guests accept no inbound connections, so lamp-fleeting-guest
+// (uploaded through the exec API) dials the plugin's callback address (an
+// exact enrolled network exception) and serves SSH on each requested stream.
 // The runner connects to a per-instance loopback port on the runner host.
 // A per-instance random secret authenticates the agent's connections.
 package main
@@ -27,6 +28,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -68,6 +70,7 @@ type Group struct {
 	CallbackAddr string `json:"callback_addr"`
 	StateDir     string `json:"state_dir"`
 	MaxSize      int    `json:"max_size"`
+	GuestBinary  string `json:"guest_binary"`
 
 	log      hclog.Logger
 	api      *client
@@ -83,8 +86,8 @@ var _ provider.InstanceGroup = (*Group)(nil)
 
 func (g *Group) Init(ctx context.Context, log hclog.Logger, settings provider.Settings) (provider.ProviderInfo, error) {
 	g.log, g.settings, g.items = log, settings, map[string]*instance{}
-	if g.RecipeID == "" || g.CallbackAddr == "" || g.StateDir == "" {
-		return provider.ProviderInfo{}, errors.New("recipe_id, callback_addr and state_dir are required")
+	if g.RecipeID == "" || g.CallbackAddr == "" || g.StateDir == "" || g.GuestBinary == "" {
+		return provider.ProviderInfo{}, errors.New("recipe_id, callback_addr, state_dir and guest_binary are required")
 	}
 	if g.MaxSize == 0 {
 		g.MaxSize = 2
@@ -181,41 +184,36 @@ func (g *Group) Increase(ctx context.Context, n int) (int, error) {
 	return done, nil
 }
 
-// startAgent installs this process's public key and runs sshd plus the reverse
-// agent as one long-lived command; deleting the sandbox ends both.
+// startAgent uploads lamp-fleeting-guest through Lamp's exec API and runs it
+// as one long-lived command; deleting the sandbox ends it.
 func (g *Group) startAgent(id string, it *instance) {
-	agent := `import os,socket,sys,threading
-cb,iid,sec,user=sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4]
-h,p=cb.rsplit(':',1)
-def pipe(a,b):
-  try:
-    while True:
-      d=a.recv(65536)
-      if not d: break
-      b.sendall(d)
-  except OSError: pass
-  for s in (a,b):
-    try: s.shutdown(socket.SHUT_RDWR)
-    except OSError: pass
-def stream():
-  up=socket.create_connection((h,int(p)));up.sendall(('data %s %s\n'%(iid,sec)).encode())
-  down=socket.create_connection(('127.0.0.1',2222))
-  threading.Thread(target=pipe,args=(up,down),daemon=True).start();pipe(down,up)
-ctl=socket.create_connection((h,int(p)));ctl.sendall(('ctl %s %s %s\n'%(iid,sec,user)).encode())
-for line in ctl.makefile():
-  if line.strip()=='open': threading.Thread(target=stream,daemon=True).start()
-`
-	// Sandbox commands run unprivileged: sshd runs as that user on loopback
-	// with its own host key, and the runner logs in as the same user.
-	script := `set -e
-D=/var/tmp/lamp-fleeting
-mkdir -p "$D" && chmod 700 "$D"
-printf '%s\n' "$1" > "$D/authorized_keys" && chmod 600 "$D/authorized_keys"
-[ -f "$D/hostkey" ] || ssh-keygen -q -t ed25519 -N '' -f "$D/hostkey"
-/usr/sbin/sshd -f /dev/null -o ListenAddress=127.0.0.1 -o Port=2222 -o HostKey="$D/hostkey" -o AuthorizedKeysFile="$D/authorized_keys" \
-  -o StrictModes=no -o UsePAM=no -o PasswordAuthentication=no -o PidFile="$D/sshd.pid" -o "SetEnv=PATH=/opt/gitlab-runner:/usr/local/bin:/usr/bin:/bin HOME=$D"
-exec python3 -c "$2" "$3" "$4" "$5" "$(id -un)"`
-	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": it.Sandbox, "argv": []string{"sh", "-c", script, "lamp", g.pub, agent, g.CallbackAddr, id, it.Secret}},
+	raw, err := os.ReadFile(g.GuestBinary)
+	if err != nil {
+		g.log.Error("guest binary unreadable", "err", err)
+		return
+	}
+	var z bytes.Buffer
+	w := gzip.NewWriter(&z)
+	w.Write(raw)
+	w.Close()
+	const path = "/var/tmp/lamp-fleeting-guest"
+	if err = g.runWait(it.Sandbox, []string{"sh", "-c", ": > " + path + ".gz"}, "fleeting-up:"+id+":init"); err != nil {
+		g.log.Error("guest upload failed", "instance", id, "err", err)
+		return
+	}
+	data := z.Bytes()
+	for off, n := 0, 0; off < len(data); off, n = off+96<<10, n+1 {
+		chunk := base64.StdEncoding.EncodeToString(data[off:min(off+96<<10, len(data))])
+		if err = g.runWait(it.Sandbox, []string{"python3", "-c", "import base64,sys;open(sys.argv[1],'ab').write(base64.b64decode(sys.argv[2]))", path + ".gz", chunk}, fmt.Sprintf("fleeting-up:%s:%d", id, n)); err != nil {
+			g.log.Error("guest upload failed", "instance", id, "err", err)
+			return
+		}
+	}
+	if err = g.runWait(it.Sandbox, []string{"sh", "-c", "gunzip -f " + path + ".gz && chmod 700 " + path}, "fleeting-up:"+id+":unpack"); err != nil {
+		g.log.Error("guest unpack failed", "instance", id, "err", err)
+		return
+	}
+	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": it.Sandbox, "argv": []string{path, g.CallbackAddr, id, it.Secret, g.pub}},
 		map[string]string{"Idempotency-Key": "fleeting-agent:" + id})
 	if err != nil {
 		g.log.Error("agent start failed", "instance", id, "err", err)
@@ -227,6 +225,36 @@ exec python3 -c "$2" "$3" "$4" "$5" "$(id -un)"`
 		g.save()
 		g.mu.Unlock()
 	}
+}
+
+// runWait runs one short sandbox command and waits for it to exit 0.
+func (g *Group) runWait(sandbox string, argv []string, key string) error {
+	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": sandbox, "argv": argv}, map[string]string{"Idempotency-Key": key})
+	if err != nil {
+		return err
+	}
+	exe := ""
+	if refs, ok := out["resource_ids"].([]any); ok && len(refs) > 0 {
+		exe, _ = refs[0].(map[string]any)["id"].(string)
+	}
+	for i := 0; i < 600; i++ {
+		got, err := g.api.do("GET", "/v1/execs/"+exe, nil, nil)
+		if err != nil {
+			return err
+		}
+		d, _ := got["data"].(map[string]any)
+		switch d["state"] {
+		case "exited":
+			if fmt.Sprint(d["exit_code"]) != "0" {
+				return fmt.Errorf("sandbox command exited %v", d["exit_code"])
+			}
+			return nil
+		case "failed", "outcome_unknown":
+			return fmt.Errorf("sandbox command %v", d["state"])
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return errors.New("sandbox command timed out")
 }
 
 func (g *Group) acceptAgents() {
