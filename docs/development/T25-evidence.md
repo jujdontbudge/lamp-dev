@@ -89,18 +89,41 @@ Raw: `evidence/t25-lampd-live.json`, `evidence/t25-lampd-live-pi.json`.
 
 ## 3. Host → Firecracker sandbox → host (Ubuntu)
 
-See section 4 below for the result of `tools/harness_catalogue_guest.py`.
-It runs in its own disposable root, `/var/lib/lamp/t25`. Its guest seed is
-T21's verified seed plus the official Linux `opencode` 1.19.5 and `droid`
-1.8.0 binaries (checksum verified against Factory's published sha256). The
-broker uses a `CA:FALSE` serverAuth leaf on a ticket-only address allowed by
-the network policy. The OpenRouter key stays on the M5 and reaches the
-broker's credential reader only over an SSH-forwarded socket. The run checked
-`pgrep -c firecracker` < 2 and ≥ 12 GiB free before allocating, and deleted
-its sandbox afterwards. Earlier attempts are kept as
-`/var/lib/lamp/t25-attempt*`: one hit an exec-body error, one was correctly
-refused while two other tickets' sandboxes were live, and one used the wrong
-sandbox host ID.
+`tools/harness_catalogue_guest.py` runs as root in its own disposable root,
+`/var/lib/lamp/t25`. Its guest seed is T21's verified seed plus the official
+Linux `opencode` 1.19.5 and `droid` 1.8.0 binaries (droid's checksum matched
+Factory's published sha256). The worker is T21's `lamp-supervisor-subscription`.
+The broker uses a `CA:FALSE` serverAuth leaf on a ticket-only address allowed
+by the network policy. The OpenRouter key stays on the M5 and reaches the
+broker's credential reader only over an SSH-forwarded socket. Each run checked
+that fewer than 2 Firecracker processes were live and at least 12 GiB was free
+before allocating, and deleted its sandbox afterwards.
+Raw: `evidence/t25-host-vm-host.json`.
+
+**opencode, one native session `ses_e347c9207ffeyf7jBusF98I92p`:**
+
+| Location | Epoch | Asked for | Answer |
+| --- | --- | --- | --- |
+| host `hs_lx` | 1 | (given `LAMP024CFF`) | `READY` |
+| VM `sb_7f850f842b1dbe40608dba0f6eaeee73` | 2 | `LAMP024CFF` | `LAMP024CFF` (given `LAMPD3C119`) |
+| host `hs_lx` | 3 | `LAMPD3C119` | `LAMPD3C119` |
+
+**droid: the move works, but the in-VM turn did not.** Twice, droid's turn
+inside the VM printed `Request timed out.` The broker audit shows no request
+from the sandbox at all, while host turns completed. Back on the host, the
+same native session recalled the first codeword, so the session survived both
+moves. The cause appears to be that droid's BYOK mode still contacts Factory
+hosts, which the vendor-only guest network does not allow. Until those
+endpoints are enrolled, droid is host-only for in-VM turns.
+
+Failed attempts are kept as `/var/lib/lamp/t25-attempt1..6` and
+`t25-run7`. One hit an exec-body error. One was correctly refused while two
+other tickets' sandboxes were live. One used the wrong sandbox host ID. One
+stalled at upload offset 0 with a worker that did not match the seed.
+
+A further observed limit: the broker buffers a native stream and caps each
+upstream call at 40 s and 2 MiB. One long free-model reply (649 KB) was
+rejected that way.
 
 ## Routes not yet exercised, and why
 

@@ -1,0 +1,205 @@
+[
+  {
+    "step": "guest-seed",
+    "at": "2026-11-11T16:47:15Z",
+    "base": "/var/lib/lamp/t21a/seed-relay",
+    "harnesses": {
+      "opencode": {
+        "binary_sha256": "7df4e4136301f16589b0f30bf91a61380fca5f8ef22dd36570f5ebe1d4ec802c",
+        "version": "1.19.5"
+      },
+      "droid": {
+        "binary_sha256": "be70c3e44b576958b0e682d2256f2cf4e2ff3c5a16ff517d02926f35e40566a8",
+        "version": "1.8.0"
+      }
+    }
+  },
+  {
+    "step": "allocation-admission",
+    "at": "2026-11-11T16:49:07Z",
+    "live_firecracker": 0,
+    "available_mib": 26375
+  },
+  {
+    "step": "sandbox",
+    "at": "2026-11-11T16:49:08Z",
+    "sandbox_id": "sb_7f850f842b1dbe40608dba0f6eaeee73",
+    "boundary": "vm"
+  },
+  {
+    "step": "host-sandbox-host",
+    "at": "2026-11-11T16:50:21Z",
+    "kind": "opencode",
+    "session_id": "se_b65df8636788f0c5b248f86d7a69bc34",
+    "steps": [
+      {
+        "location": {
+          "host_id": "hs_lx",
+          "kind": "host"
+        },
+        "epoch": 1,
+        "output": "READY",
+        "success": true,
+        "continuation_ref": "ses_e347c9207ffeyf7jBusF98I92p"
+      },
+      {
+        "location": {
+          "host_id": "hs_local",
+          "kind": "sandbox",
+          "sandbox_id": "sb_7f850f842b1dbe40608dba0f6eaeee73"
+        },
+        "epoch": 2,
+        "asked_for": "LAMP024CFF",
+        "recalled": true,
+        "output": "LAMP024CFF\nLAMPD3C119",
+        "success": true,
+        "continuation_ref": "ses_e347c9207ffeyf7jBusF98I92p",
+        "forked_from": null
+      },
+      {
+        "location": {
+          "host_id": "hs_lx",
+          "kind": "host"
+        },
+        "epoch": 3,
+        "asked_for": "LAMPD3C119",
+        "recalled": true,
+        "output": "LAMPD3C119\nLAMPE1C09E",
+        "success": true,
+        "continuation_ref": "ses_e347c9207ffeyf7jBusF98I92p",
+        "forked_from": null
+      }
+    ],
+    "continued": true
+  },
+  {
+    "step": "host-sandbox-host",
+    "at": "2026-11-11T16:55:40Z",
+    "kind": "droid",
+    "session_id": "se_d1d9eba843d5b2a8c071a948c245dfe5",
+    "steps": [
+      {
+        "location": {
+          "host_id": "hs_lx",
+          "kind": "host"
+        },
+        "epoch": 1,
+        "output": "READY",
+        "success": true,
+        "continuation_ref": "ae1f5070-a894-4100-b4a0-50f822d83b07"
+      },
+      {
+        "location": {
+          "host_id": "hs_local",
+          "kind": "sandbox",
+          "sandbox_id": "sb_7f850f842b1dbe40608dba0f6eaeee73"
+        },
+        "epoch": 2,
+        "asked_for": "LAMP76297D",
+        "recalled": false,
+        "output": "Request timed out.\nRequest timed out.",
+        "success": false,
+        "continuation_ref": "ae1f5070-a894-4100-b4a0-50f822d83b07",
+        "forked_from": null
+      },
+      {
+        "location": {
+          "host_id": "hs_lx",
+          "kind": "host"
+        },
+        "epoch": 3,
+        "asked_for": "LAMPFC6923",
+        "recalled": true,
+        "output": "LAMPFC6923",
+        "success": true,
+        "continuation_ref": "ae1f5070-a894-4100-b4a0-50f822d83b07",
+        "forked_from": null
+      }
+    ],
+    "continued": false
+  },
+  {
+    "step": "sandbox-deleted",
+    "at": "2026-11-11T16:55:40Z",
+    "sandbox_id": "sb_7f850f842b1dbe40608dba0f6eaeee73"
+  },
+  {
+    "step": "guest-seed",
+    "at": "2026-11-11T16:56:15Z",
+    "base": "/var/lib/lamp/t21a/seed-relay",
+    "harnesses": {
+      "droid": {
+        "binary_sha256": "be70c3e44b576958b0e682d2256f2cf4e2ff3c5a16ff517d02926f35e40566a8",
+        "version": "1.8.0"
+      }
+    },
+    "retry": "droid-only"
+  },
+  {
+    "step": "allocation-admission",
+    "at": "2026-11-11T16:58:29Z",
+    "live_firecracker": 1,
+    "available_mib": 25684,
+    "retry": "droid-only"
+  },
+  {
+    "step": "sandbox",
+    "at": "2026-11-11T16:58:30Z",
+    "sandbox_id": "sb_cddb50315c27469a7eeb5c7a29af7503",
+    "boundary": "vm",
+    "retry": "droid-only"
+  },
+  {
+    "step": "host-sandbox-host",
+    "at": "2026-11-11T17:01:49Z",
+    "kind": "droid",
+    "session_id": "se_dd346bba56bb1d8b44f72c371758020f",
+    "steps": [
+      {
+        "location": {
+          "host_id": "hs_lx",
+          "kind": "host"
+        },
+        "epoch": 1,
+        "output": "READY",
+        "success": true,
+        "continuation_ref": "2c236345-34c0-4279-ac8b-463fe7c3deb2"
+      },
+      {
+        "location": {
+          "host_id": "hs_local",
+          "kind": "sandbox",
+          "sandbox_id": "sb_cddb50315c27469a7eeb5c7a29af7503"
+        },
+        "epoch": 2,
+        "asked_for": "LAMPC730DD",
+        "recalled": false,
+        "output": "Request timed out.\nRequest timed out.",
+        "success": false,
+        "continuation_ref": "2c236345-34c0-4279-ac8b-463fe7c3deb2",
+        "forked_from": null
+      },
+      {
+        "location": {
+          "host_id": "hs_lx",
+          "kind": "host"
+        },
+        "epoch": 3,
+        "asked_for": "LAMPAFEF9E",
+        "recalled": true,
+        "output": "LAMPAFEF9E",
+        "success": true,
+        "continuation_ref": "2c236345-34c0-4279-ac8b-463fe7c3deb2",
+        "forked_from": null
+      }
+    ],
+    "continued": false,
+    "retry": "droid-only"
+  },
+  {
+    "step": "sandbox-deleted",
+    "at": "2026-11-11T17:01:49Z",
+    "sandbox_id": "sb_cddb50315c27469a7eeb5c7a29af7503",
+    "retry": "droid-only"
+  }
+]

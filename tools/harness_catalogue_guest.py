@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--base-seed", type=Path, required=True)
     parser.add_argument("--engine-bin", type=Path, required=True, help="lamp-supervisor and lamp-guard matching the base seed")
+    parser.add_argument("--supervisor-name", default="lamp-supervisor-next")
     parser.add_argument("--lampd", type=Path, required=True)
     parser.add_argument("--broker", type=Path, required=True)
     parser.add_argument("--harness-bin", type=Path, required=True, help="official Linux binaries named by kind")
@@ -56,7 +57,7 @@ def main():
     runtime.mkdir(mode=0o755)
     binaries = root / "bin"
     binaries.mkdir()
-    for source, name in [(args.engine_bin / "lamp-supervisor-next", "lamp-supervisor"), (args.engine_bin / "lamp-guard-next", "lamp-guard"), (args.lampd, "lampd"), (args.broker, "lamp-broker")]:
+    for source, name in [(args.engine_bin / args.supervisor_name, "lamp-supervisor"), (args.engine_bin / "lamp-guard-next", "lamp-guard"), (args.lampd, "lampd"), (args.broker, "lamp-broker")]:
         shutil.copy2(source, binaries / name)
     for kind in kinds:
         shutil.copy2(args.harness_bin / kind, binaries / kind)
@@ -231,8 +232,13 @@ def main():
             for hop in hops:
                 refresh()
                 current = session(identity)
-                call("POST", "/v1/sessions/" + identity + ":teleport", {"location": hop}, revision=current["revision"])
-                wait(lambda: (s := session(identity))["state"] == "active" and s["location"].get("kind") == hop["kind"] and s["location_epoch"] > current["location_epoch"], 180)
+                moving = call("POST", "/v1/sessions/" + identity + ":teleport", {"location": hop}, revision=current["revision"])
+                try:
+                    wait(lambda: (s := session(identity))["state"] == "active" and s["location"].get("kind") == hop["kind"] and s["location_epoch"] > current["location_epoch"], 180)
+                except RuntimeError:
+                    operation = moving.get("operation_id") or moving.get("result", {}).get("operation_id", "")
+                    record("teleport-incomplete", kind=kind, hop=hop, session=session(identity), operation=call("GET", "/v1/operations/" + operation)["data"] if operation else moving)
+                    raise
                 previous, word = word, "LAMP" + secrets.token_hex(3).upper()
                 event, out = say(identity, "What was the codeword I gave you most recently? Reply with only that codeword on the first line, then remember this new codeword: " + word + ". Do not use any tools.")
                 steps.append({"location": session(identity)["location"], "epoch": session(identity)["location_epoch"], "asked_for": previous, "recalled": previous in out, "output": out.strip()[-200:], "success": event.get("success"), "continuation_ref": event.get("continuation_ref"), "forked_from": event.get("forked_from")})
