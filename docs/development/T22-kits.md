@@ -157,6 +157,14 @@ unrecognized output and nonstandard/cross-origin forms fall back to
   Biometric unlock is disabled. It does not enroll/unlock an owner's account.
 - `bitwarden`: `bw get item`; private `unlock_file` supplies `BW_SESSION` via env.
   `vault` is an explicit collection ID or `personal` (rejects organization items).
+  Optional `ca_file` supplies `NODE_EXTRA_CA_CERTS` for an explicitly trusted
+  self-hosted HTTPS endpoint, without changing host trust or disabling TLS.
+  The real disposable demonstration uses **Vaultwarden 1.37.5** and Bitwarden
+  CLI 2026.10.1, not an owner's Bitwarden account. That CLI refuses HTTP even on
+  loopback; the native fixture pins HTTPS discovery and every CLI service URL.
+  `tools/kits_vaultwarden_tls.py` and `tools/kits_vaultwarden_provision.py` are
+  explicit disposable operator helpers, not automatic owner-account discovery.
+  The provisioning helper additionally requires Python `cryptography`.
 - `keepassxc`: `keepassxc-cli show --show-protected` for exactly username/password;
   private database password goes over stdin. Optional `key_file` is supported.
 - `proton-pass`: `pass-cli item view --share-id <vault> --item-id <item> --field

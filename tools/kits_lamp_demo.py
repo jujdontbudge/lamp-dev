@@ -49,6 +49,8 @@ def main():
         if required and result.returncode:
             code = data.get('error',{}).get('code','UNKNOWN')
             if not re.fullmatch('[A-Z_]{1,64}',code):code='UNKNOWN'
+            message = data.get('error',{}).get('message','')
+            if re.fullmatch(r'BROWSER_SETUP_FAILED_CLEANUP_REQUIRED(?::boot\.(?:key|start|cdp|context))?',message):code += ':'+message
             raise RuntimeError('canonical '+kind+' '+action+' failed: '+code+'; private output withheld')
         return data if required else (result.returncode, data)
     def revision(): return cli('browser','get',identity=browser)['data']['revision']

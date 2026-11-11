@@ -77,6 +77,13 @@ func (s *Service) kitCall(ctx context.Context, in map[string]any) (map[string]an
 		return nil, reject("DATA_UNAVAILABLE", "invalid kits response")
 	}
 	if response.StatusCode != 200 {
+		reason := textField(out, "error")
+		switch reason {
+		case "BROWSER_SETUP_FAILED_CLEANUP_REQUIRED", "BROWSER_SETUP_FAILED_CLEANUP_REQUIRED:boot.key", "BROWSER_SETUP_FAILED_CLEANUP_REQUIRED:boot.start", "BROWSER_SETUP_FAILED_CLEANUP_REQUIRED:boot.cdp", "BROWSER_SETUP_FAILED_CLEANUP_REQUIRED:boot.context":
+			return nil, reject("HOST_UNAVAILABLE", reason)
+		case "PRIVATE_CONTROL_ACTIVE", "PRIVATE_TYPING_REQUIRED", "PRIVATE_TAKEOVER_REQUIRED", "READY_VM_REQUIRED", "GENERATION_CHANGED", "APPROVAL_REQUIRED", "APPROVAL_PLAN_REQUIRED", "OWNER_SANDBOX_CAPACITY":
+			return nil, reject("SCOPE_DENIED", reason)
+		}
 		return nil, reject("SCOPE_DENIED", "kits action refused; use private owner control for unsupported forms or locked vaults")
 	}
 	return out, nil
@@ -227,7 +234,7 @@ func (s *Service) kitsHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			writeError(w, id, "SCOPE_DENIED", "operation not accessible", nil)
 			return
 		}
-		s.sendCoreMutation(w, id, rec, true, nil)
+		s.sendKitMutation(w, id, rec, true)
 		s.mu.Unlock()
 		return
 	}
@@ -295,6 +302,22 @@ func (s *Service) kitsHTTP(w http.ResponseWriter, r *http.Request, id string, op
 }
 func strconvUint(n uint64) string { return strconv.FormatUint(n, 10) }
 
+// Failed and pending kit intents do not have a successful completion document.
+// Preserve their saved error/operation ID instead of dereferencing nil or replaying.
+func (s *Service) sendKitMutation(w http.ResponseWriter, id string, rec *record, replay bool) {
+	if rec.Operation.Error != nil {
+		detail := *rec.Operation.Error
+		detail.OperationId = pointer(rec.Operation.Id)
+		prepareError(w, id, detail)()
+		return
+	}
+	if rec.Operation.Outcome == nil || rec.Operation.Outcome.Result == nil {
+		writeError(w, id, "OUTCOME_UNKNOWN", "kit intent has no committed completion; reconcile before retry", pointer(rec.Operation.Id))
+		return
+	}
+	s.sendCoreMutation(w, id, rec, replay, nil)
+}
+
 func (s *Service) finishKit(w http.ResponseWriter, r *http.Request, id string, rec *record, entry *kitResource, result map[string]any, err error, private bool) {
 	s.readLock()
 	defer s.mu.Unlock()
@@ -308,7 +331,7 @@ func (s *Service) finishKit(w http.ResponseWriter, r *http.Request, id string, r
 			code = e.code
 		}
 		rec.Operation.State = "failed"
-		rec.Operation.Error = &api.ErrorDetail{Code: api.ErrorCode(code), Message: "kit action failed; reconcile state before retry"}
+		rec.Operation.Error = &api.ErrorDetail{Code: api.ErrorCode(code), Message: err.Error()}
 	}
 	if err == nil {
 		if rec.Resource.Kind == "browser" {
@@ -342,10 +365,10 @@ func (s *Service) finishKit(w http.ResponseWriter, r *http.Request, id string, r
 		copy := *rec
 		copy.Operation = rec.Operation
 		copy.Operation.Outcome = &api.Outcome{Result: &adapter}
-		s.sendCoreMutation(w, id, &copy, false, nil)
+		s.sendKitMutation(w, id, &copy, false)
 		return
 	}
-	s.sendCoreMutation(w, id, rec, false, nil)
+	s.sendKitMutation(w, id, rec, false)
 }
 func (s *Service) kitEffect(ctx context.Context, name string, in map[string]any, e *kitResource, id string, owner bool) (map[string]any, error) {
 	request := map[string]any{"browser_id": id}
