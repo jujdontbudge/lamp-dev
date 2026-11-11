@@ -17,6 +17,9 @@ use std::time::{Duration, Instant};
 pub const BOUNDARY: &str = "gvisor_sandbox";
 pub const ISOLATION: &str = "weaker_than_vm";
 const OUTPUT_LIMIT: u64 = 1 << 20;
+/// Host-side ceiling on the sandbox's processes and threads (gVisor's own
+/// included), so one task cannot exhaust the host's PIDs.
+const HOST_PIDS: u64 = 8192;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -66,7 +69,13 @@ fn oci_spec(t: &Task, rootfs: &Path, pids: u64) -> serde_json::Value {
             "env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "HOME=/tmp", "LAMP_BOUNDARY=gvisor_sandbox"],
             "cwd": "/tmp",
             "capabilities": {"bounding": [], "effective": [], "inheritable": [], "permitted": [], "ambient": []},
-            "rlimits": [{"type": "RLIMIT_NOFILE", "hard": 1024, "soft": 1024}],
+            // The caller's process limit, counted by gVisor's own kernel
+            // for the task user. (OCI `pids` would bound the host cgroup,
+            // which also holds the sandbox's own threads.)
+            "rlimits": [
+                {"type": "RLIMIT_NOFILE", "hard": 1024, "soft": 1024},
+                {"type": "RLIMIT_NPROC", "hard": pids, "soft": pids}
+            ],
             "noNewPrivileges": true
         },
         "root": {"path": rootfs, "readonly": true},
@@ -80,7 +89,7 @@ fn oci_spec(t: &Task, rootfs: &Path, pids: u64) -> serde_json::Value {
             "namespaces": [{"type": "pid"}, {"type": "network"}, {"type": "ipc"}, {"type": "uts"}, {"type": "mount"}],
             "resources": {
                 "memory": {"limit": t.memory_mib << 20},
-                "pids": {"limit": pids}
+                "pids": {"limit": HOST_PIDS}
             }
         }
     })

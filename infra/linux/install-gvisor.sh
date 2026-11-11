@@ -23,7 +23,12 @@ trap 'rm -rf "$WORK"' EXIT
 cd "$WORK"
 curl -fsSLO "https://github.com/google/gvisor/releases/download/$GV/gvisor-$GA.tar.bz2"
 echo "$GV_SHA  gvisor-$GA.tar.bz2" | sha256sum -c -
-tar xjf "gvisor-$GA.tar.bz2"
+if command -v bzip2 >/dev/null; then
+  tar xjf "gvisor-$GA.tar.bz2"
+else
+  # Minimal cloud images lack bzip2; Python's standard library has it.
+  python3 -c 'import bz2, shutil, sys; shutil.copyfileobj(bz2.open(sys.argv[1]), sys.stdout.buffer)' "gvisor-$GA.tar.bz2" | tar x
+fi
 sudo -n install -d -m 0755 /usr/local/lib/lamp/gvisor-bin
 sudo -n install -m 0755 runsc /usr/local/lib/lamp/runsc
 for f in gvisor-bin/*; do sudo -n install -m 0755 "$f" "/usr/local/lib/lamp/$f"; done

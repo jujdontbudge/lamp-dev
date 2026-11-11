@@ -199,8 +199,8 @@ def part_gvisor():
         return status, data
 
     t = dict(argv=['sh', '-c', 'uname -sr; id -u; dmesg | head -1; wget -T3 -qO- http://example.com >/dev/null 2>&1 || echo no-network; '
-                   'sh -c "for i in \\$(seq 100); do sleep 5 >/dev/null 2>&1 & done" 2>&1 | head -1; '
-                   'echo sleepers_running=$(ps -o comm | grep -c "^sleep"); true'],
+                   'sh -c "for i in \\$(seq 100); do sleep 3 >/dev/null 2>&1 & echo \\$i > /tmp/n; done" 2>/dev/null; '
+                   'read n < /tmp/n; echo "background_processes_started_before_refusal=$n (pids_max=48)"'],
              memory_mib=256, pids_max=48, timeout_seconds=60)
     s, d = task(env.owner, t, 'owner gvisor task')
     assert s == 200 and d['isolation'] == 'weaker_than_vm', d
