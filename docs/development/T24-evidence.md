@@ -86,9 +86,20 @@ Google rollout is claimed. An earlier direct billing read returned 429; the
 subsequent explicit unlink returned `billingEnabled: false`. No phone prompt
 was reached, so this is not reported as a phone-2FA skip.
 
-GitHub's existing `Eilmer` OAuth app 4010008 has the exact same callback and no
-device flow/wildcard. Its fresh email confirmation is still needed to generate
-and install the client secret. No passkey/OS approval was invoked.
+**GitHub social login is not configured.** The existing `Eilmer` OAuth app
+4010008 has the exact same callback and no device flow/wildcard, but GitHub
+requires sudo email verification before client-secret creation. The coordinator
+reported no forwarded code after two requests and more than ten minutes. The
+earlier "requested" report had only selected the email method; the follow-up
+**Verify via email** action did explicitly show that a code was sent. No delivery
+was observed. At the coordinator's instruction, requests stopped and no GitHub
+client secret was created or installed. All ticket-owned headless GitHub tabs
+were closed, leaving no sudo prompt pending; no passkey/OS approval was invoked.
+[Closure observation](evidence/t24/production/github-oauth-not-configured.json).
+
+The completed demonstration uses **production Clerk email-code sign-in**, not
+GitHub social login. GitHub delivery is therefore a recorded provider limitation,
+not an outstanding dependency of the private T24 demonstration.
 
 The requested **single `make verify` invocation passed** (exit 0): workspace
 Go/Rust/C builds, selected existing smokes, contracts, interoperability and clean
