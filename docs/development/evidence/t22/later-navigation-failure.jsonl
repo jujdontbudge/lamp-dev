@@ -1,0 +1,12 @@
+{"step": "allocation admission", "value": {"available_mib": 27692, "live_firecracker": 0}}
+{"step": "agent", "value": {"id": "sb_341b8a2aeb47aeca39b0d7c50dd11317", "state": "ready"}}
+{"step": "default browser", "value": {"allocation_admission": {"available_mib": 27672, "live_firecracker": 1}, "browser_id": "br_67dff512931d608d3532a556581ee8fd", "mode": "external", "private": false, "warning": null}}
+{"step": "per-vault approval proposed", "value": {"approval_id": "bc32e37ed5b75211c320a2981204e6cd", "plan": {"browser_id": "br_67dff512931d608d3532a556581ee8fd", "generation": 1, "item_id": "login", "origin": "https://the-internet.herokuapp.com", "submit": true, "vault_id": "disposable"}, "state": "approval_required"}}
+{"step": "owner reads authoritative approval plan", "value": {"approval_id": "bc32e37ed5b75211c320a2981204e6cd", "plan": {"browser_id": "br_67dff512931d608d3532a556581ee8fd", "generation": 1, "item_id": "login", "origin": "https://the-internet.herokuapp.com", "submit": true, "vault_id": "disposable"}, "state": "approval_required"}}
+{"step": "real KeePassXC fill and submit", "value": {"filled": true, "private": true}}
+{"step": "task fenced during takeover", "value": {"error": "PRIVATE_CONTROL_ACTIVE"}}
+{"step": "private authenticated page", "value": {"login_completed": true}}
+{"step": "owner private view", "value": {"png_received": true}}
+{"step": "safe handback", "value": {"returned": true, "safe_page": "about:blank", "session_policy": "httponly-cookies-only"}}
+{"step": "browser cleanup", "value": {"result": {"deleted": true}, "status": 200}}
+{"step": "agent released", "value": {"state": "deleted"}}

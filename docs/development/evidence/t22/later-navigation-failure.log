@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/johansardar/.t3/worktrees/lamp/t3-844969b3-04443cbc74f43ec9/tools/kits_demo.py", line 221, in <module>
+    main()
+  File "/Users/johansardar/.t3/worktrees/lamp/t3-844969b3-04443cbc74f43ec9/tools/kits_demo.py", line 144, in main
+    assert task('navigate', url='https://the-internet.herokuapp.com/secure')[0] == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
