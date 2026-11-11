@@ -104,6 +104,73 @@ transcript is `docs/development/evidence/t28/fleet-update/transcript.jsonl`.
 * Cleanup deleted the sandbox, uninstalled all three hosts, revoked the
   supervisor grant and closed the tunnels.
 
+## Supervisor swap and `update_rollback` (2026-11-11)
+
+Transcript: `docs/development/evidence/t28/fleet-update/supervisor-rollback.jsonl`
+(`PHASE=supervisor tools/fleet_update_demo.py`). This run reused the fleet
+setup above. It did not repeat steps that had already passed, such as the
+tamper refusal, the broken release and the policy staying off by default.
+
+* **The VZ supervisor is a release component.** Darwin releases now ship
+  `bin/lamp-supervisor` and `bin/lamp-vz`. The installer copies a release's pair
+  into a root-owned directory (`/usr/local/lib/lamp-<name>/<version>/`), checks
+  the copies against the signed bytes and runs the supervisor as root with
+  `sudo -n`. It also gives lampd the new supervisor PID, since lampd
+  authenticates its worker by PID. Both releases were built from this code: 4.0.0
+  ships supervisor `c4434e9a…` and 4.1.0 ships supervisor `b6daef46…`. The two
+  builds differ only in their embedded `supervisor_release`. `lamp-vz` is the
+  same build in both, ad-hoc signed with its virtualization entitlement.
+* **Roll forward.** Automatic updates rolled 4.1.0 through hs_air, then hs_lx,
+  then hs_m5. On the M5 the agent did the following:
+  1. Suspended the running sandbox through Lamp's API (`sandbox_suspend`,
+     durable).
+  2. Stopped supervisor 4.0.0 and started supervisor 4.1.0.
+  3. Started lampd 4.1.0.
+  4. Resumed the sandbox (`sandbox_resumed`).
+  5. Checked that saved and active work were unchanged.
+
+  The update completed. The guest kept the same VM boot id and the same
+  process (pid 141), and that process was alive afterwards.
+* **Active work is suspended and resumed, not kept running.** VZ machines run
+  inside their supervisor's worker processes, so they cannot outlive a
+  supervisor restart. The sandbox's memory was saved to disk and restored. The
+  guest's heartbeat shows the pause: its largest gap was 10 s across the
+  roll forward and 11 s across the rollback.
+* **`lamp update rollback <update>`** (`POST /v1/updates/{id}:rollback`) moved
+  the completed Update to `lamp.phase=rollback`. It took the hosts back one at a
+  time, last updated first: hs_m5, then hs_lx, then hs_air, ending
+  `rolled_back`. Each host first re-checks the target release. Its staged files
+  must match their signed manifest, and that manifest must match a signed index
+  in the host's mirror. Then the host goes through the same transition and the
+  same work check. On the M5 that meant suspend, swap back to supervisor
+  4.0.0, resume. All three hosts ended on 4.0.0, and the M5 again ran
+  supervisor `c4434e9a…`. The guest was the same process and still alive. A
+  failed rollback check sends the host back to the release it was on and stops
+  the rollback (`failed`).
+* **Fixed while getting here:**
+  * The updater now waits up to 10 minutes for a release to reach its own
+    mirror. Before, an update the leader created faster than the release was
+    published reached the Air before the release did, and the Air failed.
+  * Draining waits up to the drain timeout for running commands, which
+    block a suspend.
+  * Suspend and resume are followed to the end of their operation, so a
+    refusal fails the update quickly instead of hanging it.
+  * `install` now mirrors its own signed release, so a rollback to it can
+    verify it.
+* **Templates are bound to the engine digest.** A Linux template's saved
+  memory is bound to the `lamp-vz` digest. The supervisor installed under
+  `/usr/local/lib/lamp` was too old for this code: it ignored `max_generation`,
+  so it could not resume, and its `lamp-vz` rejected the current spec. So both
+  releases ship this code's `lamp-vz`. An early try with that `lamp-vz` against
+  the shared M5 store quarantined the shared template `tp_12cf…`. I moved it back
+  unchanged, and the old supervisor verified both templates again. The demo then
+  used a disposable store (`/private/var/lamp-t28`) holding a template
+  qualified for this `lamp-vz`. That template was built from the shared
+  template's own kernel and root filesystem. The store was removed afterwards.
+  A release that changes `lamp-vz` bytes would make existing Linux templates
+  unusable until they are prepared again; this demo's releases do not change
+  them.
+
 ## Not done or not run (stated plainly)
 
 * **No Apple Developer ID signing, Installer package or notarization.** Creating
@@ -111,11 +178,6 @@ transcript is `docs/development/evidence/t28/fleet-update/transcript.jsonl`.
   using the private key with `codesign` can show a keychain prompt on the
   owner's screen. Both are off limits here. Mac releases are ad-hoc built
   binaries trusted through Lamp's own Ed25519 release signature.
-* **`update_rollback` is not implemented** (it returns "operation not
-  installed"). A failed host rolls itself back, but hosts that already
-  completed are not rolled back through the API.
-* **The VZ supervisor itself is not updated** by a release. Only lampd and the
-  agent are swapped.
 * The dashboard consent screen belongs to T27.
 * **No reboot test.** Other tickets' daemons were live on the Ubuntu laptop, so
   it was not rebooted. The unit is `enabled` for `multi-user.target`.
