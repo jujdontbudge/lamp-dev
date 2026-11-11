@@ -37,6 +37,8 @@ def main():
     parser.add_argument("--public-repository", type=Path, required=True)
     parser.add_argument("--binary", action="append", default=[], help="kind=/absolute/official/binary")
     parser.add_argument("--path", default=os.environ["PATH"])
+    parser.add_argument("--subagent-kind", action="append", default=[], help="also enroll this kind with native_subagents and show its children (default: claude when given)")
+    parser.add_argument("--skip-teleport", action="store_true", help="only run the native sub-agent step")
     args = parser.parse_args()
     os.umask(0o077)
     root = args.root.resolve()
@@ -146,9 +148,10 @@ def main():
         endpoint = "http://127.0.0.1:" + str(port) + "/v1/models/" + connection + ("/native" if connection == "chat" else "")
         native = {"kind": kind, "binary": binary, "model": "openrouter/free", "endpoint": endpoint, "credential_file": str(token)}
         harnesses["hr_" + kind] = {"owner_id": "pr_alice", "argv": ["python3"], "cwd": "{session_dir}/work", "env": {"HOME": "{session_dir}/home", "PATH": args.path, "LANG": "en_US.UTF-8"}, "auth_modes": ["api_key"], "repository": repository, "native": native}
-    if "claude" in binaries:
-        harnesses["hr_claude_subagents"] = json.loads(json.dumps(harnesses["hr_claude"]))
-        harnesses["hr_claude_subagents"]["native"]["native_subagents"] = True
+    subagent_kinds = args.subagent_kind or (["claude"] if "claude" in binaries else [])
+    for kind in subagent_kinds:
+        harnesses["hr_" + kind + "_subagents"] = json.loads(json.dumps(harnesses["hr_" + kind]))
+        harnesses["hr_" + kind + "_subagents"]["native"]["native_subagents"] = True
     hosts = {name: {"owner_id": "pr_alice", "command": [sys.executable], "root": str(root / name)} for name in ["hs_a", "hs_b"]}
     (root / "sessions.json").write_text(json.dumps({"harnesses": harnesses, "hosts": hosts}))
     (root / "identity.json").write_text(json.dumps({"owner_id": "pr_alice", "bootstrap_sha256": hashlib.sha256(owner.encode()).hexdigest(), "subjects": []}))
@@ -157,7 +160,7 @@ def main():
         wait(lambda: api.exists(), 20)
         catalogue = call("GET", "/v1/harnesses?limit=100")["items"]
         record("harness-catalogue", count=len(catalogue), harnesses=[{"id": h["id"], "catalogue_id": h.get("plugin_id"), "state": h["state"], "auth_modes": h.get("auth_modes"), "binary_digest": h.get("binary_digest", ""), "continuation": h["labels"].get("lamp.continuation", "")} for h in catalogue])
-        for kind in binaries:
+        for kind in [] if args.skip_teleport else binaries:
             created = call("POST", "/v1/sessions", {"sandbox_id": "", "harness_id": "hr_" + kind, "auth_mode": "api_key", "location": {"kind": "host", "host_id": "hs_a"}})["result"]["session_id"]
             wait(lambda: session(created)["state"] == "active")
             codeword = "LAMP" + secrets.token_hex(3).upper()
@@ -171,12 +174,13 @@ def main():
             record("teleported-continuation", kind=kind, session_id=created, epoch_before=before["location_epoch"], epoch_after=moved["location_epoch"], location_before=before["location"], location_after=moved["location"], turn1=out1.strip()[-300:], turn1_success=first.get("success"), turn2=out2.strip()[-300:], turn2_success=second.get("success"), continuation_before=first.get("continuation_ref"), continuation_after=second.get("continuation_ref"), native_fork_of=second.get("forked_from"), codeword_recalled=codeword in out2, source_root_entries=source_dirs)
             current = session(created)
             call("POST", "/v1/sessions/" + created + ":end", {}, revision=current["revision"])
-        if "claude" in binaries:
-            parent = call("POST", "/v1/sessions", {"sandbox_id": "", "harness_id": "hr_claude_subagents", "auth_mode": "api_key", "location": {"kind": "host", "host_id": "hs_a"}})["result"]["session_id"]
+        for kind in subagent_kinds:
+            parent = call("POST", "/v1/sessions", {"sandbox_id": "", "harness_id": "hr_" + kind + "_subagents", "auth_mode": "api_key", "location": {"kind": "host", "host_id": "hs_a"}})["result"]["session_id"]
             wait(lambda: session(parent)["state"] == "active")
-            event, out = say(parent, "Use the Task tool exactly once to launch a general-purpose sub-agent with the prompt 'Reply with exactly LAMP_SUBAGENT_DONE and nothing else.' Then reply with the sub-agent's answer.", 400)
+            tool = "Task tool" if kind == "claude" else "built-in sub-agent (task) tool"
+            event, out = say(parent, "Use the " + tool + " exactly once to launch a general-purpose sub-agent with the prompt 'Reply with exactly LAMP_SUBAGENT_DONE and nothing else.' Then reply with the sub-agent's answer.", 400)
             children = [s for s in call("GET", "/v1/sessions?limit=100")["items"] if s.get("parent_session_id") == parent]
-            record("native-subagent-children", parent=parent, parent_output=out.strip()[-400:], success=event.get("success"), children=[{"id": c["id"], "state": c["state"], "status": c.get("status"), "continuation_ref": c.get("continuation_ref"), "labels": c.get("labels"), "output": stdout(c["id"]).strip()[-300:]} for c in children])
+            record("native-subagent-children", kind=kind, harness_id="hr_" + kind + "_subagents", parent=parent, parent_native_session=event.get("continuation_ref"), parent_output=out.strip()[-400:], success=event.get("success"), children=[{"id": c["id"], "state": c["state"], "status": c.get("status"), "continuation_ref": c.get("continuation_ref"), "labels": c.get("labels"), "output": stdout(c["id"]).strip()[-300:]} for c in children])
             current = session(parent)
             call("POST", "/v1/sessions/" + parent + ":end", {}, revision=current["revision"])
         record("sessions-listed", sessions=[{"id": s["id"], "harness_id": s["harness_id"], "parent_session_id": s.get("parent_session_id"), "state": s["state"], "location": s["location"].get("host_id")} for s in call("GET", "/v1/sessions?limit=100")["items"]])

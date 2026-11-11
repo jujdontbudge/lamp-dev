@@ -165,7 +165,9 @@ class OpenCode:
 
     def prepare(self, c, home, env):
         env.update({"XDG_CONFIG_HOME": str(home / "config"), "XDG_DATA_HOME": str(home / "data"), "XDG_STATE_HOME": str(home / "state"), "XDG_CACHE_HOME": str(home / "cache"), "OPENCODE_DISABLE_AUTOUPDATE": "1", "OPENCODE_DISABLE_SHARE": "1", "OPENCODE_DISABLE_LSP_DOWNLOAD": "1"})
-        config = {"$schema": "https://opencode.ai/config.json", "autoupdate": False, "share": "disabled", "permission": {"edit": "allow", "bash": "allow", "webfetch": "deny"}, "agent": {"general": {"disable": True}}}
+        config = {"$schema": "https://opencode.ai/config.json", "autoupdate": False, "share": "disabled", "permission": {"edit": "allow", "bash": "allow", "webfetch": "deny"}}
+        if not c.get("native_subagents"):
+            config["agent"] = {"general": {"disable": True}}
         if c["auth"] == "api_key":
             env["LAMP_MODEL_TOKEN"] = secret(c)
             config["provider"] = {"lamp": {"npm": "@ai-sdk/openai-compatible", "name": "Lamp broker", "options": {"baseURL": c["endpoint"], "apiKey": "{env:LAMP_MODEL_TOKEN}"}, "models": {c["model"]: {"name": c["model"]}}}}
@@ -203,9 +205,17 @@ class OpenCode:
         return argv + ["--", prompt], None
 
     def event(self, c, state, e):
+        part = e.get("part") or {}
+        if part.get("type") == "tool" and part.get("tool") == "task":
+            # opencode's own task tool runs its sub-agent as a child session
+            # (metadata.sessionId, parentSessionId) on the parent's model route.
+            st = part.get("state") or {}
+            child = (st.get("metadata") or {}).get("sessionId") or part.get("callID")
+            if child:
+                done = st.get("status") in ("completed", "error")
+                subagent(child, "completed" if done else "working", label=(st.get("input") or {}).get("description", "sub-agent"), text=str(st.get("output") or "") if done else "")
         if e.get("sessionID"):
             state["session_id"] = e["sessionID"]
-        part = e.get("part") or {}
         if part.get("sessionID"):
             state["session_id"] = part["sessionID"]
         if e.get("type") == "text":
@@ -301,6 +311,17 @@ class Goose:
         kind = e.get("type")
         if kind == "message":
             m = e.get("message", {})
+            for part in m.get("content") or []:
+                # Goose's own delegate tool names its subagent session in
+                # _meta.subagent_session_id; it then reports the subagent's end.
+                if part.get("type") == "toolResponse":
+                    meta = ((part.get("toolResult") or {}).get("value") or {}).get("_meta") or {}
+                    if isinstance(meta.get("subagent_session_id"), str):
+                        subagent(meta["subagent_session_id"], "working", label="delegate")
+                elif part.get("type") == "systemNotification":
+                    found = re.match(r"(Running )?[Ss]ubagent (\S+?)(:| \(| (completed|failed|finished))(.*)", part.get("msg", ""), re.S)
+                    if found and found.group(2) in SUBAGENTS:
+                        subagent(found.group(2), "working" if found.group(1) else "completed", text=part.get("msg", ""))
             if m.get("role") == "assistant":
                 return text_of(m.get("content")), None
         if kind == "complete":
@@ -322,7 +343,7 @@ class Copilot:
             env["COPILOT_GITHUB_TOKEN"] = secret(c)
 
     def argv(self, c, state, prompt):
-        argv = [c["binary"], "-p", prompt, "--output-format", "json", "--allow-all-tools", "--no-auto-update", "--no-ask-user", "--disable-builtin-mcps", "--deny-tool", "task"]
+        argv = [c["binary"], "-p", prompt, "--output-format", "json", "--allow-all-tools", "--no-auto-update", "--no-ask-user", "--disable-builtin-mcps"] + ([] if c.get("native_subagents") else ["--deny-tool", "task"])
         if state.get("session_id"):
             argv += ["--resume", state["session_id"]]
         if c.get("model") and c["auth"] != "api_key":
@@ -339,6 +360,19 @@ class Copilot:
         if isinstance(data.get("sessionId"), str):
             state["session_id"] = data["sessionId"]
         kind = e.get("type", "")
+        # Copilot's own task sub-agents: subagent.started/completed/failed
+        # keyed by the spawning toolCallId, with the sub-agent's token total;
+        # its result arrives as that tool call's tool.execution_complete.
+        call = data.get("toolCallId")
+        if isinstance(call, str) and call:
+            if kind == "subagent.started":
+                subagent(call, "working", label=data.get("agentDisplayName") or data.get("agentName") or "sub-agent")
+            elif kind in ("subagent.completed", "subagent.failed"):
+                note = "sub-agent " + ("failed: " + str(data.get("error", "")) if kind == "subagent.failed" else "completed") + "; total_tokens=" + str(data.get("totalTokens", "unknown"))
+                subagent(call, "completed", text=note)
+            elif kind == "tool.execution_complete" and call in SUBAGENTS:
+                result = data.get("result") or {}
+                subagent(call, "working", text=str(result.get("content") or data.get("error") or ""))
         if kind == "assistant.message":
             return data.get("content", ""), None
         if kind in ("result", "session.idle", "assistant.turn_end"):
@@ -410,12 +444,23 @@ class Droid(StreamJSON):
             env["FACTORY_API_KEY"] = secret(c)
 
     def argv(self, c, state, prompt):
-        argv = [c["binary"], "exec", "-o", "stream-json", "--auto", "high", "--disable-builtin-skills", "--remove-tools", "Task,SpawnAgent"]
+        argv = [c["binary"], "exec", "-o", "stream-json", "--auto", "high", "--disable-builtin-skills"] + ([] if c.get("native_subagents") else ["--remove-tools", "Task,SpawnAgent"])
         if state.get("session_id"):
             argv += ["-s", state["session_id"]]
         if c.get("model"):
             argv += ["-m", ("custom:" if c.get("endpoint") else "") + c["model"]]
         return argv + [prompt], None
+
+    def event(self, c, state, e):
+        # Droid's own Task/SpawnAgent tools: the tool call ID names the
+        # sub-agent; its tool_result carries the sub-agent's report or error.
+        kind = e.get("type")
+        if kind == "tool_call" and e.get("toolName") in ("Task", "SpawnAgent") and e.get("id"):
+            subagent(e["id"], "working", label=(e.get("parameters") or {}).get("description", e["toolName"]))
+        elif kind == "tool_result" and e.get("id") in SUBAGENTS:
+            error = e.get("error") or {}
+            subagent(e["id"], "completed", text=("error: " + str(error.get("message", ""))) if e.get("isError") else str(e.get("value", e.get("content", ""))))
+        return super().event(c, state, e)
 
 
 class Devin:

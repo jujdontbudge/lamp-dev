@@ -212,6 +212,32 @@ prickle-textbook` recalled `LAMP557A9A` in the same native session. The
 account email and organisation are redacted. Raw:
 `evidence/t25-devin-relocation.json`.
 
+## 8. Native sub-agents for opencode, copilot_cli, goose and droid (M5)
+
+When a harness is enrolled with `native_subagents`, its own sub-agent feature
+stays on. Each sub-agent is reported from the harness's own events as an
+observed child session (section 2's mechanism, now for each harness). Without
+the flag the feature is off and Lamp's spawn is used, as before. Raw:
+`evidence/t25-native-subagents.json`.
+
+**opencode through `lampd` (free model via the broker).** `tools/harness_catalogue_live.py --subagent-kind opencode --skip-teleport`:
+
+- The parent session `se_3d688f6a5a6ae6378db6c9a9bf19170c` (native `ses_e33d7f977ffePTv5NHf9hYfKfg`) used opencode's `task` tool once. It answered `LAMP_SUBAGENT_DONE`.
+- `GET /v1/sessions` listed the child `se_5969766a86322c7b7269af09f3e458e2` next to it, with `parent_session_id` set to the parent and labels `lamp.native_subagent=true` and `lamp.native_label="Run sub-agent with specific prompt"`.
+- The child has its own stable native ID (`continuation_ref` = opencode child session `ses_e33d7d52effe6tBcNKzsrFye35`). It also has its own output (`<task id=…> … LAMP_SUBAGENT_DONE`), and it ended as `idle`.
+- Descendant charging: opencode's own export of the child records `parentID` = the parent's native session. Its model call went through the `lamp` provider (Lamp's broker) on `openrouter/free`, 5,293 tokens. The broker audit shows all four model calls of that turn, the parent's and the child's, under the parent's one grant (`sb_t25_live`). The child is charged to the parent's budget.
+
+**copilot_cli, goose and droid through the wrapper** (`tools/harness_catalogue_demo.py --subagents`, BYOK or provider routes via the broker):
+
+| Harness | Native feature | Stable child ID | Own output | Observed |
+| --- | --- | --- | --- | --- |
+| copilot_cli 1.0.109 | `task` sub-agents | `subagent.started` `toolCallId` | `tool.execution_complete` result, plus `totalTokens` per sub-agent | Two children, each returned `LAMP_SUBAGENT_DONE` (14,610 and 12,305 tokens). |
+| goose 1.59.0 | `delegate` | `_meta.subagent_session_id` (`20261111_2`) | Goose's own run and end notices only. In `run` mode goose does not stream a separate sub-agent transcript. | Child ran and `completed`. |
+| droid 1.6.0 | `Task` / `SpawnAgent` | tool call ID | the tool result | Each call was reported as a child. Each ended with droid's error, because on the BYOK route without a Factory sign-in droid refuses to start the sub-agent session. Its daemon log gives `reason: missing_authed_user_or_org`. Native droid sub-agents need a Factory account. That is stated in the catalogue entry as a compatibility gap. |
+
+Codex's `multi_agent` route is built (section 2's reporting code) but was not
+run here.
+
 ## Routes not exercised, and why
 
 The owner dropped these signed-in runs on 2026-11-11. Their adapters and
@@ -233,7 +259,7 @@ were not rerun here.
 | --- | --- |
 | Ship the 11 §9.2 integrations | All 11 have a catalogue entry and an adapter, and `GET /v1/harnesses` lists all 11 (section 2). Nine ran on a real route: claude_code, codex, opencode, pi, goose, droid and copilot_cli through the broker (sections 1–3), cursor_cli on its API key (section 6) and devin on the owner's device login (section 7). amp and gemini_cli are built but were not run because the owner dropped them. |
 | Each uses its official permitted sign-in or API route | Each catalogue entry cites dated vendor permission sources. The runs used only documented routes: vendor BYOK or provider settings, Cursor's `CURSOR_API_KEY`, and Devin's own device login used in place. |
-| Sessions and native sub-agents visible separately | Claude Code's own sub-agents appeared as separate observed child sessions with their own output (section 2). Native sub-agents were shown for Claude Code only. For the other harnesses the catalogue states the sub-agent handling, and Lamp's own spawn is used as in T21. |
+| Sessions and native sub-agents visible separately | Native sub-agents stay on when enrolled. Each is reported as an observed child session with a stable native ID, its own output, and charging to the parent's grant. Shown through `lampd` for claude_code (section 2) and opencode (section 8), and through the wrapper for copilot_cli and goose (section 8). droid reports its sub-agent calls as children but cannot start them without a Factory sign-in, a stated gap. codex's route is built but not shown. |
 | Continuing work moves between host and sandbox through each harness's mechanism | Nine harnesses continued their native session after a move with the original deleted (sections 1, 6, 7). Seven continued across a `lampd` teleport between hosts (section 2). opencode and droid went host → Firecracker VM → host (section 3). The VM path was shown for those two only. |
 | Vendor limits described honestly; a new prompt with a transcript is not continuation | Each run resumed the harness's own native session ID. Pi's relocation is reported as `forked_from` and is not presented as the same session. Amp threads and Devin cloud sessions are stated as not moved. Model misses and failed attempts are kept. |
 

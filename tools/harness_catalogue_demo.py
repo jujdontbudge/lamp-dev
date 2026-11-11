@@ -37,6 +37,9 @@ def connection_fields():
     return {"messages": messages, "responses": responses, "chat_completions": chat}
 
 
+SEEN = []
+
+
 def turn(process, identity, text, timeout):
     process.stdin.write(json.dumps({"input_id": identity, "text": text}).encode() + b"\n")
     process.stdin.flush()
@@ -53,6 +56,8 @@ def turn(process, identity, text, timeout):
             break
         if line.startswith(b"\x1eLAMP "):
             event = json.loads(line[6:])
+            if event["type"] == "native_subagent":
+                SEEN.append(event)
             if event["type"] == "input_completed":
                 return event, output.decode(errors="replace")
         else:
@@ -69,6 +74,7 @@ def main():
     parser.add_argument("--auth", action="append", default=[], help="kind=api_key|subscription:/credential/file (default: broker API route)")
     parser.add_argument("--move", action="store_true", help="move the native session to a new location between turns")
     parser.add_argument("--model", action="append", default=[], help="kind=model for non-broker routes")
+    parser.add_argument("--subagents", action="store_true", help="enroll native_subagents and run one turn that delegates to the harness's own sub-agent")
     args = parser.parse_args()
     os.umask(0o077)
     root = args.root.resolve()
@@ -106,7 +112,7 @@ def main():
             directory.mkdir(mode=0o700)
             work = directory / "work"
             subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "clone", "--quiet", "--", str(args.public_repository), str(work)], check=True)
-            native = {"kind": kind, "binary": binary, "auth": "api_key", "model": "openrouter/free", "session_id": "se_t25_" + kind, "trace": True}
+            native = {"kind": kind, "binary": binary, "auth": "api_key", "model": "openrouter/free", "session_id": "se_t25_" + kind, "trace": True, "native_subagents": args.subagents}
             if kind in auths:
                 mode, _, credential = auths[kind].partition(":")
                 native.update({"auth": mode, "credential_file": credential, "model": models.get(kind, "")})
@@ -121,6 +127,16 @@ def main():
                 environment = {"HOME": str(where / "home"), "PATH": os.environ["PATH"], "TERM": "xterm-256color", "LANG": "en_US.UTF-8"}
                 return subprocess.Popen([sys.executable, "-u", str(WRAPPER), str(directory / "native.json")], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=environment, cwd=where / "work")
             process = start(directory)
+            if args.subagents:
+                SEEN.clear()
+                done, out = turn(process, "t25.sub", "Use your built-in sub-agent (task) tool exactly once: delegate to a sub-agent the job of replying with the single word LAMP_SUBAGENT_DONE. Then reply with what the sub-agent said.", 420)
+                process.stdin.close()
+                process.wait(timeout=30)
+                record = {"kind": kind, "official_binary": binary, "version": subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=30).stdout.strip().splitlines()[:1], "route": route, "model": native["model"], "parent_native_session": (done or {}).get("continuation_ref"), "turn_success": bool(done and done["success"]), "observed": out[-2000:], "native_subagent_events": list(SEEN), "subagent_ids": sorted({e["native_id"] for e in SEEN})}
+                evidence.append(record)
+                (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+                print(json.dumps({k: record[k] for k in ("kind", "turn_success", "parent_native_session", "subagent_ids")}), flush=True)
+                continue
             codeword = "LAMP" + secrets.token_hex(3).upper()
             first, out1 = turn(process, "t25.1", "Remember this codeword for later: " + codeword + ". Do not use any tools. Reply with only the word READY.", 240)
             moved = None
