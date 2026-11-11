@@ -32,6 +32,7 @@ def main():
     for flag in ('root', 'store', 'template', 'lampd'):
         p.add_argument('--' + flag, required=True)
     p.add_argument('--port', type=int, default=7480)
+    p.add_argument('--skip-browser', action='store_true', help='skip the browser VM steps (run separately)')
     args = p.parse_args()
     root = Path(args.root).resolve()
     root.mkdir(mode=0o700)
@@ -258,44 +259,45 @@ def main():
         shot('03-overview-ready', 'overview: setup finished, ready sandbox with idle and task-budget countdowns')
         record('overview text', page_text())
 
-        record('browser VM admission', admission())
-        made = call('POST', '/v1/browsers', dict(sandbox_id=agent, wait_ms=60000), ok=False)
-        if 'error' in made:
-            record('browser setup failure shown', made)
-            record('browser VM admission retry', admission())
-            made = call('POST', '/v1/browsers', dict(sandbox_id=agent, wait_ms=60000))
-        browser = made['result']['browser_id']
-        rev = lambda: call('GET', '/v1/browsers/' + browser)['data']['revision']
-        wait(lambda: call('GET', '/v1/browsers/' + browser)['data']['state'] == 'agent_control', 'browser ready', 120)
+        if not args.skip_browser:
+            record('browser VM admission', admission())
+            made = call('POST', '/v1/browsers', dict(sandbox_id=agent, wait_ms=60000), ok=False)
+            if 'error' in made:
+                record('browser setup failure shown', made)
+                record('browser VM admission retry', admission())
+                made = call('POST', '/v1/browsers', dict(sandbox_id=agent, wait_ms=60000))
+            browser = made['result']['browser_id']
+            rev = lambda: call('GET', '/v1/browsers/' + browser)['data']['revision']
+            wait(lambda: call('GET', '/v1/browsers/' + browser)['data']['state'] == 'agent_control', 'browser ready', 120)
 
-        def navigated():
-            out = call('POST', f'/v1/browsers/{browser}:action', dict(action='navigate', arguments=dict(url='https://the-internet.herokuapp.com/login'), wait_ms=60000), rev(), ok=False)
-            if 'error' in out:
-                record('navigate refused, retrying', out['error'])
-                time.sleep(5)
-                return False
-            return True
-        wait(navigated, 'browser navigation', 90)
-        ui('goto', url=dash + '#/browsers/' + browser, wait=2000)
-        ui('click', selector=f'#browsers-{browser} button[data-act=takeover]', wait=4000)
-        ui('click', selector=f'#browsers-{browser} button[data-act=view]', wait=6000)
-        shot('04-private-takeover', 'private browser takeover with the owner-only sealed view of the browser VM')
-        record('browser after takeover', call('GET', '/v1/browsers/' + browser)['data'])
-        # The agent asks to use a saved login: the person sees the exact effect.
-        proposal = call('POST', f'/v1/browsers/{browser}:fill-password', dict(credential_source_id='demo-vault', secret_ref='herokuapp-test-login', origin='https://the-internet.herokuapp.com', submit=True, wait_ms=60000), rev())
-        record('agent proposal', proposal.get('result'))
-        approval = wait(lambda: next((a for a in call('GET', '/v1/approvals')['items'] if a['state'] == 'pending'), None), 'approval listed', 10)
-        ui('goto', url=dash + '#/approvals/' + approval['id'], wait=2500)
-        shot('05-approval-effect', 'needs-decision: approval showing vault item, destination origin and submit')
-        wait(lambda: any(r['event_type'] == 'task.needs_decision' for r in received), 'needs_decision webhook', 20)
-        clicked = ui('click', selector=f'#approvals-{approval["id"]} button[data-act=approve]', wait=15000)
-        record('approve click', dict(clicked=clicked, dashboard_messages=ui('eval', expr="document.querySelector('#errors').innerText")))
-        wait(lambda: call('GET', '/v1/approvals/' + approval['id'])['data']['state'] != 'pending', 'approval decided', 30)
-        record('approval after dashboard approve', call('GET', '/v1/approvals/' + approval['id'])['data'])
-        ui('goto', url=dash + '#/browsers/' + browser, wait=2000)
-        ui('click', selector=f'#browsers-{browser} button[data-act=view]', wait=8000)
-        shot('06-approved-fill-result', 'after approval: private view shows the real logged-in page')
-        ui('click', selector=f'#browsers-{browser} button[data-act=return-control]', wait=3000)
+            def navigated():
+                out = call('POST', f'/v1/browsers/{browser}:action', dict(action='navigate', arguments=dict(url='https://the-internet.herokuapp.com/login'), wait_ms=60000), rev(), ok=False)
+                if 'error' in out:
+                    record('navigate refused, retrying', out['error'])
+                    time.sleep(5)
+                    return False
+                return True
+            wait(navigated, 'browser navigation', 90)
+            ui('goto', url=dash + '#/browsers/' + browser, wait=2000)
+            ui('click', selector=f'#browsers-{browser} button[data-act=takeover]', wait=4000)
+            ui('click', selector=f'#browsers-{browser} button[data-act=view]', wait=6000)
+            shot('04-private-takeover', 'private browser takeover with the owner-only sealed view of the browser VM')
+            record('browser after takeover', call('GET', '/v1/browsers/' + browser)['data'])
+            # The agent asks to use a saved login: the person sees the exact effect.
+            proposal = call('POST', f'/v1/browsers/{browser}:fill-password', dict(credential_source_id='demo-vault', secret_ref='herokuapp-test-login', origin='https://the-internet.herokuapp.com', submit=True, wait_ms=60000), rev())
+            record('agent proposal', proposal.get('result'))
+            approval = wait(lambda: next((a for a in call('GET', '/v1/approvals')['items'] if a['state'] == 'pending'), None), 'approval listed', 10)
+            ui('goto', url=dash + '#/approvals/' + approval['id'], wait=2500)
+            shot('05-approval-effect', 'needs-decision: approval showing vault item, destination origin and submit')
+            wait(lambda: any(r['event_type'] == 'task.needs_decision' for r in received), 'needs_decision webhook', 20)
+            clicked = ui('click', selector=f'#approvals-{approval["id"]} button[data-act=approve]', wait=15000)
+            record('approve click', dict(clicked=clicked, dashboard_messages=ui('eval', expr="document.querySelector('#errors').innerText")))
+            wait(lambda: call('GET', '/v1/approvals/' + approval['id'])['data']['state'] != 'pending', 'approval decided', 30)
+            record('approval after dashboard approve', call('GET', '/v1/approvals/' + approval['id'])['data'])
+            ui('goto', url=dash + '#/browsers/' + browser, wait=2000)
+            ui('click', selector=f'#browsers-{browser} button[data-act=view]', wait=8000)
+            shot('06-approved-fill-result', 'after approval: private view shows the real logged-in page')
+            ui('click', selector=f'#browsers-{browser} button[data-act=return-control]', wait=3000)
 
         # A real native session (stock /bin/sh in a public repo clone) on the same task.
         fleet = call('GET', '/v1/fleets/fl_local')['data']
