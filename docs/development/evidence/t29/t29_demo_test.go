@@ -120,8 +120,21 @@ func t29Job(s *Service, pred func(*ciJob) bool) (string, ciJob) {
 	}
 	return "", ciJob{}
 }
+var t29Store *Service
+
 func t29Until(t *testing.T, what string, d time.Duration, f func() bool) {
 	t.Helper()
+	defer func() {
+		if t.Failed() && t29Store != nil {
+			t29Store.readLock()
+			for id, j := range t29Store.life.Jobs {
+				if j.Trigger != "" {
+					t.Logf("work %s trigger=%s state=%s attempts=%d sandbox=%s labels=%v", id, j.Trigger, textField(j.R, "state"), j.Attempts, textField(j.R, "sandbox_id"), j.R["labels"])
+				}
+			}
+			t29Store.mu.Unlock()
+		}
+	}()
 	deadline := time.Now().Add(d)
 	for !f() {
 		if time.Now().After(deadline) {
@@ -189,6 +202,7 @@ func TestT29Demonstration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t29Store = s
 	t.Logf("enrolled plugins: %v", func() (out []string) {
 		for p := range s.forges {
 			out = append(out, p)
