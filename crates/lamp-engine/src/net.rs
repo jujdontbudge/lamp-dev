@@ -42,7 +42,7 @@ pub const PROXY_PORT: u16 = 3128;
 /// Guard queue number (namespace-local).
 pub const QUEUE: u16 = 314;
 /// Subordinate guest UID/GID task namespace root maps to.
-pub const TASK_UID: u32 = 65_537;
+pub const TASK_UID: u32 = lamp_init::TASK_UID;
 const NET_SPOOL_BYTES: u64 = 8 << 20;
 const PROCESS_SPOOL_BYTES: u64 = 256 << 10;
 

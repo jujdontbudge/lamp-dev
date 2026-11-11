@@ -67,6 +67,7 @@ type Config struct {
 	StateAdmin  []string
 	Quotas      Quotas
 	AuditReader string
+	KitsSocket  string
 	// RecoveryPublicKey is the owner's offline data-recovery public key file;
 	// every new backup is also wrapped to it.
 	RecoveryPublicKey string
@@ -79,6 +80,8 @@ type Config struct {
 	InstallDir string
 }
 type Service struct {
+	kitsSocket     string
+	kitsMu         sync.Mutex
 	clockWall      time.Time
 	clockTicks     int64
 	quotas         Quotas
@@ -341,6 +344,8 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	s.kitsSocket = config.KitsSocket
+	s.initKits()
 	if err := s.initNative(config); err != nil {
 		lock.Close()
 		return nil, err
