@@ -29,7 +29,7 @@ func validateInvocation(c Connection, in Invocation) error {
 		if c.FreeOnly && model != "openrouter/free" && !strings.HasSuffix(model, ":free") {
 			return invalid
 		}
-		if in.Operation == "messages" || in.Operation == "responses" {
+		if in.Operation == "messages" || in.Operation == "responses" || in.Operation == "chat_completions" {
 			if tools, ok := in.Arguments["tools"].([]any); ok {
 				for _, value := range tools {
 					tool, ok := value.(map[string]any)
@@ -50,7 +50,7 @@ func validateInvocation(c Connection, in Invocation) error {
 					}
 				}
 			}
-			if in.Operation == "messages" {
+			if in.Operation == "messages" || in.Operation == "chat_completions" {
 				messages, ok := in.Arguments["messages"].([]any)
 				if !ok || len(messages) == 0 {
 					return invalid

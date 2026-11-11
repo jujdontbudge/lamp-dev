@@ -5,6 +5,7 @@ package broker
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -134,7 +135,7 @@ func (c Config) Validate() error {
 					return errors.New("invalid field name")
 				}
 				switch strings.TrimSuffix(typ, "?") {
-				case "string", "number", "boolean", "object", "array":
+				case "string", "number", "boolean", "object", "array", "string_or_object":
 				default:
 					return errors.New("invalid field type")
 				}
@@ -159,8 +160,8 @@ func (c Config) Validate() error {
 			if v.Kind == "git_sign" && (name != "sign_commit" || !op.Write) {
 				return errors.New("only approved commit signing is supported")
 			}
-			if v.Kind == "model" && ((name != "chat" && name != "messages" && name != "responses") || !op.Write) {
-				return errors.New("model supports chat, messages or responses (write)")
+			if v.Kind == "model" && ((name != "chat" && name != "chat_completions" && name != "messages" && name != "responses") || !op.Write) {
+				return errors.New("model supports chat, chat_completions, messages or responses (write)")
 			}
 		}
 	}
@@ -193,6 +194,8 @@ func cliOperation(adapter, operation string) (bool, bool) {
 func validateFields(args map[string]any, fields map[string]string) error {
 	for k := range args {
 		if _, ok := fields[k]; !ok {
+			// Field names (never values) help an owner extend an allowlist.
+			log.Printf("lamp-broker: argument field %q is not in the operation allowlist", k)
 			return errors.New("SCOPE_DENIED")
 		}
 	}
@@ -217,6 +220,11 @@ func validateFields(args map[string]any, fields map[string]string) error {
 			_, good = v.(map[string]any)
 		case "array":
 			_, good = v.([]any)
+		case "string_or_object":
+			// OpenAI tool_choice is "auto"/"none" or a named function object.
+			_, isString := v.(string)
+			_, isObject := v.(map[string]any)
+			good = isString || isObject
 		}
 		if !good {
 			return errors.New("INVALID_ARGUMENT")

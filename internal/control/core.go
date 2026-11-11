@@ -493,14 +493,7 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 			}
 		}
 	case "harness":
-		for id, h := range s.sessions.Harnesses {
-			if h.OwnerID == a.Principal {
-				m := newResource("harness", h.OwnerID)
-				m["id"], m["auth_modes"], m["version"] = id, h.AuthModes, "enrolled"
-				m["created_at"], m["updated_at"] = c.Fleet.CreatedAt, c.Fleet.CreatedAt
-				items = append(items, m)
-			}
-		}
+		items = append(items, s.harnessResources(a)...)
 	case "budget", "task", "audit_record":
 		for _, item := range s.accountResources(a, kind) {
 			items = append(items, item)

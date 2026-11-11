@@ -60,14 +60,17 @@ type SessionHarness struct {
 }
 
 type NativeHarness struct {
-	Kind           string                   `json:"kind"`
-	Binary         string                   `json:"binary"`
-	Model          string                   `json:"model,omitempty"`
-	Endpoint       string                   `json:"endpoint,omitempty"`
-	CredentialFile string                   `json:"credential_file,omitempty"`
-	MCPConfig      string                   `json:"mcp_config,omitempty"`
-	MCPCommand     []string                 `json:"mcp_command,omitempty"`
-	Profiles       map[string]NativeProfile `json:"profiles,omitempty"`
+	Kind           string   `json:"kind"`
+	Binary         string   `json:"binary"`
+	Model          string   `json:"model,omitempty"`
+	Endpoint       string   `json:"endpoint,omitempty"`
+	CredentialFile string   `json:"credential_file,omitempty"`
+	MCPConfig      string   `json:"mcp_config,omitempty"`
+	MCPCommand     []string `json:"mcp_command,omitempty"`
+	// Subagents lets the harness use its own sub-agent feature; each one is
+	// then recorded as a separate observed child session.
+	Subagents bool                     `json:"native_subagents,omitempty"`
+	Profiles  map[string]NativeProfile `json:"profiles,omitempty"`
 }
 
 type NativeProfile struct {
@@ -119,6 +122,10 @@ type managedSession struct {
 	Failure     string            `json:"failure,omitempty"`
 	GitBusy     bool              `json:"git_busy,omitempty"`
 	Checkpoint  string            `json:"checkpoint,omitempty"`
+	// Observed marks a native sub-agent recorded from its parent's harness
+	// events; it has no runner of its own and accepts no input.
+	Observed bool              `json:"observed,omitempty"`
+	Children map[string]string `json:"children,omitempty"`
 }
 
 func (s *Service) initSessions(config SessionConfig) error {
@@ -131,8 +138,8 @@ func (s *Service) initSessions(config SessionConfig) error {
 				return fmt.Errorf("unsupported session authentication mode")
 			}
 		}
-		if h.Native != nil && (h.Native.Kind != "claude" && h.Native.Kind != "codex" || !strings.HasPrefix(h.Native.Binary, "/")) {
-			return fmt.Errorf("native session harness requires claude or codex and an enrolled absolute official binary")
+		if h.Native != nil && (catalogueByKind(h.Native.Kind) == nil || !strings.HasPrefix(h.Native.Binary, "/")) {
+			return fmt.Errorf("native session harness requires a catalogue harness kind and an enrolled absolute official binary")
 		}
 		for name := range h.Env {
 			switch name {
@@ -420,6 +427,9 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 			if textField(work.Resource, "state") != "active" {
 				return fail("RESOURCE_IN_USE", "session is not active")
 			}
+			if work.Observed {
+				return fail("AUTH_TRANSPORT_UNSUPPORTED", "native sub-agents are driven by their parent harness; send input to the parent session")
+			}
 			if holder := textField(in, "holder_id"); holder != "" && holder != a.Principal {
 				return fail("SCOPE_DENIED", "input leases are acquired by their holder")
 			}
@@ -617,7 +627,7 @@ func (s *Service) driveSessions() {
 			if s.fleetEnabled && (s.fleet == nil || resourceHome(id) != s.hostID() || !s.fleet.leaseValid()) {
 				continue
 			}
-			if work.Failure == "" && (textField(work.Resource, "state") == "active" || textField(work.Resource, "state") == "starting" || textField(work.Resource, "state") == "moving" || len(work.Pending) > 0 || work.More) {
+			if !work.Observed && work.Failure == "" && (textField(work.Resource, "state") == "active" || textField(work.Resource, "state") == "starting" || textField(work.Resource, "state") == "moving" || len(work.Pending) > 0 || work.More) {
 				ids = append(ids, id)
 			}
 		}
@@ -832,6 +842,9 @@ func (s *Service) driveSession(id string) {
 				if ref := textField(event, "continuation_ref"); ref != "" {
 					m["continuation_ref"] = ref
 				}
+				if textField(event, "type") == "native_subagent" {
+					s.observeSubagent(id, work, event, epoch)
+				}
 			}
 		}
 		work.EventOffset = uintField(reply, "event_offset")
@@ -849,6 +862,14 @@ func (s *Service) driveSession(id string) {
 		} else {
 			changed := textField(m, "state") != state || textField(m, "observation_state") != "fresh"
 			m["state"], m["observation_state"] = state, "fresh"
+			if state != "active" {
+				for _, childID := range work.Children {
+					if child := s.journal.Control.Sessions[childID]; child != nil && textField(child.Resource, "state") == "active" {
+						child.Resource["state"], child.Resource["status"] = "ended", "idle"
+						editResource(child.Resource)
+					}
+				}
+			}
 			if changed {
 				m["observed_at"] = timestamp()
 				editResource(m)
@@ -944,4 +965,49 @@ func (s *Service) sessionGuestCall(ctx context.Context, sb api.Sandbox, argv []s
 		return nil, errors.New("session relay did not reply")
 	}
 	return []byte(reply.Detail["response_json"]), nil
+}
+
+// observeSubagent records a harness's own sub-agent as a separate child
+// session. Its output is what the parent harness reported for that sub-agent.
+func (s *Service) observeSubagent(parentID string, parent *managedSession, event map[string]any, epoch uint64) {
+	native := textField(event, "native_id")
+	if native == "" {
+		return
+	}
+	if parent.Children == nil {
+		parent.Children = map[string]string{}
+	}
+	sessions := s.journal.Control.Sessions
+	child := sessions[parent.Children[native]]
+	if child == nil {
+		if len(sessions) >= 1024 || len(parent.Children) >= 64 {
+			return
+		}
+		p := parent.Resource
+		m := newResource("session", textField(p, "owner_id"))
+		m["id"] = s.resourceID("se")
+		for _, field := range []string{"sandbox_id", "harness_id", "auth_mode", "task_id", "location", "location_epoch"} {
+			if v, ok := p[field]; ok {
+				m[field] = v
+			}
+		}
+		m["parent_session_id"], m["agent_mode"], m["continuation_ref"] = parentID, "inside", native
+		m["state"], m["observation_state"], m["observed_at"] = "active", "fresh", timestamp()
+		m["labels"] = map[string]any{"lamp.native_subagent": "true", "lamp.native_label": textField(event, "label")}
+		child = &managedSession{Resource: m, Next: map[string]uint64{}, Observed: true}
+		id := textField(m, "id")
+		sessions[id], parent.Children[native] = child, id
+	}
+	m := child.Resource
+	if text := textField(event, "text"); text != "" && child.Bytes < 1<<20 {
+		data := []byte(text + "\n")
+		child.Frames = append(child.Frames, api.Frame{StreamId: textField(m, "id"), Sequence: uint64(len(child.Frames)), Channel: "stdout", DataBase64: base64.StdEncoding.EncodeToString(data), ByteOffset: strconv.FormatUint(child.Offset, 10), LocationEpoch: epoch})
+		child.Offset += uint64(len(data))
+		child.Bytes += uint64(len(data))
+	}
+	m["status"] = "working"
+	if textField(event, "status") == "completed" {
+		m["status"], m["state"] = "idle", "ended"
+	}
+	editResource(m)
 }

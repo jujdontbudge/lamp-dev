@@ -297,6 +297,16 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 			fail(w, "INVALID_ARGUMENT")
 			return
 		}
+	} else if strings.HasPrefix(r.URL.Path, "/v1/models/") && strings.HasSuffix(r.URL.Path, "/native/chat/completions") {
+		// Native OpenAI-compatible harnesses (opencode, pi, goose, droid BYOK)
+		// keep their own streaming and tool shapes; the credential stays here.
+		in.Connection = strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/models/"), "/native/chat/completions")
+		in.Operation = "chat_completions"
+		if decode(r, &in.Arguments) != nil {
+			fail(w, "INVALID_ARGUMENT")
+			return
+		}
+		modelRoute, nativeRoute = true, true
 	} else if strings.HasPrefix(r.URL.Path, "/v1/models/") && strings.HasSuffix(r.URL.Path, "/chat/completions") {
 		in.Connection = strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/models/"), "/chat/completions")
 		in.Operation = "chat"

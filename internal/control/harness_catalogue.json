@@ -1,0 +1,186 @@
+[
+  {
+    "id": "claude_code",
+    "kind": "claude",
+    "name": "Claude Code",
+    "auth_modes": ["subscription", "api_key"],
+    "routes": {
+      "api_key": "Official binary speaks Anthropic Messages to Lamp's broker (ANTHROPIC_BASE_URL); the provider key stays in the broker.",
+      "subscription": "Native setup-token sign-in held only on an owner-designated custody host (CLAUDE_CODE_OAUTH_TOKEN); T21 custody path."
+    },
+    "permission_sources": ["https://code.claude.com/docs/en/llm-gateway", "https://code.claude.com/docs/en/authentication", "https://www.anthropic.com/legal/commercial-terms"],
+    "endpoints": ["api.anthropic.com"],
+    "trust": "NODE_EXTRA_CA_CERTS",
+    "continuation": "claude -p --resume <session_id>; session_id from stream-json",
+    "native_subagents": "Task/Agent tool when native_subagents is enrolled; each reported as an observed child session (parent_tool_use_id). Otherwise disabled and Lamp spawn is used.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["Subscription use is subject to Anthropic's consumer and Commercial Terms for the account; Lamp never proxies or refreshes the subscription token.", "API turns via broker were demonstrated with an OpenRouter zero-price route, not Anthropic's own endpoint."]
+  },
+  {
+    "id": "codex",
+    "kind": "codex",
+    "name": "Codex CLI",
+    "auth_modes": ["subscription", "api_key"],
+    "routes": {
+      "api_key": "Official binary uses a custom model_provider (wire_api=responses) pointed at Lamp's broker; key stays in the broker.",
+      "subscription": "Native ChatGPT device sign-in into the session's own CODEX_HOME on the custody host; VM-owned refresh, never copied between hosts."
+    },
+    "permission_sources": ["https://developers.openai.com/codex/auth", "https://developers.openai.com/codex/config-reference"],
+    "endpoints": ["api.openai.com", "chatgpt.com", "auth.openai.com"],
+    "trust": "CODEX_CA_CERTIFICATE, SSL_CERT_FILE",
+    "continuation": "codex exec resume <thread_id>; thread_id from thread.started",
+    "native_subagents": "multi_agent feature when native_subagents is enrolled; collab_tool_call receiver threads reported as observed child sessions. Otherwise disabled.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["ChatGPT plan rate limits apply to subscription turns."]
+  },
+  {
+    "id": "opencode",
+    "kind": "opencode",
+    "name": "opencode",
+    "auth_modes": ["api_key"],
+    "routes": {
+      "api_key": "Official binary with an OPENCODE_CONFIG_CONTENT provider (@ai-sdk/openai-compatible) pointed at the broker's native chat-completions route."
+    },
+    "permission_sources": ["https://opencode.ai/docs/providers/", "https://github.com/anomalyco/opencode/blob/dev/packages/web/src/content/docs/network.mdx"],
+    "endpoints": ["provider API chosen by the owner"],
+    "trust": "NODE_EXTRA_CA_CERTS (CLI and background server)",
+    "continuation": "opencode run -s <sessionID>",
+    "native_subagents": "General sub-agent is disabled; Lamp spawn is used instead.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["No Anthropic OAuth route: opencode's resurrected Claude subscription login is not a permitted route and is not offered.", "Provider subscription routes other than API keys are not enrolled."]
+  },
+  {
+    "id": "cursor_cli",
+    "kind": "cursor",
+    "name": "Cursor CLI (cursor-agent)",
+    "auth_modes": ["api_key", "subscription"],
+    "routes": {
+      "api_key": "Official CURSOR_API_KEY (user or service account) held on the custody host; traffic goes to Cursor's own backend.",
+      "subscription": "Documented native 'agent login' into an isolated CURSOR_CONFIG_DIR on the custody host."
+    },
+    "permission_sources": ["https://cursor.com/docs/cli/reference/configuration", "https://cursor.com/docs/cli/reference/authentication"],
+    "endpoints": ["api2.cursor.sh", "cursor.com"],
+    "trust": "NODE_EXTRA_CA_CERTS",
+    "continuation": "cursor-agent --print --resume <chatId>",
+    "native_subagents": "Not exposed by the headless CLI.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["Cursor has no bring-your-own-endpoint route; model traffic always goes to Cursor, so the Lamp broker cannot hold the credential.", "Needs a Cursor account; not yet signed in for Lamp tests."]
+  },
+  {
+    "id": "copilot_cli",
+    "kind": "copilot",
+    "name": "GitHub Copilot CLI",
+    "auth_modes": ["api_key", "subscription"],
+    "routes": {
+      "api_key": "Official BYOK (COPILOT_PROVIDER_BASE_URL, type openai) pointed at the broker; COPILOT_OFFLINE so no GitHub entitlement is used.",
+      "subscription": "Official device login or fine-grained token with the Copilot Requests permission (COPILOT_GITHUB_TOKEN); separate from any Actions token."
+    },
+    "permission_sources": ["https://docs.github.com/en/copilot/how-tos/copilot-cli", "https://github.com/github/copilot-sdk/commit/c9433c4c3e3e190945a7097c7da17bfdc4090813"],
+    "endpoints": ["api.githubcopilot.com", "github.com"],
+    "trust": "NODE_EXTRA_CA_CERTS",
+    "continuation": "copilot -p --resume <sessionId>",
+    "native_subagents": "task tool denied; Lamp spawn is used.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["Copilot subscription device login needs the owner to enter a code on github.com; not yet done for Lamp tests."]
+  },
+  {
+    "id": "amp",
+    "kind": "amp",
+    "name": "Amp",
+    "auth_modes": ["api_key"],
+    "routes": {
+      "api_key": "Official AMP_API_KEY access token held on the custody host; execution is local (--execute), model traffic goes to ampcode.com."
+    },
+    "permission_sources": ["https://ampcode.com/docs/cli/settings", "https://ampcode.com/manual"],
+    "endpoints": ["ampcode.com"],
+    "trust": "NODE_EXTRA_CA_CERTS",
+    "continuation": "amp threads continue <thread_id> --execute",
+    "native_subagents": "Amp sub-agents run server-side inside the thread; not separately reported.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["Remote orb execution (--orb-execute) runs on Amp's servers and is not relocated into a Lamp sandbox.", "Needs an Amp account access token; not yet created for Lamp tests."]
+  },
+  {
+    "id": "goose",
+    "kind": "goose",
+    "name": "goose",
+    "auth_modes": ["api_key", "delegated"],
+    "routes": {
+      "api_key": "Direct provider mode (GOOSE_PROVIDER=openai, OPENAI_HOST) pointed at the broker's native chat-completions route.",
+      "delegated": "ACP mode delegates sign-in and transport to another official harness; no continuation is claimed for it."
+    },
+    "permission_sources": ["https://block.github.io/goose/docs/getting-started/providers", "https://block.github.io/goose/docs/guides/environment-variables"],
+    "endpoints": ["provider API chosen by the owner"],
+    "trust": "SSL_CERT_FILE",
+    "continuation": "goose run --name <name> --resume",
+    "native_subagents": "Sub-recipes are not enabled; Lamp spawn is used.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["ACP-delegated sessions inherit the delegate's continuation; goose itself cannot resume them."]
+  },
+  {
+    "id": "gemini_cli",
+    "kind": "gemini",
+    "name": "Gemini CLI",
+    "auth_modes": ["api_key", "subscription"],
+    "routes": {
+      "api_key": "Official GEMINI_API_KEY (AI Studio) or Vertex credentials held on the custody host; traffic goes to Google.",
+      "subscription": "Google sign-in only where the account's current eligibility allows it; checked per account, not assumed."
+    },
+    "permission_sources": ["https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md", "https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/authentication.md"],
+    "endpoints": ["generativelanguage.googleapis.com", "aiplatform.googleapis.com"],
+    "trust": "NODE_EXTRA_CA_CERTS",
+    "continuation": "gemini -p --resume <session_id>",
+    "native_subagents": "Experimental agents disabled.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["Lamp's broker does not speak the Gemini API wire format, so the key is held on the custody host rather than in the broker.", "Google rejects automated browser sign-in; an API key must be created by the owner."]
+  },
+  {
+    "id": "pi",
+    "kind": "pi",
+    "name": "pi",
+    "auth_modes": ["api_key"],
+    "routes": {
+      "api_key": "Pinned provider in models.json (api openai-completions) pointed at the broker's native chat-completions route."
+    },
+    "permission_sources": ["https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/models.md", "https://github.com/badlogic/pi-mono/blob/main/packages/ai/src/utils/node-http-proxy.ts"],
+    "endpoints": ["provider API chosen by the owner"],
+    "trust": "NODE_EXTRA_CA_CERTS",
+    "continuation": "pi -p --session-id <uuid> (Lamp chooses the ID before the first turn)",
+    "native_subagents": "None built in; extensions disabled.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["No universal subscription entitlement; each provider's own route applies."]
+  },
+  {
+    "id": "devin",
+    "kind": "devin",
+    "name": "Devin CLI",
+    "auth_modes": ["subscription", "api_key"],
+    "routes": {
+      "subscription": "Official 'devin auth login' (manual token flow) into the session's isolated home on the custody host; local execution.",
+      "api_key": "Official service API key where the account provides one."
+    },
+    "permission_sources": ["https://docs.devin.ai/cli/troubleshooting", "https://docs.devin.ai/cli"],
+    "endpoints": ["devin.ai", "windsurf.com"],
+    "trust": "OS trust store (SSL_CERT_FILE)",
+    "continuation": "devin -p --resume <session_id>; ID read from 'devin list --format json'",
+    "native_subagents": "Not exposed by the local CLI.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["Cloud sessions (--cloud) run on Devin's machines; Lamp does not relocate them into a sandbox and does not present a cloud session as local.", "Headless output is plain text only.", "Use speed:standard; Devin's daily quota is shared."]
+  },
+  {
+    "id": "droid",
+    "kind": "droid",
+    "name": "Factory Droid",
+    "auth_modes": ["api_key", "subscription"],
+    "routes": {
+      "api_key": "Factory's documented BYOK custom model (generic-chat-completion-api) pointed at the broker; no Factory login is needed for this route.",
+      "subscription": "Official FACTORY_API_KEY or native login on the custody host for Factory-hosted models."
+    },
+    "permission_sources": ["https://docs.factory.ai/cli/byok/overview", "https://docs.factory.com/enterprise/network-and-deployment"],
+    "endpoints": ["api.factory.ai"],
+    "trust": "NODE_EXTRA_CA_CERTS",
+    "continuation": "droid exec -s <session_id>",
+    "native_subagents": "Task/SpawnAgent removed; Lamp spawn is used.",
+    "guest_support": ["linux-vm", "macos-host", "linux-host"],
+    "limitations": ["Factory-hosted models need the owner's Factory key; not yet provided for Lamp tests."]
+  }
+]

@@ -14,6 +14,15 @@ func normalizeNative(in Invocation) error {
 	if in.Operation == "responses" {
 		key = "max_output_tokens"
 	}
+	if in.Operation == "chat_completions" {
+		if _, exists := in.Arguments["max_completion_tokens"]; exists {
+			key = "max_completion_tokens"
+		}
+		// Streamed chat reports usage only when asked; budgets need it.
+		if stream, _ := in.Arguments["stream"].(bool); stream {
+			in.Arguments["stream_options"] = map[string]any{"include_usage": true}
+		}
+	}
 	raw, exists := in.Arguments[key]
 	if !exists {
 		in.Arguments[key] = json.Number("4096")
@@ -61,6 +70,8 @@ func (b *Broker) nativeModel(ctx context.Context, c Connection, in Invocation) (
 func nativeModelUsage(data []byte) *uint64 {
 	type usage struct {
 		Total    *uint64 `json:"total_tokens"`
+		Prompt   *uint64 `json:"prompt_tokens"`
+		Complete *uint64 `json:"completion_tokens"`
 		Input    *uint64 `json:"input_tokens"`
 		Output   *uint64 `json:"output_tokens"`
 		Read     uint64  `json:"cache_read_input_tokens"`
@@ -80,6 +91,10 @@ func nativeModelUsage(data []byte) *uint64 {
 		}
 		if u.Output != nil {
 			output = u.Output
+		}
+		if u.Prompt != nil && u.Complete != nil && u.Total == nil {
+			n := *u.Prompt + *u.Complete
+			total = &n
 		}
 	}
 	frames := [][]byte{data}
