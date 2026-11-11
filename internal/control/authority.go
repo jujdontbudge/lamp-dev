@@ -419,6 +419,16 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
+	if lifeOperation(op.Name) {
+		s.lifeHTTP(w, r, id, op, selectors)
+		return
+	}
+	if op.Name == "exec_create" && !s.wakeForExec(w, r, id) {
+		return
+	}
+	if op.Name == "sandbox_create" && s.lifeCreate(w, r, id) {
+		return
+	}
 	switch op.Name {
 	case "sandbox_create", "sandbox_fork", "sandbox_delete", "exec_create", "sandbox_get", "exec_get", "exec_watch", "operation_get":
 		s.engineHTTP(w, r)

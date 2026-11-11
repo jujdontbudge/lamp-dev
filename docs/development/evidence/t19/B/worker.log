@@ -1,0 +1,69 @@
+lamp-engine: removed 9 uncommitted state file(s)
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 1 verified template(s) in 232 ms
+lamp-supervisor: serving lamp.worker/1 on /run/t19/w.sock
+lamp-supervisor: op op_a0e87035958008b9a14cd3c5d4fe1d52.allocate sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=1213 
+lamp-supervisor: op op_a0e87035958008b9a14cd3c5d4fe1d52.restore sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=58888 attach_us=30387 barrier_us=6427 disk_attach_us=1841 load_us=5430 net_build_us=34194 net_guard_us=19859 net_proxy_us=19864 net_tap_us=14129 net_total_us=34187 net_uplink_us=19913 prepare_us=2173 spawn_us=14451 total_us=58878
+lamp-supervisor: op op_a0e87035958008b9a14cd3c5d4fe1d52.start sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=13290 
+lamp-supervisor: op op_d6d0ea78e1f6f661f0d7a3284264e5ca.start sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=18258 
+lamp-supervisor: op op_e21085ae15b04d5fec1fcf9e3cc78301.start sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=22154 
+lamp-supervisor: op op_cae912bb15cc2113a78a13415e552751.allocate sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=1746 
+lamp-supervisor: op op_cae912bb15cc2113a78a13415e552751.capture sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=817525 disk_seal_us=1059 freeze_us=15209 full_write_us=781547 memory_bytes=4294967296 publish_us=143 source_pause_us=800797 spare=0 thaw_us=1219 total_us=817470
+lamp-supervisor: op op_cae912bb15cc2113a78a13415e552751.restore sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=17226 attach_us=3 barrier_us=5789 disk_attach_us=1424 load_us=5473 net_build_us=58374 net_guard_us=37147 net_proxy_us=37149 net_tap_us=21092 net_total_us=58371 net_uplink_us=37182 prepare_us=1467 spawn_us=4351 total_us=17217
+lamp-supervisor: op op_cae912bb15cc2113a78a13415e552751.start sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=20023 
+lamp-supervisor: op op_2c1509a1c76fac0be52cfbb9d679a840.start sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=18498 
+lamp-supervisor: op op_256330fe5802d1bf6da8a9f694c2e486.capture sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=968978 disk_seal_us=1435 durable_commit_us=4047 durable_encode_us=135356 durable_mem_sync_us=23582 durable_sync_us=28220 durable_vmstate_us=28010 freeze_us=2939 full_write_us=778501 memory_bytes=4294967296 publish_us=167804 reserve_us=3992 source_pause_us=793367 spare=0 thaw_us=617 total_us=968845
+lamp-supervisor: op op_0f6ddd8c8ed8e5ec3b99173bb3d4c197.stop sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=34127 
+lamp-supervisor: op op_dec3051261da349484677e39c9805c25.release sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=501736 
+lamp-supervisor: op op_caca33550893adb1da3c26ac1a40adcb.allocate sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=3378 
+lamp-supervisor: op op_caca33550893adb1da3c26ac1a40adcb.capture sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=348942 disk_seal_us=871 freeze_us=3621 full_write_us=331308 memory_bytes=4294967296 publish_us=122 source_pause_us=343998 spare=1 thaw_us=965 total_us=348887
+lamp-supervisor: op op_caca33550893adb1da3c26ac1a40adcb.restore sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=13640 attach_us=2 barrier_us=5064 disk_attach_us=926 load_us=3123 net_build_us=48522 net_guard_us=14499 net_proxy_us=14506 net_tap_us=24290 net_total_us=48499 net_uplink_us=24090 prepare_us=948 spawn_us=4419 total_us=13633
+lamp-supervisor: op op_caca33550893adb1da3c26ac1a40adcb.start sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=13044 
+lamp-supervisor: op op_1d31220552c42d338a3fa206ea4e2971.start sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=13719 
+lamp-supervisor: op op_532bf61a7a87d826d426b6757dacb4ad.start sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=6870 
+lamp-supervisor: op op_ffd1569db9f1ac4c472ac6754cf6d1ba.start sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=5266 
+lamp-supervisor: op op_08954ec517e1311d41c0d9855ab76c5e.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=6164 
+lamp-supervisor: op op_8ce5991860038788be255731e959f58d.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=15886 
+lamp-supervisor: op op_13ac0f0abebe1c3445ad295e5b1a9909.lamp sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=8782 
+lamp-supervisor: op op_30907c296bd689f6eeab5faae0b93a49.lamp sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=10631 
+lamp-supervisor: op op_5e8307fa736620913c3836c1b4bc8be7.lamp sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=12539 
+lamp-supervisor: op op_1d4a8a374b381f3cdb9b4dcb8f0e32d9.lamp sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=1193 
+lamp-supervisor: op op_102d6a931aa00e8462b9a9b86a20afec.lamp sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=17102 
+lamp-supervisor: op op_7386312cd0731a0b5872c4ea59aa6dab.lamp sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=11063 
+lamp-supervisor: op op_a4a04e1ee9cb97f4954e23dbc8e78d87.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=10351 
+lamp-supervisor: op op_81c4ca47a091217ee05b50125b92785c.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=15376 
+lamp-supervisor: op op_5aa82d25fe81273f59619c83f945b4e0.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=9541 
+lamp-supervisor: op op_ada8f3a145fdb1a5f69477fcce59d3e1.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=7906 
+lamp-supervisor: op op_339cc930b2cf38188cef8c535e7f847c.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=9457 
+lamp-supervisor: op op_7b2f61aabe56cce9f6eced04a5faa0a8.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=15396 
+lamp-supervisor: op op_9a8817301b5c93e9ba61feefcd37accd.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=12478 
+lamp-supervisor: op op_657f810b76dfd51f9d94e1f8ab25b8cf.start sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=11684 
+lamp-supervisor: op op_4cae1d068a715e623c25d6b2ba223e30.stop sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=21118 
+lamp-supervisor: op op_4cae1d068a715e623c25d6b2ba223e30.release sandbox sb_6595066f372b364b0d310b3053c636bf handle_us=151849 
+lamp-supervisor: op op_d1386bf3be32d1f067b84b5db8f74cd8.start sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=10984 
+lamp-supervisor: op op_615ff83df8efabd15a0ea5ee82c66a58.allocate sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=3499 
+lamp-supervisor: op op_c4ac2e04166da710bda223065d05412b.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=6581 
+lamp-supervisor: op op_3f0464aade0133c4bc0609ffe6473f48.restore sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=183387 attach_us=6 barrier_us=4091 disk_attach_us=1357 load_us=6070 materialize_us=161099 net_build_us=49857 net_guard_us=28774 net_proxy_us=28777 net_tap_us=20923 net_total_us=49855 net_uplink_us=28828 prepare_us=162470 spawn_us=10731 total_us=183378
+lamp-supervisor: op op_66d371916ac45fadcc713a392d6ba77f.lamp sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=27397 
+lamp-supervisor: op op_6e7e369ca296703c0884014a8591b374.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=8177 
+lamp-supervisor: op op_c5c84615e447a11be4f31e21fdc84148.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=16020 
+lamp-supervisor: op op_260c2934121d952c07177e405e76a9a6.lamp sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=8854 
+lamp-supervisor: op op_fc1913ddfa7027798879fbce82c419c9.lamp sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=18043 
+lamp-supervisor: op op_14525e37b65e2a4c1226b162f6f8fc25.lamp sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=14318 
+lamp-supervisor: op op_f858014ec9fe1d066f4d1bfbc56bfa38.lamp sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=12167 
+lamp-supervisor: op op_15af240fea9dba505d719ab8ad64ae34.lamp sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=6551 
+lamp-supervisor: op op_32f54c2e8145fae7fb09bbaaf9fc3ae5.lamp sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=11099 
+lamp-supervisor: op op_bbe04fd9d627e443a4b17e08150ff135.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=10424 
+lamp-supervisor: op op_a573add4dbe0129672dcbd19d776f8b8.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=9244 
+lamp-supervisor: op op_9cd7455a2eb0b79733a963dc203c6166.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=948 
+lamp-supervisor: op op_750848fa06fbf87ee791f0db947b6d93.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=13545 
+lamp-supervisor: op op_a38e54e7691dbc68f6062daa5e69f51e.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=11514 
+lamp-supervisor: op op_6203b43e1a2cd85d02bc2faee9925989.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=14666 
+lamp-supervisor: op op_c81d7da14253f7c5d97cc401b63e8902.lamp sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=15298 
+lamp-supervisor: op op_c42acb2bb4a7d6d1817bd0ea01f332bb.start sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=9179 
+lamp-supervisor: op op_35c9d4816d9f5c16c2840a5c8a984550.stop sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=23911 
+lamp-supervisor: op op_35c9d4816d9f5c16c2840a5c8a984550.release sandbox sb_78033203815e31a2ded8d471baccb87b handle_us=39746 
+lamp-supervisor: op op_3be26200cdfffc9062af7bdada85680d.stop sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=101536 
+lamp-supervisor: op op_3be26200cdfffc9062af7bdada85680d.release sandbox sb_82dc5afd33b53ed2217b5fb7245474ea handle_us=39550 
+lamp-supervisor: connection closed: worker channel closed
+lamp-supervisor: signal 15: stopping every sandbox
+lamp-supervisor: stopped 0 sandbox(es) in 0 ms

@@ -51,6 +51,11 @@ type Config struct {
 	Worker           WorkerConfig
 	Identity         *IdentityConfig
 	ProtectedActions map[string]ProtectedAction
+	// StateAdmin is the trusted argv prefix of the supervisor's root-only
+	// state administration (for example `sudo -n lamp-supervisor state
+	// --admin-socket P`); Lamp appends `delete <capture>` to discard saved
+	// state it no longer references. Empty keeps every capture.
+	StateAdmin []string
 }
 type Service struct {
 	fleet          *Fleet
@@ -87,6 +92,9 @@ type Service struct {
 	// mark is journal.commit: the durable committed end of log (see
 	// commitMark). A commit is acknowledged only once mark covers it.
 	mark *os.File
+	// life is lifecycle, lasting storage and saved-template state (T19).
+	life       *lifeState
+	stateAdmin []string
 }
 
 // logPrealloc is how far journal.log is extended with zeros at a time.
@@ -309,7 +317,7 @@ func Open(config Config) (*Service, error) {
 		// Read-only reconciliation below must re-observe the original command
 		// before promoting a saved sandbox back to ready.
 		for id, sb := range s.journal.Sandboxes {
-			if sb.State != "failed" && sb.State != "deleted" {
+			if sb.State != "failed" && sb.State != "deleted" && sb.State != "suspended" {
 				sb.State = "unavailable"
 				sb.Revision++
 				sb.UpdatedAt = timestamp()
@@ -336,6 +344,10 @@ func Open(config Config) (*Service, error) {
 	}
 	s.durableOps = cloneOperations(s.journal.Operations)
 	s.rootContext, s.cancel = context.WithCancel(context.Background())
+	if err := s.initLifecycle(config.StateAdmin); err != nil {
+		lock.Close()
+		return nil, err
+	}
 	for _, rec := range s.journal.Operations {
 		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
 			s.wg.Add(1)
