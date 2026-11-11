@@ -199,7 +199,7 @@ def build_releases():
             b = WORK / f'bin-{goos}-{goarch}'
             sh([str(inst), 'build', '--version', v, '--os', goos, '--arch', goarch, '--key', str(key), '--out', str(rels / v),
                 '--file', f'bin/lampd={bad if broken else b / "lampd"}', '--file', f'bin/lamp={b / "lamp"}', '--file', f'bin/lamp-installer={b / "lamp-installer"}',
-                '--file', f'LICENSE={ROOT / "LICENSE"}', '--file', f'THIRD_PARTY.md={ROOT / "THIRD_PARTY.md"}', '--file', f'licenses/relay-AGPL-3.0.txt={ROOT / "internal/relay/LICENSE"}'])
+                '--file', f'LICENSE={ROOT / "LICENSE"}', '--file', f'THIRD_PARTY.md={ROOT / "THIRD_PARTY.md"}', '--file', f'licenses/relay-AGPL-3.0.txt={ROOT / "internal/relay/LICENSE"}', '--file', f'tools/guard-audit-release.py={ROOT / "tools/guard-audit-release.py"}'])
         args = [str(inst), 'index', '--release', str(rels / v), '--key', str(key), '--metadata-version', str(mv)]
         if v == '3.1.0':
             args += ['--revoke', 'sha256:' + '0' * 64 + '=example: an earlier release withdrawn for a security fix']
@@ -231,7 +231,7 @@ def build_releases_v4():
         for goos, goarch in [('linux', 'amd64'), ('darwin', 'arm64')]:
             b = WORK / f'bin-{goos}-{goarch}'
             files = ['--file', f'bin/lampd={b / "lampd"}', '--file', f'bin/lamp={b / "lamp"}', '--file', f'bin/lamp-installer={b / "lamp-installer"}',
-                     '--file', f'LICENSE={ROOT / "LICENSE"}', '--file', f'THIRD_PARTY.md={ROOT / "THIRD_PARTY.md"}', '--file', f'licenses/relay-AGPL-3.0.txt={ROOT / "internal/relay/LICENSE"}']
+                     '--file', f'LICENSE={ROOT / "LICENSE"}', '--file', f'THIRD_PARTY.md={ROOT / "THIRD_PARTY.md"}', '--file', f'licenses/relay-AGPL-3.0.txt={ROOT / "internal/relay/LICENSE"}', '--file', f'tools/guard-audit-release.py={ROOT / "tools/guard-audit-release.py"}']
             if goos == 'darwin':
                 # Each darwin release ships its supervisor and lamp-vz worker, both from this
                 # code (lamp-vz ad-hoc signed with its virtualization entitlement).

@@ -303,3 +303,23 @@ fresh grant, while T26's controller was paused.
   09:31:42Z with 345,890 bytes of captured records. 0 spool directories were left.
 * The prefix was then uninstalled (`--data delete`), the grant revoked and T26's
   controller restarted.
+
+### Releases must ship the tool; Macs don't need Python
+
+`lamp-installer build` now refuses a Linux release without
+`tools/guard-audit-release.py` ("release needs tools/guard-audit-release.py"),
+the same way it requires LICENSE and THIRD_PARTY.md. `tools/install_demo.py` and
+`tools/fleet_update_demo.py` ship it.
+
+On darwin the installer passes `--audit-release ["/usr/bin/true"]`. Mac
+sandboxes leave no host guard spools, and lampd stores an empty capture as "no
+records" and then frees the slot. No Python is involved (the `/usr/bin/python3`
+Command Line Tools shim could prompt to install developer tools) and no sudo.
+
+M5 check, 2026-11-11: a darwin release built without the tool, installed to the
+disposable prefix `~/lt26m` (process service). The running lampd had
+`--audit-release ["/usr/bin/true"]`, and that command exits 0 with no output.
+The prefix was then uninstalled. A real deleted Mac sandbox was **not** shown:
+VZ sandboxes need the supervisor running as root through sudo, and this
+project's rules forbid sudo on the Macs. The empty-capture release path on Mac
+is therefore not shown end to end.

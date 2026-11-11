@@ -191,7 +191,7 @@ func build(args []string) error {
 	out := fl.String("out", "", "new release directory")
 	snapshotFormat := fl.String("snapshot-format", "", "with an engine in the payload: the saved-machine-state format it reads and writes")
 	var files multi
-	fl.Var(&files, "file", "payload/path=source (repeatable); bin/lampd and bin/lamp-installer are required; ship tools/guard-audit-release.py so installs free deleted sandboxes' spool slots")
+	fl.Var(&files, "file", "payload/path=source (repeatable); bin/lampd and bin/lamp-installer are required; Linux releases also need tools/guard-audit-release.py")
 	fl.Parse(args)
 	if _, err := parseVersion(*version); err != nil {
 		return err
@@ -259,7 +259,12 @@ func build(args []string) error {
 		}
 		m.Engine["snapshot_format"] = *snapshotFormat
 	}
-	for _, req := range []string{"bin/lampd", "bin/lamp-installer", "LICENSE", "THIRD_PARTY.md"} {
+	required := []string{"bin/lampd", "bin/lamp-installer", "LICENSE", "THIRD_PARTY.md"}
+	if *goos == "linux" {
+		// Without it an installed lampd never frees deleted sandboxes' spool slots.
+		required = append(required, "tools/guard-audit-release.py")
+	}
+	for _, req := range required {
 		if _, ok := m.Files[req]; !ok {
 			return fmt.Errorf("release needs %s", req)
 		}
@@ -788,19 +793,21 @@ func install(args []string) error {
 		return err
 	}
 	// Deleted sandboxes hold a retained guard-spool reservation until lampd has
-	// captured and removed their spools, so an installed lampd always gets the
-	// release command the release ships. Linux spools are root-owned; Mac
-	// sandboxes have no host guard spools, and the tool treats a missing root
-	// as empty, so release only marks them freed. Never sudo on a Mac.
-	if tool := filepath.Join(p, "current", "tools", "guard-audit-release.py"); !hasArg(lampdArgs, "--audit-release") {
-		if _, err := os.Stat(tool); err == nil {
-			argv := []string{"/usr/bin/python3", tool, *guardAuditDir}
-			if runtime.GOOS == "linux" && os.Geteuid() != 0 {
+	// captured and removed their spools, so an installed lampd always gets a
+	// release command. Linux spools are root-owned and the release ships the
+	// tool. Mac sandboxes leave no host spools: an empty capture is "no
+	// records", so /usr/bin/true frees the slot without Python (the CLT shim
+	// would prompt to install developer tools) or sudo.
+	if !hasArg(lampdArgs, "--audit-release") {
+		argv := []string{"/usr/bin/true"}
+		if runtime.GOOS == "linux" {
+			argv = []string{"/usr/bin/python3", filepath.Join(p, "current", "tools", "guard-audit-release.py"), *guardAuditDir}
+			if os.Geteuid() != 0 {
 				argv = append([]string{"sudo", "-n"}, argv...)
 			}
-			raw, _ := json.Marshal(argv)
-			lampdArgs = append(lampdArgs, "--audit-release", string(raw))
 		}
+		raw, _ := json.Marshal(argv)
+		lampdArgs = append(lampdArgs, "--audit-release", string(raw))
 	}
 	// lampd's own host id, which its sandboxes carry: the fleet config's
 	// host_id, else the single-host default. Never taken from the caller, so
@@ -1537,11 +1544,11 @@ func readFile(path string, v any) bool {
 	return err == nil && json.Unmarshal(raw, v) == nil
 }
 
-// defaultGuardAuditDir is the supervisor's guard audit root: the Linux
-// engine's spools, or a prefix-independent empty root on a Mac.
+// defaultGuardAuditDir is the Linux engine's guard audit spool root; Macs have
+// no host guard spools.
 func defaultGuardAuditDir() string {
 	if runtime.GOOS == "linux" {
 		return "/var/lib/lamp-audit"
 	}
-	return "/var/empty/lamp-audit"
+	return ""
 }
