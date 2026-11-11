@@ -852,7 +852,8 @@ func (s *Service) workSandbox(ctx context.Context, id string, a caller, attempt 
 	}
 	code, out := s.internalHTTP(a, "POST", "/v1/sandboxes", map[string]string{"Idempotency-Key": fmt.Sprintf("work-create:%s:%d", id, attempt)}, create)
 	if code >= 400 {
-		return "", fmt.Errorf("sandbox admission failed (HTTP %d)", code)
+		e, _ := out["error"].(map[string]any)
+		return "", fmt.Errorf("sandbox admission failed (HTTP %d %s: %s)", code, textField(e, "code"), textField(e, "message"))
 	}
 	opID, _ := out["operation_id"].(string)
 	s.readLock()
