@@ -16,7 +16,7 @@ OUT=${1:?usage: build-seed-arm64.sh OUT_DIR}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 WORK=${LAMP_SEED_WORK:-$HOME/.cache/lamp-seed-arm64}
 KERNEL_VERSION=6.18.62
-KERNEL_CACHE=$KERNEL_VERSION-vz-devices-v1
+KERNEL_CACHE=$KERNEL_VERSION-vz-devices-v2
 KERNEL_SHA256=490a7aedf1b355c565d3a6c05333ccccb5da82064eca46b590448a7099d7d651
 KCONFIG_URL=https://raw.githubusercontent.com/firecracker-microvm/firecracker/v1.17.0/resources/guest_configs/microvm-kernel-ci-aarch64-6.18.config
 SUITE=resolute
@@ -40,7 +40,7 @@ if [ ! -f "Image-$KERNEL_CACHE" ]; then
   (cd "linux-$KERNEL_VERSION" &&
     ./scripts/config -e SERIAL_AMBA_PL011 -e SERIAL_AMBA_PL011_CONSOLE -e VIRTIO_BALLOON -e CGROUP_FREEZER \
       -e DRM -e DRM_VIRTIO_GPU -e DRM_FBDEV_EMULATION -e FB -e FRAMEBUFFER_CONSOLE \
-      -e INPUT -e INPUT_EVDEV -e HID_SUPPORT -e HID -e HID_GENERIC -e USB -e USB_XHCI_HCD -e USB_XHCI_PCI -e USB_HID &&
+      -e INPUT -e INPUT_EVDEV -e INPUT_MISC -e INPUT_UINPUT -e HID_SUPPORT -e HID -e HID_GENERIC -e USB -e USB_XHCI_HCD -e USB_XHCI_PCI -e USB_HID &&
     make olddefconfig >/dev/null &&
     make -j"$(nproc)" Image >"$WORK/kernel-build.log" 2>&1)
   cp "linux-$KERNEL_VERSION/arch/arm64/boot/Image" "Image-$KERNEL_CACHE"

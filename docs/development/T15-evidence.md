@@ -1,6 +1,153 @@
 # T15 — Mac devices and restricted native tasks
 
-## Status: partial, not ticket completion
+## Coordinator follow-up: real device and trusted-origin demonstrations
+
+The four requested follow-up demonstrations now work. Public SDK/per-sandbox
+Device API wiring remains deferred to T28 as agreed. No benchmark, trial-count,
+soak, attack-suite or timing target was used. All VM runs below were confined,
+used generated fixtures and released their disposable guests.
+
+| Feature | M5 | 8 GiB M2 Air |
+| --- | --- | --- |
+| Linux display and disk | 640 × 480 framebuffer read/write; 4,096-byte extra-disk round trip | same, admitted 768 MiB guest |
+| Linux keyboard and mouse | actual evdev key-down/key-up and absolute pointer events from uinput | same |
+| Virtual audio input/output | guest FIFO recording to WAV and playback back through vsock, Linux and macOS | same transport in Linux |
+| Native macOS display | actual guest display ID 1, 640 × 480 pixels; AppKit image below | remains refused under current memory headroom |
+| Native macOS disk/GPU | 4,096-byte extra-disk round trip; Metal on `Apple Paravirtual device`, 64 verified computed values, last value 196 | no claim of an admitted native guest |
+| Native macOS keyboard/mouse | guest AppKit queue delivered key code 0 down/up, typed `a`, pointer `(123,234)` | native guest correctly remains refused |
+| Trusted public-CI refusal | authenticated public job refused through real control service, including forged owner/private claims | same |
+
+Final raw records:
+
+- [M5 Linux transport](evidence/t15/M5-linux-transport/result.json)
+- [Air Linux transport](evidence/t15/Air-linux-transport-final/result.json)
+- [M5 native macOS, no host UI frontend](evidence/t15/M5-macos-headless-final/result.json)
+- [M5 trusted native control](evidence/t15/M5-native-control-4/result.json)
+- [Air trusted native control](evidence/t15/Air-native-control/result.json)
+
+![Private native macOS guest application](evidence/t15/M5-macos-headless-final/guest-display.png)
+
+### What the transports actually do
+
+Audio is fixed-format mono signed 16-bit little-endian PCM at 48 kHz.
+`lamp-guest-devices` creates input/output FIFOs only when requested. Lamp's
+private vsock command channel streams a generated tone into the guest, a
+guest recorder reads the input FIFO into `recording.wav`, and a guest player
+writes the WAV's samples to the output FIFO. The host drains and checks the
+returned samples. All three final guest runs recorded and played 9,600 bytes,
+SHA-256 `69645c5d481174d63fe759c3b0b41e1f05c1c4db8b9c84676652ddcad2e5fc51`.
+Injected, recorded and played WAV files are retained alongside each record.
+There is no host microphone, speaker or VZ host-audio attachment.
+
+Linux input uses a real guest uinput device and reads the resulting events
+from evdev: `[1,30,1]`, `[1,30,0]`, `[3,0,123]`, `[3,1,234]`, with synchronization
+events. The device-capable kernel includes built-in `INPUT_UINPUT` and `EVDEV`.
+The [exact configuration](evidence/t15/kernel-input.config) SHA-256 is
+`f536e8ac791fc0509c15d67074ee116bf34e590470c470263ef52378741e37ee`;
+the Image SHA-256 is
+`c04d4afde9721300f8452de7573472e9fc19546d11fdd94f6f36a068b0804f1c`.
+The [seed metadata](evidence/t15/device-seed-input.json) binds those inputs.
+
+macOS uses an explicit **guest-application input endpoint**, not system-wide
+HID injection. The device broker validates requested keyboard/mouse flags and
+sends events to the configured private Unix socket. The native receiver posts
+real `NSEvent`s through its AppKit event queue; its responder handles them,
+updates visible text and writes the observed-event record and PNG. The receiver
+acknowledges only after its responder has processed the events. This requires an
+opt-in application receiver; arbitrary third-party desktop application control
+and public endpoint discovery are not claimed. No host accessibility or input
+monitoring permission was requested.
+
+The final M5 build creates **no host NSApplication, NSWindow or screen-capture
+frontend**, and adds no WindowServer, replayd or TCC grants to the VZ worker.
+The AppKit application runs solely inside the disposable guest. Its actual
+`CGMainDisplayID()` is 1 and its pixel size is 640 × 480; the screenshot is its
+own rendered view, not a capture of the owner's screen or other applications.
+
+### Memory and native fallback authority
+
+The native template's `machine.json` declares minimum/default resources of
+2 vCPUs, 4,096 MiB and 48 GiB. The final M5 run used that minimum memory.
+Earlier M5 refusals remain retained below. Verification reads now use
+`F_NOCACHE` rather than filling the host page cache immediately before admission;
+no admission limit or owner application was changed to make the guest fit.
+Oversized 32 GiB requests were refused before sandbox-directory creation on
+both machines. The Air native refusal is retained in the historical records;
+its latest native fallback run observed 8,192 MiB physical and 1,774 MiB
+available memory, not enough for the 4 GiB guest plus VMM allowance.
+
+`lampd --native-fallback-file` loads a custodian-owned, non-group/world-writable
+authority document without following symlinks. It binds credential SHA-256 to
+immutable job ID and repository visibility. The service copies that configuration
+at startup; request `origin`/visibility fields are not authority. Unknown job
+credentials fail closed. Public-job mutations, including ordinary sandbox
+creation, are refused before dispatch; the internal native-task route applies
+the same policy.
+
+On each Mac a valid enrolled public-job credential successfully read fleet
+metadata, then received HTTP 403 / `VM_REQUIRED` for both forged-owner native
+execution and ordinary sandbox creation. The message identifies
+`jb_public_fixture (public)`. **Zero public-CI sandboxes were created.**
+An owner-authorized task on the same service ran system SQLite and returned
+`42`, explicitly reporting `app_sandbox_process` / `weaker_than_vm`.
+Login and protected-connection flags remain refused; networking is denied.
+
+There is **no machine-wide admission ledger**. Reservations are still per
+engine; unrelated supervisors/native launchers are not globally coordinated.
+Native App Sandbox memory admission is not a VM-sized resident-memory limit.
+Linux accelerated 3D remains explicitly unavailable on this VZ backend.
+Optional-device capture/suspend is refused rather than silently dropping state.
+
+### Reproduction and verification
+
+Use the prepared T8 macOS template and a signed device-capable Linux template.
+Build `lamp-vz`, `lamp-supervisor`, `lamp-native` and `lamp-guest-devices`; copy
+the host binaries to a disposable directory and ad-hoc sign the VM worker with
+`crates/lamp-vz/lamp-vz.entitlements`. Keep the intentionally unentitled native
+launcher separate. Compile the guest fixture with:
+
+```sh
+clang -fobjc-arc infra/mac/demo-input.m -framework AppKit -o target/t15-input-observer
+```
+
+`infra/mac/demo-devices.py` accepts `--bin`, `--guest`, `--memory-mib`,
+`--source-store`, `--template-name`, `--guest-bridge`, and for native macOS
+`--gpu-demo` / `--mac-input-observer`. It uses only its own temporary supervisor,
+private disks, identity pool and guest. Native GUI setup creates a disposable
+guest account with a guest-generated credential, reboots it, re-applies the
+same sandbox identity with fresh entropy and starts the receiver in that guest's
+Aqua session. Credentials never enter host arguments, logs or evidence.
+`--command-timeout-ms` gives these real initialization commands an explicit
+bounded command budget; it is not a performance target.
+
+`infra/mac/demo-native-control.py` accepts `--daemon`, `--launcher`, `--helper`
+and a new `--output` directory. It enrolls a fixture credential, restarts the
+real control service with the trusted public-job binding and exercises both
+refusal paths and the allowed native task.
+
+Scoped checks passed: Rust formatting/type checking; Clippy for the new guest
+device binary with warnings denied; Objective-C `-Wall -Wextra -Werror`; Python
+syntax compilation; and Go vet for `internal/control` / `cmd/lampd`. No new test
+files were added. The continuation's single requested `make verify` invocation
+**passed (exit 0)**: workspace build, selected existing smokes, contracts,
+interoperability and generated-code checks. It is recorded in
+[this log](evidence/t15/make-verify-continuation.log).
+
+All failed/incomplete runs remain in `evidence/t15`, including the unsuccessful
+global Quartz and offscreen VZ input attempts. Neither submission success nor
+an empty observer record is counted as delivered input. The Air's updated
+template save failed with an internal VZ error; the retained
+[failure](evidence/t15/Air-input-template-save-failed.log) was not relabeled a
+successful snapshot. The final Air demonstration instead cold-booted a fully
+verified portable template with optional devices. An initial copied name
+symlink pointed at the M5's absolute path; the demo now resolves the template
+ID within the selected local store.
+
+## Historical first partial PR snapshot
+
+The remainder records the earlier partial state, before the follow-up above.
+Its missing-feature list and verification recovery are historical, not the
+current implementation status.
 
 These are real headless observations on the owner's M5 and 8 GiB M2 Air.
 Neither SBX-005 nor the whole SBX-006 journey is claimed complete.
@@ -37,7 +184,7 @@ Raw observations:
 - [M5 default macOS/Linux configuration and unavailable-device refusals](evidence/t15/M5-config.json)
 - [M5 Linux input-controller diagnostic](evidence/t15/M5-input-diagnostic/result.json)
 
-## Still missing or blocked
+## Missing at the first partial snapshot (superseded above)
 
 - **Audio input/output:** not implemented. Requests explicitly fail with
   `DEVICE_UNAVAILABLE`. The public VZ host audio source/sink uses the host's

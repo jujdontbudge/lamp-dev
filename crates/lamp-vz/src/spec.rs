@@ -49,9 +49,6 @@ pub struct Devices {
 
 impl Devices {
     pub fn validate(&self, macos: bool) -> Result<(), String> {
-        if self.audio_input || self.audio_output {
-            return Err("DEVICE_UNAVAILABLE: VZ audio uses the host's default microphone/speakers; a dedicated audio transport is not implemented".into());
-        }
         if self.gpu && (!macos || self.display.is_none()) {
             return Err("DEVICE_UNAVAILABLE: accelerated VZ graphics requires a macOS guest and a requested display; Linux scanout is not accelerated 3D".into());
         }

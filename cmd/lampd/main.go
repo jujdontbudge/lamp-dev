@@ -29,6 +29,7 @@ func run() error {
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
 	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
+	nativeFile := flags.String("native-fallback-file", "", "trusted local native runtime and immutable job credential bindings")
 	profileDir := flags.String("profile-dir", "", "private CPU/mutex/block profiles for a diagnostic run")
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -91,6 +92,13 @@ func run() error {
 		}
 	}
 	var fleetConfig *control.FleetConfig
+	var nativeConfig *control.NativeFallbackConfig
+	if *nativeFile != "" {
+		nativeConfig, err = control.ReadNativeFallback(*nativeFile)
+		if err != nil {
+			return err
+		}
+	}
 	if *fleetFile != "" {
 		data, err := os.ReadFile(*fleetFile)
 		if err != nil {
@@ -101,7 +109,7 @@ func run() error {
 			return err
 		}
 	}
-	service, err := control.Open(control.Config{Fleet: fleetConfig, Identity: identity, StateDir: *state, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
+	service, err := control.Open(control.Config{Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}})
 	if err != nil {
 		return err
 	}

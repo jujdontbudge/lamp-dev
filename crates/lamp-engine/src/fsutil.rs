@@ -222,6 +222,11 @@ pub fn digest_file(path: &Path) -> Result<Object> {
                         return;
                     }
                 };
+                #[cfg(target_os = "macos")]
+                if unsafe { libc::fcntl(f.as_raw_fd(), libc::F_NOCACHE, 1) } != 0 {
+                    *failure.lock().unwrap() = Some(std::io::Error::last_os_error().to_string());
+                    return;
+                }
                 let mut buf = vec![0_u8; CHUNK];
                 loop {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
