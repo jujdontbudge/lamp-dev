@@ -3,7 +3,8 @@
 # disposable Forgejo endpoint, then the demonstration test. Owner ceiling
 # (pgrep -c firecracker < 2, >= 12 GiB available) is checked by lampd itself
 # before every VM.
-import hashlib,json,os,subprocess,time
+import hashlib,json,os,signal,subprocess,sys,time
+signal.signal(signal.SIGTERM,lambda *_:sys.exit(1))  # still stop the supervisor and broker below
 policy_mode=os.environ.get('LAMP_T29_POLICY','')  # trusted | public: one policy observation
 ports=list(range(3929,3936))+([3936] if policy_mode=='trusted' else [])
 from pathlib import Path
@@ -65,10 +66,11 @@ try:
  p=subprocess.run(['go','test','./internal/control','-run','^TestT29Demonstration$','-count=1','-v','-timeout','60m'],cwd=base/'src',env=env)
  print('demonstration_exit',p.returncode,flush=True)
  if broker:
-  broker.terminate();broker.wait()
+  broker.terminate();broker.wait();broker=None
   print('broker audit (grant lifecycle, redacted by the broker):',flush=True)
   for l in (base/'broker/audit.jsonl').read_text().splitlines():print('  '+l[:300],flush=True)
 finally:
+ if broker:broker.terminate()
  if worker.poll() is None:
   subprocess.run(['sudo','-n','kill','-TERM',str(pid)],check=False)
   worker.wait(timeout=90)
