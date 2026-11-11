@@ -311,5 +311,140 @@
     "final_state": "deleted"
   },
   "stranger_fork_pr": "not run; open evidence",
-  "claude_code_action": "not run: no usable existing credential"
+  "claude_code_action": "not run: no usable existing credential",
+  "untrusted_same_repository_pr": {
+    "run": {
+      "conclusion": "success",
+      "databaseId": 42971889992,
+      "headSha": "5ac44013c7bd51550ac32b99211a714320abc996",
+      "jobs": [
+        {
+          "completedAt": "2026-11-11T06:25:32Z",
+          "conclusion": "success",
+          "databaseId": 130362043456,
+          "name": "zlib",
+          "startedAt": "2026-11-11T06:25:18Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-11-11T06:25:21Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-11-11T06:25:19Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:23Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 2,
+              "startedAt": "2026-11-11T06:25:21Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:26Z",
+              "conclusion": "success",
+              "name": "Fresh private root and public build",
+              "number": 3,
+              "startedAt": "2026-11-11T06:25:23Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:28Z",
+              "conclusion": "success",
+              "name": "Untrusted PR authority",
+              "number": 4,
+              "startedAt": "2026-11-11T06:25:26Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:30Z",
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "number": 5,
+              "startedAt": "2026-11-11T06:25:28Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:30Z",
+              "conclusion": "skipped",
+              "name": "Native cancel point",
+              "number": 6,
+              "startedAt": "2026-11-11T06:25:30Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:30Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 12,
+              "startedAt": "2026-11-11T06:25:30Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:30Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 13,
+              "startedAt": "2026-11-11T06:25:30Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42971889992/job/130362043456"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42971889992"
+    },
+    "lamp_job": {
+      "artifact_ids": [
+        "ar_3a310434329116d9be506994a9280947"
+      ],
+      "created_at": "2026-11-11T06:25:10.93418963Z",
+      "external_id": "JohanSardar/lamp-t26-fixture/130362043456",
+      "fleet_id": "fl_local",
+      "id": "jb_3a1055831e50fad52b2a3eb3a1dd02e0",
+      "job_token": {
+        "actions": [
+          "one-job-runner"
+        ],
+        "audience": "JohanSardar/lamp-t26-fixture",
+        "issuer": "https://github.com",
+        "resource_ids": [
+          "130362043456"
+        ]
+      },
+      "kind": "job",
+      "labels": {
+        "route": "workflow"
+      },
+      "owner_id": "pr_t26_native",
+      "plugin_id": "pg_github",
+      "repository_visibility": "private",
+      "result": "success",
+      "revision": 14,
+      "runner_ref": "22",
+      "sandbox_id": "sb_adffa9b5cc87b180b519b5fff82af34d",
+      "source_identity": {
+        "event": "pull_request",
+        "issuer": "https://token.actions.githubusercontent.com",
+        "repository_id": "1453466594",
+        "repository_owner_id": "68117503",
+        "sha": "5ac44013c7bd51550ac32b99211a714320abc996"
+      },
+      "state": "completed",
+      "task_id": "tk_6421c91d4b91654c4a7e9a9f06b4e218",
+      "trust_class": "public_pr",
+      "updated_at": "2026-11-11T06:25:35.753145988Z",
+      "visibility": "private"
+    },
+    "sandbox_final_state": "deleted",
+    "trusted_actor_ids": [],
+    "retain_stopped": true,
+    "repository_secret_count": 0,
+    "copilot_environment_secret_count": 0,
+    "pr_url": "https://github.com/JohanSardar/lamp-t26-fixture/pull/3",
+    "not_a_stranger_fork": true
+  }
 }

@@ -13,10 +13,11 @@ The earlier controlled-forge results below remain historical, not native proof.
 | GitHub-issued OIDC | [42962635889](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42962635889) | Live GitHub issuer/JWKS, proof-bound exchange, scoped fleet read allowed and key-list denied. No stored Lamp credential in GitHub. |
 | Cancellation | [42962867545](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42962867545) | Canceled through GitHub while the native cancel step ran; Lamp job `jb_cd4594f5d4c297a6fddb6898afe4ce86` became canceled. |
 | Trusted stopped retention | [42963069751](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42963069751) | Suspended VM, old-Task resume HTTP 409, new budget/Task inspected retained public checkout and absence of runner transport directory; VM then deleted. |
+| Actual untrusted same-repository PR | [42971889992](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42971889992) | Owner-authored [PR #3](https://github.com/JohanSardar/lamp-t26-fixture/pull/3), explicitly empty trusted actor list. Native build and authority checks passed; classified `public_pr`; fresh sandbox `sb_adffa9b5cc87b180b519b5fff82af34d` deleted despite `retain_stopped=true`. No repository/environment model or Lamp secrets. **Not a stranger's fork.** |
 
 [Native status](evidence/t26/native-status.json) records the matching observation
-metadata. These four goals are not being rerun. Coding-agent routes, the real
-same-repository untrusted PR, and fixture cleanup are in progress. A real
+metadata. Passed goals are not being rerun. Coding-agent limitations and final
+fixture cleanup are recorded separately. A real
 **stranger's fork PR remains open evidence**, not replaced by an owner PR.
 No usable Claude subscription credential was found (M5 expired; Ubuntu/Air
 absent), and no API key was provisioned: Claude Code Action is **not run**.
