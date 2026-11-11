@@ -259,40 +259,36 @@ func verifyDelivery(plugin string, secret []byte, d delivery, window time.Durati
 		if json.Unmarshal(d.Body, &ev) != nil || fresh(ev.Timestamp/1000) != nil {
 			return "", errors.New("TRIGGER_UNAUTHORIZED: stale or missing Linear timestamp")
 		}
-		id := d.Headers.Get("Linear-Delivery")
-		if id == "" {
-			return "", errors.New("TRIGGER_UNAUTHORIZED: Linear delivery has no ID")
+		// Dedup on signed content only: Linear-Delivery is not covered by the
+		// signature, so a resent body with a new header must not be new work.
+		if ev.ID == "" {
+			return "", errors.New("TRIGGER_UNAUTHORIZED: Linear delivery has no webhookId")
 		}
-		return "linear:" + id, nil
+		return "linear:" + ev.ID + ":" + bodyHash(d.Body), nil
 	case "pg_webhook":
+		// Delivery-ID headers are not signed, so deduplication keys on signed
+		// content: a captured delivery resent with a fresh ID replays as the
+		// same operation instead of starting new work.
 		// Lamp scheme: X-Lamp-Signature: sha256=hex(HMAC(timestamp + "." + body)).
-		id := d.Headers.Get("X-Lamp-Delivery")
 		if sig, ok := strings.CutPrefix(d.Headers.Get("X-Lamp-Signature"), "sha256="); ok {
 			ts, err := strconv.ParseInt(d.Headers.Get("X-Lamp-Timestamp"), 10, 64)
 			if err != nil || fresh(ts) != nil {
 				return "", errors.New("TRIGGER_UNAUTHORIZED: stale or missing webhook timestamp")
 			}
-			if !hexEqual(sig, mac(strconv.FormatInt(ts, 10)+"."+string(d.Body))) {
+			signed := strconv.FormatInt(ts, 10) + "." + string(d.Body)
+			if !hexEqual(sig, mac(signed)) {
 				return "", errors.New("TRIGGER_UNAUTHORIZED: webhook signature mismatch")
 			}
+			return "webhook:lamp:" + bodyHash([]byte(signed)), nil
 		} else if sig, ok := strings.CutPrefix(d.Headers.Get("X-Hub-Signature-256"), "sha256="); ok {
-			// Forge-style (GitHub, Forgejo, Gitea): body HMAC; replay is bounded
-			// by delivery-ID deduplication, as these schemes carry no timestamp.
+			// Forge-style (GitHub, Forgejo, Gitea): body HMAC and no timestamp,
+			// so the signed body itself is the replay key, forever.
 			if !hexEqual(sig, mac(string(d.Body))) {
 				return "", errors.New("TRIGGER_UNAUTHORIZED: webhook signature mismatch")
 			}
-			for _, h := range []string{"X-GitHub-Delivery", "X-Forgejo-Delivery", "X-Gitea-Delivery"} {
-				if id == "" {
-					id = d.Headers.Get(h)
-				}
-			}
-		} else {
-			return "", errors.New("TRIGGER_UNAUTHORIZED: unsigned webhook")
+			return "webhook:hub:" + bodyHash(d.Body), nil
 		}
-		if id == "" || len(id) > 200 {
-			return "", errors.New("TRIGGER_UNAUTHORIZED: webhook delivery has no ID")
-		}
-		return "webhook:" + id, nil
+		return "", errors.New("TRIGGER_UNAUTHORIZED: unsigned webhook")
 	}
 	return "", errors.New("TRIGGER_UNAUTHORIZED: unknown trigger plugin")
 }
@@ -636,6 +632,7 @@ func (s *Service) scheduler() {
 			fire = append(fire, due{id, textField(sc.R, "owner_id"), next})
 		}
 		s.mu.Unlock()
+		s.fleetActiveSweep()
 		sort.Slice(fire, func(i, j int) bool { return fire[i].at.Before(fire[j].at) })
 		for _, f := range fire {
 			s.fireSchedule(f.id, f.owner, f.at, now)
@@ -649,6 +646,7 @@ func (s *Service) fireSchedule(id, owner string, at, now time.Time) {
 	c, err := parseCron(textField(sc.R, "cron"))
 	loc, lerr := time.LoadLocation(textField(sc.R, "timezone"))
 	policy, missed := textField(sc.R, "dst_policy"), textField(sc.R, "missed_policy")
+	overlap := textField(sc.R, "overlap_policy")
 	claim := id
 	if k := textField(sc.R, "fleet_key"); k != "" {
 		claim = "fleet-" + k
@@ -663,8 +661,21 @@ func (s *Service) fireSchedule(id, owner string, at, now time.Time) {
 	run := !late || missed == "run_once"
 	key := at.UTC().Format(time.RFC3339)
 	if run && s.fleet != nil {
-		if s.fleet.command(fleetCommand{HomeKey: "schedule:" + owner + ":" + claim + ":" + key, Home: s.hostID()}) != nil {
-			run = false // another host owns this occurrence, or no quorum
+		cmd := fleetCommand{HomeKey: "schedule:" + owner + ":" + claim + ":" + key, Home: s.hostID()}
+		if claim != id && (overlap == "skip" || overlap == "cancel_previous") {
+			// Overlap holds fleet-wide: the claim also compare-and-sets the
+			// replicated active occurrence. skip refuses while another
+			// host's occurrence is live; cancel_previous supersedes it, and
+			// that host cancels its job when it sees it (fleetActiveSweep).
+			cmd.ActiveKey = "schedule:" + owner + ":" + claim
+			cur := s.fleet.fsm.snapshot().Active[cmd.ActiveKey]
+			if cur != "" && overlap == "skip" && !fleetActiveStale(cur, now) {
+				run = false
+			}
+			cmd.ActiveExpect, cmd.ActiveSet = cur, s.hostID()+"|"+key+"|"+now.UTC().Format(time.RFC3339)
+		}
+		if run && s.fleet.command(cmd) != nil {
+			run = false // another host owns this occurrence, is running one, or no quorum
 		}
 	}
 	if run {
@@ -694,6 +705,59 @@ func (s *Service) fireSchedule(id, owner string, at, now time.Time) {
 		s.broken = true
 	}
 }
+
+// fleetActiveStale reports an active entry older than any work can run (the
+// 6 h work timeout plus margin): its host was lost without clearing it.
+func fleetActiveStale(v string, now time.Time) bool {
+	parts := strings.Split(v, "|")
+	started, err := time.Parse(time.RFC3339, parts[len(parts)-1])
+	return err != nil || now.Sub(started) > 7*time.Hour
+}
+
+// fleetActiveSweep reconciles this host's fleet schedules with the replicated
+// active occurrences: it clears its own entry once that occurrence's job has
+// ended, and cancels its live job when another host superseded it
+// (cancel_previous).
+func (s *Service) fleetActiveSweep() {
+	if s.fleet == nil {
+		return
+	}
+	active := s.fleet.fsm.snapshot().Active
+	if len(active) == 0 {
+		return
+	}
+	type clear struct{ key, value string }
+	var clears []clear
+	s.readLock()
+	changed := false
+	for _, sc := range s.life.Schedules {
+		k := textField(sc.R, "fleet_key")
+		if k == "" || sc.Last == "" {
+			continue
+		}
+		key := "schedule:" + textField(sc.R, "owner_id") + ":fleet-" + k
+		cur := active[key]
+		mine := strings.HasPrefix(cur, s.hostID()+"|"+sc.Last+"|")
+		j := s.life.Jobs[sc.Active]
+		live := j != nil && !ciTerminal(textField(j.R, "state"))
+		switch {
+		case mine && !live:
+			clears = append(clears, clear{key, cur})
+		case !mine && live && cur != "" && !j.Cancel && textField(sc.R, "overlap_policy") == "cancel_previous":
+			j.Cancel = true
+			editResource(j.R)
+			changed = true
+		}
+	}
+	if changed && s.saveLife() != nil {
+		s.broken = true
+	}
+	s.mu.Unlock()
+	for _, c := range clears {
+		_ = s.fleet.command(fleetCommand{ActiveKey: c.key, ActiveExpect: c.value})
+	}
+}
+
 func (s *Service) scheduleRevision(id string) uint64 {
 	s.readLock()
 	defer s.mu.Unlock()
@@ -1111,4 +1175,10 @@ func (c cron) next(after time.Time, loc *time.Location, dst string) (time.Time, 
 		}
 	}
 	return time.Time{}, false
+}
+
+// bodyHash is the hex SHA-256 of signed delivery content, used as its replay key.
+func bodyHash(b []byte) string {
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
 }

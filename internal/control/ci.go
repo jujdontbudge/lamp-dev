@@ -713,7 +713,7 @@ func (s *Service) cleanupCI(ctx context.Context, id string, allowRetain bool) er
 		deregErr = forge.DeregisterJob(ctx, r, "lamp-"+id, j.Runner)
 	}
 	sandboxID := textField(j.R, "sandbox_id")
-	keep := allowRetain && j.Retain && (j.OneJob || j.Plugin == "" || j.Plugin == "pg_github") && deregErr == nil && result != "" && result != "cancelled"
+	keep := allowRetain && j.Retain && textField(j.R, "trust_class") == "trusted" && (j.OneJob || j.Plugin == "" || j.Plugin == "pg_github") && deregErr == nil && result != "" && result != "cancelled"
 	if keep && j.Command != "" {
 		for keep {
 			q := s.workerRequest(ctx, "ci-retain-observe", sandboxID, s.sandboxGeneration(sandboxID))

@@ -58,6 +58,10 @@ import (
 type instance struct {
 	Sandbox string `json:"sandbox"`
 	Secret  string `json:"secret"`
+	// Boot is a one-time nonce: the only credential in the bootstrap exec's
+	// argv (which Lamp records and the guard audits). The first "bin" request
+	// that presents it consumes it and receives Secret over the callback.
+	Boot string `json:"boot,omitempty"`
 	Exec    string `json:"exec,omitempty"`
 	User    string `json:"user,omitempty"`
 	port    int
@@ -180,7 +184,7 @@ func (g *Group) Increase(ctx context.Context, n int) (int, error) {
 			sandbox, _ = refs[0].(map[string]any)["id"].(string)
 		}
 		g.mu.Lock()
-		g.items[id] = &instance{Sandbox: sandbox, Secret: randHex(32)}
+		g.items[id] = &instance{Sandbox: sandbox, Secret: randHex(32), Boot: randHex(32)}
 		g.save()
 		g.mu.Unlock()
 		done++
@@ -191,26 +195,30 @@ func (g *Group) Increase(ctx context.Context, n int) (int, error) {
 // startAgent runs one small bootstrap command: the guest fetches
 // lamp-fleeting-guest from the plugin over the authenticated callback (argv is
 // audited, so bulk data never travels in it), checks its digest and runs it as
-// one long-lived command; deleting the sandbox ends it.
+// one long-lived command; deleting the sandbox ends it. The exec's argv holds
+// only a one-time boot nonce and the public key; the instance secret arrives
+// over the callback and reaches the guest agent in its environment.
 func (g *Group) startAgent(id string, it *instance) {
-	fetch := `import hashlib,socket,sys
-cb,iid,sec,want,path=sys.argv[1:6]
+	fetch := `import hashlib,os,socket,sys
+cb,iid,boot,want,path,pub=sys.argv[1:7]
 h,p=cb.rsplit(':',1)
-c=socket.create_connection((h,int(p)));c.sendall(('bin %s %s\n'%(iid,sec)).encode())
+c=socket.create_connection((h,int(p)));c.sendall(('bin %s %s\n'%(iid,boot)).encode())
 data=b''
 while True:
   d=c.recv(1<<16)
   if not d: break
   data+=d
+sec,_,data=data.partition(b'\n')
 if hashlib.sha256(data).hexdigest()!=want: sys.exit('lamp-fleeting-guest digest mismatch')
-open(path,'wb').write(data)`
+open(path,'wb').write(data)
+os.chmod(path,0o700)
+os.environ['LAMP_FLEETING_SECRET']=sec.decode()
+os.execv(path,[path,cb,iid,pub])`
 	script := `set -e
 umask 077
-python3 -c "$1" "$2" "$3" "$4" "$5" /var/tmp/lamp-fleeting-guest
-chmod 700 /var/tmp/lamp-fleeting-guest
-exec /var/tmp/lamp-fleeting-guest "$2" "$3" "$4" "$6"`
+exec python3 -c "$1" "$2" "$3" "$4" "$5" /var/tmp/lamp-fleeting-guest "$6"`
 	sum := sha256.Sum256(g.guest)
-	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": it.Sandbox, "argv": []string{"sh", "-c", script, "lamp", fetch, g.CallbackAddr, id, it.Secret, hex.EncodeToString(sum[:]), g.pub}},
+	out, err := g.api.do("POST", "/v1/execs", map[string]any{"sandbox_id": it.Sandbox, "argv": []string{"sh", "-c", script, "lamp", fetch, g.CallbackAddr, id, it.Boot, hex.EncodeToString(sum[:]), g.pub}},
 		map[string]string{"Idempotency-Key": "fleeting-agent:" + id})
 	if err != nil {
 		g.log.Error("agent start failed", "instance", id, "err", err)
@@ -242,7 +250,17 @@ func (g *Group) acceptAgents() {
 			c.SetReadDeadline(time.Time{})
 			g.mu.Lock()
 			it := g.items[f[1]]
-			ok := it != nil && subtle.ConstantTimeCompare([]byte(it.Secret), []byte(f[2])) == 1
+			var ok bool
+			if it != nil && f[0] == "bin" {
+				// The boot nonce works once; afterwards a recorded argv is useless.
+				ok = it.Boot != "" && subtle.ConstantTimeCompare([]byte(it.Boot), []byte(f[2])) == 1
+				if ok {
+					it.Boot = ""
+					g.save()
+				}
+			} else if it != nil {
+				ok = subtle.ConstantTimeCompare([]byte(it.Secret), []byte(f[2])) == 1
+			}
 			if ok && f[0] == "ctl" {
 				if it.ctl != nil {
 					it.ctl.Close()
@@ -261,6 +279,7 @@ func (g *Group) acceptAgents() {
 			case !ok:
 				c.Close()
 			case f[0] == "bin":
+				c.Write([]byte(it.Secret + "\n"))
 				c.Write(g.guest)
 				c.Close()
 			case f[0] == "data" && pending != nil:

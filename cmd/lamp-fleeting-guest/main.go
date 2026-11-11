@@ -4,7 +4,10 @@
 // serves SSH itself on each stream the plugin asks for. It runs as the
 // sandbox's unprivileged user and needs no system sshd or writable /run.
 //
-//	lamp-fleeting-guest <callback host:port> <instance id> <secret> <authorized public key>
+//	LAMP_FLEETING_SECRET=<secret> lamp-fleeting-guest <callback host:port> <instance id> <authorized public key>
+//
+// The secret comes by environment, never argv, so no exec record or argv
+// audit holds it; the agent removes it from its own environment at start.
 package main
 
 import (
@@ -26,18 +29,20 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 5 {
-		fmt.Fprintln(os.Stderr, "usage: lamp-fleeting-guest <callback> <instance> <secret> <public key>")
+	secret := os.Getenv("LAMP_FLEETING_SECRET")
+	os.Unsetenv("LAMP_FLEETING_SECRET")
+	if len(os.Args) != 4 || secret == "" {
+		fmt.Fprintln(os.Stderr, "usage: LAMP_FLEETING_SECRET=... lamp-fleeting-guest <callback> <instance> <public key>")
 		os.Exit(2)
 	}
-	cb, id, secret := os.Args[1], os.Args[2], os.Args[3]
+	cb, id := os.Args[1], os.Args[2]
 	if os.Getenv("HOME") == "" {
 		os.Setenv("HOME", "/var/tmp/lamp-fleeting")
 	}
 	os.MkdirAll(os.Getenv("HOME"), 0700)
 	// Artifact and cache steps call the runner helper by name.
 	os.Setenv("PATH", "/opt/gitlab-runner:/usr/local/bin:/usr/bin:/bin")
-	allowed, _, _, _, err := ssh.ParseAuthorizedKey([]byte(os.Args[4]))
+	allowed, _, _, _, err := ssh.ParseAuthorizedKey([]byte(os.Args[3]))
 	if err != nil {
 		fail(err)
 	}

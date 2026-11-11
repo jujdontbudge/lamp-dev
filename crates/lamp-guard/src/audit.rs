@@ -435,8 +435,14 @@ pub fn receive(mut socket: UnixStream, spool: &mut Spool) -> io::Result<()> {
         // filled a command's spool after ~2.7 minutes and killed it, so keep
         // one a minute with the count it stands for. Every other record is
         // still durable before its ACK, and a full spool still fails closed.
+        // Only the collector's exact heartbeat shape is coalesced; any frame
+        // carrying anything else is persisted like every other record.
+        let is_heartbeat = |v: &Value| {
+            v["details"] == json!({"type":"heartbeat"})
+                && v.as_object().is_some_and(|o| o.keys().all(|k| k == "sequence" || k == "details"))
+        };
         batch.retain(|v| {
-            if v["details"]["type"] != "heartbeat" {
+            if !is_heartbeat(v) {
                 return true;
             }
             skipped += 1;
@@ -446,7 +452,7 @@ pub fn receive(mut socket: UnixStream, spool: &mut Spool) -> io::Result<()> {
             skipped = 0;
             true
         });
-        for v in batch.iter_mut().filter(|v| v["details"]["type"] == "heartbeat") {
+        for v in batch.iter_mut().filter(|v| is_heartbeat(v)) {
             v["details"]["coalesced"] = HEARTBEAT_KEEP_EVERY.into();
         }
         spool.record_batch("protected_process_collector", batch)?;

@@ -126,8 +126,10 @@ func (g *GitLab) Verify(ctx context.Context, r Repository, id int64) (Demand, er
 		return d, err
 	}
 	// Merge-request pipelines may run a fork's code; external and chat sources
-	// are steered by people outside the project. All of those are public work.
-	trusted := map[string]bool{"push": true, "web": true, "schedule": true, "api": true, "pipeline": true, "parent_pipeline": true}
+	// are steered by people outside the project. Child and multi-project
+	// pipelines (pipeline, parent_pipeline) may descend from a fork's MR
+	// pipeline and are not traced upstream here, so they are public too.
+	trusted := map[string]bool{"push": true, "web": true, "schedule": true, "api": true}
 	d.Public = publicFor(r, p.Visibility == "public" || !trusted[j.Pipeline.Source])
 	d.Job = Job{ID: j.ID, RunID: j.Pipeline.ID, Status: "queued", Labels: j.TagList, Name: j.Name}
 	d.Run.ID, d.Run.HeadSHA, d.Run.Event, d.Run.Path = j.Pipeline.ID, j.Pipeline.SHA, j.Pipeline.Source, ".gitlab-ci.yml"
@@ -480,8 +482,9 @@ func (j *Jenkins) Verify(ctx context.Context, r Repository, id int64) (Demand, e
 	for _, a := range it.Actions {
 		for _, c := range a.Causes {
 			// SCM-change and pull-request causes from multibranch sources may run
-			// a stranger's code; user, timer and upstream causes are trusted.
-			if strings.Contains(c.Class, "PullRequest") || strings.Contains(c.Class, "ChangeRequest") || strings.Contains(c.Class, "RemoteCause") {
+			// a stranger's code; an upstream job may itself be a PR build and is
+			// not traced here. User and timer causes are trusted.
+			if strings.Contains(c.Class, "PullRequest") || strings.Contains(c.Class, "ChangeRequest") || strings.Contains(c.Class, "RemoteCause") || strings.Contains(c.Class, "UpstreamCause") {
 				untrusted = true
 			}
 		}
