@@ -1,0 +1,39 @@
+name: Native Codex Action existing subscription
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  codex:
+    runs-on: [self-hosted, lamp-native, 'lamp-native-${{ github.run_id }}-${{ github.run_attempt }}-codex']
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Existing subscription credential, transient private job file
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          python3 - <<'PY'
+          import os,pathlib
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'codex-home';p.mkdir(mode=0o700)
+          fd=os.open(p/'auth.json',os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+          with os.fdopen(fd,'w') as f:f.write(os.environ['CODEX_AUTH_JSON'])
+          PY
+          mkdir -p "$RUNNER_TEMP/npm/bin"
+          echo "NPM_CONFIG_PREFIX=$RUNNER_TEMP/npm" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/npm/bin" >> "$GITHUB_PATH"
+      - uses: openai/codex-action@1d82a3dba7c7988ec71ecae1ed5b8e8db96495c5
+        with:
+          codex-home: ${{ runner.temp }}/codex-home
+          safety-strategy: unsafe
+          sandbox: danger-full-access
+      - name: Existing ChatGPT subscription via installed Codex CLI
+        env:
+          CODEX_HOME: ${{ runner.temp }}/codex-home
+        run: |
+          codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-6.1-sol --output-last-message "$RUNNER_TEMP/codex-message" 'Output only LAMP_NATIVE_CODEX_OK. Do not inspect files or run commands.'
+          grep -qx LAMP_NATIVE_CODEX_OK "$RUNNER_TEMP/codex-message"
+      - name: Remove transient subscription credential
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/codex-home"

@@ -1,11 +1,14 @@
 # GitHub CI on fresh Lamp computers
 
-**Implementation status:** the controller and keyless exchange are implemented.
-The real-VM demonstration uses a controlled forge and runner wrapper, **not a
-hosted GitHub job or a GitHub-issued JWT**. Native Actions, Copilot, Claude Code,
-Codex and a stranger's hosted PR remain unverified: disposable GitHub account
-signup returned HTTP 403 on all three owner machines. See [T26 evidence](development/T26-evidence.md).
-Do not describe this ticket as fully done from that demonstration.
+**Evidence status:** real GitHub Actions on fresh Lamp VMs demonstrated the
+public zlib build/artifact, GitHub-issued OIDC exchange, cancellation, trusted
+stopped retention/new-Task inspection, and an explicitly untrusted owner-authored
+same-repository PR. The disposable fixture remains **private**. Coding-agent
+inference was not demonstrated: Copilot's effective repository firewall setting
+blocked it, no usable Claude credential was located, and Codex's existing
+subscription experiment failed before inference. A real stranger's fork PR
+remains open evidence. See [T26 evidence](development/T26-evidence.md); do not
+advertise these unobserved routes as validated.
 
 ## Connect a controller
 
@@ -43,6 +46,8 @@ arguments. Example policy (IDs/digests below are placeholders, not credentials):
     "template_id": "tp_clean_runner_template",
     "runner_directory": "/opt/actions-runner",
     "workflow_sha256": {".github/workflows/ci.yml": "SHA256_OF_REVIEWED_WORKFLOW_BYTES"},
+    "trusted_actor_ids": [67890],
+    "enable_copilot": false,
     "retain_stopped": false
   }],
   "oidc": []
@@ -58,6 +63,11 @@ visibility, SHA and requested labels. Workflow bytes must match an enrolled
 SHA-256, including for trusted work. Privileged `pull_request_target` and
 `workflow_run` routes are refused. A workflow edit needs explicit host review
 and a new digest, not an override supplied by the PR.
+
+`trusted_actor_ids` is a host enrollment policy, never a job label. An explicit
+empty list trusts nobody, including the repository owner. Omission preserves
+reviewed-private-workflow trust for existing enrollments. PR/public work is
+always untrusted regardless of actor membership.
 
 Each job requests both `lamp` and a per-run-attempt label, for example:
 
@@ -90,7 +100,10 @@ exec journal or API response. Each runner runs from a new copy of the clean
 distribution in its own VM. Templates containing a prior runner registration,
 credentials or `_work` are refused. The native runner, rather than a simulated
 status adapter, is responsible for GitHub steps, post-job actions, results,
-logs and `upload-artifact`. Cancellation asks GitHub to cancel the run, then
+logs and `upload-artifact`. The protected task sees UID 0 only inside its own
+single-UID user namespace, not outer-guest/host root. `RUNNER_ALLOW_RUNASROOT=1`
+skips the runner's cosmetic check; `TAR_OPTIONS=--no-same-owner` keeps extracted
+files owned by that mapped UID rather than unmapped archive owners. Cancellation asks GitHub to cancel the run, then
 stops and deletes execution. GitHub cancellation is run-wide, not a promise of
 individual sibling-job cancellation that its public API cannot provide.
 
@@ -169,15 +182,27 @@ plaintext control API to make this work.
   GitHub documents self-hosted Ubuntu x64 support and recommends ephemeral
   single-use runners. Its integrated firewall must be disabled for that route;
   Lamp's host allowlist stays enabled. This covers GitHub Actions placement,
-  **not** placement of vendor-hosted cloud-sandbox sessions. GitHub may synthesize
-  workflow identities/demand differently; this route has not been demonstrated
-  against the live service and must not be advertised as validated.
+  **not** placement of vendor-hosted cloud-sandbox sessions. Host enrollment must
+  set `enable_copilot: true`, trust the immutable GitHub Copilot bot actor ID
+  `198982749`, and pin `.github/workflows/copilot-setup-steps.yml` in
+  `workflow_sha256`. The controller accepts only GitHub's reserved
+  `dynamic/copilot-swe-agent/copilot` path, `dynamic` event, private/trusted
+  repository context and matching setup bytes at the API-proven head SHA.
+  Public/untrusted Copilot source is refused. Real native placement was observed,
+  but agent inference was blocked by GitHub's effective firewall setting; legacy
+  repository and `copilot` environment variables did not disable it. Configure
+  the repository's current Copilot Internet-access setting; do not fake the
+  validation result or disable Lamp's guard.
 * **Claude Code Action / Codex Action:** ordinary native action steps on the
   one-job runner, under approved trusted-job auth. Examples are under
   `examples/ci/`. Public PR policy rejects model secrets and elevated workflow
   permissions. Do not place owner/subscription/model credentials in a public
   job's VM. Existing custody/broker integration is required for subscription
   authentication; these examples do not implement a new auth or spending path.
+  The pinned Codex Action's prompt mode requires its API-key proxy. An existing
+  ChatGPT subscription file alone did not satisfy that transport. Its failed
+  native attempts are recorded as failures, not model inference proof. No new
+  API key, account, subscription or paid resource was provisioned.
 
 Official references consulted:
 [GitHub JIT runner API](https://docs.github.com/en/rest/actions/self-hosted-runners#create-configuration-for-a-just-in-time-runner-for-a-repository),

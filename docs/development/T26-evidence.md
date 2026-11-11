@@ -19,8 +19,66 @@ The earlier controlled-forge results below remain historical, not native proof.
 metadata. Passed goals are not being rerun. Coding-agent limitations and final
 fixture cleanup are recorded separately. A real
 **stranger's fork PR remains open evidence**, not replaced by an owner PR.
-No usable Claude subscription credential was found (M5 expired; Ubuntu/Air
-absent), and no API key was provisioned: Claude Code Action is **not run**.
+No usable headless Claude credential was located (M5 cached OAuth expired;
+none located in the inspected Ubuntu/Air credential files), and no API key was
+provisioned: Claude Code Action is **not run**.
+
+## Coding-agent observations — no inference success claimed
+
+* **Copilot:** the existing account had an individual plan, included premium
+  capacity and overage disabled. An owner-assigned issue produced GitHub's real
+  `dynamic/copilot-swe-agent/copilot` demand, with the exact per-run Lamp labels.
+  [42965716001](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42965716001)
+  reached a fresh native runner but failed initialization for missing `jq`.
+  After adding `jq`/`gh` only to the disposable seed,
+  [42970831688](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42970831688)
+  and [42971386194](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42971386194)
+  failed GitHub's self-hosted firewall validation. The effective job value was
+  still `COPILOT_AGENT_FIREWALL_ENABLED=true` after setting the legacy repository
+  and `copilot` environment variables false. The provider requires its current
+  repository Internet-access setting to be changed; no available public API
+  setting was located. No owner browser/profile was used and no validation or
+  Lamp guard was bypassed. **Native placement observed; model inference not run.**
+* **Codex:** only an existing ChatGPT subscription credential was available,
+  supplied through a private Actions secret into a mode-0600 transient job file;
+  no API key was created.
+  [42964816530](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42964816530)
+  failed archive ownership restoration in the single-UID namespace; native CI
+  now uses `TAR_OPTIONS=--no-same-owner` without granting outer root.
+  [42965630506](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42965630506)
+  installed the official CLI/proxy but its prompt wrapper failed reading absent
+  API-key proxy server information. A subscription-CLI attempt in
+  [42967604409](https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42967604409)
+  lost runner communication before the inference step; GitHub supplied an empty
+  run-log archive. Its underlying cause was not established. **These are failed
+  native attempts, not successful Codex Action or model inference evidence.**
+  The Actions secret was removed before the untrusted PR was created.
+* **Claude Code Action:** **not run**, for the credential limitation above.
+  Expired cached OAuth was not relabeled as a working credential, no approval
+  dialog/keychain write was attempted, and no account or key was provisioned.
+
+The fixture repository and `copilot` environment each had zero stored secrets
+before the untrusted PR. That run observed metadata-network denial and inability
+to mint runner authority with its job token. LAN/host denial is the installed
+immutable guard policy, not an additional claimed live probe. No new tests,
+benchmark, quota-of-trials requirement or rerun of a passed goal was added.
+
+## Fixture cleanup completed
+
+The fixture was archived **without changing private visibility**. Both PRs and
+its disposable issue were closed without merging. All 22 CI-control sandboxes
+were `deleted`; GitHub reported zero fixture runners, queued/in-progress runs,
+repository secrets and `copilot` environment secrets. Temporary fixture variables
+were removed. The dedicated controller/supervisor were stopped, the worker grant
+revoked, copied native host credential/enrollment files removed, and the HTTPS
+tunnel/SSH forward stopped. The owned supervisor store had zero capture
+directories and no owned live Firecracker process. Other tickets' VM/services,
+owner model credential files and existing Docker resources were left untouched.
+Clean public-source templates/seeds and historical evidence remain inert.
+
+These are observed cleanup results, not a new certification or release benchmark.
+The full T26 goal is **not** claimed demonstrated: agent inference limitations
+above and the real stranger's fork observation remain explicit.
 
 ## Earlier controlled-forge demonstration (historical)
 
@@ -143,9 +201,10 @@ verification step was reached, so no verification code was requested. The
 owner's authenticated `gh` account was used only for public upstream metadata
 and this ticket's PR, never as the disposable CI fixture.
 
-Consequently there is no honest hosted run URL to supply. Native JIT runner
-registration/execution, a live GitHub OIDC exchange, a stranger's actual public
-PR and the three coding-agent routes still need disposable-account access.
+At that point there was no hosted run URL to supply. Native JIT execution,
+GitHub OIDC, a stranger's actual public PR and the coding-agent routes were then
+unfinished. The native observations above supersede that account-access blocker,
+not the preserved failed development conclusions.
 `docs/ci.md` documents the implemented setup and these limitations; example
 workflows are outside `.github/workflows` and did not start owner-machine jobs.
 Lamp's existing private persistent CI runners were not attached elsewhere.

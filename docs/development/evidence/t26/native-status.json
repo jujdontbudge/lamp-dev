@@ -446,5 +446,53 @@
     "copilot_environment_secret_count": 0,
     "pr_url": "https://github.com/JohanSardar/lamp-t26-fixture/pull/3",
     "not_a_stranger_fork": true
+  },
+  "cleanup": {
+    "fixture_private": true,
+    "sandbox_count": 22,
+    "all_sandboxes_deleted": true,
+    "fixture_runner_count": 0,
+    "queued_runs": 0,
+    "in_progress_runs": 0,
+    "repository_secret_count": 0,
+    "copilot_environment_secret_count": 0,
+    "archived": true,
+    "visibility": "private",
+    "controller_stopped": true,
+    "supervisor_stopped": true,
+    "worker_grant_revoked": true,
+    "copied_native_credentials_removed": true,
+    "owned_live_firecracker": 0,
+    "owned_capture_directories": 0,
+    "tunnel_stopped": true,
+    "forward_stopped": true
+  },
+  "coding_agents": {
+    "claude": {
+      "inference": "not_run",
+      "reason": "cached M5 OAuth expired; no usable headless credential located; no API key provisioned"
+    },
+    "codex": {
+      "inference": "not_run",
+      "native_attempts": {
+        "42964816530": "failed archive ownership restore",
+        "42965630506": "failed: subscription credential does not supply the Action API-key proxy",
+        "42967604409": "failed: runner lost communication before inference; underlying cause unknown"
+      },
+      "model_api_key_available": false,
+      "existing_subscription_secret_removed": true
+    },
+    "copilot": {
+      "native_placement": "observed",
+      "inference": "not_run",
+      "existing_plan": "individual",
+      "overage_permitted": false,
+      "native_attempts": {
+        "42965716001": "failed: missing jq",
+        "42970831688": "failed: effective provider firewall enabled",
+        "42971386194": "failed: effective provider firewall enabled despite legacy environment variable"
+      },
+      "provider_policy_not_bypassed": true
+    }
   }
 }
