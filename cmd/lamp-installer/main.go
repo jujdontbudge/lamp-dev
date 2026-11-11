@@ -1302,6 +1302,7 @@ func agentCmd(args []string) error {
 	reqPath := filepath.Join(p, "config", "update-request.json")
 	resPath := filepath.Join(p, "config", "update-result.json")
 	say("lamp-installer agent watching %s", reqPath)
+	waiting := map[string]time.Time{}
 	for {
 		time.Sleep(time.Second)
 		raw, err := os.ReadFile(reqPath)
@@ -1322,8 +1323,17 @@ func agentCmd(args []string) error {
 		res := agentResult{UpdateID: req.UpdateID, Version: req.Version}
 		key, err := readTrust(filepath.Join(p, "config", "release-trust.pub"))
 		var dir string
-		if err == nil {
+		if err == nil && !req.Rollback {
 			dir, _, err = release.FindByDigest(filepath.Join(p, "mirror"), key, req.ReleaseDigest)
+			if err != nil {
+				// The release may still be on its way to this host's mirror.
+				if first, ok := waiting[req.UpdateID]; !ok {
+					waiting[req.UpdateID] = time.Now()
+					continue
+				} else if time.Since(first) < 10*time.Minute {
+					continue
+				}
+			}
 		}
 		if req.Rollback {
 			event(p, map[string]any{"event": "agent_rolling_back", "update_id": req.UpdateID, "version": req.Version})

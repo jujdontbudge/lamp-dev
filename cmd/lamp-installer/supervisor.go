@@ -237,6 +237,33 @@ func revisionOf(m map[string]any) uint64 {
 	return uint64(f)
 }
 
+// waitOp follows a lifecycle operation to its end and returns its error.
+func waitOp(p string, resp map[string]any, timeout time.Duration) error {
+	op, _ := resp["operation_id"].(string)
+	if op == "" {
+		return nil
+	}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		out, err := apiGet(p, "/v1/operations/"+op)
+		if err == nil {
+			d, _ := out["data"].(map[string]any)
+			if d == nil {
+				d = out
+			}
+			switch d["state"] {
+			case "succeeded":
+				return nil
+			case "failed", "cancelled":
+				e, _ := json.Marshal(d["error"])
+				return fmt.Errorf("operation %s %v: %s", op, d["state"], e)
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("operation %s did not finish", op)
+}
+
 func waitState(p, id, want string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	last := ""
@@ -267,7 +294,11 @@ func suspendRunning(p, host string) ([]string, error) {
 		if m["host_id"] != host || (state != "ready" && state != "running") {
 			continue
 		}
-		if _, err := apiPost(p, "/v1/sandboxes/"+id+":suspend", revisionOf(m), map[string]any{"durability": "local"}); err != nil {
+		resp, err := apiPost(p, "/v1/sandboxes/"+id+":suspend", revisionOf(m), map[string]any{"durability": "local"})
+		if err == nil {
+			err = waitOp(p, resp, 15*time.Minute)
+		}
+		if err != nil {
 			return held, err
 		}
 		if err := waitState(p, id, "suspended", 15*time.Minute); err != nil {
@@ -287,8 +318,12 @@ func resumeHeld(p string, held *[]string) error {
 			return err
 		}
 		if m["state"] == "suspended" {
-			if _, err := apiPost(p, "/v1/sandboxes/"+id+":resume", revisionOf(m), map[string]any{}); err != nil {
-				return err
+			resp, err := apiPost(p, "/v1/sandboxes/"+id+":resume", revisionOf(m), map[string]any{})
+			if err == nil {
+				err = waitOp(p, resp, 15*time.Minute)
+			}
+			if err != nil {
+				return fmt.Errorf("resume %s: %w", id, err)
 			}
 		}
 		if err := waitState(p, id, "ready", 15*time.Minute); err != nil {

@@ -39,7 +39,8 @@ WORK = Path(sys.argv[1]).resolve()
 EVID = Path(sys.argv[2]).resolve()
 EVID.mkdir(parents=True, exist_ok=True)
 PHASE = os.environ.get('PHASE', '')
-SUP_BUILD = os.environ.get('SUP_BUILD', '')  # lamp-supervisor built with LAMP_RELEASE_VERSION=4.1.0
+# lamp-supervisor built from this code with LAMP_RELEASE_VERSION=4.0.0 / 4.1.0
+SUP_BUILDS = {'4.0.0': os.environ.get('SUP_BUILD_400', ''), '4.1.0': os.environ.get('SUP_BUILD', '')}
 LOG = open(EVID / ('supervisor-rollback.jsonl' if PHASE == 'supervisor' else 'transcript.jsonl'), 'w')
 HOME = os.path.expanduser('~')
 TEMPLATE = 'tp_12cf5d609585b24c3beee70840'  # Ubuntu 26.04 arm64 in the M5 store
@@ -226,12 +227,13 @@ def build_releases_v4():
             b = WORK / f'bin-{goos}-{goarch}'
             files = ['--file', f'bin/lampd={b / "lampd"}', '--file', f'bin/lamp={b / "lamp"}', '--file', f'bin/lamp-installer={b / "lamp-installer"}',
                      '--file', f'LICENSE={ROOT / "LICENSE"}', '--file', f'THIRD_PARTY.md={ROOT / "THIRD_PARTY.md"}', '--file', f'licenses/relay-AGPL-3.0.txt={ROOT / "internal/relay/LICENSE"}']
-            if v == '4.1.0' and goos == 'darwin':
-                # The new supervisor, and the installed signed lamp-vz worker unchanged.
-                files += ['--file', f'bin/lamp-supervisor={SUP_BUILD}', '--file', 'bin/lamp-vz=/usr/local/lib/lamp/lamp-vz']
+            if goos == 'darwin':
+                # Each darwin release ships its supervisor and lamp-vz worker, both from this
+                # code (lamp-vz ad-hoc signed with its virtualization entitlement).
+                files += ['--file', f'bin/lamp-supervisor={SUP_BUILDS[v]}', '--file', f'bin/lamp-vz={os.environ["VZ_BUILD"]}']
             sh([str(inst), 'build', '--version', v, '--os', goos, '--arch', goarch, '--key', str(key), '--out', str(rels / v)] + files)
         out = sh([str(inst), 'index', '--release', str(rels / v), '--key', str(key), '--metadata-version', str(mv)]).stdout.strip()
-        record('release built and indexed', version=v, ships_supervisor=v == '4.1.0', output=out)
+        record('release built and indexed', version=v, darwin_supervisor_sha256=hashlib.sha256(Path(SUP_BUILDS[v]).read_bytes()).hexdigest(), output=out)
     return rels
 
 
@@ -274,9 +276,10 @@ def main():
         if rc:
             on(h, f'rm -rf {c["kit"]}/releases')
             tarball = WORK / 'releases.tgz'
-            sh(['tar', '-czf', str(tarball), '-C', str(rels), '.'])
+            sh(['tar', '-czf', str(tarball), '-C', str(rels), '.'], env={**os.environ, 'COPYFILE_DISABLE': '1'})
             copy(h, tarball, c['kit'] + '/')
             on(h, f'mkdir -p {c["kit"]}/releases && tar -xzf {c["kit"]}/releases.tgz -C {c["kit"]}/releases && rm {c["kit"]}/releases.tgz')
+        on(h, f'find {c["kit"]}/releases -name "._*" -delete')  # macOS tar metadata, never part of a release
         record('releases on host', host=h, reused=rc == 0)
         put(h, c['kit'] + '/identity.json', identity)
         put(h, c['kit'] + '/owner.token', TOKEN + '\n')
@@ -298,7 +301,7 @@ def main():
     # M5 VZ supervisor (root, its own socket) and a control grant for lampd.
     m5 = H['hs_m5']
     sock = m5['kit'] + '/worker.sock'
-    grant = json.loads(sh(['sudo', '-n', SUP, 'grant-install', '--store', STORE, '--caller-uid', str(os.getuid()), '--ttl-s', '10800']).stdout)
+    grant = json.loads(sh(['sudo', '-n', SUP_BUILDS['4.0.0'] if PHASE == 'supervisor' else SUP, 'grant-install', '--store', STORE, '--caller-uid', str(os.getuid()), '--max-generation', '1000', '--ttl-s', '10800']).stdout)
     CLEAN.append(('grant', grant['grant_id']))
     boot = sh(['sysctl', '-n', 'kern.bootsessionuuid']).stdout.strip()
     worker_id = 'lamp-supervisor@' + sh(['sysctl', '-n', 'kern.hostname']).stdout.strip()
@@ -482,7 +485,7 @@ def check_guest(sb, before, label):
 
 def main_supervisor(rels, sock, grant, boot, worker_id):
     install_all('4.0.0', sock, grant, boot, worker_id)
-    m5_view('M5 supervisor run by the installer (release 4.0.0 ships none: system supervisor)')
+    m5_view('M5 supervisor 4.0.0 run by the installer from the release')
     sb, before = new_sandbox()
     _, f = lamp('fleet get fl_local')
     pol = '{"automatic":true,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000}'
@@ -506,7 +509,7 @@ def main_supervisor(rels, sock, grant, boot, worker_id):
         record('host after rollback', host=h, status=json.loads(on(h, f'{tool(h)} status --prefix {H[h]["prefix"]}')[1].splitlines()[-1]))
     st = m5_view('M5 after rollback')
     check_guest(sb, before, 'active work across the rollback supervisor swap')
-    if u['state'] != 'rolled_back' or st['current'] != '4.0.0' or st['supervisor']['from_release']:
+    if u['state'] != 'rolled_back' or st['current'] != '4.0.0' or st['supervisor']['release'] != '4.0.0':
         raise SystemExit('rollback did not restore 4.0.0 and its supervisor')
 
 
@@ -532,7 +535,7 @@ def cleanup():
         if item[0] == 'supervisor':
             sh(['sudo', '-n', 'kill', '-TERM', item[1]], check=False)
         if item[0] == 'grant':
-            sh(['sudo', '-n', SUP, 'grant-revoke', '--store', STORE, item[1]], check=False)
+            sh(['sudo', '-n', SUP_BUILDS['4.0.0'] if PHASE == 'supervisor' else SUP, 'grant-revoke', '--store', STORE, item[1]], check=False)
     sh(['sudo', '-n', 'rm', '-rf', '/usr/local/lib/lamp-t28fleet'], check=False)
     for h in ORDER:
         # Releases stay for a quick retry; FINAL=1 removes everything.
