@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/JohanSardar/lamp/internal/surface"
@@ -401,7 +402,24 @@ func (s *Service) triggerHookHTTP(w http.ResponseWriter, r *http.Request, id str
 	}
 	json.Unmarshal(body, &challenge)
 	a := caller{Principal: owner}
-	key := "hook:" + triggerID + ":" + sha256Hex(body)
+	// Verify before any idempotent replay: a forged or stale request must be
+	// refused even when its body matches an earlier valid delivery.
+	s.readLock()
+	secret, err := s.triggerSecret(t.R)
+	plugin, window := textField(t.R, "plugin_id"), time.Duration(uintField(t.R, "replay_window_seconds"))*time.Second
+	s.mu.Unlock()
+	event := ""
+	if err == nil {
+		event, err = verifyDelivery(plugin, secret, d, window, time.Now())
+	}
+	if err != nil {
+		writeError(w, id, "UNAUTHENTICATED", err.Error(), nil)
+		return
+	}
+	key := "hook:" + triggerID + ":" + event
+	if event == "" {
+		key = "hook:" + triggerID + ":verification:" + sha256Hex(body)
+	}
 	opID, replayed, err := s.lifeStartWith(a, "trigger_deliver", map[string]any{"trigger_id": triggerID, "idempotency_key": key}, func(s *Service, a caller, _ map[string]any) (lifePlan, error) {
 		return s.triggerAdmit(a, triggerID, d)
 	})
@@ -706,6 +724,18 @@ func workJob(j *ciJob) bool { return j != nil && j.Trigger != "" }
 // creation failures with backoff (up to 5 attempts) before giving up.
 func (s *Service) runWork(ctx context.Context, id string) (err error) {
 	defer func() {
+		if err != nil {
+			// Errors here are Lamp's own messages (never payloads or secrets).
+			msg := err.Error()
+			if len(msg) > 300 {
+				msg = msg[:300]
+			}
+			s.ciUpdate(id, func(j *ciJob) {
+				labels := object(j.R["labels"])
+				labels["lamp.error"] = msg
+				j.R["labels"] = labels
+			})
+		}
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
 		defer cancel()
 		if e := s.cleanupWork(cleanup, id); e != nil {
@@ -789,7 +819,13 @@ func (s *Service) runWork(ctx context.Context, id string) (err error) {
 	return nil
 }
 
+// workAdmission serializes the owner-machine VM check with VM creation, so
+// concurrent deliveries cannot both pass the ceiling before either VM exists.
+var workAdmission sync.Mutex
+
 func (s *Service) workSandbox(ctx context.Context, id string, a caller, attempt int) (string, error) {
+	workAdmission.Lock()
+	defer workAdmission.Unlock()
 	for {
 		if err := ownerMachineAdmission(); err == nil {
 			break
@@ -1018,6 +1054,13 @@ func (c cron) next(after time.Time, loc *time.Location, dst string) (time.Time, 
 				if l := t.In(loc); l.Hour() != h || l.Minute() != m || l.Day() != d.Day() {
 					if dst == "skip" {
 						continue
+					}
+					// Go may resolve a nonexistent wall time to either side of the
+					// gap; "shift" always means the requested time plus the gap.
+					want := time.Date(d.Year(), d.Month(), d.Day(), h, m, 0, 0, time.UTC)
+					got := time.Date(l.Year(), l.Month(), l.Day(), l.Hour(), l.Minute(), 0, 0, time.UTC)
+					if got.Before(want) {
+						t = t.Add(want.Sub(got))
 					}
 				} else if earlier := t.Add(-time.Hour); earlier.In(loc).Hour() == h && earlier.In(loc).Minute() == m {
 					t = earlier // ambiguous wall time: its first instant

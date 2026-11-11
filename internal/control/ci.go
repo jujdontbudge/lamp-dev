@@ -854,12 +854,15 @@ func (s *Service) collectCIOutputs(ctx context.Context, id string, forge ci.Forg
 		// Stable label prevents duplicate publications during recovery.
 		label := output.Name
 		s.readLock()
-		found := false
+		found, incomplete := false, false
 		for _, a := range s.life.Artifacts {
 			if textField(a.R, "job_id") == id {
 				labels, _ := a.R["labels"].(map[string]any)
 				if textField(labels, "native_output") == label && textField(a.R, "state") == "complete" {
 					found = true
+				}
+				if textField(labels, "native_output") == label && textField(a.R, "state") == "incomplete" {
+					incomplete = true
 				}
 			}
 		}
@@ -895,6 +898,11 @@ func (s *Service) collectCIOutputs(ctx context.Context, id string, forge ci.Forg
 				}
 			}
 			e = putErr
+		}
+		if e != nil && incomplete {
+			// Already recorded as incomplete by an earlier collection attempt.
+			s.mu.Unlock()
+			continue
 		}
 		if e != nil {
 			m := s.lifeResource("ar", "artifact", owner)

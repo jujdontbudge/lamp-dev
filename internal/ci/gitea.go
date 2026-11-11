@@ -19,9 +19,10 @@ import (
 //     repository runner through the API and the fresh VM runs
 //     `forgejo-runner one-job --handle <job attempt>`, which requests exactly
 //     that job attempt and exits.
-//   - gitea (Gitea >= 1.24, act_runner >= 0.2.12): Lamp mints a repository
-//     registration token, the fresh VM registers an `--ephemeral` runner with
-//     a per-job label and runs `act_runner daemon --once`.
+//   - gitea (Gitea >= 1.24, gitea-runner >= 6, formerly act_runner): Lamp
+//     mints a repository registration token, the fresh VM registers an
+//     `--ephemeral` runner (it can only ever take one job) and runs
+//     `gitea-runner daemon --once`.
 //
 // Lamp job IDs are the forge's run job IDs; Name is "owner/repo".
 type Gitea struct {
@@ -224,7 +225,7 @@ func (g *Gitea) Register(ctx context.Context, r Repository, d Demand, name strin
 	if tok.Token == "" {
 		return Agent{}, errors.New("forge returned no registration token")
 	}
-	script := `./act_runner register --no-interactive --ephemeral --instance "$2" --token "$1" --name "$3" --labels "$4:host" >/dev/null && exec ./act_runner daemon --once`
+	script := `umask 077; printf %s "$1" > .token; ./gitea-runner register --no-interactive --ephemeral --instance "$2" --token-file .token --name "$3" --labels "$4:host" >/dev/null && rm -f .token && exec ./gitea-runner daemon --once`
 	return Agent{Ref: name, OneJob: true, Argv: []string{"sh", "-c", script, "lamp", "$SECRET:TOKEN", base, name, r.Label}, Secret: map[string]string{"TOKEN": tok.Token}}, nil
 }
 func (g *Gitea) GetJob(ctx context.Context, r Repository, id int64) (Job, error) {

@@ -11,6 +11,7 @@ package control
 // or Linear's servers.
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -27,6 +28,7 @@ import (
 	"time"
 
 	"github.com/JohanSardar/lamp/internal/ci"
+	pb "github.com/JohanSardar/lamp/pkg/workerpb"
 )
 
 type t29Live struct {
@@ -138,6 +140,9 @@ func t29Report(t *testing.T, s *Service, id string) {
 		}
 	}
 	s.mu.Unlock()
+	if e := textField(object(j.R["labels"]), "lamp.error"); e != "" {
+		t.Logf("job %s error: %s", id, e)
+	}
 	t.Logf("job %s plugin=%s external=%s state=%s result=%s trust=%s runner=%s sandbox=%s(%s) outputs=%v",
 		id, textField(j.R, "plugin_id"), textField(j.R, "external_id"), textField(j.R, "state"), textField(j.R, "result"), textField(j.R, "trust_class"), textField(j.R, "runner_ref"), sb.Id, sb.State, outs)
 }
@@ -183,6 +188,35 @@ func TestT29Demonstration(t *testing.T) {
 		return
 	}())
 
+	// Demo-only observer: the runner's own output tail from inside the VM.
+	go func() {
+		for range time.Tick(45 * time.Second) {
+			_, j := t29Job(s, func(j *ciJob) bool { return j.Command != "" && textField(j.R, "state") == "running" })
+			if j.Command == "" {
+				continue
+			}
+			sb := textField(j.R, "sandbox_id")
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			q := s.workerRequest(ctx, "t29-observe", sb, s.sandboxGeneration(sb))
+			q.Command = &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: j.Command}}
+			if r, e := s.worker.call(ctx, q); e == nil && r.Command != nil {
+				tail := func(b []byte) string {
+					if len(b) > 1500 {
+						b = b[len(b)-1500:]
+					}
+					return string(b)
+				}
+				t.Logf("runner output tail (%s):\n%s\n--stderr--\n%s", textField(j.R, "id"), tail(r.Command.StdoutTail), tail(r.Command.StderrTail))
+			}
+			cancel()
+		}
+	}()
+
+	if os.Getenv("LAMP_T29_ONLY") == "triggers" {
+		defer s.Close()
+		t29Triggers(t, s, live, root)
+		return
+	}
 	// 1. A pushed Forgejo workflow: the controller finds the waiting job,
 	// verifies it, and runs it on a fresh VM with a one-job ephemeral runner.
 	before := t29Runners(t, live)
@@ -243,6 +277,10 @@ func TestT29Demonstration(t *testing.T) {
 	native = t29Forge(t, live, "GET", fmt.Sprintf("/actions/runs/%d", j.Run), nil)
 	t.Logf("native Forgejo run %d after controller recovery: status=%v; runners left registered=%d", j.Run, native["status"], t29Runners(t, live))
 
+	t29Triggers(t, s, live, root)
+}
+
+func t29Triggers(t *testing.T, s *Service, live t29Live, root string) {
 	// 4. Triggers start agent work from the owner's recipe.
 	code, out := t29Call(t, s, "POST", "/v1/recipes", map[string]any{"name": "t29-agent", "template_id": live.Template, "resources": map[string]any{"vcpus": 2, "memory_mib": 4096, "disk_gib": 20, "pids_max": 4096}}, "")
 	if code >= 300 {
