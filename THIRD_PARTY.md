@@ -32,3 +32,11 @@ contract verification dependencies are pinned in tools/requirements.txt.
 Protocol reuse follows architecture §4: maintained implementations for wire
 correctness at a trust boundary. Dependency security/advisory ownership and SBOM
 publication are release work (T28/T31); T1 makes no release certification claim.
+
+Release packaging (T28) adds no dependencies. `lamp-installer` and the
+generated SDKs use only the Go and Python standard libraries and Node's
+built-in modules. Each signed release manifest records the exact module graph
+of every shipped Go binary. The release ships `LICENSE`, this file and the relay
+AGPL text, so reused components keep their licenses wherever Lamp is installed.
+Reuse still follows the owner's rule (ENG-002): a dependency is added only for
+security necessity or likely best speed.
