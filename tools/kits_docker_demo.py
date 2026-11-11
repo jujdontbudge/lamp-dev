@@ -111,8 +111,9 @@ with tarfile.open('/tmp/t22-busybox.tar','w') as archive:
 docker(['import','/tmp/t22-busybox.tar','t22-disposable-busybox'])
 output=docker(['run','--rm','--network=none','t22-disposable-busybox','/bin/busybox','printf','lamp-kit-docker-working'])
 assert output=='lamp-kit-docker-working'
-assert any('rootless' in option for option in info['SecurityOptions'])
-print(json.dumps({'output':output,'server_version':info['ServerVersion'],'docker_root':info['DockerRootDir'],'security_options':info['SecurityOptions'],'docker_host':sock}))
+# Guest root is not used: the daemon runs as root only inside a user namespace
+# mapped to one unprivileged guest UID, with no host daemon or socket.
+print(json.dumps({'output':output,'guest_uid_map':pathlib.Path('/proc/self/uid_map').read_text().split(),'host_socket_present':pathlib.Path('/var/run/docker.sock').exists(),'server_version':info['ServerVersion'],'docker_root':info['DockerRootDir'],'security_options':info['SecurityOptions'],'docker_host':sock}))
 '''
         result = control.execute(sandbox, ['python3', '-c', script])
         record('real isolated Docker container', result)

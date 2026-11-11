@@ -174,15 +174,23 @@ p=root/(JOB+'.result.new')
 with p.open('x') as out:
  json.dump(value,out);out.flush();os.fsync(out.fileno())
 os.replace(p,root/(JOB+'.result.json'))
+# The daemons live only while this exec's command does; keep serving them.
+if sys.argv[1:]==['--in-namespace'] and value['state']=='ready':
+ import time
+ while True:time.sleep(3600)
 '''.replace('_NEEDS_NAMESPACE_', repr('docker' in names)).replace('JOB', repr(job)).replace('SCRIPT', repr(base64.b64encode(script.encode()).decode()))
     launcher = '''import base64,json,pathlib,subprocess,sys
 root=pathlib.Path('/tmp/lamp-kit-jobs');root.mkdir(mode=0o700,exist_ok=True)
 p=root/(JOB+'.py');p.write_bytes(base64.b64decode(RUNNER));p.chmod(0o600)
 (root/(JOB+'.meta.json')).write_text(json.dumps({'generation':GENERATION}))
-subprocess.Popen([sys.executable,str(p)],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
 print(json.dumps({'state':'installing','job_id':JOB,'sandbox_id':SANDBOX,'generation':GENERATION}))
 '''.replace('JOB', repr(job)).replace('GENERATION', repr(generation)).replace('SANDBOX', repr(sandbox)).replace('RUNNER', repr(base64.b64encode(runner.encode()).decode()))
-    return control.execute(sandbox, ['python3', '-c', launcher])
+    status = control.execute(sandbox, ['python3', '-c', launcher])
+    # Lamp's guard keeps an exec's traced tree alive only while that exec's
+    # command runs; a background job left behind by a finished exec is killed.
+    # So the job is its own long-lived exec, observed through its result file.
+    control.start(sandbox, ['python3', '/tmp/lamp-kit-jobs/' + job + '.py'])
+    return status
 
 
 def install_status(control, sandbox, job):

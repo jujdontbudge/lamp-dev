@@ -27,7 +27,7 @@ screenshot is included in the committed evidence.
 | KIT-005/B3 password-field private typing | Agent typing refused; owner types privately, real login, safe `about:blank` handback | [private typing](evidence/t22/password-private-typing.jsonl) |
 | KIT-005 Bitwarden (Vaultwarden) | Per-vault approval, native Bitwarden CLI read, sealed fill and real login on the public test site | [Bitwarden fill](evidence/t22/bitwarden-fill.jsonl) |
 | KIT-005 1Password / Proton Pass | Not demonstrated | **Not done, waiting on owner** |
-| KIT-004 Docker container | Nested namespace + private `/run` run did not finish installing; no container ran | **Not done**; [latest run](evidence/t22/docker-private-run.jsonl) |
+| KIT-004 Docker container | Four daemon-startup causes fixed; install job still killed (exit 70) when host audit ACKs exceed the guard's 5 s deadline; no container ran | **Not done**; [investigation](#docker-container--investigation-through-run-5-2026-11-11) |
 
 The full browser journey exited **1 at its later Docker step**. The successful
 browser sections are not a passing claim for the whole script/ticket. The
@@ -392,3 +392,42 @@ deadline) and `bw7` (first navigate refused). Both browser VMs logged
 full (8 GiB, held by long-running owner apps) while 27 GiB RAM was available. I
 did not change the guard. Separately, lampd does not exit on SIGTERM while its
 managed kits backend runs; I killed my own leftover lampd/kits processes by PID.
+
+## Docker container — investigation through run 5, 2026-11-11
+
+**Not passed. No container has run yet.** Fixes so far, each confirmed by a guest
+diagnostic (`tools/docker_diag.py` on LX, which reads guest files during an install):
+
+1. **Private `/run`.** Docker's plugin manager hard-codes `/run/docker/plugins`.
+   The job now mounts a tmpfs `/run` in its own user/mount namespace. Diag 4 got
+   past the plugin manager.
+2. **No `--rootless`.** With the private `/run`, Docker's own log
+   ([diag 4](evidence/t22/docker-diag4-rootlesskit.log)) ended with
+   `$ROOTLESSKIT_STATE_DIR needs to be set`. The job is already root inside its
+   own user namespace (one unprivileged guest UID), so RootlessKit isn't needed.
+3. **Bounded waits and Docker log markers.** Containerd and dockerd readiness
+   give up after 300 s with a failed result instead of hanging. Progress markers
+   go to Docker's `runtime.log`.
+4. **The job is its own long-lived exec.** The install launcher used to exit at
+   once and leave the job in the background. Lamp's guard only keeps a traced
+   tree while its exec is alive, so the job is now started as its own exec
+   (`Control.start`), and after "ready" it stays alive to keep the daemons serving.
+
+**Remaining blocker (outside T22's code).** In runs 3–5 and diag 5 the install
+job exec ended with **exit 70**: the guest process collector gave up because
+a host audit ACK took longer than its 5-second deadline
+(`crates/lamp-guard/src/audit.rs`, `RECONNECT_DEADLINE`). `PTRACE_O_EXITKILL`
+then killed the job tree, as designed. The guard's process audit
+stops right after a burst of dockerd/docker thread and process records, each of which
+waits for its own durable ACK. Guest `/tmp` is a tmpfs, so the install isn't writing
+to the host disk, and idle host fsync on `/var/lib/lamp-audit` measured p50 7 ms
+and max 44 ms. The slow ACKs come from the host audit receiver under
+load, which belongs to T4/T7. The host network guard on the same laptop also
+intermittently missed its 1 s deadlines (`audit storage deadline exceeded`,
+`NFQUEUE poll/liveness failure`), which also caused the two failed typing runs.
+I did not loosen any guard deadline.
+
+Transcripts: [run 3](evidence/t22/docker-run3.jsonl), [run 4](evidence/t22/docker-run4.jsonl),
+[run 5](evidence/t22/docker-run5.jsonl). Every VM was released and Firecracker count
+returned to 0. For run 5, I had stopped its lampd too early, so I released the VM by
+stopping my T22 supervisor ("stopped 1 sandbox").
