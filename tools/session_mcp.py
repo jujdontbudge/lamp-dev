@@ -41,7 +41,8 @@ def main():
                 if params["name"] == "exec":
                     if set(values) - {"argv", "cwd"}:
                         raise ValueError("unsupported exec field")
-                    identity = client.call("POST", "/v1/execs", dict(values, sandbox_id=args.sandbox_id, wait_ms=60000))["result"]["exec_id"]
+                    accepted = client.call("POST", "/v1/execs", dict(values, sandbox_id=args.sandbox_id))
+                    identity = next(resource["id"] for resource in accepted["resource_ids"] if resource["kind"] == "exec")
                     resource = client.wait(lambda: (item if (item := client.get("execs", identity))["state"] in {"exited", "failed", "outcome_unknown"} else None), timeout=180)
                     frames = client.call("GET", "/v1/execs/" + identity + "/output")["items"]
                     output = b"".join(base64.b64decode(frame["data_base64"]) for frame in frames)

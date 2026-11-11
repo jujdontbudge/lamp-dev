@@ -57,7 +57,8 @@ in their separate disposable directories.
 
 Those initial M5 observations alone did not demonstrate inside/outside sandbox
 operation or subscription authorization. Real guest observations follow below.
-Outside driving and protected subscription turns are still being completed.
+Outside driving completed below. Protected subscription turns are still being
+completed.
 
 ### Real-guest recovery run
 
@@ -116,6 +117,40 @@ Before this sandbox was created, Ubuntu had one live Firecracker process and
 25,648 MiB available, within the shared owner limit.
 The raw completed turn is retained in
 `/var/lib/lamp/t21a/codex-inside-evidence.json`.
+
+### Completed outside harness driving the sandbox
+
+At 06:12 UTC, official Codex `0.167.0` on the M5 drove the same real
+Firecracker sandbox through `tools/session_mcp.py` and the public Lamp API:
+
+- Outside session: `se_e4b0f42f7afb7114af75e52c407b27d9`.
+- Location: `host:hs_m5`; `agent_mode=outside`; native continuation
+  `01a1c937-3d15-7d60-963c-ac0d40db2734`.
+- Sandbox: `sb_bc3648f8ab83916b13a02283de61190d`.
+- Acknowledged input: `op_a6b5ecd3b61b66df7e6d9b93d6e4ed11`.
+- Public sandbox exec: `ex_343090df55ce6ef5f5368f4e9348a49c`, exit 0.
+- Native input completed and the outside session returned to `idle`.
+
+The sandbox's actual stdout, also reported by Codex after its MCP call:
+
+```text
+T21_CODEX_OUTSIDE_DRIVES_VM
+Linux
+Hello World!
+```
+
+The command read `README` from the disposable public repository in the guest.
+The harness's local shell tools were disabled; its sandbox tool used only the
+public exec create/get/output endpoints, not worker RPCs.
+
+Earlier tool calls executed commands but failed to return their results to the
+harness. The first reply was empty during a blocking create wait; after removing
+that redundant wait, the adapter incorrectly expected the optional completion
+`result`. It now gets the exec ID from the asynchronous response's required
+`resource_ids`, then observes completion. These failures remain in the retained
+transcript; only the final complete round trip is counted.
+
+Raw observations remain in `/var/lib/lamp/t21a/outside-evidence.json`.
 
 ## 3. T3 Code and Herdr
 

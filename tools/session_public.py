@@ -54,9 +54,13 @@ class PublicSessions:
             path = target.path.rstrip("/") + path
         connection.request(method, path, body, headers)
         response = connection.getresponse()
-        reply = json.loads(response.read())
+        data = response.read()
         status = response.status
         connection.close()
+        try:
+            reply = json.loads(data)
+        except ValueError:
+            raise ValueError(f"invalid public reply to {method} {path}: HTTP {status}, {len(data)} bytes") from None
         if not 200 <= status < 300:
             raise PublicSessionError(reply.get("error", {}).get("code", "DATA_UNAVAILABLE"), status)
         return reply
