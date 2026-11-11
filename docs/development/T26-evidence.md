@@ -8,6 +8,21 @@ Latest `origin/main` was merged after these observations; the merged Linux
 `lampd` build succeeded. Passed VM goals were deliberately not rerun or relabeled
 as measurements of the later merged binary.
 
+## Transport and credential corrections
+
+The earlier native OIDC run **used a Cloudflare quick tunnel
+(`trycloudflare.com`)**. That was not the approved product transport. The tunnel
+and its SSH forward were stopped during cleanup. No third-party public tunnel
+may be used again, and no Lamp endpoint may be opened publicly before T31.
+Further job connectivity uses a non-public path or T24's product relay, not a
+rerun of that passed OIDC goal.
+
+Copying the owner's ChatGPT subscription credential into an Actions secret was
+also wrong: refresh-token rotation can log the owner out. The secret was deleted;
+owner subscription credentials must never be copied into GitHub again. Further
+model runs use the host credential broker, free OpenRouter models, provider-side
+maximum price zero, and only a short-lived scoped Lamp grant in the job.
+
 ## Native goals passed
 
 | Goal | Actual GitHub run | Observation |
