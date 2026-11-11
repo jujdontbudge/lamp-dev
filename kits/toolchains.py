@@ -91,6 +91,11 @@ for directory in ('usr/bin','usr/sbin'):
 phase='docker'
 state=pathlib.Path('/tmp/lamp-kit-docker');state.mkdir(mode=0o700,exist_ok=True)
 runtime_log=(state/'runtime.log').open('ab',buffering=0);os.chmod(state/'runtime.log',0o600)
+# The guard traces every task process; launch the daemons with plain fork so
+# a traced vfork child can never hold this job's thread.
+subprocess._USE_VFORK=False
+def mark(step):runtime_log.write(('lamp-kit: '+step+'\\n').encode())
+mark('start')
 sock='unix:///tmp/lamp-kit-docker/docker.sock'
 docker_env={'PATH':str(bindir)+':/usr/sbin:/usr/bin:/sbin:/bin','HOME':str(state),
  'XDG_RUNTIME_DIR':str(state)}
@@ -104,6 +109,7 @@ phase='runtime-dir'
 if not pathlib.Path('/run/docker').is_dir():
  subprocess.run(['mount','-t','tmpfs','-o','mode=755','lamp-kit-run','/run'],check=True,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=runtime_log)
  for d in ('/run/containerd','/run/docker'):os.makedirs(d,mode=0o711,exist_ok=True)
+mark('runtime-dir ready')
 phase='containerd'
 containerd=None
 containerd_socket=state/'containerd.sock'
@@ -116,21 +122,26 @@ if not containerd_socket.exists():
   '--root='+str(state/'containerd-data'),'--state='+str(state/'containerd-run'),
   '--address='+str(containerd_socket),'--log-level=error'],
   stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=runtime_log,start_new_session=True,env=docker_env)
+containerd_give_up=time.monotonic()+300
 while not containerd_socket.exists():
+ if time.monotonic()>containerd_give_up:raise RuntimeError('guest containerd never became ready')
  if containerd is not None and containerd.poll() is not None:raise RuntimeError('guest containerd exited')
  time.sleep(.25)
+mark('containerd ready')
 phase='docker'
 daemon=None
 if not (state/'docker.sock').exists():
- daemon=subprocess.Popen([str(bindir/'dockerd'),'--rootless','--group=0','--host='+sock,'--data-root='+str(state/'data'),
+ daemon=subprocess.Popen([str(bindir/'dockerd'),'--group=0','--host='+sock,'--data-root='+str(state/'data'),
   '--containerd='+str(containerd_socket),'--exec-root='+str(state/'exec'),'--pidfile='+str(state/'daemon.pid'),
-  '--bridge=none','--iptables=false','--ip6tables=false','--storage-driver=vfs'],
+  '--bridge=none','--iptables=false','--ip6tables=false','--storage-driver=vfs','--debug'],
   stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=runtime_log,start_new_session=True,env=docker_env)
 while True:
  try:
   probe=subprocess.run([str(bindir/'docker'),'--host='+sock,'info'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10,env=docker_env)
+  mark('docker info exit '+str(probe.returncode))
   if probe.returncode==0:break
  except subprocess.TimeoutExpired:
+  mark('docker info timed out')
   pass  # A live daemon still starting is pending, not a failed speed target.
  if daemon is not None and daemon.poll() is not None:raise RuntimeError('rootless guest Docker exited')
  if containerd is not None and containerd.poll() is not None:raise RuntimeError('guest containerd exited')

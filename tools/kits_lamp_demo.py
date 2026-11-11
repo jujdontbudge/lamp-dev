@@ -70,13 +70,16 @@ def main():
         # Owner-only public exec reads a boolean, never a password/page body.
         source="""import importlib.util,json,time
 s=importlib.util.spec_from_file_location('g','/tmp/lamp-kits-worker.py');g=importlib.util.module_from_spec(s);s.loader.exec_module(g)
-c=g.page(json.loads(g.STATE.read_text())); end=time.monotonic()+30
-while True:
- try:ok=g.evaluate(c,"location.pathname === '/secure'")
- except ValueError:ok=False
- if ok or time.monotonic()>end:break
- time.sleep(.1)
-c.close();print(json.dumps({'real_login_completed':ok}))"""
+end=time.monotonic()+60;ok=False;last=None
+while not ok and time.monotonic()<end:
+ # A page mid-navigation can drop or stall its debug socket; reconnect each try.
+ try:
+  c=g.page(json.loads(g.STATE.read_text()))
+  try:ok=g.evaluate(c,"location.pathname === '/secure'")
+  finally:c.close()
+ except Exception as e:last=type(e).__name__
+ if not ok:time.sleep(.5)
+print(json.dumps({'real_login_completed':ok,'last_error_class':last}))"""
         assert control.execute(browser_vm,['python3','-c',source])['real_login_completed']
     try:
         with urllib.request.urlopen('https://the-internet.herokuapp.com/login') as response:
