@@ -151,8 +151,9 @@ def main():
                 process.wait(timeout=20)
             except subprocess.TimeoutExpired:
                 process.kill()
-            record = {"kind": kind, "official_binary": binary, "version": subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=30).stdout.strip().splitlines()[:1], "route": route, "model": native["model"], "public_repository": "octocat/Hello-World", "turn1": {"success": first["success"], "observed": out1[-2000:], "continuation_ref": first.get("continuation_ref")}, "turn2": {"success": second["success"], "observed": out2[-2000:], "continuation_ref": second.get("continuation_ref")}, "codeword_recalled": codeword in out2, "moved": moved, "same_native_session": bool(first.get("continuation_ref")) and first.get("continuation_ref") == second.get("continuation_ref")}
-            record["continued"] = record["turn1"]["success"] and record["turn2"]["success"] and record["codeword_recalled"] and record["same_native_session"]
+            record = {"kind": kind, "official_binary": binary, "version": subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=30).stdout.strip().splitlines()[:1], "route": route, "model": native["model"], "public_repository": "octocat/Hello-World", "turn1": {"success": first["success"], "observed": out1[-2000:], "continuation_ref": first.get("continuation_ref")}, "turn2": {"success": second["success"], "observed": out2[-2000:], "continuation_ref": second.get("continuation_ref")}, "codeword_recalled": codeword in out2, "moved": moved, "same_native_session": bool(first.get("continuation_ref")) and first.get("continuation_ref") == second.get("continuation_ref"), "native_fork_of": second.get("forked_from")}
+            linked = record["same_native_session"] or bool(first.get("continuation_ref")) and second.get("forked_from") == first.get("continuation_ref")
+            record["continued"] = record["turn1"]["success"] and record["turn2"]["success"] and record["codeword_recalled"] and linked
             evidence.append(record)
             (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
             print(json.dumps({k: record[k] for k in ("kind", "route", "continued", "codeword_recalled", "same_native_session")} | {"ref": record["turn2"]["continuation_ref"]}), flush=True)

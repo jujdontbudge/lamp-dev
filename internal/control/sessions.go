@@ -1005,6 +1005,10 @@ func (s *Service) observeSubagent(parentID string, parent *managedSession, event
 		child.Offset += uint64(len(data))
 		child.Bytes += uint64(len(data))
 	}
+	if textField(m, "state") == "ended" {
+		editResource(m)
+		return
+	}
 	m["status"] = "working"
 	if textField(event, "status") == "completed" {
 		m["status"], m["state"] = "idle", "ended"

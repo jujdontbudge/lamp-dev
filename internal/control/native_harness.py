@@ -227,11 +227,25 @@ class Pi:
             env["LAMP_MODEL_TOKEN"] = secret(c)
             write_private(agent / "models.json", {"providers": {"lamp": {"baseUrl": c["endpoint"], "api": "openai-completions", "apiKey": "$LAMP_MODEL_TOKEN", "models": [{"id": c["model"], "name": c["model"], "reasoning": False, "input": ["text"], "contextWindow": 128000, "maxTokens": 4096}]}}})
 
+    def before(self, c, state, env):
+        # Pi records the session's working directory. After a move it reopens
+        # the session only through its own --fork, which copies the history
+        # into a new session (new ID, parentSession link) at the new directory.
+        here = os.getcwd()
+        if state.get("session_id") and state.get("directory") not in (None, here):
+            found = list((Path(env["PI_CODING_AGENT_DIR"]) / "sessions").glob("*/*_" + state["session_id"] + ".jsonl"))
+            if found:
+                state["fork_from"], state["forked_from_id"] = str(found[0]), state["session_id"]
+                state["session_id"] = str(uuid.uuid4())
+        state["directory"] = here
+
     def argv(self, c, state, prompt):
         # Pi accepts a caller-chosen session ID, so the continuation key exists
         # before the first turn and the same native session is reopened later.
         state.setdefault("session_id", str(uuid.uuid4()))
         argv = [c["binary"], "-p", "--mode", "json", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes", "--session-id", state["session_id"]]
+        if fork := state.pop("fork_from", None):
+            argv += ["--fork", fork]
         if c["auth"] == "api_key":
             argv += ["--provider", "lamp"]
         if c.get("model"):
@@ -535,7 +549,11 @@ def main():
         if ok:
             state["turns"] = state.get("turns", 0) + 1
         atomic(state_path, state)
-        emit({"type": "input_completed", "input_id": identity, "success": ok, "continuation_ref": state.get("session_id", state.get("session_name", ""))})
+        completion = {"type": "input_completed", "input_id": identity, "success": ok, "continuation_ref": state.get("session_id", state.get("session_name", ""))}
+        if state.get("forked_from_id"):
+            # Reported, never hidden: this native session was forked from that one.
+            completion["forked_from"] = state["forked_from_id"]
+        emit(completion)
         emit({"type": "status", "status": "idle" if ok else "blocked", "input_id": identity})
 
 
