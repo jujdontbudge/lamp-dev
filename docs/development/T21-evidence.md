@@ -59,6 +59,36 @@ This does not yet demonstrate inside/outside sandbox operation or subscription
 authorization. T9's retained evidence records an incomplete subscription login;
 its merged custody implementation is not evidence of an authorized account.
 
+### Real-guest recovery run
+
+A later fresh Firecracker guest, `sb_44b932385a10032dfb1462b049c6bf66`,
+first completed an ordinary public exec with exit 0 and output
+`T21_BASELINE_EXEC_OK` and `Linux`. Official Claude Code then completed a real
+API turn inside that guest:
+
+```text
+session: se_70e905cbe374b519a5de22eeb0180eb7
+output: T21_CLAUDE_REAL_GUEST
+native continuation: 3c94e1aa-74f0-4440-9ad3-408de594135d
+```
+
+Codex subsequently reached `active` but failed before producing output. A
+following ordinary exec also exited 70. This was traced to the host audit
+listener's existing 64 retained collector-segment limit: each session poll was
+starting a fresh protected helper process. The guest's audit directory ended at
+`process-000064`. The Codex attempt is not counted as a successful model turn.
+Its acknowledged input remains in the session journal.
+
+The diagnostic guest was deleted through the public API. The correction in
+progress uses one protected persistent session relay over the authenticated,
+generation-fenced guest channel; it does not raise or remove the audit limit.
+The new worker command and guest helper pass focused Go vet, Mac/Linux
+`cargo check`, Linux `cargo clippy -- -D warnings`, and a static musl guest-helper
+build. Deployment into a newly built seed and the real Codex rerun are pending.
+The guest observations are retained in
+`/var/lib/lamp/t21a/claude-inside-evidence.json` and
+`/var/lib/lamp/t21a/codex-inside-evidence.json` on Ubuntu.
+
 ## 3. T3 Code and Herdr
 
 Both public consoles have now driven real, separate Lamp PTYs headlessly. No
@@ -141,8 +171,97 @@ IDs. No private Lamp worker interface or private Herdr TUI protocol was used.
 
 ## 4. Caller-placed sub-agents and git return
 
-No completed sub-agent/git-return demonstration is recorded yet.
+On 2026-11-11 UTC, the public session API ran a parent PTY on the M5 and
+spawned its separately visible child on Ubuntu using the caller's explicit
+`sandbox_mode=host:hs_linux_git` and an owner-enrolled public git-work recipe.
+This demonstrates cross-host placement and git return; it is not an additional
+claim of an LLM turn or guest placement.
+
+- Parent: `se_9df7b6fb0f7cfd7a541179f0aee6864e`, `host:hs_m5`.
+- Child: `se_687dc36467b3040dab7629ce74cfb934`, `host:hs_linux_git`.
+- Both appeared independently in `GET /v1/sessions`; the child retained its
+  `parent_session_id`.
+- The parent read `Hello World!` and `uname -s` returned `Darwin`.
+- Through its own input lease, the child wrote `lamp-agent-result.txt`,
+  committed it, and printed `T21_CHILD_PATCH_READY` and `Linux`.
+- Child commit: `99ce17e80c7787126194fce753409579ba87806b`.
+- Public change set: `cs_2d74980f6af833baabae9ac8d66a8c5f`, selected path
+  `lamp-agent-result.txt`, final state `applied`.
+
+The parent then read the returned file from its own workspace:
+
+```text
+Work returned by caller-placed child
+Apply child session work
+T21_GIT_RETURN_APPLIED
+Darwin
+```
+
+The first real spawn exposed a nil transfer-map panic: management mutations
+clone their journal through JSON, and the new empty maps were omitted.
+Transfer maps are now retained by serialization and initialized when reading
+legacy state. `go vet ./internal/control ./cmd/lampd` and the Linux daemon
+build passed. The controller was restarted before the successful run.
+No tests were added. Both demo sessions were explicitly ended afterward.
+
+Raw observations are retained at
+`/var/lib/lamp/t21a/host-git-evidence.json` on Ubuntu. The public git-return
+result was inspected directly; terminal escape sequences around the git pager
+initially made an overly strict output assertion time out, but did not prevent
+the file or commit from being applied.
 
 ## 5. Bidirectional handoff
 
 No completed laptop/sandbox handoff demonstration is recorded yet.
+
+The first real queued-input-before-move run used native Claude session
+`se_53bf7898998c623df51fb17d69f6330e`, continuation
+`cb876e30-9589-4623-bcea-89c2822f42dc`, in sandbox
+`sb_6e61baa2b84d024a03aceb45fc049c96`. Its initial model turn succeeded.
+Input operation `op_b8ef6a227cbc44b71e19f9f69e3e9bf4` was acknowledged before
+teleport operation `op_400394c3bd013327696acaa406d707a0` began.
+
+The handoff did not complete: an in-flight source reply could overwrite the
+newer `moving` state, after which the next request used the target epoch
+against the source runner. The resource reported failure with acknowledged
+pending input retained and no automatic restart. No collector failure was
+recorded in that guest.
+
+Replies and transport failures are now checked against their runner location
+and effective epoch, and the moving state is read again after the RPC.
+Terminal resources cannot be revived by a stale reply. Focused Go vet and the
+Linux daemon build pass; the corrected real handoff remains to be demonstrated.
+The failed observation and accepted-input receipt remain in
+`/var/lib/lamp/t21a/handoff-epoch-race.json`. Only that disposable sandbox was
+deleted afterward.
+
+## 6. T19: a session message wakes its suspended sandbox
+
+On 2026-11-11 UTC, the public API resumed the existing PTY after a real
+controller restart and Firecracker suspension:
+
+- Sandbox `sb_e905f4e449bd74266406f686bc304a1d`.
+- Session `se_86e3d0c97816835e3425efbe882c5c9c`, initially active in generation 1.
+- The same PTY printed `T21_WAKE_BEFORE` and `Linux` before suspension.
+- Only the ticket controller was restarted. The worker grant explicitly
+  authorized generations 1–2; the session reattached with fresh observation.
+- `:suspend` reached `suspended` at generation 1 with local durability.
+- Before the message-triggered resume: zero live Firecracker processes and
+  26,857 MiB available.
+- A message submitted under the existing input lease invoked `Service.Wake`
+  before dispatch. The sandbox returned to `ready` at generation 2.
+- The same session retained location epoch 1 and produced:
+
+```text
+# T21_MESSAGE_WOKE_VM
+Linux
+```
+
+The shell prompt prefixed the marker, so an initial newline-specific demo
+assertion timed out. Direct public output inspection confirmed that the
+message had run; no repeated run was required. The session was ended and the
+ticket sandbox was deleted afterward.
+
+Raw observations are retained in `/var/lib/lamp/t21a/wake-evidence.json` on
+Ubuntu. This is a successful wake/PTY continuation observation, not a claim
+that the remaining laptop/sandbox native handoff is complete.

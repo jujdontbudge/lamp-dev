@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -336,6 +337,7 @@ func (b *Broker) request(ctx context.Context, endpoint, method string, body any,
 	defer response.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
 	if err != nil || len(data) > limit || response.StatusCode < 200 || response.StatusCode >= 300 {
+		log.Printf("lamp-broker: upstream response rejected (status=%d bytes=%d read_error=%t)", response.StatusCode, len(data), err != nil)
 		return nil, nil, errors.New("UPSTREAM_UNAVAILABLE")
 	}
 	if leaks(data, secret) {

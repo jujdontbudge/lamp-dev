@@ -47,8 +47,8 @@ type controlState struct {
 	Sessions         map[string]*managedSession   `json:"sessions"`
 	InputLeases      map[string]map[string]any    `json:"input_leases"`
 	SessionShares    map[string]map[string]any    `json:"session_shares"`
-	SessionTransfers map[string]*sessionTransfer  `json:"session_transfers,omitempty"`
-	ChangeSets       map[string]*sessionChangeSet `json:"change_sets,omitempty"`
+	SessionTransfers map[string]*sessionTransfer  `json:"session_transfers"`
+	ChangeSets       map[string]*sessionChangeSet `json:"change_sets"`
 }
 type caller struct{ Principal, KeyID string }
 type callerContext struct{}

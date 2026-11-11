@@ -24,7 +24,8 @@ use std::{
 const STOP_DIR: &str = "/run/lamp/process-stops";
 
 fn start_ticks(pid: i32) -> io::Result<String> {
-    let stat = fs::read_to_string(format!("/proc/{pid}/stat"))?;
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat"))
+        .map_err(|error| process_error(pid, "stat", error))?;
     stat.rsplit_once(')')
         .and_then(|(_, tail)| tail.split_whitespace().nth(19))
         .map(str::to_string)
@@ -32,8 +33,11 @@ fn start_ticks(pid: i32) -> io::Result<String> {
 }
 
 fn stop_marker(pid: i32) -> io::Result<(PathBuf, String)> {
-    let namespace = fs::metadata(format!("/proc/{pid}/ns/pid"))?.ino();
-    let status = fs::read_to_string(format!("/proc/{pid}/status"))?;
+    let namespace = fs::metadata(format!("/proc/{pid}/ns/pid"))
+        .map_err(|error| process_error(pid, "pid namespace", error))?
+        .ino();
+    let status = fs::read_to_string(format!("/proc/{pid}/status"))
+        .map_err(|error| process_error(pid, "stop status", error))?;
     let tid = status
         .lines()
         .find_map(|line| line.strip_prefix("NSpid:"))
@@ -85,8 +89,16 @@ fn resume_or_await_exit(request: crate::PtraceRequest, pid: i32, signal: usize) 
     }
 }
 
+fn process_error(pid: i32, observation: &str, error: io::Error) -> io::Error {
+    io::Error::new(
+        error.kind(),
+        format!("process {pid} {observation}: {error}"),
+    )
+}
+
 fn status(pid: i32) -> io::Result<Value> {
-    let s = fs::read_to_string(format!("/proc/{pid}/status"))?;
+    let s = fs::read_to_string(format!("/proc/{pid}/status"))
+        .map_err(|error| process_error(pid, "status", error))?;
     let field = |name: &str| {
         s.lines()
             .find_map(|l| l.strip_prefix(name))
@@ -95,18 +107,63 @@ fn status(pid: i32) -> io::Result<Value> {
             .to_string()
     };
     Ok(
-        json!({"tgid":field("Tgid:"),"parent_pid":field("PPid:"),"uid":field("Uid:"),
+        json!({"state":field("State:"),"tgid":field("Tgid:"),"parent_pid":field("PPid:"),"uid":field("Uid:"),
         "gid":field("Gid:"),"namespace_pids":field("NSpid:")}),
     )
 }
 fn identity(pid: i32) -> io::Result<Value> {
+    match observe_identity(pid) {
+        Err(error) if error.kind() == io::ErrorKind::NotFound && exited_child(pid) => Ok(json!({
+            "pid":pid,
+            "state":"exited",
+            "executable_unavailable":"exited_before_observation"
+        })),
+        outcome => outcome,
+    }
+}
+
+fn exited_child(pid: i32) -> bool {
+    let mut observed: libc::siginfo_t = unsafe { std::mem::zeroed() };
+    unsafe {
+        libc::waitid(
+            libc::P_PID,
+            pid as _,
+            &mut observed,
+            libc::WEXITED | libc::WNOWAIT | libc::WNOHANG | libc::__WALL,
+        ) == 0
+            && observed.si_pid() == pid
+    }
+}
+
+fn observe_identity(pid: i32) -> io::Result<Value> {
     let mut s = status(pid)?;
-    let path = format!("/proc/{pid}/exe");
-    let exe = fs::read_link(&path)?;
-    let meta = fs::metadata(&path)?;
     s["pid"] = json!(pid);
     s["start_ticks"] = json!(start_ticks(pid)?);
-    s["executable"] = json!({"path":exe,"device":meta.dev(),"inode":meta.ino()});
+    let path = format!("/proc/{pid}/exe");
+    let executable = (|| {
+        let exe =
+            fs::read_link(&path).map_err(|error| process_error(pid, "executable link", error))?;
+        let meta = fs::metadata(&path)
+            .map_err(|error| process_error(pid, "executable metadata", error))?;
+        Ok::<_, io::Error>(json!({"path":exe,"device":meta.dev(),"inode":meta.ino()}))
+    })();
+    match executable {
+        Ok(executable) => s["executable"] = executable,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            let observed = status(pid)?;
+            if !matches!(
+                observed["state"]
+                    .as_str()
+                    .and_then(|s| s.split_whitespace().next()),
+                Some("Z" | "X")
+            ) {
+                return Err(error);
+            }
+            s["state"] = observed["state"].clone();
+            s["executable_unavailable"] = json!("exited_before_observation");
+        }
+        Err(error) => return Err(error),
+    }
     // Raw argv/env may contain secrets. Do not serialize them before T23 redaction.
     s["safe_argv"] = json!([]);
     s["argv_redacted"] = json!(true);
@@ -154,7 +211,9 @@ fn register(
     let thread = id["tgid"].as_str() != Some(&pid.to_string());
     emit(
         emitter,
-        if thread {
+        if id["tgid"].is_null() {
+            json!({"type":"process_exit_pending","identity":id})
+        } else if thread {
             json!({"type":"thread_start","identity":id})
         } else {
             json!({"type":"process_start","visibility":"process","infrastructure":false,"identity":id})
@@ -301,7 +360,31 @@ pub fn run(
     uid: u32,
     argv: Vec<String>,
     env: Vec<(CString, CString)>,
+    exit_report: Option<fs::File>,
+) -> io::Result<i32> {
+    let mut diagnostic = None;
+    let outcome = run_inner(emitter, uid, argv, env, exit_report, &mut diagnostic);
+    if let (Err(error), Some(emitter)) = (&outcome, diagnostic) {
+        let _ = emit(
+            &emitter,
+            json!({
+                "type":"collector_failure",
+                "errno":error.raw_os_error(),
+                "error_kind":format!("{:?}", error.kind()),
+                "message":error.to_string()
+            }),
+        );
+    }
+    outcome
+}
+
+fn run_inner(
+    emitter: Emitter,
+    uid: u32,
+    argv: Vec<String>,
+    env: Vec<(CString, CString)>,
     mut exit_report: Option<fs::File>,
+    diagnostic: &mut Option<Arc<Mutex<Emitter>>>,
 ) -> io::Result<i32> {
     if unsafe { libc::geteuid() } != 0 || uid < 65536 || uid == u32::MAX || argv.is_empty() {
         return Err(io::Error::other(
@@ -491,6 +574,7 @@ pub fn run(
     let mut emitter = emitter;
     emitter.defer();
     let emitter = Arc::new(Mutex::new(emitter));
+    *diagnostic = Some(emitter.clone());
     let alive = emitter.clone();
     let complete = Arc::new(AtomicBool::new(false));
     let completed = complete.clone();
@@ -523,6 +607,8 @@ pub fn run(
     // before the task's exec is still traced syscall by syscall.
     let mut filtered: HashSet<i32> = HashSet::new();
     let mut seen_stops = HashSet::from([root]);
+    let mut observed_forks = HashSet::new();
+    let mut early_exits = HashSet::new();
     let mut stop_markers = HashMap::<i32, PathBuf>::new();
     let mut task_pid = None;
     let mut command_pid = None;
@@ -552,6 +638,9 @@ pub fn run(
             known.remove(&pid);
             filtered.remove(&pid);
             seen_stops.remove(&pid);
+            if pid != root && !observed_forks.remove(&pid) {
+                early_exits.insert(pid);
+            }
             if Some(pid) == command_pid {
                 release(&emitter)?;
                 if let Some(mut s) = exit_report.take() {
@@ -577,6 +666,9 @@ pub fn run(
         let signal = libc::WSTOPSIG(code);
         let event = code >> 16;
         let first_stop = seen_stops.insert(pid);
+        if first_stop {
+            early_exits.remove(&pid);
+        }
         if !known.contains_key(&pid) {
             trace(libc::PTRACE_SETOPTIONS, pid, 0, options as usize)?;
             register(&mut known, &emitter, pid)?;
@@ -619,9 +711,13 @@ pub fn run(
             // the child's own initial stop can miss a child killed by its parent
             // (or namespace-init death) before that stop is consumed. Children
             // inherit all ptrace options and cannot run before our resume.
-            register(&mut known, &emitter, child as i32)?;
-            if filtered.contains(&pid) {
-                filtered.insert(child as i32);
+            let child = child as i32;
+            if !early_exits.remove(&child) || Path::new(&format!("/proc/{child}")).exists() {
+                register(&mut known, &emitter, child)?;
+                observed_forks.insert(child);
+                if filtered.contains(&pid) {
+                    filtered.insert(child);
+                }
             }
         } else if event == libc::PTRACE_EVENT_SECCOMP {
             // A filtered task entered a credential/namespace syscall: observe

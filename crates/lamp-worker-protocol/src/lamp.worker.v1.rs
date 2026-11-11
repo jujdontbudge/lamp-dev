@@ -105,6 +105,13 @@ pub struct Start {
     pub env:
         ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SessionCall {
+    #[prost(bytes = "vec", tag = "1")]
+    pub request_json: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "2")]
+    pub bridge_source: ::prost::alloc::string::String,
+}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Stop {
     #[prost(bool, tag = "1")]
@@ -163,7 +170,7 @@ pub struct Request {
     pub context: ::core::option::Option<Context>,
     #[prost(
         oneof = "request::Command",
-        tags = "10, 11, 12, 13, 14, 15, 16, 17, 18"
+        tags = "10, 11, 12, 13, 14, 15, 16, 17, 18, 19"
     )]
     pub command: ::core::option::Option<request::Command>,
 }
@@ -189,6 +196,8 @@ pub mod request {
         Release(super::Release),
         #[prost(message, tag = "18")]
         Rebuild(super::Rebuild),
+        #[prost(message, tag = "19")]
+        SessionCall(super::SessionCall),
     }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

@@ -9,6 +9,13 @@ def emit(value):
     print("\x1eLAMP " + json.dumps(value, separators=(",", ":")), flush=True)
 
 
+def display(text, environment):
+    for name in ["LAMP_MODEL_TOKEN", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"]:
+        if value := environment.get(name):
+            text = text.replace(value, "[REDACTED]")
+    print(text, flush=True)
+
+
 def atomic(path, value):
     temporary = path.with_suffix(".next")
     with temporary.open("w") as stream:
@@ -84,7 +91,7 @@ def main():
             else:
                 argv += ["--sandbox", "workspace-write", "--skip-git-repo-check"]
             argv += ["--json", "-"]
-        process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=environment, text=True)
+        process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=environment, text=True)
         process.stdin.write(prompt)
         process.stdin.close()
         success = False
@@ -92,21 +99,25 @@ def main():
             try:
                 event = json.loads(raw)
             except ValueError:
+                if raw.strip():
+                    display(raw.rstrip(), environment)
                 continue
+            if event.get("type") == "error":
+                display(str(event.get("message", event.get("error", "native harness error"))), environment)
             if config["kind"] == "claude":
                 if event.get("session_id"):
                     state["session_id"] = event["session_id"]
                 if event.get("type") == "assistant":
                     for content in event.get("message", {}).get("content", []):
                         if content.get("type") == "text":
-                            print(content["text"], flush=True)
+                            display(content["text"], environment)
                 if event.get("type") == "result":
                     success = not event.get("is_error", True)
             else:
                 if event.get("type") == "thread.started":
                     state["session_id"] = event["thread_id"]
                 if event.get("type") == "item.completed" and event.get("item", {}).get("type") == "agent_message":
-                    print(event["item"]["text"], flush=True)
+                    display(event["item"]["text"], environment)
                 if event.get("type") == "turn.completed":
                     success = True
         code = process.wait()

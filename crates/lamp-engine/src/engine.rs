@@ -1593,6 +1593,60 @@ impl Engine {
         }
     }
 
+    pub fn session_call(
+        &self,
+        auth: Authority<'_>,
+        request_json: Vec<u8>,
+        bridge_source: String,
+    ) -> Result<Outcome> {
+        if request_json.len() > 131072 || bridge_source.is_empty() {
+            return Err(EngineError::invalid("invalid session relay request"));
+        }
+        if self.capture_trust(auth.sandbox_id)? == "owner_private" {
+            return Err(EngineError::new(
+                "AUTH_TRANSPORT_UNSUPPORTED",
+                "private native custody requires its protected continuation adapter",
+            ));
+        }
+        let (vsock, audited) = {
+            let sb = self.sandbox(auth.sandbox_id)?;
+            let sb = sb.lock().unwrap();
+            Self::check(&sb, auth)?;
+            if sb.state != State::Running {
+                return Err(EngineError::in_use("session sandbox is not running"));
+            }
+            (sb.jail.as_ref().unwrap().path(fc::VSOCK), sb.net.is_some())
+        };
+        let request = GuestRequest::SessionCall(lamp_init::SessionCall {
+            sandbox_id: auth.sandbox_id.into(),
+            generation: auth.generation,
+            request_json: String::from_utf8(request_json)
+                .map_err(|_| EngineError::invalid("session request is not UTF-8"))?,
+            bridge_source,
+            audit: audited.then_some(lamp_init::Audit {
+                port: lamp_init::AUDIT_PORT,
+                task_uid: crate::net::TASK_UID,
+            }),
+        });
+        match guest::call(&vsock, &request, Duration::from_secs(10))? {
+            GuestResponse::SessionReply { response_json } => Ok(Outcome {
+                state: "session_reply".into(),
+                handles: vec![],
+                command: None,
+                detail: BTreeMap::from([("response_json".into(), response_json)]),
+            }),
+            GuestResponse::Error { code, message } => Err(EngineError::new(
+                match code.as_str() {
+                    "GENERATION_MISMATCH" => "REVISION_CONFLICT",
+                    "INVALID_ARGUMENT" => "INVALID_ARGUMENT",
+                    _ => "DATA_UNAVAILABLE",
+                },
+                message,
+            )),
+            _ => Err(EngineError::host("unexpected session relay response")),
+        }
+    }
+
     /// Starts one command and returns once the guest has witnessed its exec
     /// (`command_started`); completion is observed separately (`command`).
     /// The sandbox lock is not held while the command runs, so a fork can

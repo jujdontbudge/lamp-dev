@@ -61,6 +61,12 @@ func (s *Service) transferLocation(a caller, location map[string]any) error {
 
 func (s *Service) sessionTransferMutation(a caller, op api.OperationDescriptor, in map[string]any) (api.ResourceRef, map[string]any, *string, []string, error) {
 	c := s.journal.Control
+	if c.SessionTransfers == nil {
+		c.SessionTransfers = map[string]*sessionTransfer{}
+	}
+	if c.ChangeSets == nil {
+		c.ChangeSets = map[string]*sessionChangeSet{}
+	}
 	kind, verb, _ := strings.Cut(op.Scope, ".")
 	ref := api.ResourceRef{Kind: api.ResourceKind(kind)}
 	fail := func(code, message string) (api.ResourceRef, map[string]any, *string, []string, error) {

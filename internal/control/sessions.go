@@ -794,16 +794,20 @@ func (s *Service) driveSession(id string) {
 		if s.context().Err() != nil {
 			return
 		}
-		s.failSession(id, "runner unavailable; acknowledged pending input retained, no automatic restart")
+		s.failSessionAt(id, "runner unavailable; acknowledged pending input retained, no automatic restart", location, epoch)
 		return
 	}
 	s.readLock()
 	defer s.mu.Unlock()
 	work = s.journal.Control.Sessions[id]
+	if work == nil || !s.sessionReplyCurrent(id, work.Resource, location, epoch) {
+		return
+	}
 	before := &controlState{}
 	raw, _ = json.Marshal(s.journal.Control)
 	json.Unmarshal(raw, before)
 	m = work.Resource
+	moving = textField(m, "state") == "moving"
 	data, err := base64.StdEncoding.DecodeString(textField(reply, "data"))
 	if err != nil || uintField(reply, "offset") != work.Offset+uint64(len(data)) {
 		work.Failure = "invalid runner output offset"
@@ -867,9 +871,29 @@ func (s *Service) driveSession(id string) {
 }
 
 func (s *Service) failSession(id, reason string) {
+	s.failSessionAt(id, reason, nil, 0)
+}
+
+func (s *Service) sessionReplyCurrent(id string, resource, location map[string]any, epoch uint64) bool {
+	if state := textField(resource, "state"); state == "ended" || state == "failed" {
+		return false
+	}
+	currentEpoch := uintField(resource, "location_epoch")
+	if textField(resource, "state") == "moving" {
+		if transfer := s.journal.Control.SessionTransfers[id]; transfer != nil {
+			currentEpoch = transfer.SourceEpoch
+		}
+	}
+	return currentEpoch == epoch && digest(object(resource["location"])) == digest(location)
+}
+
+func (s *Service) failSessionAt(id, reason string, location map[string]any, epoch uint64) {
 	s.readLock()
 	defer s.mu.Unlock()
 	work := s.journal.Control.Sessions[id]
+	if work == nil || location != nil && !s.sessionReplyCurrent(id, work.Resource, location, epoch) {
+		return
+	}
 	before := &controlState{}
 	raw, _ := json.Marshal(s.journal.Control)
 	json.Unmarshal(raw, before)
@@ -889,6 +913,13 @@ func (s *Service) failSession(id, reason string) {
 var errSessionPaused = errors.New("session sandbox is paused")
 
 func (s *Service) sessionGuestCall(ctx context.Context, sb api.Sandbox, argv []string) ([]byte, error) {
+	if len(argv) != 4 || argv[0] != "python3" || argv[1] != "-c" || argv[2] != sessionRunner {
+		return nil, errors.New("invalid session relay command")
+	}
+	data, err := base64.StdEncoding.DecodeString(argv[3])
+	if err != nil {
+		return nil, err
+	}
 	s.readLock()
 	current, exists := s.journal.Sandboxes[sb.Id]
 	if !exists || current.State != "ready" || s.busy[sb.Id] {
@@ -903,39 +934,14 @@ func (s *Service) sessionGuestCall(ctx context.Context, sb api.Sandbox, argv []s
 		s.mu.Unlock()
 	}()
 	deadline, _ := ctx.Deadline()
-	operationID := newID("session")
-	request := func() *pb.Request {
-		return &pb.Request{Context: &pb.Context{RequestId: newID("req"), OperationId: operationID, DeadlineMs: uint64(deadline.UnixMilli()), SandboxId: sb.Id, Generation: value(sb.Generation), GrantId: s.worker.config.GrantID, PolicyRevision: 1}}
-	}
-	r := request()
-	r.Command = &pb.Request_Start{Start: &pb.Start{Argv: argv, Cwd: "/"}}
+	r := &pb.Request{Context: &pb.Context{RequestId: newID("req"), OperationId: newID("session"), DeadlineMs: uint64(deadline.UnixMilli()), SandboxId: sb.Id, Generation: value(sb.Generation), GrantId: s.worker.config.GrantID, PolicyRevision: 1}}
+	r.Command = &pb.Request_SessionCall{SessionCall: &pb.SessionCall{RequestJson: data, BridgeSource: sessionRunner}}
 	reply, err := s.worker.call(ctx, r)
 	if err != nil {
 		return nil, err
 	}
-	if reply.State != "command_started" {
-		return nil, fmt.Errorf("session helper did not start")
+	if reply.State != "session_reply" {
+		return nil, errors.New("session relay did not reply")
 	}
-	ticker := time.NewTicker(20 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		r = request()
-		r.Context.OperationId = newID("inspect")
-		r.Command = &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: operationID}}
-		reply, err = s.worker.call(ctx, r)
-		if err != nil {
-			return nil, err
-		}
-		if reply.Command != nil && reply.Command.FinishedAtUnixNs != 0 {
-			if reply.Command.ExitCode != 0 || reply.Command.Truncated {
-				return nil, fmt.Errorf("session helper failed")
-			}
-			return reply.Command.StdoutTail, nil
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-ticker.C:
-		}
-	}
+	return []byte(reply.Detail["response_json"]), nil
 }

@@ -54,6 +54,7 @@ message Compatibility {
 }
 message Allocate { Resources resources = 1; string engine_id = 2; repeated HandleGrant handles = 3; }
 message Start { repeated string argv = 1; string cwd = 2; map<string,string> env = 3; }
+message SessionCall { bytes request_json = 1; string bridge_source = 2; }
 message Stop { bool force = 1; }
 // Artifacts are opaque handle references. Their on-disk format remains unfrozen.
 message Capture { string capture_id = 1; bool preserves_memory = 2; string consistency = 3; repeated HandleGrant output_handles = 4; }
@@ -82,6 +83,7 @@ message Request {
     Cancel cancel = 16;
     Release release = 17;
     Rebuild rebuild = 18;
+    SessionCall session_call = 19;
   }
 }
 message WorkerError { string code = 1; string message = 2; bool retryable = 3; }

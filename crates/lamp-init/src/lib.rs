@@ -29,6 +29,7 @@ pub enum GuestRequest {
     /// a short, idempotent request on a fresh connection, so a capture that
     /// resets the guest's vsock connections never loses a completion.
     Wait(Wait),
+    SessionCall(SessionCall),
     /// Freezes every task process (the `tasks` cgroup) before a capture, so
     /// nothing runs between the copy and the copy's own identity barrier.
     Freeze(Empty),
@@ -128,6 +129,16 @@ pub struct Wait {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionCall {
+    pub sandbox_id: String,
+    pub generation: u64,
+    pub request_json: String,
+    pub bridge_source: String,
+    pub audit: Option<Audit>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
 pub enum GuestResponse {
     Pong(Status),
@@ -137,6 +148,9 @@ pub enum GuestResponse {
     ExecDone(ExecDone),
     /// `Wait` elapsed while the command was still running.
     ExecRunning,
+    SessionReply {
+        response_json: String,
+    },
     Frozen,
     Thawed,
     ShuttingDown,

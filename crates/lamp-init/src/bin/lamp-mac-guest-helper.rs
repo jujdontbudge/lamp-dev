@@ -164,6 +164,10 @@ mod mac {
                 },
                 GuestRequest::Exec(x) => exec(&x, &state, &results),
                 GuestRequest::Wait(w) => wait(&w, &state, &results),
+                GuestRequest::SessionCall(_) => error(
+                    "UNSUPPORTED",
+                    "native macOS guest session relay is unavailable",
+                ),
                 GuestRequest::Freeze(_) | GuestRequest::Thaw(_) => error(
                     "UNSUPPORTED",
                     "native macOS guests have no task freezer; the VM itself is paused",
