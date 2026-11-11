@@ -9,7 +9,7 @@
 //! lamp-supervisor seed-import DIR            (root, service stopped; prints the seed_ref)
 //! lamp-supervisor template-build FILE.lamp   (root, service stopped; builds, probes, publishes)
 //! lamp-supervisor templates                  (root; read-only listing, safe next to the service)
-//! lamp-supervisor grant-install --caller-uid UID [--generation N] [--policy-revision N]
+//! lamp-supervisor grant-install --caller-uid UID [--generation N] [--max-generation N] [--policy-revision N]
 //!                 [--ttl-s S] [--sandbox-prefix P] [--commands a,b,..]   (root; prints the grant)
 //! lamp-supervisor grant-revoke GRANT_ID      (root)
 //! lamp-supervisor ctl [--socket P] create TEMPLATE [SANDBOX_ID]
@@ -155,6 +155,12 @@ fn grant_command(cmd: &str, store: &std::path::Path, mut args: Vec<String>) {
         die("grant-install needs --caller-uid UID");
     }
     let generation = num(&mut args, "--generation", 1);
+    let max_generation = take_flag(&mut args, "--max-generation").map(|v| {
+        v.parse::<u64>()
+            .ok()
+            .filter(|n| *n >= generation)
+            .unwrap_or_else(|| die("bad --max-generation"))
+    });
     let policy_revision = num(&mut args, "--policy-revision", 1);
     let ttl_s = num(&mut args, "--ttl-s", 24 * 3600);
     let prefix = take_flag(&mut args, "--sandbox-prefix").unwrap_or_else(|| "sb_".into());
@@ -171,6 +177,7 @@ fn grant_command(cmd: &str, store: &std::path::Path, mut args: Vec<String>) {
         caller_uid: caller_uid as u32,
         sandbox_prefix: prefix,
         generation,
+        max_generation,
         policy_revision,
         commands,
         issued_at_unix_ms: now,

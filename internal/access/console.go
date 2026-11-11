@@ -124,7 +124,11 @@ func safeID(s string) bool { return s != "" && len(s) <= 256 && !strings.Contain
 // shell is the bounded line console supported by today's guest exec API. Every
 // line runs in a fresh guest /bin/sh, never the access host. T21 provides PTYs.
 func (b backend) shell(s ssh.Session, id string) error {
-	if _, e := b.call(s.Context(), "sandbox_get", map[string]any{"sandbox_id": id}); e != nil {
+	// Attaching is activity: a suspended sandbox resumes before the prompt.
+	wake, cancel := context.WithTimeout(s.Context(), 5*time.Minute)
+	e := surface.WakeSandbox(wake, b.client, id)
+	cancel()
+	if e != nil {
 		return e
 	}
 	_, _, interactive := s.Pty()

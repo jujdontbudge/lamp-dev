@@ -639,6 +639,53 @@ func (s *Service) driveSessions() {
 	}
 }
 
+func (s *Service) wakeSessionInput(ctx context.Context, a caller, in map[string]any) error {
+	s.readLock()
+	work := s.journal.Control.Sessions[textField(in, "session_id")]
+	lease := s.journal.Control.InputLeases[textField(in, "lease_id")]
+	if work == nil || lease == nil || !s.can(a, "session.input") || !s.sessionAllowed(a, work.Resource, "session.input") ||
+		textField(work.Resource, "state") != "active" || work.GitBusy ||
+		uintField(work.Resource, "revision") != uintField(in, "expected_revision") ||
+		textField(lease, "holder_id") != a.Principal || textField(lease, "resource_id") != textField(work.Resource, "id") ||
+		textField(lease, "state") != "active" || sessionExpired(lease) ||
+		uintField(lease, "location_epoch") != uintField(work.Resource, "location_epoch") ||
+		uintField(in, "location_epoch") != uintField(work.Resource, "location_epoch") ||
+		uintField(in, "sequence") != work.Next[textField(lease, "id")] {
+		s.mu.Unlock()
+		return nil
+	}
+	data, err := base64.StdEncoding.DecodeString(textField(in, "data_base64"))
+	if err != nil || len(data) == 0 || len(data) > 32768 || len(work.Pending) >= 64 {
+		s.mu.Unlock()
+		return nil
+	}
+	id, owner := textField(work.Resource, "sandbox_id"), textField(work.Resource, "owner_id")
+	if sb, exists := s.journal.Sandboxes[id]; exists && s.sandboxMustStop(sb) {
+		s.mu.Unlock()
+		return reject("RESOURCE_IN_USE", "session sandbox authority or budget has ended")
+	}
+	s.mu.Unlock()
+	if id == "" {
+		return nil
+	}
+	return s.Wake(ctx, caller{Principal: owner}, id)
+}
+
+func (s *Service) sessionSandboxBusy(id string) bool {
+	for _, work := range s.journal.Control.Sessions {
+		if textField(work.Resource, "sandbox_id") == id && textField(work.Resource, "state") == "active" &&
+			(len(work.Pending) > 0 || textField(work.Resource, "status") == "working") {
+			return true
+		}
+	}
+	for _, transfer := range s.journal.Control.SessionTransfers {
+		if transfer.Phase != "done" && (textField(transfer.Source, "sandbox_id") == id || textField(transfer.Target, "sandbox_id") == id) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Service) driveSession(id string) {
 	s.readLock()
 	if s.broken {
@@ -674,6 +721,10 @@ func (s *Service) driveSession(id string) {
 	if harness.OwnerID != owner || native && (!enrolled || host.OwnerID != owner) {
 		s.mu.Unlock()
 		s.failSession(id, "enrolled runner is unavailable")
+		return
+	}
+	if !native && (sb.State == "suspended" || sb.State == "suspending" || sb.State == "resuming") {
+		s.mu.Unlock()
 		return
 	}
 	s.mu.Unlock()
@@ -735,6 +786,9 @@ func (s *Service) driveSession(id string) {
 		if err == nil {
 			reply, err = surface.Decode(data)
 		}
+	}
+	if errors.Is(err, errSessionPaused) {
+		return
 	}
 	if err != nil || reply["error"] != nil {
 		if s.context().Err() != nil {
@@ -832,7 +886,22 @@ func (s *Service) failSession(id, reason string) {
 	}
 }
 
+var errSessionPaused = errors.New("session sandbox is paused")
+
 func (s *Service) sessionGuestCall(ctx context.Context, sb api.Sandbox, argv []string) ([]byte, error) {
+	s.readLock()
+	current, exists := s.journal.Sandboxes[sb.Id]
+	if !exists || current.State != "ready" || s.busy[sb.Id] {
+		s.mu.Unlock()
+		return nil, errSessionPaused
+	}
+	s.starting[sb.Id]++
+	s.mu.Unlock()
+	defer func() {
+		s.readLock()
+		s.starting[sb.Id]--
+		s.mu.Unlock()
+	}()
 	deadline, _ := ctx.Deadline()
 	operationID := newID("session")
 	request := func() *pb.Request {

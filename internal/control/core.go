@@ -127,10 +127,35 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			writeError(w, id, "INVALID_ARGUMENT", "wait_ms limit is 60000", nil)
 			return
 		}
+		if strings.HasPrefix(op.Scope, "change_set.") {
+			s.readLock()
+			legacy := strings.HasPrefix(textField(in, "source_session_id"), "sb_") || s.life.ChangeSets[textField(in, "change_set_id")] != nil
+			s.mu.Unlock()
+			if legacy {
+				path := map[string]any{}
+				if value := textField(in, "change_set_id"); value != "" {
+					path["change_set_id"] = value
+				}
+				r.Body = io.NopCloser(bytes.NewReader(data))
+				s.lifeHTTP(w, r, id, op, path)
+				return
+			}
+		}
 	}
 	if op.Name == "connection_invoke" {
 		s.invokeProtected(w, r, id, in)
 		return
+	}
+	if op.Name == "session_input" {
+		if err := s.wakeSessionInput(r.Context(), requestCaller(r), in); err != nil {
+			var denied *coreError
+			code := "DATA_UNAVAILABLE"
+			if errors.As(err, &denied) {
+				code = denied.code
+			}
+			writeError(w, id, code, err.Error(), nil)
+			return
+		}
 	}
 	var guardRecords []any
 	if op.Name == "audit_record_export" {
@@ -435,6 +460,9 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 			if textField(change.Resource, "owner_id") == a.Principal {
 				items = append(items, object(change.Resource))
 			}
+		}
+		for _, item := range s.lifeItems(a, kind) {
+			items = append(items, object(item))
 		}
 	case "session":
 		for _, work := range c.Sessions {

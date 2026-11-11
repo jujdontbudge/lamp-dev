@@ -420,6 +420,14 @@ impl Custody {
         self.records.contains_key(id)
     }
 
+    /// Whether `id` was captured from `parent` (recorded durably, so it holds
+    /// across supervisor restarts).
+    pub fn captured_from(&self, id: &str, parent: &str) -> bool {
+        self.records
+            .get(id)
+            .is_some_and(|record| record.parents.contains(parent))
+    }
+
     pub fn has_subscription(&self, id: &str) -> bool {
         self.subscriptions.contains_key(id)
     }

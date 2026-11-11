@@ -27,6 +27,11 @@ pub struct ControlGrant {
     pub sandbox_prefix: String,
     /// The exact sandbox generation and policy revision it authorizes.
     pub generation: u64,
+    /// When set, generations `generation..=max_generation` are authorized,
+    /// so a resumed sandbox can run as a new generation (its own audit
+    /// spool and identity barrier). Absent keeps the exact match.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_generation: Option<u64>,
     pub policy_revision: u64,
     pub commands: Vec<String>,
     pub issued_at_unix_ms: u64,
@@ -137,7 +142,8 @@ impl GrantStore {
         if !p.sandbox_id.starts_with(&g.sandbox_prefix) {
             return denied("sandbox outside its scope");
         }
-        if g.generation != p.generation {
+        let last = g.max_generation.unwrap_or(g.generation);
+        if p.generation < g.generation || p.generation > last {
             return denied("generation outside its scope");
         }
         if g.policy_revision != p.policy_revision {
