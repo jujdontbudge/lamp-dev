@@ -3,8 +3,6 @@ package control
 import (
 	"bytes"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
@@ -21,7 +19,7 @@ import (
 )
 
 // Backups (STO-005) are sealed archives: AES-256-GCM in 1 MiB chunks under
-// a host-held key, each chunk bound to the backup ID, its index and whether
+// a per-backup data key wrapped for this host and the owner recovery key (recovery.go), each chunk bound to the backup ID, its index and whether
 // it is last, so truncation, reordering or substitution fail decryption.
 // A backup restores only through its own capture point, and a missing or
 // damaged object fails the restore instead of producing empty content.
@@ -135,10 +133,11 @@ func (s *Service) planBackupCreate(a caller, in map[string]any) (lifePlan, error
 		res["backup_id"] = id
 	}
 	var digest string
+	var envs []keyEnvelope
 	return lifePlan{ref: lifeRef("backup", id), timeout: 30 * time.Minute,
 		run: func(ctx context.Context) (map[string]any, error) {
 			var err error
-			digest, err = s.sealBackup(h, file)
+			digest, envs, err = s.sealBackup(h, file)
 			return map[string]any{"backup_id": id}, err
 		},
 		finish: func(_ map[string]any, err error) error {
@@ -147,18 +146,21 @@ func (s *Service) planBackupCreate(a caller, in map[string]any) (lifePlan, error
 			} else {
 				m["state"] = "ready"
 				m["manifest_digest"] = digest
+				m["key_envelopes"] = resourceEnvelopes(envs)
+				m["recovery_state"] = recoveryState(envs)
 			}
 			editResource(m)
 			return err
 		}}, nil
 }
 
-// sealBackup writes header + objects as authenticated encrypted chunks and
-// returns the manifest digest. The file is durable before it is reported.
-func (s *Service) sealBackup(h backupHeader, file string) (string, error) {
-	key, err := s.backupKey()
+// sealBackup writes envelopes + header + objects as authenticated encrypted
+// chunks under a fresh data key and returns the manifest digest. The file is
+// durable before it is reported.
+func (s *Service) sealBackup(h backupHeader, file string) (string, []keyEnvelope, error) {
+	key, preamble, envs, err := s.archiveEnvelopes(h.BackupID)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	header, _ := json.Marshal(h)
 	var plain bytes.Buffer
@@ -167,51 +169,35 @@ func (s *Service) sealBackup(h backupHeader, file string) (string, error) {
 	for _, sum := range h.Objects {
 		data, err := s.readObject(sum)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		raw, _ := hex.DecodeString(sum)
 		plain.Write(raw)
 		binary.Write(&plain, binary.BigEndian, uint64(len(data)))
 		plain.Write(data)
 	}
-	block, _ := aes.NewCipher(key)
-	gcm, _ := cipher.NewGCM(block)
+	gcm := gcmFor(key)
 	prefix := make([]byte, 4)
 	rand.Read(prefix)
-	f, err := os.OpenFile(file+".tmp", os.O_CREATE|os.O_TRUNC|os.O_WRONLY|unix.O_NOFOLLOW, 0600)
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(file + ".tmp")
-	f.Write([]byte(backupMagic))
-	f.Write(prefix)
+	var out bytes.Buffer
+	out.Write(preamble)
+	out.Write(prefix)
 	data := plain.Bytes()
 	for i := 0; ; i++ {
 		end := min((i+1)*backupChunk, len(data))
 		last := end == len(data)
 		sealed := gcm.Seal(nil, chunkNonce(prefix, i), data[i*backupChunk:end], chunkAAD(h.BackupID, i, last))
-		binary.Write(f, binary.BigEndian, uint32(len(sealed)))
-		if _, err := f.Write(sealed); err != nil {
-			f.Close()
-			return "", err
-		}
+		binary.Write(&out, binary.BigEndian, uint32(len(sealed)))
+		out.Write(sealed)
 		if last {
 			break
 		}
 	}
-	if err := fullSync(f); err != nil {
-		f.Close()
-		return "", err
-	}
-	f.Close()
-	if err := os.Rename(file+".tmp", file); err != nil {
-		return "", err
-	}
-	if err := syncDir(filepath.Dir(file)); err != nil {
-		return "", err
+	if err := writeDurable(file, out.Bytes()); err != nil {
+		return "", nil, err
 	}
 	sum := sha256.Sum256(header)
-	return "sha256:" + hex.EncodeToString(sum[:]), nil
+	return "sha256:" + hex.EncodeToString(sum[:]), envs, nil
 }
 
 func chunkNonce(prefix []byte, i int) []byte {
@@ -233,25 +219,48 @@ func chunkAAD(id string, i int, last bool) []byte {
 
 // openBackup decrypts and verifies a sealed backup completely.
 func (s *Service) openBackup(id, file, wantDigest string) (backupHeader, map[string][]byte, error) {
-	var h backupHeader
 	fail := func(why string) (backupHeader, map[string][]byte, error) {
-		return h, nil, reject("DATA_UNAVAILABLE", "backup cannot be restored: "+why)
-	}
-	key, err := s.backupKey()
-	if err != nil {
-		return fail("backup key unavailable")
+		return backupHeader{}, nil, reject("DATA_UNAVAILABLE", "backup cannot be restored: "+why)
 	}
 	raw, err := os.ReadFile(file)
 	if err != nil {
 		return fail("sealed archive is missing")
 	}
-	if !bytes.HasPrefix(raw, []byte(backupMagic)) || len(raw) < len(backupMagic)+4 {
-		return fail("not a sealed archive")
+	set, body, err := splitArchive(raw)
+	if err != nil {
+		return fail(err.Error())
 	}
-	prefix := raw[len(backupMagic) : len(backupMagic)+4]
-	r := bytes.NewReader(raw[len(backupMagic)+4:])
-	block, _ := aes.NewCipher(key)
-	gcm, _ := cipher.NewGCM(block)
+	key, err := s.archiveKey(id, set, nil)
+	if err != nil {
+		return fail(err.Error())
+	}
+	h, digest, objects, err := decryptArchive(id, body, key)
+	if err != nil {
+		return fail(err.Error())
+	}
+	if digest != wantDigest {
+		return fail("manifest digest differs")
+	}
+	return h, objects, nil
+}
+
+func decryptBody(id string, body, key []byte) (backupHeader, string, error) {
+	h, digest, _, err := decryptArchive(id, body, key)
+	return h, digest, err
+}
+
+// decryptArchive authenticates every chunk and object under the data key.
+func decryptArchive(id string, body, key []byte) (backupHeader, string, map[string][]byte, error) {
+	var h backupHeader
+	fail := func(why string) (backupHeader, string, map[string][]byte, error) {
+		return h, "", nil, errors.New(why)
+	}
+	if len(body) < 4 {
+		return fail("archive truncated")
+	}
+	prefix := body[:4]
+	r := bytes.NewReader(body[4:])
+	gcm := gcmFor(key)
 	var plain bytes.Buffer
 	for i := 0; ; i++ {
 		var n uint32
@@ -278,9 +287,6 @@ func (s *Service) openBackup(id, file, wantDigest string) (backupHeader, map[str
 	}
 	header := plain.Next(int(hl))
 	sum := sha256.Sum256(header)
-	if "sha256:"+hex.EncodeToString(sum[:]) != wantDigest {
-		return fail("manifest digest differs")
-	}
 	if decodeNumbers(header, &h) != nil || h.BackupID != id {
 		return fail("header damaged")
 	}
@@ -303,7 +309,7 @@ func (s *Service) openBackup(id, file, wantDigest string) (backupHeader, map[str
 			return fail("object " + want[:12] + " missing")
 		}
 	}
-	return h, objects, nil
+	return h, "sha256:" + hex.EncodeToString(sum[:]), objects, nil
 }
 
 func (s *Service) planBackupRestore(a caller, in map[string]any) (lifePlan, error) {
@@ -318,7 +324,7 @@ func (s *Service) planBackupRestore(a caller, in map[string]any) (lifePlan, erro
 		return lifePlan{}, reject("HOST_NOT_TRUSTED", "restore target is not this host")
 	}
 	if textField(in, "recovery_credential_source_id") != "" {
-		return lifePlan{}, reject("INVALID_ARGUMENT", "this host holds the backup key; no recovery credential is needed")
+		return lifePlan{}, reject("INVALID_ARGUMENT", "recovered archives are imported with the owner's recovery key at lampd start; no recovery credential is needed here")
 	}
 	if textField(m, "state") != "ready" {
 		return lifePlan{}, reject("DATA_UNAVAILABLE", "backup is not ready")

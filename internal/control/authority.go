@@ -49,6 +49,8 @@ type controlState struct {
 	SessionShares    map[string]map[string]any    `json:"session_shares"`
 	SessionTransfers map[string]*sessionTransfer  `json:"session_transfers"`
 	ChangeSets       map[string]*sessionChangeSet `json:"change_sets"`
+	// Updates are fleet-wide rollouts (HST-005), replicated with authority.
+	Updates map[string]api.Update `json:"updates,omitempty"`
 }
 type caller struct{ Principal, KeyID string }
 type callerContext struct{}

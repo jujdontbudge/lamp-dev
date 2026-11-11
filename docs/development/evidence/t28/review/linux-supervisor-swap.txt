@@ -1,0 +1,45 @@
+
+=== 09:17:21Z capacity before the sandbox: live firecracker=0, MiB available=27299
+
+=== 09:17:21Z install 5.0.0 (systemd lampd, supervisor 5.0.0 from the release)
+{"at":"2026-11-11T09:17:22Z","automatic_updates":false,"event":"installed","prefix":"/home/johan/lamp-t28k/p","service":"systemd","version":"5.0.0"}
+{"current":"5.0.0","healthy":true,"highest_version":"5.0.0","name":"t28lx","previous":"","saved_items":0,"service":"systemd","supervisor":{"alive":true,"binary_sha256":"97e38663de2cc5de39b24b1dff243cbbe8804ff8f529b3062e2157f424653efa","from_release":true,"pid":4178704,"release":"5.0.0","sha256":{"firecracker":"99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5","jailer":"65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f","lamp-supervisor":"97e38663de2cc5de39b24b1dff243cbbe8804ff8f529b3062e2157f424653efa"}},"update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000}}
+
+=== 09:17:22Z sandbox from tp_b116a7a5482b6d66a32bd9d892 with a live guest process (tmpfs heartbeat)
+{"operation_id":"op_475cc54fd5bcc69ba5248756d5d54b3d","resource_ids":[{"kind":"sandbox","id":"sb_a83ec6dabacb25c3035da3ecf8ee7c8c"}],"request_id":"req_a600adc4bfe7cec8047975e84d47727e","replayed":false,"operation":{"id":"op_475cc54fd5bcc69ba5248756d5d54b3d","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":3,"created_at":"2026-11-11T09:17:22.853499179Z","updated_at":"2026-1
+sandbox sb_a83ec6dabacb25c3035da3ecf8ee7c8c ready
+boot=ade6d642-4592-43ee-b78e-a8b63864e33a pid=598 beats=2
+
+=== 09:17:25Z #9 update 5.0.0 -> 5.1.0: new Linux supervisor, same firecracker/jailer
+{"at":"2026-11-11T09:17:33Z","event":"completed","previous":"5.0.0","saved_items_preserved":1,"version":"5.1.0"}
+rc=0
+{"current":"5.1.0","healthy":true,"highest_version":"5.1.0","name":"t28lx","previous":"5.0.0","saved_items":1,"service":"systemd","supervisor":{"alive":true,"binary_sha256":"833b0b51f366cf0553f632106ff5410574d7de8e789320ba03b97bf34f08cc52","from_release":true,"pid":4179850,"release":"5.1.0","sha256":{"firecracker":"99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5","jailer":"65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f","lamp-supervisor":"833b0b51f366cf0553f632106ff5410574d7de8e789320ba03b97bf34f08cc52"}},"update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000}}
+boot=ade6d642-4592-43ee-b78e-a8b63864e33a pid=598 alive=yes beats=4
+
+=== 09:17:33Z #1 update 5.1.0 -> 5.2.0: signed release whose supervisor fails to start
+lamp-installer: exit 3
+rc=3
+{"current":"5.1.0","healthy":true,"highest_version":"5.1.0","name":"t28lx","previous":"5.0.0","saved_items":1,"service":"systemd","supervisor":{"alive":true,"binary_sha256":"833b0b51f366cf0553f632106ff5410574d7de8e789320ba03b97bf34f08cc52","from_release":true,"pid":4180537,"release":"5.1.0","sha256":{"firecracker":"99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5","jailer":"65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f","lamp-supervisor":"833b0b51f366cf0553f632106ff5410574d7de8e789320ba03b97bf34f08cc52"}},"update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000}}
+supervisor process: /usr/local/lib/lamp-t28lx/5.1.0/lamp-supervisor serve --firecracker /usr/local/lib/lamp-t2
+boot=ade6d642-4592-43ee-b78e-a8b63864e33a pid=598 alive=yes beats=5
+
+=== 09:17:42Z updater events
+{"at":"2026-11-11T09:17:25Z","event":"draining","from":"5.0.0","saved_items":1,"to":"5.1.0"}
+{"at":"2026-11-11T09:17:25Z","event":"applying","version":"5.1.0"}
+{"at":"2026-11-11T09:17:28Z","event":"sandbox_suspended","reason":"supervisor swap","sandbox_id":"sb_a83ec6dabacb25c3035da3ecf8ee7c8c"}
+{"at":"2026-11-11T09:17:31Z","binary_sha256":"833b0b51f366cf0553f632106ff5410574d7de8e789320ba03b97bf34f08cc52","event":"supervisor_swapped","from":"5.0.0","pid":4179850,"to":"5.1.0"}
+{"at":"2026-11-11T09:17:33Z","event":"sandbox_resumed","sandbox_id":"sb_a83ec6dabacb25c3035da3ecf8ee7c8c"}
+{"at":"2026-11-11T09:17:33Z","event":"completed","previous":"5.0.0","saved_items_preserved":1,"version":"5.1.0"}
+{"at":"2026-11-11T09:17:33Z","event":"draining","from":"5.1.0","saved_items":1,"to":"5.2.0"}
+{"at":"2026-11-11T09:17:33Z","event":"applying","version":"5.2.0"}
+{"at":"2026-11-11T09:17:35Z","event":"sandbox_suspended","reason":"supervisor swap","sandbox_id":"sb_a83ec6dabacb25c3035da3ecf8ee7c8c"}
+{"at":"2026-11-11T09:17:36Z","event":"supervisor_start_failed","reason":"supervisor 5.2.0 exited during start: exit status 1","version":"5.2.0"}
+{"at":"2026-11-11T09:17:36Z","event":"check_failed","reason":"supervisor 5.2.0 exited during start: exit status 1","version":"5.2.0"}
+{"at":"2026-11-11T09:17:40Z","binary_sha256":"833b0b51f366cf0553f632106ff5410574d7de8e789320ba03b97bf34f08cc52","event":"supervisor_swapped","from":"","pid":4180537,"to":"5.1.0"}
+{"at":"2026-11-11T09:17:42Z","event":"sandbox_resumed","sandbox_id":"sb_a83ec6dabacb25c3035da3ecf8ee7c8c"}
+{"at":"2026-11-11T09:17:42Z","event":"rolled_back","saved_items_preserved":1,"version":"5.1.0"}
+
+=== 09:17:42Z cleanup
+sandbox delete rc=0
+{"at":"2026-11-11T09:17:43Z","data":"deleted","event":"uninstalled","name":"t28lx","owner_data":"delete"}
+left: lamp-t28lx units=0 supervisor dir=0 live firecracker=0

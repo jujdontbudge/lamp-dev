@@ -1,13 +1,14 @@
 PYTHON ?= python3
 VENV_PYTHON = .venv/bin/python
 
-.PHONY: build test test-all lint verify bootstrap generate check-generated check-contracts interop fmt
+.PHONY: sdk-pack build test test-all lint verify bootstrap generate check-generated check-contracts interop fmt
 
 # Checked-in bindings mean ordinary builds do not need Python or protoc.
 build:
 	mkdir -p bin
 	$(CC) -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
 	go build ./...
+	$(PYTHON) tools/sdkgen.py --check
 	cargo build --workspace --locked
 
 # Selected smoke tests for ordinary verification.
@@ -32,10 +33,12 @@ bootstrap:
 generate:
 	$(PYTHON) tools/generate.py
 	$(PYTHON) tools/protobuf.py
+	$(PYTHON) tools/sdkgen.py
 
 check-generated:
 	$(PYTHON) tools/generate.py --check
 	$(PYTHON) tools/protobuf.py --check
+	$(PYTHON) tools/sdkgen.py --check
 
 check-contracts:
 	$(PYTHON) tools/check_contracts.py
@@ -55,3 +58,9 @@ lint:
 fmt:
 	gofmt -w cmd internal pkg tools/contractprobe
 	cargo fmt --all
+
+# Release SDK packages (local only; T31 publishes).
+sdk-pack:
+	mkdir -p dist
+	cd sdk/typescript && npm pack --pack-destination ../../dist
+	$(PYTHON) -m pip wheel --no-deps -w dist sdk/python
