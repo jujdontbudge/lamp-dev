@@ -89,6 +89,8 @@ type Config struct {
 	InstallDir string
 }
 type Service struct {
+	forges                map[string]ci.Forge
+	ciConfig              *ci.Config
 	kitsSocket            string
 	kitsMu                sync.Mutex
 	clockWall             time.Time
@@ -480,10 +482,13 @@ func Open(config Config) (*Service, error) {
 		s.wg.Add(1)
 		go s.sweepGuardAudit()
 	}
-	if s.github != nil {
+	s.wg.Add(2)
+	go s.workRecovery()
+	go s.scheduler()
+	if len(s.forges) > 0 {
 		var pending []string
 		for id, j := range s.life.Jobs {
-			if !ciTerminal(textField(j.R, "state")) {
+			if !ciTerminal(textField(j.R, "state")) && !workJob(j) {
 				pending = append(pending, id)
 			}
 		}

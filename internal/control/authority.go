@@ -415,6 +415,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	id := newID("req")
 	w.Header().Set("X-Request-ID", id)
+	if strings.HasPrefix(r.URL.Path, "/hooks/triggers/") {
+		s.triggerHookHTTP(w, r, id)
+		return
+	}
 	if r.Method == "POST" && r.URL.Path == "/internal/native-tasks" {
 		s.nativeHTTP(w, r, id)
 		return
@@ -464,8 +468,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
-	if op.Name == "plugin_get" && textField(selectors, "plugin_id") == "pg_github" {
-		s.ciPluginHTTP(w, r, id)
+	if op.Name == "plugin_get" && ciPluginID(textField(selectors, "plugin_id")) {
+		s.ciPluginHTTP(w, r, id, textField(selectors, "plugin_id"))
 		return
 	}
 	if kitOperation(op.Name) {

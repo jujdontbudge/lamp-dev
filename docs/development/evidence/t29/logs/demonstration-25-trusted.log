@@ -1,0 +1,30 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:220: enrolled plugins: [pg_gitea pg_forgejo]
+    t29_demo_test.go:562: policy job jb_15b15d3e1f229c079679ab1f01f648a6 trust=trusted attested exceptions (8) [10.219.29.1:3929 10.219.29.1:3930 10.219.29.1:3931 10.219.29.1:3932 10.219.29.1:3933 10.219.29.1:3934 10.219.29.1:3935 10.219.29.1:3936] err=<nil>; broker grant issued=true
+    t29_demo_test.go:248: runner output tail (jb_15b15d3e1f229c079679ab1f01f648a6):
+        
+        --stderr--
+    t29_demo_test.go:248: runner output tail (jb_15b15d3e1f229c079679ab1f01f648a6):
+        
+        --stderr--
+    t29_demo_test.go:248: runner output tail (jb_15b15d3e1f229c079679ab1f01f648a6):
+        
+        --stderr--
+    t29_demo_test.go:248: runner output tail (jb_15b15d3e1f229c079679ab1f01f648a6):
+        
+        --stderr--
+    t29_demo_test.go:181: job jb_15b15d3e1f229c079679ab1f01f648a6 plugin=pg_gitea external=lamp-admin/zlib/9 state=completed result=success trust=trusted runner=lamp-jb_15b15d3e1f229c079679ab1f01f648a6 sandbox=sb_f0904a622c663fdb76956cc326198143(suspended) outputs=[gitea-job.log(complete,8472 bytes)]
+    t29_demo_test.go:580: retention: job jb_15b15d3e1f229c079679ab1f01f648a6 trust=trusted retain_stopped=true sandbox sb_f0904a622c663fdb76956cc326198143 is suspended
+    t29_demo_test.go:588: retention: inspected VM sb_f0904a622c663fdb76956cc326198143 then deleted by the owner: deleted
+    t29_demo_test.go:273: forge runners still registered: 0
+--- PASS: TestT29Demonstration (228.15s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	228.790s
+demonstration_exit 0
+broker audit (grant lifecycle, redacted by the broker):
+  {"connection":"grant","outcome":"issued","sandbox":"sb_f0904a622c663fdb76956cc326198143","time":"2026-11-11T22:16:37.057909354Z"}
+  {"connection":"renew","outcome":"renewed","sandbox":"sb_f0904a622c663fdb76956cc326198143","time":"2026-11-11T22:17:37.067373137Z"}
+  {"connection":"renew","outcome":"renewed","sandbox":"sb_f0904a622c663fdb76956cc326198143","time":"2026-11-11T22:18:37.06743275Z"}
+  {"connection":"renew","outcome":"renewed","sandbox":"sb_f0904a622c663fdb76956cc326198143","time":"2026-11-11T22:19:37.067368584Z"}
+  {"connection":"revoke","outcome":"revoked","sandbox":"sb_f0904a622c663fdb76956cc326198143","time":"2026-11-11T22:20:13.097923362Z"}
+firecracker_remaining 0

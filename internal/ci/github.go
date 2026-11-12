@@ -51,6 +51,16 @@ type Repository struct {
 	TrustedActorIDs []int64      `json:"trusted_actor_ids"`
 	EnableCopilot   bool         `json:"enable_copilot"`
 	ModelBroker     *ModelBroker `json:"model_broker,omitempty"`
+	// System selects the CI plugin; empty means github-actions. Other systems
+	// use an enrolled BaseURL, their own private TokenFile and Project, the
+	// system's immutable project/pipeline identifier.
+	System    string `json:"system,omitempty"`
+	BaseURL   string `json:"base_url,omitempty"`
+	TokenFile string `json:"token_file,omitempty"`
+	Project   string `json:"project,omitempty"`
+	// Options carry system-specific, host-enrolled settings (organization,
+	// pool, resource class, cluster). Never workflow input.
+	Options map[string]string `json:"options,omitempty"`
 }
 type Config struct {
 	TokenFile      string       `json:"token_file"`
@@ -82,6 +92,13 @@ func New(config Config) (*GitHub, error) {
 	}
 	seen := map[string]bool{}
 	for _, r := range config.Repositories {
+		if r.system() != "github-actions" {
+			if r.Name == "" || strings.ContainsAny(r.Name, " ?#%\\\r\n") || r.Label == "" || r.TemplateID == "" || !strings.HasPrefix(r.RunnerDirectory, "/") || r.BaseURL == "" || seen[r.system()+":"+r.Name] {
+				return nil, errors.New("invalid CI project enrollment")
+			}
+			seen[r.system()+":"+r.Name] = true
+			continue
+		}
 		if len(strings.Split(r.Name, "/")) != 2 || strings.ContainsAny(r.Name, " ?#%\\\r\n") || r.ID <= 0 || r.OwnerID <= 0 || r.Label == "" || r.TemplateID == "" || !strings.HasPrefix(r.RunnerDirectory, "/") || seen[r.Name] {
 			return nil, errors.New("invalid CI repository enrollment")
 		}
@@ -426,10 +443,34 @@ func (g *GitHub) DeregisterJob(ctx context.Context, r Repository, name string, k
 		}
 	}
 }
-func (g *GitHub) Cancel(ctx context.Context, r Repository, run int64) error {
+func (g *GitHub) Cancel(ctx context.Context, r Repository, run, _ int64) error {
 	return g.API(ctx, "POST", fmt.Sprintf("/repos/%s/actions/runs/%d/cancel", r.Name, run), nil, nil)
 }
+func (g *GitHub) Plugin() string           { return "pg_github" }
+func (g *GitHub) System() string           { return "github-actions" }
+func (g *GitHub) Issuer(Repository) string { return GitHubIssuer }
+func (g *GitHub) Repos() (out []Repository) {
+	for _, r := range g.Config.Repositories {
+		if r.system() == "github-actions" {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+func (g *GitHub) Register(ctx context.Context, r Repository, d Demand, name string) (Agent, error) {
+	id, jit, err := g.JIT(ctx, r, d.RunnerLabel, name)
+	return Agent{ID: id, OneJob: true, Argv: []string{"./run.sh", "--jitconfig", "$SECRET:JIT"}, Secret: map[string]string{"JIT": jit},
+		Env: map[string]string{"RUNNER_ALLOW_RUNASROOT": "1", "TAR_OPTIONS": "--no-same-owner"}}, err
+}
 func (g *GitHub) Queued(ctx context.Context, r Repository) ([]Job, error) {
+	a, err := g.queued(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	b, err := g.QueuedInProgress(ctx, r)
+	return append(a, b...), err
+}
+func (g *GitHub) queued(ctx context.Context, r Repository) ([]Job, error) {
 	var all []Job
 	// GitHub's run list is bounded per request; pagination prevents a busy queue
 	// hiding older work. No persistent runner is registered by the poller.

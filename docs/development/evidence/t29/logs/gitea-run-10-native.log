@@ -1,0 +1,116 @@
+2026-11-11T22:16:37.2825522Z lamp-jb_15b15d3e1f229c079679ab1f01f648a6(version:v6.0.0)
+2026-11-11T22:16:37.2825582Z ::group::Runner Information
+2026-11-11T22:16:37.2825648Z Runner labels: lamp-t29g
+2026-11-11T22:16:37.2825653Z Task: 6
+2026-11-11T22:16:37.2825656Z Job: build
+2026-11-11T22:16:37.2825661Z Repository: lamp-admin/zlib
+2026-11-11T22:16:37.2825664Z Triggered by event: push
+2026-11-11T22:16:37.2825668Z ::endgroup::
+2026-11-11T22:16:37.2825677Z ::group::Operating System
+2026-11-11T22:16:37.2825689Z Ubuntu 26.04.1 LTS
+2026-11-11T22:16:37.2825692Z linux/amd64
+2026-11-11T22:16:37.2825696Z ::endgroup::
+2026-11-11T22:16:37.2828912Z workflow prepared
+2026-11-11T22:16:37.2832536Z Complete job name: build
+2026-11-11T22:16:37.2834903Z ::group::Run test ! -e /var/tmp/lamp-previous-job && touch /var/tmp/lamp-previous-job && uname -a
+2026-11-11T22:16:37.2834968Z test ! -e /var/tmp/lamp-previous-job && touch /var/tmp/lamp-previous-job && uname -a
+2026-11-11T22:16:37.2834986Z shell: bash -e {0}
+2026-11-11T22:16:37.2835028Z ::endgroup::
+2026-11-11T22:16:37.3369710Z Linux sb-f0904a622c663fdb76956cc326198143 6.18.62 #1 SMP PREEMPT_DYNAMIC Mon Nov  9 18:05:11 EST 2026 x86_64 GNU/Linux
+2026-11-11T22:16:37.3391956Z ::group::Run git clone --depth 1 "http://lamp:[redacted]@10.219.29.1:3930/lamp-admin/zlib.git" src
+2026-11-11T22:16:37.3392041Z git clone --depth 1 "http://lamp:[redacted]@10.219.29.1:3930/lamp-admin/zlib.git" src
+2026-11-11T22:16:37.3392072Z shell: bash -e {0}
+2026-11-11T22:16:37.3392153Z ::endgroup::
+2026-11-11T22:16:37.3631806Z Cloning into 'src'...
+2026-11-11T22:16:47.5813237Z ::group::Run cd src && ./configure --static && make -j2 && make test
+2026-11-11T22:16:47.5813286Z cd src && ./configure --static && make -j2 && make test
+2026-11-11T22:16:47.5813302Z shell: bash -e {0}
+2026-11-11T22:16:47.5813325Z ::endgroup::
+2026-11-11T22:16:47.7544840Z Checking for gcc...
+2026-11-11T22:16:48.1050029Z Building static library libz.a version 1.3.1 with gcc.
+2026-11-11T22:16:48.1892450Z Checking for size_t... Yes.
+2026-11-11T22:16:48.2452567Z Checking for off64_t... Yes.
+2026-11-11T22:16:48.2586551Z Checking for fseeko... Yes.
+2026-11-11T22:16:48.4124038Z Checking for strerror... Yes.
+2026-11-11T22:16:48.5503942Z Checking for unistd.h... Yes.
+2026-11-11T22:16:48.6413762Z Checking for stdarg.h... Yes.
+2026-11-11T22:16:48.7302912Z Checking whether to use vs[n]printf() or s[n]printf()... using vs[n]printf().
+2026-11-11T22:16:48.8480428Z Checking for vsnprintf() in stdio.h... Yes.
+2026-11-11T22:16:48.9641835Z Checking for return value of vsnprintf()... Yes.
+2026-11-11T22:16:49.0333055Z Checking for attribute(visibility) support... Yes.
+2026-11-11T22:16:49.0956800Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. -c -o example.o test/example.c
+2026-11-11T22:16:49.1024036Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o adler32.o adler32.c
+2026-11-11T22:16:49.2281055Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o crc32.o crc32.c
+2026-11-11T22:16:49.2312281Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o deflate.o deflate.c
+2026-11-11T22:16:49.3736653Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o infback.o infback.c
+2026-11-11T22:16:49.5221386Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o inffast.o inffast.c
+2026-11-11T22:16:49.5892911Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o inflate.o inflate.c
+2026-11-11T22:16:49.6628532Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o inftrees.o inftrees.c
+2026-11-11T22:16:49.7791998Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o trees.o trees.c
+2026-11-11T22:16:49.9014662Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o zutil.o zutil.c
+2026-11-11T22:16:49.9440003Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o compress.o compress.c
+2026-11-11T22:16:49.9812255Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o uncompr.o uncompr.c
+2026-11-11T22:16:50.0060963Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o gzclose.o gzclose.c
+2026-11-11T22:16:50.0199843Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o gzlib.o gzlib.c
+2026-11-11T22:16:50.0386141Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o gzread.o gzread.c
+2026-11-11T22:16:50.1212889Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -c -o gzwrite.o gzwrite.c
+2026-11-11T22:16:50.1406666Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. -c -o minigzip.o test/minigzip.c
+2026-11-11T22:16:50.2137347Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. -D_FILE_OFFSET_BITS=64 -c -o example64.o test/example.c
+2026-11-11T22:16:50.2169659Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN -I. -D_FILE_OFFSET_BITS=64 -c -o minigzip64.o test/minigzip.c
+2026-11-11T22:16:50.3216436Z ar rc libz.a adler32.o crc32.o deflate.o infback.o inffast.o inflate.o inftrees.o trees.o zutil.o compress.o uncompr.o gzclose.o gzlib.o gzread.o gzwrite.o 
+2026-11-11T22:16:50.3502848Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -o example example.o -L. libz.a
+2026-11-11T22:16:50.3532521Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -o minigzip minigzip.o -L. libz.a
+2026-11-11T22:16:50.3902271Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -o example64 example64.o -L. libz.a
+2026-11-11T22:16:50.4116807Z gcc -O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN  -o minigzip64 minigzip64.o -L. libz.a
+2026-11-11T22:16:50.5502577Z hello world
+2026-11-11T22:16:50.5587734Z zlib version 1.3.1 = 0x1310, compile flags = 0xa9
+2026-11-11T22:16:50.5591392Z uncompress(): hello, hello!
+2026-11-11T22:16:50.5597111Z gzread(): hello, hello!
+2026-11-11T22:16:50.5597349Z gzgets() after gzseek:  hello!
+2026-11-11T22:16:50.5597395Z inflate(): hello, hello!
+2026-11-11T22:16:50.5597431Z large_inflate(): OK
+2026-11-11T22:16:50.5597481Z after inflateSync(): hello, hello!
+2026-11-11T22:16:50.5603376Z inflate with dictionary: hello, hello!
+2026-11-11T22:16:50.5603806Z 		[masked] zlib test OK [masked]
+2026-11-11T22:16:50.5983872Z hello world
+2026-11-11T22:16:50.6070524Z zlib version 1.3.1 = 0x1310, compile flags = 0xa9
+2026-11-11T22:16:50.6071275Z uncompress(): hello, hello!
+2026-11-11T22:16:50.6071355Z gzread(): hello, hello!
+2026-11-11T22:16:50.6071392Z gzgets() after gzseek:  hello!
+2026-11-11T22:16:50.6071425Z inflate(): hello, hello!
+2026-11-11T22:16:50.6071468Z large_inflate(): OK
+2026-11-11T22:16:50.6071518Z after inflateSync(): hello, hello!
+2026-11-11T22:16:50.6071554Z inflate with dictionary: hello, hello!
+2026-11-11T22:16:50.6074820Z 		[masked] zlib 64-bit test OK [masked]
+2026-11-11T22:16:50.6296967Z ::group::Run if [ -n "$LAMP_MODEL_TOKEN" ]; then echo "lamp model grant - present for $LAMP_MODEL_URL"; else echo "lamp model grant - absent"; fi
+2026-11-11T22:16:50.6297261Z if [ -n "$LAMP_MODEL_TOKEN" ]; then echo "lamp model grant - present for $LAMP_MODEL_URL"; else echo "lamp model grant - absent"; fi
+2026-11-11T22:16:50.6297343Z shell: bash -e {0}
+2026-11-11T22:16:50.6297430Z ::endgroup::
+2026-11-11T22:16:50.6390133Z lamp model grant - present for https://10.219.29.1:3936
+2026-11-11T22:16:50.6399597Z ::group::Run start=$(date +%25s); for i in $(seq 1 20); do sleep 10; echo "still running $i"; done; echo "long step took $(( $(date +%25s) - start ))s"
+2026-11-11T22:16:50.6399723Z start=$(date +%s); for i in $(seq 1 20); do sleep 10; echo "still running $i"; done; echo "long step took $(( $(date +%s) - start ))s"
+2026-11-11T22:16:50.6399771Z shell: bash -e {0}
+2026-11-11T22:16:50.6399826Z ::endgroup::
+2026-11-11T22:17:00.6907675Z still running 1
+2026-11-11T22:17:10.7534218Z still running 2
+2026-11-11T22:17:20.7729016Z still running 3
+2026-11-11T22:17:30.7922488Z still running 4
+2026-11-11T22:17:40.8116550Z still running 5
+2026-11-11T22:17:50.8309062Z still running 6
+2026-11-11T22:18:00.8796178Z still running 7
+2026-11-11T22:18:10.9484946Z still running 8
+2026-11-11T22:18:20.9637073Z still running 9
+2026-11-11T22:18:30.9824402Z still running 10
+2026-11-11T22:18:41.0126911Z still running 11
+2026-11-11T22:18:51.0274312Z still running 12
+2026-11-11T22:19:01.0548233Z still running 13
+2026-11-11T22:19:11.0960998Z still running 14
+2026-11-11T22:19:21.1261538Z still running 15
+2026-11-11T22:19:31.1515360Z still running 16
+2026-11-11T22:19:41.1613750Z still running 17
+2026-11-11T22:19:51.1916600Z still running 18
+2026-11-11T22:20:01.2263333Z still running 19
+2026-11-11T22:20:11.2423232Z still running 20
+2026-11-11T22:20:11.2732490Z long step took 201s
+2026-11-11T22:20:11.2769332Z Cleaning up container for job build
+2026-11-11T22:20:11.2868093Z Job succeeded

@@ -524,6 +524,14 @@ func (s *Service) lifeItems(a caller, kind string) []map[string]any {
 		for _, v := range s.life.ChangeSets {
 			add(v.R)
 		}
+	case "trigger":
+		for _, v := range s.life.Triggers {
+			add(v.R)
+		}
+	case "schedule":
+		for _, v := range s.life.Schedules {
+			add(v.R)
+		}
 	}
 	sort.Slice(all, func(i, j int) bool { return textField(all[i], "id") < textField(all[j], "id") })
 	return all
