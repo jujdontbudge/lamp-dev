@@ -39,7 +39,7 @@ published as an artifact and backed up.
   verified byte for byte.
 * **Stop and roll back.** 0.3.0 is signed correctly, but its lampd cannot start.
   Ubuntu failed its check and rolled back to 0.2.0 with all 4 saved items. The
-  rollout stopped with `not_updated: [local, johansardars-macbook-air]`, and
+  rollout stopped with `not_updated: [local, owner-air]`, and
   both Macs stayed on 0.2.0.
 * **Uninstall choices.** Uninstall with no `--data` choice refused and changed
   nothing. `retain` (M5) kept the state directory. `export` (Air) wrote a

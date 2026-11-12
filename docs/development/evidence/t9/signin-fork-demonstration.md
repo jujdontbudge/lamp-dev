@@ -58,7 +58,7 @@ extended for this attempt.
 - Both `/tmp/lamp-lx-timing.lock` and `/tmp/lamp-hard-timing.lock` were confirmed free.
 - The demonstration's supervisor and control services were stopped; raw artifacts
   remain under `/var/lib/lamp/t9e07` and
-  `/home/johan/lamp-t9-custody-20261110/demo-20261110-01`.
+  `/home/owner/lamp-t9-custody-20261110/demo-20261110-01`.
 
 ## Main integration
 

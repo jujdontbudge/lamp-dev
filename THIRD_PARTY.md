@@ -5,7 +5,7 @@ optional relay server: `internal/relay` and `cmd/lamp-relay` are AGPL-3.0-only
 (`internal/relay/LICENSE`). Build `lamp-relay` separately. Host/client/issuer
 binaries do not import relay server code and retain the Apache-2.0 boundary.
 Operators must offer corresponding relay source to its network users, including
-local modifications; the repository's private status does not waive that duty.
+local modifications; this duty applies to anyone who runs a modified relay for others.
 Dependencies retain their own licenses. No guest OS, VMM, Docker runtime, guest
 media or third-party source is vendored by T1.
 

@@ -22,9 +22,9 @@ b1-local-1024 crea warm 20 ok 20 p50 454 p95 726 max 906 over1000 0
 b1-local-1024 crea meas 200 ok 200 p50 413 p95 764 max 1032 over1000 1 
 b1-local-1024 fork warm 20 ok 1 p50 120000 p95 120000 max 120000 over1000 20 {'RuntimeError: workload exited unsuccessfully'}
 b1-local-1024 fork meas 100 ok 0 p50 120000 p95 120000 max 120000 over1000 100 {'RuntimeError: workload exited unsuccessfully'}
-b1-replicated-0 crea warm 20 ok 0 p50 8 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-0 crea meas 200 ok 0 p50 9 p95 12 max 13 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-128 crea warm 20 ok 0 p50 9 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-128 crea meas 200 ok 0 p50 9 p95 12 max 15 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-1024 crea warm 20 ok 0 p50 9 p95 12 max 12 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-1024 crea meas 200 ok 0 p50 8 p95 11 max 14 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-0 crea warm 20 ok 0 p50 8 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-0 crea meas 200 ok 0 p50 9 p95 12 max 13 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-128 crea warm 20 ok 0 p50 9 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-128 crea meas 200 ok 0 p50 9 p95 12 max 15 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-1024 crea warm 20 ok 0 p50 9 p95 12 max 12 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-1024 crea meas 200 ok 0 p50 8 p95 11 max 14 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}

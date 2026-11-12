@@ -9,4 +9,4 @@ for line in open('/proc/self/mountinfo'):
 for target in sorted(set(mounts),key=len,reverse=True):
     subprocess.run(['umount','-l',target],check=True)
 assert all('/var/lib/lamp-t7/' not in line.split()[4] for line in open('/proc/self/mountinfo'))
-exec(compile(open('/home/johan/lamp-t10-control-core/collector-diagnostic.py').read(),'collector-diagnostic.py','exec'))
+exec(compile(open('/home/owner/lamp-t10-control-core/collector-diagnostic.py').read(),'collector-diagnostic.py','exec'))

@@ -1,4 +1,4 @@
-   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t2/src/crates/lamp-supervisor)
+   Compiling lamp-supervisor v0.1.0 (/home/owner/lamp-t2/src/crates/lamp-supervisor)
     Finished `release` profile [optimized] target(s) in 0.45s
      Running tests/e2e.rs (target/release/deps/e2e-391b1e455f5e9624)
 

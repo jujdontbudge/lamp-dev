@@ -1,8 +1,8 @@
 import hashlib,json,os,subprocess
 from pathlib import Path
-original=Path('/home/johan/lamp-t6/seed-ubuntu-6')
+original=Path('/home/owner/lamp-t6/seed-ubuntu-6')
 out=Path('/var/lib/lamp/t10-e03-seed')
-binaries=Path('/home/johan/lamp-t10-control-core/src/target/x86_64-unknown-linux-musl/release')
+binaries=Path('/home/owner/lamp-t10-control-core/src/target/x86_64-unknown-linux-musl/release')
 print(subprocess.check_output(['free','-m'],text=True),flush=True)
 out.mkdir(exist_ok=False)
 for name in ['rootfs.ext4','vmlinux','packages.txt']:

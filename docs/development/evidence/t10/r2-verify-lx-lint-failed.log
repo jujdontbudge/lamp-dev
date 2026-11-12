@@ -7,8 +7,8 @@ Requirement already satisfied: referencing==0.37.0 in ./.venv/lib/python3.14/sit
 Requirement already satisfied: rpds-py==0.30.0 in ./.venv/lib/python3.14/site-packages (from -r tools/requirements.txt (line 5)) (0.30.0)
 go build ./...
 cargo build --workspace --locked
-   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.92s
 go test ./...
 ok  	github.com/JohanSardar/lamp/cmd/lamp	(cached)
@@ -23,8 +23,8 @@ ok  	github.com/JohanSardar/lamp/internal/surface	(cached)
 ok  	github.com/JohanSardar/lamp/pkg/workerpb	(cached)
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 cargo test --workspace --locked
-   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.66s
      Running unittests src/lib.rs (target/debug/deps/lamp_contracts-9d2c54fff3d891b8)
 
@@ -296,8 +296,8 @@ public codegen: clean
 go vet ./...
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
-    Checking lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
-    Checking lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+    Checking lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard)
+    Checking lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init)
 error: items after a test module
    --> crates/lamp-init/src/bin/lamp-guest-helper.rs:696:5
     |

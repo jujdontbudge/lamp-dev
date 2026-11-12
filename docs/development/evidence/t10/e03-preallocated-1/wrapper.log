@@ -1,17 +1,17 @@
-timing-run: stopping excerlock-dm-tt.service excerlock-dm-ig.service excerlock-dm-chrome.service excerlock-beeper.service
+timing-run: stopping owner-app-dm-tt.service owner-app-dm-ig.service owner-app-dm-chrome.service owner-app-beeper.service
 timing-run: buddyinfo Node 0, zone   Normal 211171 200080 155327  95678  48666  22309   9157   4236   2461   1649    676 
 prepared credential 1/32 (two owner sandboxes)
 Traceback (most recent call last):
-  File "/home/johan/lamp-t10-control-core/src/infra/linux/run-e03.py", line 176, in <module>
+  File "/home/owner/lamp-t10-control-core/src/infra/linux/run-e03.py", line 176, in <module>
     raise SystemExit(main())
                      ~~~~^^
-  File "/home/johan/lamp-t10-control-core/src/infra/linux/run-e03.py", line 101, in main
+  File "/home/owner/lamp-t10-control-core/src/infra/linux/run-e03.py", line 101, in main
     raise RuntimeError(check.stderr)
 RuntimeError: owner LX allocation guard denied: need >=12 GiB available and a free slot below two sandboxes
 
 timing-run: command exit 1
-timing-run: excerlock-dm-tt.service active
-timing-run: excerlock-dm-ig.service active
-timing-run: excerlock-dm-chrome.service active
-timing-run: excerlock-beeper.service active
+timing-run: owner-app-dm-tt.service active
+timing-run: owner-app-dm-ig.service active
+timing-run: owner-app-dm-chrome.service active
+timing-run: owner-app-beeper.service active
 timing-run: exit 1

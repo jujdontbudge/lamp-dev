@@ -9,8 +9,8 @@ limactl version 2.2.0
 time="2026-11-09T11:27:10-06:00" level=info msg="Using the existing instance `lamp-la`"
 time="2026-11-09T11:27:10-06:00" level=info msg="Starting the instance `lamp-la` with internal VM driver `vz`"
 time="2026-11-09T11:27:10-06:00" level=info msg="[hostagent] TCP (except for SSH) and UDP port forwarding is disabled"
-time="2026-11-09T11:27:10-06:00" level=info msg="[hostagent] hostagent socket created at /Users/johansardar/.lima/lamp-la/ha.sock"
-time="2026-11-09T11:27:10-06:00" level=info msg="[hostagent] Starting VZ (hint: to watch the boot progress, see `/Users/johansardar/.lima/lamp-la/serial*.log`)"
+time="2026-11-09T11:27:10-06:00" level=info msg="[hostagent] hostagent socket created at /Users/owner/.lima/lamp-la/ha.sock"
+time="2026-11-09T11:27:10-06:00" level=info msg="[hostagent] Starting VZ (hint: to watch the boot progress, see `/Users/owner/.lima/lamp-la/serial*.log`)"
 time="2026-11-09T11:27:10-06:00" level=info msg="[hostagent] [VZ] - vm state change: running"
 time="2026-11-09T11:27:15-06:00" level=info msg="[hostagent] Started vsock forwarder: 127.0.0.1:55954 -> vsock:22 on VM"
 time="2026-11-09T11:27:15-06:00" level=info msg="[hostagent] Detected SSH server is listening on the vsock port; changed 127.0.0.1:55954 to proxy for the vsock port"
@@ -51,7 +51,7 @@ vdb        19916800 iso9660 /mnt/lima-cidata
 busybox-static	1:1.37.0-7ubuntu1
 linux-image-7.0.0-38-generic	7.0.0-38.38
 qemu-system-arm	1:10.2.1+ds-1ubuntu3.3
-uid=501(johansardar) gid=1000(johansardar) groups=1000(johansardar),991(kvm),999(systemd-journal)
+uid=501(owner) gid=1000(owner) groups=1000(owner),991(kvm),999(systemd-journal)
 crw-rw---- 1 root kvm 10, 232 Nov  9 11:27 /dev/kvm
 Kernel source: /boot/vmlinuz-7.0.0-38-generic
 QEMU emulator version 10.2.1 (Debian 1:10.2.1+ds-1ubuntu3.3)

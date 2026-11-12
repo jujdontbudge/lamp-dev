@@ -35,9 +35,15 @@ sudo -n install -d /usr/local/lib/lamp
 sudo -n install -m 0755 "$R/firecracker-$FC_VERSION-$ARCH" /usr/local/lib/lamp/firecracker
 sudo -n install -m 0755 "$R/jailer-$FC_VERSION-$ARCH" /usr/local/lib/lamp/jailer
 
-(cd "$ROOT" && cargo build --release --locked -p lamp-supervisor -p lamp-guard)
-sudo -n install -m 0755 "${CARGO_TARGET_DIR:-$ROOT/target}/release/lamp-supervisor" /usr/local/lib/lamp/lamp-supervisor
-sudo -n install -m 0755 "${CARGO_TARGET_DIR:-$ROOT/target}/release/lamp-guard" /usr/local/lib/lamp/lamp-guard
+# A release payload ships prebuilt binaries in lib/; a source checkout builds them.
+if [ -x "$ROOT/lib/lamp-supervisor" ] && [ -x "$ROOT/lib/lamp-guard" ]; then
+  BIN="$ROOT/lib"
+else
+  (cd "$ROOT" && cargo build --release --locked -p lamp-supervisor -p lamp-guard)
+  BIN="${CARGO_TARGET_DIR:-$ROOT/target}/release"
+fi
+sudo -n install -m 0755 "$BIN/lamp-supervisor" /usr/local/lib/lamp/lamp-supervisor
+sudo -n install -m 0755 "$BIN/lamp-guard" /usr/local/lib/lamp/lamp-guard
 # Default policy: public destinations only, no exceptions. Exceptions are
 # exact address/transport/port triples and part of the policy revision.
 if [ ! -f /etc/lamp/network.json ]; then

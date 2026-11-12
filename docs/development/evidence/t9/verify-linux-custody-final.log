@@ -10,7 +10,7 @@ ok  	github.com/JohanSardar/lamp/internal/control	(cached)
 ok  	github.com/JohanSardar/lamp/pkg/workerpb	(cached)
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 cargo test --workspace --locked
-   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
+   Compiling lamp-supervisor v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.38s
      Running unittests src/lib.rs (target/debug/deps/lamp_contracts-9d2c54fff3d891b8)
 
@@ -297,5 +297,5 @@ public codegen: clean
 go vet ./...
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
-    Checking lamp-supervisor v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
+    Checking lamp-supervisor v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.19s

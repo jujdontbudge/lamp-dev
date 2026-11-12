@@ -28,7 +28,7 @@
       ],
       "gpu": false,
       "guest_transport": {
-        "helper": "/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/target/t15-linux-guest-devices",
+        "helper": "<checkout>/target/t15-linux-guest-devices",
         "input_endpoint": null
       },
       "keyboard": true,

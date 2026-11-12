@@ -2,7 +2,7 @@ mkdir -p bin
 cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
 go build ./...
 cargo build --workspace --locked
-   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-init)
+   Compiling lamp-init v0.1.0 (<checkout>/crates/lamp-init)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.70s
 go test ./...
 ok  	github.com/JohanSardar/lamp/cmd/lamp	0.341s
@@ -19,7 +19,7 @@ ok  	github.com/JohanSardar/lamp/pkg/plugin	(cached)
 ok  	github.com/JohanSardar/lamp/pkg/workerpb	(cached)
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 cargo test --workspace --locked
-   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-init)
+   Compiling lamp-init v0.1.0 (<checkout>/crates/lamp-init)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 2.17s
      Running unittests src/lib.rs (target/debug/deps/lamp_contracts-68a1f002ab3862b2)
 
@@ -234,7 +234,7 @@ test_unavailable_or_unsampled_metadata_cannot_pass (test_harness.HarnessTests.te
 FAIL: test_real_recorded_runs_preserve_failures_and_do_not_qualify_e07 (test_custody.CleanBuilderOracleTests.test_real_recorded_runs_preserve_failures_and_do_not_qualify_e07)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/tests/benchmarks/test_custody.py", line 129, in test_real_recorded_runs_preserve_failures_and_do_not_qualify_e07
+  File "<checkout>/tests/benchmarks/test_custody.py", line 129, in test_real_recorded_runs_preserve_failures_and_do_not_qualify_e07
     self.assertEqual(len(runs), 4)
 AssertionError: 5 != 4
 

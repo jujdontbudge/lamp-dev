@@ -25,7 +25,7 @@
 # kvm_vm_ioctl_create_vcpu). Dropping clean caches and compacting first is a
 # host preparation, not a change to anything that is measured.
 set -u
-OWNER_UNITS=(excerlock-dm-tt.service excerlock-dm-ig.service excerlock-dm-chrome.service excerlock-beeper.service)
+OWNER_UNITS=(owner-app-dm-tt.service owner-app-dm-ig.service owner-app-dm-chrome.service owner-app-beeper.service)
 # Fixed: no environment variable changes any of these. The tests run a
 # patched copy of this file instead (tests/infra/test_timing_run.py).
 readonly STOP_GRACE=60

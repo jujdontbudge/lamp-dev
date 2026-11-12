@@ -9,9 +9,9 @@ This is what the whole project is for: open-source software anyone can install o
 - Feature prerequisites: T24, T25, T27, T28, T29. [README.md](README.md) and [map.html](map.html) show the same dependencies. Shared interfaces may allow work to overlap.
 - The owner said on 2026-11-09 that the build takes Lamp public itself, without waiting for them.
 - The Lamp repository is `JohanSardar/lamp` on GitHub, private; `gh` on the M5 is signed in as that account.
-- The Eilmer account's Clerk app already exists, with a production instance on eilmer.si and verified DNS. Its IDs and what is still open are in `/Users/johansardar/.claude/projects/-Users-johansardar--t3-projects-lamp/memory/eilmer-clerk-app.md`.
-- eilmer.si DNS is on Cloudflare and there is no API token. The way to change it without the owner's screen is written up in `/Users/johansardar/.claude/projects/-Users-johansardar--t3-projects-lamp/memory/cloudflare-headless-access.md`. The owner agreed to Lamp's DNS changes on 2026-11-09.
-- Land one PR from this ticket’s own branch and checkout. The coordinating session stays on `main`, reviews the PR and merges it. Follow `/Users/johansardar/.claude/skills/file-pr/SKILL.md`.
+- The Eilmer account's Clerk app already exists, with a production instance on eilmer.si and verified DNS. Its IDs and what is still open are in `<owner-notes>/eilmer-clerk-app.md`.
+- eilmer.si DNS is on Cloudflare and there is no API token. The way to change it without the owner's screen is written up in `<owner-notes>/cloudflare-headless-access.md`. The owner agreed to Lamp's DNS changes on 2026-11-09.
+- Land one PR from this ticket’s own branch and checkout. The coordinating session stays on `main`, reviews the PR and merges it. Follow `<owner-skills>/file-pr/SKILL.md`.
 
 ## Constraints
 - Build the features and show one real end-to-end demonstration covering this ticket’s goal. Add almost no tests: only where the feature cannot be shown working another way. Run only what iteration needs; speed measurements happen once at release and never block work or release.

@@ -26,7 +26,7 @@ Run from the repository root:
 limactl start --tty=false lamp-la
 
 # SSH shell (the workdir avoids depending on a mounted host path).
-limactl shell --tty=false --workdir=/home/johansardar.guest lamp-la
+limactl shell --tty=false --workdir=/home/owner.guest lamp-la
 # Or use the generated SSH configuration directly:
 ssh -F "$HOME/.lima/lamp-la/ssh.config" lima-lamp-la
 

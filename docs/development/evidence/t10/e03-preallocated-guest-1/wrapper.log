@@ -1,4 +1,4 @@
-timing-run: stopping excerlock-dm-tt.service excerlock-dm-ig.service excerlock-dm-chrome.service excerlock-beeper.service
+timing-run: stopping owner-app-dm-tt.service owner-app-dm-ig.service owner-app-dm-chrome.service owner-app-beeper.service
 timing-run: buddyinfo Node 0, zone   Normal 197187 177066 150056  97630  53423  25247  10727   4549   2287   1731    504 
 prepared credential 1/32 (two owner sandboxes)
 prepared credential 2/32 (two owner sandboxes)
@@ -33,7 +33,7 @@ prepared credential 30/32 (two owner sandboxes)
 prepared credential 31/32 (two owner sandboxes)
 prepared credential 32/32 (two owner sandboxes)
 Traceback (most recent call last):
-  File "/home/johan/lamp-t10-control-core/src/infra/linux/run-metadata.py", line 106, in <module>
+  File "/home/owner/lamp-t10-control-core/src/infra/linux/run-metadata.py", line 106, in <module>
     audit_fs = json.loads(run("findmnt", "-J", "-T", policy["audit_dir"], "-o", "SOURCE,FSTYPE,OPTIONS,TARGET"))["filesystems"][0]
                ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/usr/lib/python3.14/json/__init__.py", line 352, in loads
@@ -46,12 +46,12 @@ Traceback (most recent call last):
     raise JSONDecodeError("Expecting value", s, err.value) from None
 json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
 Traceback (most recent call last):
-  File "/home/johan/lamp-t10-control-core/src/infra/linux/run-e03.py", line 176, in <module>
+  File "/home/owner/lamp-t10-control-core/src/infra/linux/run-e03.py", line 176, in <module>
     raise SystemExit(main())
                      ~~~~^^
-  File "/home/johan/lamp-t10-control-core/src/infra/linux/run-e03.py", line 111, in main
+  File "/home/owner/lamp-t10-control-core/src/infra/linux/run-e03.py", line 111, in main
     raw = capture([sys.executable, str(source / 'infra/linux/run-metadata.py'), str(source), '/var/tmp', args.template, '--store', args.worker_store, '--worker-binary', args.worker_binary, '--policy', args.policy])
-  File "/home/johan/lamp-t10-control-core/src/infra/linux/run-e03.py", line 44, in capture
+  File "/home/owner/lamp-t10-control-core/src/infra/linux/run-e03.py", line 44, in capture
     return subprocess.check_output(argv, text=True).strip()
            ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
   File "/usr/lib/python3.14/subprocess.py", line 473, in check_output
@@ -62,10 +62,10 @@ Traceback (most recent call last):
   File "/usr/lib/python3.14/subprocess.py", line 578, in run
     raise CalledProcessError(retcode, process.args,
                              output=stdout, stderr=stderr)
-subprocess.CalledProcessError: Command '['/usr/bin/python3', '/home/johan/lamp-t10-control-core/src/infra/linux/run-metadata.py', '/home/johan/lamp-t10-control-core/src', '/var/tmp', 'tp_6b295ecbcad03c2a3b7370e577', '--store', '/var/lib/lamp/t10-private', '--worker-binary', '/usr/local/lib/lamp/lamp-supervisor', '--policy', '/var/lib/lamp/t10-private-bin/network.json']' returned non-zero exit status 1.
+subprocess.CalledProcessError: Command '['/usr/bin/python3', '/home/owner/lamp-t10-control-core/src/infra/linux/run-metadata.py', '/home/owner/lamp-t10-control-core/src', '/var/tmp', 'tp_6b295ecbcad03c2a3b7370e577', '--store', '/var/lib/lamp/t10-private', '--worker-binary', '/usr/local/lib/lamp/lamp-supervisor', '--policy', '/var/lib/lamp/t10-private-bin/network.json']' returned non-zero exit status 1.
 timing-run: command exit 1
-timing-run: excerlock-dm-tt.service active
-timing-run: excerlock-dm-ig.service active
-timing-run: excerlock-dm-chrome.service active
-timing-run: excerlock-beeper.service active
+timing-run: owner-app-dm-tt.service active
+timing-run: owner-app-dm-ig.service active
+timing-run: owner-app-dm-chrome.service active
+timing-run: owner-app-beeper.service active
 timing-run: exit 1

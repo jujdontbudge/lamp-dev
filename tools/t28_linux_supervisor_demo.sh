@@ -2,7 +2,7 @@
 # T28 review #9 and #1 on the Ubuntu laptop: disposable store, systemd lampd,
 # installer-run Linux supervisor (firecracker), one sandbox.
 set -u
-K=/home/johan/lamp-t28k; P=$K/p; R=$K/releases; ST=/var/lib/lamp/t28/store; TPL=tp_b116a7a5482b6d66a32bd9d892
+K=/home/owner/lamp-t28k; P=$K/p; R=$K/releases; ST=/var/lib/lamp/t28/store; TPL=tp_b116a7a5482b6d66a32bd9d892
 step(){ echo; echo "=== $(date -u +%H:%M:%SZ) $*"; }
 step "capacity before the sandbox: live firecracker=$(pgrep -c firecracker), MiB available=$(free -m | awk '/Mem:/{print $7}')"
 [ "$(pgrep -c firecracker)" -lt 2 ] && [ "$(free -m | awk '/Mem:/{print $7}')" -ge 12288 ] || { echo "capacity rule not met; stopping"; exit 1; }

@@ -1,5 +1,5 @@
 Preflight: no timing-run.sh or benchmarks.run process active.
-timing-run: stopping excerlock-dm-tt.service excerlock-dm-ig.service excerlock-dm-chrome.service
+timing-run: stopping owner-app-dm-tt.service owner-app-dm-ig.service owner-app-dm-chrome.service
 timing-run: buddyinfo Node 0, zone   Normal  77497  64070  48138  37103  24528  16718  10477   6232   3406   1961    582 
 prepared caller 1/32
 prepared caller 2/32
@@ -35,7 +35,7 @@ prepared caller 31/32
 prepared caller 32/32
 {"E03": {"status": "fail", "control_status": "fail", "integrated_e01_status": "fail", "callers": 32, "trials": 6400, "failures": 4065, "p50_ms": 498.635816, "p95_ms": 1306.017676, "p99_ms": 3770.546617, "boundary_ms": 35, "endpoint": "caller send through durable admission and worker command_started receipt; output/replay/isolation checked outside timer"}}
 timing-run: command exit 1
-timing-run: excerlock-dm-tt.service active
-timing-run: excerlock-dm-ig.service active
-timing-run: excerlock-dm-chrome.service active
+timing-run: owner-app-dm-tt.service active
+timing-run: owner-app-dm-ig.service active
+timing-run: owner-app-dm-chrome.service active
 timing-run: exit 1

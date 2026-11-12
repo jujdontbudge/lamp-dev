@@ -292,7 +292,7 @@ root. On a Mac it never uses sudo, and an absent spool root counts as empty.
 matches the installed supervisor's network policy).
 
 Shown once on Ubuntu, 2026-11-11, with a disposable prefix
-(`/home/johan/lamp-t26/inst`, process service). The release `9.0.0` was signed
+(`/home/owner/lamp-t26/inst`, process service). The release `9.0.0` was signed
 with a throwaway key. lampd connected to T26's existing sandbox worker on a
 fresh grant, while T26's controller was paused.
 

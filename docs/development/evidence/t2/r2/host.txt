@@ -17,7 +17,7 @@ TARGET        SOURCE      FSTYPE OPTIONS
 chrome: inactive
 t3: 5 t3 processes
 
-# Owner Chrome service (excerlock-dm-chrome.service), sampled before each row
+# Owner Chrome service (owner-app-dm-chrome.service), sampled before each row
 # (bench.log): inactive from the stop at 20:37:17 through create-200 and all
 # three volatile fork rows. Started again from outside this run at 20:46:15,
 # during the local row (which began 20:41:32); started by the script at 20:54:09.

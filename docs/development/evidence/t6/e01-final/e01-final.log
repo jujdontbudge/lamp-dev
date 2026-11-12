@@ -1,7 +1,7 @@
-timing-run: stopping excerlock-dm-tt.service excerlock-dm-ig.service excerlock-dm-chrome.service
+timing-run: stopping owner-app-dm-tt.service owner-app-dm-ig.service owner-app-dm-chrome.service
 timing-run: buddyinfo Node 0, zone   Normal 235863 178405 128606  86196  43586  28056  12925   5763   2396   1556    432 
-{"status": "fail", "evidence": "/home/johan/lamp-t6/runs/e01-final"}
+{"status": "fail", "evidence": "/home/owner/lamp-t6/runs/e01-final"}
 timing-run: command exit 1
-timing-run: excerlock-dm-tt.service active
-timing-run: excerlock-dm-ig.service active
-timing-run: excerlock-dm-chrome.service active
+timing-run: owner-app-dm-tt.service active
+timing-run: owner-app-dm-ig.service active
+timing-run: owner-app-dm-chrome.service active

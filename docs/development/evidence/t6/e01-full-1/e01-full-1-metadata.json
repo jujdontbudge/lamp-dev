@@ -24,11 +24,11 @@
   "/usr/bin/fallocate": "fbe59ae07d2b272aac0748ff35a7a298bf9936ad8c56378b1cb8c2e0041b88f5"
  },
  "compiled_features": [
-  "lamp-engine v0.1.0 (/home/johan/lamp-t6/src/crates/lamp-engine) []",
-  "lamp-guard v0.1.0 (/home/johan/lamp-t6/src/crates/lamp-guard) []",
-  "lamp-init v0.1.0 (/home/johan/lamp-t6/src/crates/lamp-init) []",
-  "lamp-supervisor v0.1.0 (/home/johan/lamp-t6/src/crates/lamp-supervisor) []",
-  "lamp-worker-protocol v0.1.0 (/home/johan/lamp-t6/src/crates/lamp-worker-protocol) []",
+  "lamp-engine v0.1.0 (/home/owner/lamp-t6/src/crates/lamp-engine) []",
+  "lamp-guard v0.1.0 (/home/owner/lamp-t6/src/crates/lamp-guard) []",
+  "lamp-init v0.1.0 (/home/owner/lamp-t6/src/crates/lamp-init) []",
+  "lamp-supervisor v0.1.0 (/home/owner/lamp-t6/src/crates/lamp-supervisor) []",
+  "lamp-worker-protocol v0.1.0 (/home/owner/lamp-t6/src/crates/lamp-worker-protocol) []",
   "libc v0.2.191 [default,std]",
   "prost v0.14.4 [default,derive,std]",
   "serde v1.0.229 [default,derive,serde_derive,std]",
@@ -341,8 +341,8 @@
  "artifacts": {
   "/usr/local/lib/lamp/lamp-supervisor": "d13ff2ef9fb24c7f1749271160308a9d027c7630dac071a8a5dc1d00f8574314",
   "/usr/local/lib/lamp/lamp-guard": "a84c98d8b0d2b74e608ef6b99c2290eab3b4a7154b0667f0a89f67144a3bfbb7",
-  "/home/johan/lamp-t6/bin/lampd": "3f796b1cb0aab847591a2a4be3f01a8bb4460464f694201e2a5fdaf82512b4e1",
-  "/home/johan/lamp-t6/bin/lamp": "c8d71aa2494c1f3fa5474e655db3fce8aabf77925e5d8211be9a6f94974c1ea4",
+  "/home/owner/lamp-t6/bin/lampd": "3f796b1cb0aab847591a2a4be3f01a8bb4460464f694201e2a5fdaf82512b4e1",
+  "/home/owner/lamp-t6/bin/lamp": "c8d71aa2494c1f3fa5474e655db3fce8aabf77925e5d8211be9a6f94974c1ea4",
   "benchmarks/workload.py (installed in template)": "7ef80949f5b68a839135d6ffb1ec5f246d3a67662b027280bb072dbff26a5cff",
   "infra/linux/observer.py": "db1ed5377aef0fffd35939f2899e45f2483505fbe6057b9f66afe4192e6d2be2",
   "/var/lib/lamp/templates/tp_aa590f8d38562a7e2c322d61b9/manifest.json": "aa590f8d38562a7e2c322d61b9fb12204e798ec72ccbd5f8bb32cb4dd1cb2545",

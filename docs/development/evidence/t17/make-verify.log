@@ -64,15 +64,15 @@ cargo build --workspace --locked
    Compiling heck v0.5.0
    Compiling regex v1.13.1
    Compiling prost v0.14.4
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
    Compiling prost-types v0.14.4
    Compiling prost-build v0.14.4
-   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-init)
-   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-guard)
-   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-contracts)
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-engine)
-   Compiling lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/tools/protogen)
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-supervisor)
+   Compiling lamp-init v0.1.0 (<checkout>/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+   Compiling lamp-contracts v0.1.0 (<checkout>/crates/lamp-contracts)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+   Compiling lamp-protogen v0.1.0 (<checkout>/tools/protogen)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 49.75s
 go test ./...
 ok  	github.com/JohanSardar/lamp/cmd/lamp	0.382s
@@ -91,13 +91,13 @@ ok  	github.com/JohanSardar/lamp/pkg/plugin	20.145s
 ok  	github.com/JohanSardar/lamp/pkg/workerpb	0.548s
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 cargo test --workspace --locked
-   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-guard)
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-supervisor)
-   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-contracts)
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-engine)
-   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-init)
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-worker-protocol)
-   Compiling lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/tools/protogen)
+   Compiling lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
+   Compiling lamp-contracts v0.1.0 (<checkout>/crates/lamp-contracts)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+   Compiling lamp-init v0.1.0 (<checkout>/crates/lamp-init)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
+   Compiling lamp-protogen v0.1.0 (<checkout>/tools/protogen)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 19.17s
      Running unittests src/lib.rs (target/debug/deps/lamp_contracts-68a1f002ab3862b2)
 
@@ -345,9 +345,9 @@ python3 tools/interop.py
    Compiling prost-derive v0.14.4
    Compiling serde_json v1.0.154
    Compiling prost v0.14.4
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
    Compiling serde v1.0.229
-   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-contracts)
+   Compiling lamp-contracts v0.1.0 (<checkout>/crates/lamp-contracts)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.79s
 PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
 PASS: Go request → Unix socket → Rust typed Protobuf → Go response
@@ -414,11 +414,11 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
     Checking regex v1.13.1
     Checking ed25519-dalek v3.0.0
     Checking prost-build v0.14.4
-    Checking lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-worker-protocol)
-    Checking lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-init)
-    Checking lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-guard)
-    Checking lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-contracts)
-    Checking lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/tools/protogen)
-    Checking lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-engine)
-    Checking lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-938ff62b-7393045cb8a544fd/crates/lamp-supervisor)
+    Checking lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
+    Checking lamp-init v0.1.0 (<checkout>/crates/lamp-init)
+    Checking lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+    Checking lamp-contracts v0.1.0 (<checkout>/crates/lamp-contracts)
+    Checking lamp-protogen v0.1.0 (<checkout>/tools/protogen)
+    Checking lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+    Checking lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 38.38s

@@ -22,9 +22,9 @@ b1-local-1024 crea warm 20 ok 20 p50 355 p95 784 max 807 over1000 0
 b1-local-1024 crea meas 200 ok 200 p50 394 p95 607 max 798 over1000 0 
 b1-local-1024 fork warm 20 ok 20 p50 5930 p95 12161 max 12686 over1000 20 
 b1-local-1024 fork meas 100 ok 100 p50 5944 p95 12689 max 15708 over1000 100 
-b1-replicated-0 crea warm 20 ok 0 p50 9 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-0 crea meas 200 ok 0 p50 7 p95 10 max 12 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-128 crea warm 20 ok 0 p50 8 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-128 crea meas 200 ok 0 p50 8 p95 11 max 13 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-1024 crea warm 20 ok 0 p50 9 p95 11 max 12 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
-b1-replicated-1024 crea meas 200 ok 0 p50 7 p95 11 max 12 over1000 0 {"CalledProcessError: Command '['/home/johan/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-0 crea warm 20 ok 0 p50 9 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-0 crea meas 200 ok 0 p50 7 p95 10 max 12 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-128 crea warm 20 ok 0 p50 8 p95 11 max 11 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-128 crea meas 200 ok 0 p50 8 p95 11 max 13 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-1024 crea warm 20 ok 0 p50 9 p95 11 max 12 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}
+b1-replicated-1024 crea meas 200 ok 0 p50 7 p95 11 max 12 over1000 0 {"CalledProcessError: Command '['/home/owner/lamp-t6/bin/lamp', 'sandbox', 'create"}

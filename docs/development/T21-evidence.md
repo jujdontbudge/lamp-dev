@@ -216,7 +216,7 @@ under the isolated T3 directory as `terminal-a-observed.json`,
 
 Herdr `0.9.5` runs as a headless named session `t21-c704` on Ubuntu, with its
 binary, configuration, and state isolated under
-`/home/johan/lamp-t21-console-c704`. The M5 client uses
+`/home/owner/lamp-t21-console-c704`. The M5 client uses
 `/var/tmp/l21-herdr-c704`. Its saved machine is:
 
 ```text

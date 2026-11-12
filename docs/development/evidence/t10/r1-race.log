@@ -20,7 +20,7 @@ testing.runTests({0x102dbf8ea, 0x1b}, {0x102dcee06, 0x2c}, 0xc0000b0fd8, {0x1037
 testing.(*M).Run(0xc0000ac320)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0xb3c
 github.com/JohanSardar/lamp/internal/control_test.TestMain(0xc0000ac320)
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:52 +0x5d4
+	<checkout>/internal/control/e2e_test.go:52 +0x5d4
 main.main()
 	_testmain.go:166 +0x108
 
@@ -40,7 +40,7 @@ os.(*File).Read(0xc00009a478, {0xc0002f2000, 0x1000, 0x1000})
 bufio.(*Scanner).Scan(0xc0002b5e38)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/bufio/scan.go:219 +0x87c
 github.com/JohanSardar/lamp/internal/control.TestJournalRestartsAfterWriterProcessIsKilled(0xc0000fe248)
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/store_test.go:467 +0x5e4
+	<checkout>/internal/control/store_test.go:467 +0x5e4
 testing.tRunner(0xc0000fe248, 0x10345ac40)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0x168
 created by testing.(*T).Run in goroutine 1

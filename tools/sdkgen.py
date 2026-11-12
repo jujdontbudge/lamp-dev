@@ -131,11 +131,13 @@ def gen_typescript(schema, ops):
     js.append('  const method = name.replace(/_([a-z])/g, (_, c) => c.toUpperCase());')
     js.append('  LampClient.prototype[method] = function (input) { return this.call(name, input); };')
     js.append('}')
-    pkg = {'name': '@lamp/sdk', 'version': VERSION, 'description': 'Lamp API client generated from the canonical schema',
+    pkg = {'name': '@eilmer/lamp-sdk', 'version': VERSION, 'description': 'Lamp API client generated from the canonical schema',
            'license': 'Apache-2.0', 'type': 'module', 'main': 'index.js', 'types': 'index.d.ts',
-           'files': ['index.js', 'index.d.ts', 'README.md', 'LICENSE'], 'engines': {'node': '>=18'}}
+           'files': ['index.js', 'index.d.ts', 'README.md', 'LICENSE'], 'engines': {'node': '>=18'},
+           'repository': {'type': 'git', 'url': 'git+https://github.com/JohanSardar/lamp.git', 'directory': 'sdk/typescript'},
+           'homepage': 'https://github.com/JohanSardar/lamp'}
     readme = ('# Lamp TypeScript SDK\n\nGenerated from `contracts/public/schema.json`; do not edit.\n\n'
-              '```js\nimport { LampClient } from "@lamp/sdk";\n'
+              '```js\nimport { LampClient } from "@eilmer/lamp-sdk";\n'
               'const lamp = new LampClient({ socket: process.env.LAMP_SOCKET, token: process.env.LAMP_TOKEN });\n'
               'const accepted = await lamp.blobCreate({ size_bytes: 3, media_type: "text/plain" });\n'
               'const op = await lamp.waitOperation(accepted.operation_id);\n```\n\n'
@@ -275,7 +277,8 @@ def gen_python(schema, ops):
     client.append('__all__ = ["LampClient", "LampError", "OPERATIONS", "SDK_VERSION", "types"]')
     pyproject = ('[build-system]\nrequires = ["setuptools>=68"]\nbuild-backend = "setuptools.build_meta"\n\n'
                  f'[project]\nname = "lamp-sdk"\nversion = "{VERSION}"\ndescription = "Lamp API client generated from the canonical schema"\n'
-                 'license = "Apache-2.0"\nrequires-python = ">=3.9"\nreadme = "README.md"\n\n[tool.setuptools]\npackages = ["lamp_sdk"]\n')
+                 'license = "Apache-2.0"\nrequires-python = ">=3.9"\nreadme = "README.md"\n\n'
+                 '[project.urls]\nHomepage = "https://github.com/JohanSardar/lamp"\n\n[tool.setuptools]\npackages = ["lamp_sdk"]\n')
     readme = ('# Lamp Python SDK\n\nGenerated from `contracts/public/schema.json`; do not edit. Standard library only.\n\n'
               '```python\nfrom lamp_sdk import LampClient\nlamp = LampClient(socket=os.environ["LAMP_SOCKET"], token=os.environ["LAMP_TOKEN"])\n'
               'accepted = lamp.blob_create(size_bytes=3, media_type="text/plain")\nop = lamp.wait_operation(accepted["operation_id"])\n```\n')

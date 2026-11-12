@@ -2,8 +2,8 @@ mkdir -p bin
 cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
 go build ./...
 cargo build --workspace --locked
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f4391a08-ddc08a0203ac25b8/crates/lamp-engine)
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f4391a08-ddc08a0203ac25b8/crates/lamp-supervisor)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.83s
 go test ./...
 ok  	github.com/JohanSardar/lamp/cmd/lamp	(cached)
@@ -23,8 +23,8 @@ ok  	github.com/JohanSardar/lamp/pkg/workerpb	(cached)
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 ?   	github.com/JohanSardar/lamp/tools/network-demo-peer	[no test files]
 cargo test --workspace --locked
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f4391a08-ddc08a0203ac25b8/crates/lamp-supervisor)
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f4391a08-ddc08a0203ac25b8/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 3.20s
      Running unittests src/lib.rs (target/debug/deps/lamp_contracts-68a1f002ab3862b2)
 
@@ -271,6 +271,6 @@ public codegen: clean
 go vet ./...
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
-    Checking lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f4391a08-ddc08a0203ac25b8/crates/lamp-engine)
-    Checking lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-f4391a08-ddc08a0203ac25b8/crates/lamp-supervisor)
+    Checking lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+    Checking lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.21s

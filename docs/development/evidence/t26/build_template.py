@@ -1,6 +1,6 @@
 import base64,json,subprocess,time
 from pathlib import Path
-base=Path.home()/'lamp-t26';sup='/home/johan/lamp-t19/src/target/release/lamp-supervisor';store='/var/lib/lamp/t26-private'
+base=Path.home()/'lamp-t26';sup='/home/owner/lamp-t19/src/target/release/lamp-supervisor';store='/var/lib/lamp/t26-private'
 def sh(*a):
  r=subprocess.run(a,capture_output=True,text=True)
  if r.returncode: print(r.stderr,flush=True);r.check_returncode()

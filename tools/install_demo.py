@@ -27,9 +27,9 @@ OUT = Path(sys.argv[2]).resolve()
 HOME = os.path.expanduser('~')
 PROJECT = 'https://github.com/psf/requests/archive/refs/tags/v2.32.3.tar.gz'
 HOSTS = [
-    {'name': 'ubuntu', 'ssh': 'ubuntu-server', 'goos': 'linux', 'goarch': 'amd64', 'prefix': '/home/johan/lamp-t28/demo', 'service': 'systemd'},
+    {'name': 'ubuntu', 'ssh': 'ubuntu-server', 'goos': 'linux', 'goarch': 'amd64', 'prefix': '/home/owner/lamp-t28/demo', 'service': 'systemd'},
     {'name': 'm5', 'ssh': None, 'goos': 'darwin', 'goarch': 'arm64', 'prefix': HOME + '/lt28/m5', 'service': 'process'},
-    {'name': 'air', 'ssh': 'johansardars-macbook-air', 'goos': 'darwin', 'goarch': 'arm64', 'prefix': '/Users/johansardar/lt28/air', 'service': 'process'},
+    {'name': 'air', 'ssh': 'owner-air', 'goos': 'darwin', 'goarch': 'arm64', 'prefix': '/Users/owner/lt28/air', 'service': 'process'},
 ]
 log = open(OUT, 'w')
 
@@ -207,7 +207,7 @@ def main():
     sh(['scp', '-q', '-r', f'{ubuntu["ssh"]}:{arch}', str(local_arch)])
     on(ubuntu, f'rm -rf {shlex.quote(ubuntu["remote_dir"])}')
     # Replacement: a fresh macOS install on the Air, separate prefix, no old state.
-    rep = dict(air, prefix='/Users/johansardar/lt28/replacement')
+    rep = dict(air, prefix='/Users/owner/lt28/replacement')
     sh(['scp', '-q', '-r', str(local_arch), f'{air["ssh"]}:{air["remote_dir"]}/offsite'])
     step('fresh install on replacement OS (macOS, Air)', rep, f'{tool(air)} install --release {air["rel"]("0.2.0")} --prefix {rep["prefix"]} --name t28replacement --trust {air["remote_dir"]}/release-trust.pub --service process --recovery-public-key {air["remote_dir"]}/owner-recovery.pub')
     # Wrong material is refused.
@@ -228,7 +228,7 @@ def main():
     step('uninstall replacement, delete', rep, f'{tool(air)} uninstall --prefix {rep["prefix"]} --data delete --confirm-delete t28replacement')
     # Disposable demo directories go away.
     on(m5, f'rm -rf {m5["prefix"]} {m5["remote_dir"]}')
-    on(air, f'rm -rf {air["prefix"]} {air["remote_dir"]} /Users/johansardar/lt28')
+    on(air, f'rm -rf {air["prefix"]} {air["remote_dir"]} /Users/owner/lt28')
     record('demo complete')
 
 

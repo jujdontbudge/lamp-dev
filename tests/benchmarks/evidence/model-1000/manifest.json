@@ -24,7 +24,7 @@
     "guest_python": "python3",
     "model": true,
     "native_cpus": null,
-    "native_python": "/Users/johansardar/anaconda3/bin/python3",
+    "native_python": "/Users/owner/anaconda3/bin/python3",
     "network_fixture": null,
     "observer": null,
     "output": "tests/benchmarks/evidence/model-1000",

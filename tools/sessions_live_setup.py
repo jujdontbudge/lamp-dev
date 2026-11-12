@@ -72,7 +72,7 @@ def main():
     worker_socket = root / "r/worker-live.sock"
     worker = start([supervisor, "serve", *common, "--socket", str(worker_socket), "--network-policy", str(network)], "worker-live")
     bundle = "bundle:" + base64.b64encode(args.public_bundle.read_bytes()).decode()
-    native_hosts = {"hs_m5": {"owner_id": "pr_local", "command": [args.m5_python], "root": args.m5_root + "/i", "socket": "/home/johan/lamp-t21-bridge/runner.sock"}}
+    native_hosts = {"hs_m5": {"owner_id": "pr_local", "command": [args.m5_python], "root": args.m5_root + "/i", "socket": "/home/owner/lamp-t21-bridge/runner.sock"}}
     harnesses = {"hr_guest_shell": {"owner_id": "pr_local", "argv": ["/bin/sh", "-i"], "cwd": "/tmp", "env": {"HOME": "/tmp", "PATH": "/opt/lamp/bin:/usr/bin:/bin"}, "auth_modes": ["none"]}}
     for kind, binary in [("claude", args.m5_claude), ("codex", args.m5_codex)]:
         inside = {"binary": "/opt/lamp/bin/" + kind, "endpoint": "https://10.219.21.1:17779/v1/models/" + kind, "credential_file": "/tmp/lamp-model.token", "ca_file": "/tmp/lamp-model-ca.pem"}
@@ -87,7 +87,7 @@ def main():
     responses = dict(shared, input="array", instructions="string?", store="boolean?", parallel_tool_calls="boolean?", include="array?", reasoning="object?", text="object?", service_tier="string?", prompt_cache_key="string?", max_output_tokens="number?", tool_choice="string?", truncation="string?", previous_response_id="string?", stream_options="object?", safety_identifier="string?", client_metadata="object?")
     connections = {}
     for kind, operation, fields in [("claude", "messages", messages), ("codex", "responses", responses)]:
-        connections[kind] = {"kind": "model", "access": "full", "endpoint": "https://openrouter.ai/api/v1/" + ("messages" if kind == "claude" else "responses"), "credential_command": ["/usr/bin/python3", str(args.source / "tools/broker_demo.py"), "credential", "/home/johan/lamp-t21-bridge/credential.sock"], "models": ["openrouter/free"], "free_only": True, "operations": {operation: {"write": True, "fields": fields}}}
+        connections[kind] = {"kind": "model", "access": "full", "endpoint": "https://openrouter.ai/api/v1/" + ("messages" if kind == "claude" else "responses"), "credential_command": ["/usr/bin/python3", str(args.source / "tools/broker_demo.py"), "credential", "/home/owner/lamp-t21-bridge/credential.sock"], "models": ["openrouter/free"], "free_only": True, "operations": {operation: {"write": True, "fields": fields}}}
     broker_config = private / "broker.json"
     broker_config.write_text(json.dumps({"accountability_socket": str(api), "connections": connections, "settings": {}}))
     broker = start([str(binaries / "lamp-broker"), "--config", str(broker_config), "--owner-socket", str(private / "owner.sock"), "--task-listen", "10.219.21.1:17779", "--tls-cert", str(private / "ca.pem"), "--tls-key", str(private / "tls.key"), "--audit", str(private / "audit.jsonl")], "model-live")

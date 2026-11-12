@@ -1,7 +1,7 @@
 """One real LX sandbox journey through HTTP, CLI and stdio MCP; no timing gate."""
 import base64, hashlib, json, os, secrets, signal, subprocess, sys, time
 from pathlib import Path
-base=Path('/home/johan/lamp-t10-control-core')
+base=Path('/home/owner/lamp-t10-control-core')
 source=base/'src'
 root=base/'demonstration-1'
 root.mkdir(mode=0o700,exist_ok=False)
@@ -19,7 +19,7 @@ def record(step,value):
     transcript.write(json.dumps(dict(step=step,value=value),sort_keys=True)+'\n');transcript.flush()
 def output(argv):return subprocess.check_output(argv,text=True).strip()
 for name in ('lamp','lampd','lamp-mcp'):
-    subprocess.run(['/home/johan/go-sdk/bin/go','build','-o',str(base/name),'./cmd/'+name],cwd=source,check=True)
+    subprocess.run(['/home/owner/go-sdk/bin/go','build','-o',str(base/name),'./cmd/'+name],cwd=source,check=True)
 artifacts={str(base/name):hashlib.sha256((base/name).read_bytes()).hexdigest() for name in ('lamp','lampd','lamp-mcp')}
 for name in (worker_binary,'/var/lib/lamp/t10-private-bin/lamp-guard',policy):
     artifacts[name]=hashlib.sha256(Path(name).read_bytes()).hexdigest()

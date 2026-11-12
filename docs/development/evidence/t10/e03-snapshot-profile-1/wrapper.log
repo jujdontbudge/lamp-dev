@@ -1,4 +1,4 @@
-timing-run: stopping excerlock-dm-tt.service excerlock-dm-ig.service
+timing-run: stopping owner-app-dm-tt.service owner-app-dm-ig.service
 timing-run: buddyinfo Node 0, zone   Normal 332618 212661 104348  43899  20507  13044   6534   3571   2442   2330   1437 
 prepared caller 1/32
 prepared caller 2/32
@@ -34,6 +34,6 @@ prepared caller 31/32
 prepared caller 32/32
 {"E03": {"status": "fail", "control_status": "fail", "integrated_e01_status": "fail", "callers": 32, "trials": 6400, "failures": 29, "p50_ms": 92.700649, "p95_ms": 186.329848, "p99_ms": 248.463165, "boundary_ms": 35, "quota": {"status": "pass", "limit": 2, "preexisting": 1, "contenders": 32, "accepted": ["sb_e019e30068cecc3ee7183a01f4a0a3c8"], "errors": [], "allocation_samples": 9}, "endpoint": "caller send through durable admission and worker command_started receipt; output/replay/isolation checked outside timer"}}
 timing-run: command exit 1
-timing-run: excerlock-dm-tt.service active
-timing-run: excerlock-dm-ig.service active
+timing-run: owner-app-dm-tt.service active
+timing-run: owner-app-dm-ig.service active
 timing-run: exit 1

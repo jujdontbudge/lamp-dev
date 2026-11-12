@@ -1,4 +1,4 @@
 2026-11-10T15:44:16.601-0600 [INFO]  raft: initial configuration: index=0 servers=[]
-2026-11-10T15:44:16.601-0600 [INFO]  raft: entering follower state: follower="Node at 100.127.45.76:40517 [Follower]" leader-address= leader-id=
+2026-11-10T15:44:16.601-0600 [INFO]  raft: entering follower state: follower="Node at 100.64.10.5:40517 [Follower]" leader-address= leader-id=
 lampd: control API listening on /tmp/l16-50b5d058/two/api.sock
 2026-11-10T15:44:18.154-0600 [WARN]  raft: no known peers, aborting election

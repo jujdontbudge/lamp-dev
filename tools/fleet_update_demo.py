@@ -52,9 +52,9 @@ if os.environ.get('PHASE') == 'supervisor':
     TEMPLATE = os.environ['DEMO_TEMPLATE']
 SUP = '/usr/local/lib/lamp/lamp-supervisor'
 H = {
-    'hs_lx': dict(ssh='ubuntu-server', goos='linux', goarch='amd64', base='/home/johan/lamp-t28', service='systemd', os='linux', arch='x86_64'),
+    'hs_lx': dict(ssh='ubuntu-server', goos='linux', goarch='amd64', base='/home/owner/lamp-t28', service='systemd', os='linux', arch='x86_64'),
     'hs_m5': dict(ssh=None, goos='darwin', goarch='arm64', base=HOME + '/lt28', service='launchd', os='darwin', arch='arm64'),
-    'hs_air': dict(ssh='johansardars-macbook-air', goos='darwin', goarch='arm64', base='/Users/johansardar/lt28', service='launchd', os='darwin', arch='arm64'),
+    'hs_air': dict(ssh='owner-air', goos='darwin', goarch='arm64', base='/Users/owner/lt28', service='launchd', os='darwin', arch='arm64'),
 }
 ORDER = ['hs_lx', 'hs_m5', 'hs_air']
 PORT = 31000 + secrets.randbelow(4000)

@@ -88,7 +88,7 @@ public codegen: clean
     Blocking waiting for file lock on package cache
     Blocking waiting for file lock on package cache
     Blocking waiting for file lock on shared package cache
-    Checking lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-init)
+    Checking lamp-init v0.1.0 (<checkout>/crates/lamp-init)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.26s
 
 continuation_exit_code=0

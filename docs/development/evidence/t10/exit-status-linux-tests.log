@@ -1,5 +1,5 @@
-   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.66s
      Running unittests src/lib.rs (target/debug/deps/lamp_guard-ea091b1ee171ffb5)
 

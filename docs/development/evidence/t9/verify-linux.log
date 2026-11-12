@@ -55,15 +55,15 @@ cargo build --workspace --locked
    Compiling ed25519-dalek v3.0.0
    Compiling prost v0.14.4
    Compiling prost-types v0.14.4
-   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-worker-protocol)
    Compiling prost-build v0.14.4
-   Compiling lamp-protogen v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/tools/protogen)
+   Compiling lamp-protogen v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/tools/protogen)
    Compiling serde v1.0.229
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-init)
-   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-guard)
-   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-contracts)
-   Compiling lamp-engine v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-engine)
-   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-guard)
+   Compiling lamp-contracts v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-contracts)
+   Compiling lamp-engine v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.25s
 go test ./...
 ok  	github.com/JohanSardar/lamp/cmd/lamp	0.004s
@@ -74,13 +74,13 @@ ok  	github.com/JohanSardar/lamp/internal/control	25.072s
 ok  	github.com/JohanSardar/lamp/pkg/workerpb	0.013s
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 cargo test --workspace --locked
-   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-contracts)
-   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-guard)
-   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
-   Compiling lamp-protogen v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/tools/protogen)
-   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-worker-protocol)
-   Compiling lamp-engine v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-engine)
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-init)
+   Compiling lamp-contracts v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-contracts)
+   Compiling lamp-guard v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-guard)
+   Compiling lamp-supervisor v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
+   Compiling lamp-protogen v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/tools/protogen)
+   Compiling lamp-worker-protocol v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-worker-protocol)
+   Compiling lamp-engine v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-engine)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-init)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 14.90s
      Running unittests src/lib.rs (target/debug/deps/lamp_contracts-9d2c54fff3d891b8)
 
@@ -356,10 +356,10 @@ python3 tools/interop.py
    Compiling curve25519-dalek v5.0.0
    Compiling sha2 v0.11.1
    Compiling ed25519-dalek v3.0.0
-   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-worker-protocol)
    Compiling serde_json v1.0.154
    Compiling serde v1.0.229
-   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-contracts)
+   Compiling lamp-contracts v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-contracts)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.25s
 PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
 PASS: Go request → Unix socket → Rust typed Protobuf → Go response
@@ -371,7 +371,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
     Checking unicode-ident v1.0.27
     Checking linux-raw-sys v0.12.1
     Checking foldhash v0.1.5
-    Checking lamp-engine v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-engine)
+    Checking lamp-engine v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-engine)
     Checking hashbrown v0.17.1
     Checking equivalent v1.0.3
     Checking bitflags v2.13.2
@@ -393,14 +393,14 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
     Checking regex-automata v0.4.18
     Checking multimap v0.10.1
     Checking log v0.4.35
-    Checking lamp-guard v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-guard)
-    Checking lamp-contracts v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-contracts)
-    Checking lamp-worker-protocol v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-worker-protocol)
+    Checking lamp-guard v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-guard)
+    Checking lamp-contracts v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-contracts)
+    Checking lamp-worker-protocol v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-worker-protocol)
     Checking tempfile v3.27.0
     Checking prettyplease v0.2.37
     Checking regex v1.13.1
-    Checking lamp-init v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-init)
+    Checking lamp-init v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-init)
     Checking prost-build v0.14.4
-    Checking lamp-protogen v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/tools/protogen)
-    Checking lamp-supervisor v0.1.0 (/home/johan/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
+    Checking lamp-protogen v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/tools/protogen)
+    Checking lamp-supervisor v0.1.0 (/home/owner/lamp-t9-custody-20261110/src/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.17s

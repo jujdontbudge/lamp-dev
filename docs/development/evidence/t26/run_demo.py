@@ -1,7 +1,7 @@
 import json,os,socket,subprocess,time
 from pathlib import Path
 base=Path.home()/'lamp-t26'
-sup='/home/johan/lamp-t19/src/target/release/lamp-supervisor'
+sup='/home/owner/lamp-t19/src/target/release/lamp-supervisor'
 store='/var/lib/lamp/t26-private'
 def sh(*args,**kw):return subprocess.run(args,check=True,capture_output=True,text=True,**kw)
 source=base/'src';source.mkdir(exist_ok=True)

@@ -1,194 +1,194 @@
 2026-11-10T16:44:15.933-0500 [INFO]  raft: initial configuration: index=0 servers=[]
-2026-11-10T16:44:15.933-0500 [INFO]  raft: entering follower state: follower="Node at 100.80.96.36:40517 [Follower]" leader-address= leader-id=
+2026-11-10T16:44:15.933-0500 [INFO]  raft: entering follower state: follower="Node at 100.64.10.6:40517 [Follower]" leader-address= leader-id=
 lampd: control API listening on /tmp/l16-50b5d058/two/api.sock
 2026-11-10T16:44:17.905-0500 [WARN]  raft: heartbeat timeout reached, starting election: last-leader-addr= last-leader-id=
-2026-11-10T16:44:17.905-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:17.905-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:17.905-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:17.905-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:17.905-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:17.905-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:17.905-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:17.905-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
 2026-11-10T16:44:19.283-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:19.283-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:19.283-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:19.283-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:19.283-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:19.283-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:19.283-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:19.283-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:19.283-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:19.905-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:19.905-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:21.064-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:21.064-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:21.064-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:21.064-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:21.064-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:21.064-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:21.064-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:21.064-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:21.064-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:21.284-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:21.284-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:22.194-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:22.195-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:22.195-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:22.195-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:22.195-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:22.195-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:22.195-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:22.195-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:22.195-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:23.065-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:23.065-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:23.397-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:23.397-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:23.397-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:23.398-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:23.398-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:23.398-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:23.398-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:23.398-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:23.398-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:24.196-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:24.196-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:24.613-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:24.613-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:24.613-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:24.613-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:24.613-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:24.613-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:24.613-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:24.613-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:24.613-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:25.398-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:25.398-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:26.368-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:26.368-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:26.368-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:26.368-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:26.368-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:26.368-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:26.368-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:26.369-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:26.369-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:26.614-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:26.614-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:27.965-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:27.965-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:27.965-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:27.965-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:27.965-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:27.965-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:27.965-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:27.965-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:27.965-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:28.370-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:28.370-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:29.963-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:29.963-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:29.963-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:29.963-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:29.963-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:29.963-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:29.963-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:29.963-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:29.963-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:29.966-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:29.966-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:31.078-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:31.078-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:31.078-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:31.078-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:31.078-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:31.078-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:31.079-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:31.079-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:31.079-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:31.964-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:31.964-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:32.263-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:32.263-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:32.263-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:32.263-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:32.263-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:32.263-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:32.263-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:32.263-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:32.263-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:33.079-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:33.079-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:34.217-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:34.217-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:34.217-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:34.217-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:34.217-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:34.217-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:34.217-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:34.217-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:34.217-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:34.264-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:34.264-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:35.883-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:35.883-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:35.883-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:35.883-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:35.883-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:35.883-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:35.883-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:35.883-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:35.883-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:36.217-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:36.217-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:37.081-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:37.081-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:37.081-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:37.081-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:37.081-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:37.081-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:37.081-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:37.081-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:37.081-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:37.884-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:37.884-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:38.373-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:38.374-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:38.374-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:38.374-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:38.374-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:38.374-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:38.374-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:38.374-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:38.374-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:39.082-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:39.082-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:39.772-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:39.772-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:39.772-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:39.772-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:39.772-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:39.772-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:39.772-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:39.772-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:39.772-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:40.374-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:40.374-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:40.790-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:40.790-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:40.790-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:40.790-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:40.790-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:40.790-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:40.790-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:40.790-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:40.790-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:41.773-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:41.773-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:42.515-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:42.515-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:42.515-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:42.515-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:42.515-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:42.515-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:42.515-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:42.515-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:42.515-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:42.791-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:42.791-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:44.491-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:44.491-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:44.491-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:44.491-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:44.491-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:44.491-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:44.491-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:44.491-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:44.491-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:44.516-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:44.516-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:46.015-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:46.015-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:46.015-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:46.015-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:46.015-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:46.015-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:46.015-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:46.015-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:46.015-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:46.491-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:46.491-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:47.792-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:47.792-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:47.792-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:47.792-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:47.792-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:47.792-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:47.792-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:47.792-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:47.792-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:48.016-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:48.016-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:49.472-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:49.472-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:49.472-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:49.472-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:49.472-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:49.472-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:49.472-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:49.472-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:49.472-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:49.792-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:49.792-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:51.345-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:51.345-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:51.345-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:51.345-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:51.345-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:51.345-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:51.345-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:51.345-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:51.345-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:51.472-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:51.472-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2
 2026-11-10T16:44:53.077-0500 [WARN]  raft: Election timeout reached, restarting election
-2026-11-10T16:44:53.077-0500 [INFO]  raft: entering candidate state: node="Node at 100.80.96.36:40517 [Candidate]" term=2
+2026-11-10T16:44:53.077-0500 [INFO]  raft: entering candidate state: node="Node at 100.64.10.6:40517 [Candidate]" term=2
 2026-11-10T16:44:53.077-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_lx
-2026-11-10T16:44:53.077-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.127.45.76:40517
+2026-11-10T16:44:53.077-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_m5 address=100.64.10.5:40517
 2026-11-10T16:44:53.077-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
 2026-11-10T16:44:53.077-0500 [DEBUG] raft: pre-vote received: from=hs_lx term=2 tally=0
 2026-11-10T16:44:53.077-0500 [DEBUG] raft: pre-vote granted: from=hs_lx term=2 tally=1
-2026-11-10T16:44:53.346-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.127.45.76:40517}" error="dial tcp 100.127.45.76:40517: i/o timeout" term=2
+2026-11-10T16:44:53.346-0500 [ERROR] raft: failed to make requestVote RPC: target="{Voter hs_m5 100.64.10.5:40517}" error="dial tcp 100.64.10.5:40517: i/o timeout" term=2

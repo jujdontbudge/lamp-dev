@@ -82,15 +82,15 @@ cargo build --workspace --locked
    Compiling prost-derive v0.14.4
    Compiling prost v0.14.4
    Compiling regex v1.13.1
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
    Compiling prost-types v0.14.4
    Compiling prost-build v0.14.4
-   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/crates/lamp-init)
-   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/crates/lamp-guard)
-   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/crates/lamp-contracts)
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/crates/lamp-engine)
-   Compiling lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/tools/protogen)
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/crates/lamp-supervisor)
+   Compiling lamp-init v0.1.0 (<checkout>/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+   Compiling lamp-contracts v0.1.0 (<checkout>/crates/lamp-contracts)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+   Compiling lamp-protogen v0.1.0 (<checkout>/tools/protogen)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 39.52s
 go test ./...
 ok  	github.com/JohanSardar/lamp/cmd/lamp	0.409s
@@ -123,7 +123,7 @@ testing.runTests({0x104dc0243, 0x1b}, {0x104dcf3ec, 0x2c}, 0x45ec100b8ca8, {0x10
 testing.(*M).Run(0x45ec0fc9c640)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0x578
 github.com/JohanSardar/lamp/internal/control_test.TestMain(0x45ec0fc9c640)
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:45 +0x2f8
+	<checkout>/internal/control/e2e_test.go:45 +0x2f8
 main.main()
 	_testmain.go:140 +0x88
 
@@ -131,7 +131,7 @@ goroutine 152 [chan receive]:
 testing.(*T).Run(0x45ec1002db08, {0x45ec1031fb10?, 0x1?}, 0x45ec1031fb20)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2109 +0x3bc
 github.com/JohanSardar/lamp/internal/control_test.TestDeleteFailedAndUnavailableSandboxes(0x45ec1002db08)
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/benchmark_e2e_test.go:44 +0xa4
+	<checkout>/internal/control/benchmark_e2e_test.go:44 +0xa4
 testing.tRunner(0x45ec1002db08, 0x1053ae328)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
 created by testing.(*T).Run in goroutine 1
@@ -155,11 +155,11 @@ io.ReadAtLeast({0x1053b5000, 0x45ec0fc023a0}, {0x45ec0ff020e8, 0x4, 0x4}, 0x4)
 io.ReadFull(...)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/io/io.go:354
 github.com/JohanSardar/lamp/pkg/workerpb.ReadFrame({0x1053b5000, 0x45ec0fc023a0})
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/pkg/workerpb/frame.go:18 +0x4c
+	<checkout>/pkg/workerpb/frame.go:18 +0x4c
 github.com/JohanSardar/lamp/internal/control_test.(*workerFixture).serve(0x45ec1019d810, {0x1053bdc38, 0x45ec0fc023a0})
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:96 +0x2a8
+	<checkout>/internal/control/e2e_test.go:96 +0x2a8
 created by github.com/JohanSardar/lamp/internal/control_test.newWorker.func2 in goroutine 125
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:77 +0x40
+	<checkout>/internal/control/e2e_test.go:77 +0x40
 
 goroutine 124 [select]:
 net/http.(*persistConn).roundTrip(0x45ec0fd1b680, 0x45ec101a7130)
@@ -177,9 +177,9 @@ net/http.(*Client).do(0x45ec102d2480, 0x45ec0fb13900)
 net/http.(*Client).Do(...)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/http/client.go:592
 github.com/JohanSardar/lamp/internal/control_test.(*demo).request(0x45ec1045e140, 0x45ec101186c8, {0x104dac11f, 0x6}, {0x45ec0fc24440, 0x31}, {0x104db378a, 0x10}, 0xc8, {0x1052c1d00, ...}, ...)
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:240 +0x2ec
+	<checkout>/internal/control/e2e_test.go:240 +0x2ec
 github.com/JohanSardar/lamp/internal/control_test.TestDeleteFailedAndUnavailableSandboxes.func1(0x45ec101186c8)
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/benchmark_e2e_test.go:87 +0x670
+	<checkout>/internal/control/benchmark_e2e_test.go:87 +0x670
 testing.tRunner(0x45ec101186c8, 0x45ec1031fb20)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
 created by testing.(*T).Run in goroutine 152
@@ -235,9 +235,9 @@ net.(*UnixListener).accept(0x45ec0ff0cf58?)
 net.(*UnixListener).Accept(0x45ec102a6630)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/unixsock.go:267 +0x2c
 github.com/JohanSardar/lamp/internal/control_test.newWorker.func2()
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:73 +0x50
+	<checkout>/internal/control/e2e_test.go:73 +0x50
 created by github.com/JohanSardar/lamp/internal/control_test.newWorker in goroutine 124
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:71 +0x1c0
+	<checkout>/internal/control/e2e_test.go:71 +0x1c0
 
 goroutine 198 [syscall]:
 syscall.syscalln(0x1049b4d70, {0x45ec10452dc8, 0x6, 0x6})
@@ -261,9 +261,9 @@ os.(*Process).Wait(...)
 os/exec.(*Cmd).Wait(0x45ec10466000)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:930 +0x38
 github.com/JohanSardar/lamp/internal/control_test.startDaemonFor.func1()
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:194 +0x24
+	<checkout>/internal/control/e2e_test.go:194 +0x24
 created by github.com/JohanSardar/lamp/internal/control_test.startDaemonFor in goroutine 124
-	/Users/johansardar/.t3/worktrees/lamp/t3-be1a1ecc-17444ef7a4fbdd50/internal/control/e2e_test.go:194 +0x2a4
+	<checkout>/internal/control/e2e_test.go:194 +0x2a4
 
 goroutine 167 [select]:
 net/http.(*persistConn).writeLoop(0x45ec0fd1b680)

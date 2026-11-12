@@ -198,7 +198,7 @@ a write burst, between flushes, are not covered by these runs.
   - Since then the fixture refuses a scenario below 12 GiB + 4 GiB available,
     and a watchdog stops it below 12 GiB. RAM disks are 3 GiB, discarded
     volumes return their RAM, and teardown unmounts them after every run.
-  - The seat0 session and `excerlock-dm-chrome` are active again
+  - The seat0 session and `owner-app-dm-chrome` are active again
     (`/json/version` answers). This ticket stopped no owner service.
 - **Durable fork speed.** It is no longer a goal (owner, 2026-11-10). In
   development on an ext4/dm-thin store (diagnostic `ctl bench-fork`, not a

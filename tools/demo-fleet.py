@@ -23,9 +23,9 @@ EVIDENCE = Path(sys.argv[1])
 EVIDENCE.mkdir(parents=True, exist_ok=False)
 LOG = (EVIDENCE / 'transcript.jsonl').open('x')
 HOSTS = {
-    'hs_lx': ('ubuntu-server', '100.80.96.36', 'linux', 'x86_64'),
-    'hs_m5': (None, '100.127.45.76', 'darwin', 'arm64'),
-    'hs_air': ('johansardars-macbook-air', '100.78.200.121', 'darwin', 'arm64'),
+    'hs_lx': ('ubuntu-server', '100.64.10.6', 'linux', 'x86_64'),
+    'hs_m5': (None, '100.64.10.5', 'darwin', 'arm64'),
+    'hs_air': ('owner-air', '100.64.10.7', 'darwin', 'arm64'),
 }
 TOKEN = secrets.token_hex(32)
 OWNER = 'pr_t16_demo'

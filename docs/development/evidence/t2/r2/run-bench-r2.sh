@@ -9,12 +9,12 @@ T=tp_6e9a8241175f34853740c06b41
 E=~/lamp-t2/evidence/r2
 mkdir -p $E
 cd $E
-restart() { systemctl --user start excerlock-dm-chrome.service; echo "chrome restarted $(date -Is): $(systemctl --user is-active excerlock-dm-chrome.service)"; }
+restart() { systemctl --user start owner-app-dm-chrome.service; echo "chrome restarted $(date -Is): $(systemctl --user is-active owner-app-dm-chrome.service)"; }
 trap restart EXIT
 trap "exit 1" INT TERM HUP
-echo "chrome stop $(date -Is)"; systemctl --user stop excerlock-dm-chrome.service
-{ date -Is; uname -a; nproc; lscpu | grep -E "Model name|MHz"; free -m; uptime; cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null; findmnt /run/lamp/mem; findmnt -T /var/lib/lamp; echo "chrome: $(systemctl --user is-active excerlock-dm-chrome.service)"; echo "t3: $(pgrep -fc t3 || true) t3 processes"; } > host.txt
-chrome_state() { echo "chrome $(date -Is): $(systemctl --user is-active excerlock-dm-chrome.service) since $(systemctl --user show -p ActiveEnterTimestamp --value excerlock-dm-chrome.service)"; }
+echo "chrome stop $(date -Is)"; systemctl --user stop owner-app-dm-chrome.service
+{ date -Is; uname -a; nproc; lscpu | grep -E "Model name|MHz"; free -m; uptime; cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null; findmnt /run/lamp/mem; findmnt -T /var/lib/lamp; echo "chrome: $(systemctl --user is-active owner-app-dm-chrome.service)"; echo "t3: $(pgrep -fc t3 || true) t3 processes"; } > host.txt
+chrome_state() { echo "chrome $(date -Is): $(systemctl --user is-active owner-app-dm-chrome.service) since $(systemctl --user show -p ActiveEnterTimestamp --value owner-app-dm-chrome.service)"; }
 run() { name=$1; shift; chrome_state; echo "== $name $(date -Is)"; $B ctl "$@" > $name.jsonl 2> $name.err; tail -1 $name.jsonl > $name.summary; cat $name.summary; }
 run create-200 bench-create $T 200 20
 run fork-0m bench-fork $T 0 100 5

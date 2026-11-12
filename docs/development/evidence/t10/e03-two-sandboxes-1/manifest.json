@@ -20,7 +20,7 @@
     "callers": 32,
     "engine": "real installed Firecracker",
     "rounds": 200,
-    "socket": "/home/johan/lamp-t10-control-core/hard/e03-two-sandboxes-1/private/api.sock",
+    "socket": "/home/owner/lamp-t10-control-core/hard/e03-two-sandboxes-1/private/api.sock",
     "suite": "E03",
     "template": "tp_d60b290dbb41095fd53045a141"
   },
@@ -39,8 +39,8 @@
   "metadata": {
     "access_route": "local authenticated public HTTP Unix socket -> lampd -> lamp.worker/1 -> installed real Firecracker supervisor",
     "artifacts": {
-      "/home/johan/lamp-t10-control-core/lamp": "2548332c64c276ebdebd19785a68e3ce7c6f49492421fbb0534e0da84fab9888",
-      "/home/johan/lamp-t10-control-core/lampd": "edae1f9bb45532151ed9551a56835efd12fd9a3c2b6c1e73409d753604d288ea",
+      "/home/owner/lamp-t10-control-core/lamp": "2548332c64c276ebdebd19785a68e3ce7c6f49492421fbb0534e0da84fab9888",
+      "/home/owner/lamp-t10-control-core/lampd": "edae1f9bb45532151ed9551a56835efd12fd9a3c2b6c1e73409d753604d288ea",
       "/usr/local/lib/lamp/lamp-guard": "c59d23db973154306fb53d5180d008bd394146e7368a5e366ca9d840ba8330d2",
       "/usr/local/lib/lamp/lamp-supervisor": "58a21f9751d952050e84ee83f6e33041b88f47c4b3b13fe7291d73f0b610fb7e",
       "/var/lib/lamp/seeds/9f2440dc6a5cc939d3c6ef4cf96a4bbc8a9312e28ca47d60eab7151fc45ddb83/seed.json": "9f2440dc6a5cc939d3c6ef4cf96a4bbc8a9312e28ca47d60eab7151fc45ddb83",
@@ -53,11 +53,11 @@
     },
     "collected_at": "2026-11-10T19:20:57Z",
     "compiled_features": [
-      "lamp-engine v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-engine) []",
-      "lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard) []",
-      "lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init) []",
-      "lamp-supervisor v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-supervisor) []",
-      "lamp-worker-protocol v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-worker-protocol) []",
+      "lamp-engine v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-engine) []",
+      "lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard) []",
+      "lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init) []",
+      "lamp-supervisor v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-supervisor) []",
+      "lamp-worker-protocol v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-worker-protocol) []",
       "libc v0.2.191 [default,std]",
       "prost v0.14.4 [default,derive,std]",
       "serde v1.0.229 [default,derive,serde_derive,std]",

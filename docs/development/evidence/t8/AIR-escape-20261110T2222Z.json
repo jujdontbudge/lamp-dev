@@ -7,7 +7,7 @@
    "allowed": false,
    "check": {
     "kind": "list_dir",
-    "path": "/Users/johansardar"
+    "path": "/Users/owner"
    },
    "result": "Operation not permitted (os error 1)"
   },
@@ -15,7 +15,7 @@
    "allowed": false,
    "check": {
     "kind": "list_dir",
-    "path": "/Users/johansardar/Documents"
+    "path": "/Users/owner/Documents"
    },
    "result": "Permission denied (os error 13)"
   },
@@ -23,7 +23,7 @@
    "allowed": false,
    "check": {
     "kind": "read_file",
-    "path": "/Users/johansardar/.zshrc"
+    "path": "/Users/owner/.zshrc"
    },
    "result": "Permission denied (os error 13)"
   },
@@ -31,7 +31,7 @@
    "allowed": false,
    "check": {
     "kind": "list_dir",
-    "path": "/Users/johansardar/.ssh"
+    "path": "/Users/owner/.ssh"
    },
    "result": "Permission denied (os error 13)"
   },
@@ -39,7 +39,7 @@
    "allowed": false,
    "check": {
     "kind": "read_file",
-    "path": "/Users/johansardar/Library/Keychains/login.keychain-db"
+    "path": "/Users/owner/Library/Keychains/login.keychain-db"
    },
    "result": "Permission denied (os error 13)"
   },
@@ -55,7 +55,7 @@
    "allowed": false,
    "check": {
     "kind": "write_file",
-    "path": "/Users/johansardar/lamp-escape-probe"
+    "path": "/Users/owner/lamp-escape-probe"
    },
    "result": "Permission denied (os error 13)"
   },

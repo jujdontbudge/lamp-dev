@@ -1,4 +1,4 @@
-timing-run: stopping excerlock-dm-tt.service excerlock-dm-ig.service excerlock-dm-chrome.service excerlock-beeper.service
+timing-run: stopping owner-app-dm-tt.service owner-app-dm-ig.service owner-app-dm-chrome.service owner-app-beeper.service
 timing-run: buddyinfo Node 0, zone   Normal  42635  34252  25758  19067  12397   7703   4832   2913   1988   2332   1323 
 prepared credential 1/32 (two owner sandboxes)
 prepared credential 2/32 (two owner sandboxes)
@@ -34,8 +34,8 @@ prepared credential 31/32 (two owner sandboxes)
 prepared credential 32/32 (two owner sandboxes)
 {"E03": {"status": "fail", "control_status": "fail", "integrated_e01_status": "fail", "callers": 32, "principals": 2, "prepared_sandboxes": 2, "trials": 6400, "failures": 24, "p50_ms": 60.020024, "p95_ms": 129.561761, "p99_ms": 172.010064, "boundary_ms": 35, "quota": {"status": "pass", "limit": 1, "preexisting_live_commands": 0, "contenders": 32, "accepted": [{"exec_id": "ex_4acfc992bf517135293de1148a5d23a9", "marker": "ce83c1c835f540898bef7963cd92beb0"}], "errors": [], "allocation_samples": 6}, "endpoint": "caller send through durable admission and worker command_started receipt; output/replay/isolation checked outside timer"}}
 timing-run: command exit 1
-timing-run: excerlock-dm-tt.service active
-timing-run: excerlock-dm-ig.service active
-timing-run: excerlock-dm-chrome.service active
-timing-run: excerlock-beeper.service active
+timing-run: owner-app-dm-tt.service active
+timing-run: owner-app-dm-ig.service active
+timing-run: owner-app-dm-chrome.service active
+timing-run: owner-app-beeper.service active
 timing-run: exit 1
