@@ -16,8 +16,9 @@ patterns=${1:?usage: publish_repo.sh PATTERNS_FILE REF RELEASE_DIR [--go]}
 ref=${2:?usage: publish_repo.sh PATTERNS_FILE REF RELEASE_DIR [--go]}
 rel=${3:?usage: publish_repo.sh PATTERNS_FILE REF RELEASE_DIR [--go]}
 go=${4:-}
-project=johansardar/lamp
-api=projects/johansardar%2Flamp
+url=https://gitlab.com/johansardar/lamp
+project=${url#https://gitlab.com/}
+api=projects/$(printf %s "$project" | sed s#/#%2F#)
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 die() { echo "publish_repo: $*" >&2; exit 1; }
 pause() { sleep 20; }
@@ -42,7 +43,7 @@ allowed=$(cat "$root/tools/release/secret-fixtures.txt")
 for h in $hits; do
   printf '%s\n' "$allowed" | grep -qxF "$h" || die "credential-shaped text in $h; not publishing"
 done
-git -C "$work" -c user.name=johansardar -c user.email=44356258-johansardar@users.noreply.gitlab.com commit -qm "Lamp $version"
+git -C "$work" -c user.name=Lamp -c user.email=noreply@lamp.eilmer.si commit -qm "Lamp $version"
 echo "redacted export: $(git -C "$work" ls-files | wc -l | tr -d ' ') files, commit $(git -C "$work" rev-parse --short HEAD), $(printf '%s\n' $hits | grep -c . || true) known test fixtures"
 [ "$go" = --go ] || { echo "dry run: nothing was changed"; exit 0; }
 
@@ -68,4 +69,4 @@ printf '{"name":"Lamp %s","tag_name":"v%s","ref":"main","description":%s,"assets
   "${links%,}" | glab api -X POST "$api/releases" -H 'Content-Type: application/json' --input - >/dev/null
 echo "released v$version"; pause
 glab api -X PUT "$api" -f visibility=public -f pages_access_level=public >/dev/null
-echo "published https://gitlab.com/$project"
+echo "published $url"
