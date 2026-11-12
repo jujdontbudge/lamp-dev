@@ -22,7 +22,7 @@ No evaluation licenses or expiry dates apply to these Linux guests. L510 uses De
 
 ## Start, stop, and SSH
 
-Run these commands on `ubuntu-server` as `johan`. Substitute any domain from the inventory. Boot only one lane at a time to preserve host capacity.
+Run these commands on `ubuntu-server` as `owner`. Substitute any domain from the inventory. Boot only one lane at a time to preserve host capacity.
 
 ```bash
 sudo -n virsh -c qemu:///system start lamp-d12
