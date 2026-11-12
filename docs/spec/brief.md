@@ -27,7 +27,7 @@ Lamp is an Eilmer project. Eilmer (eilmer.si) is the owner's umbrella for open-s
 
 - **Anyone with credentials can start a sandbox:** a person, an agent, a GitHub agent, a CI job, or any outside service.
 - **Interfaces:** an API, an MCP server and a CLI, all with the same capabilities.
-- **SDKs:** TypeScript and Python in the first release, then Go and Rust right after, all generated from one API definition.
+- **SDKs:** TypeScript in the first release, then Go and Rust right after, all generated from one API definition. (The Python SDK was dropped by the owner, 2026-11-12.)
 - **Built for agents:** every CLI command can output JSON, docs come in an LLM-readable form, retries can't create duplicates (idempotency keys), and there's a live event stream.
 
 ## 4. Where the agent lives
