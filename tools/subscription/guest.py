@@ -420,7 +420,10 @@ class Daemon:
             with connection:
                 connection.settimeout(5)
                 try:
-                    request = json.loads(connection.makefile("rb").readline(8193))
+                    line = connection.makefile("rb").readline(65537)
+                    if len(line) > 65536:
+                        continue
+                    request = json.loads(line)
                     if request == {"method": "challenge"}:
                         data = CHALLENGE.read_bytes() if CHALLENGE.exists() else b"{}"
                         connection.sendall(data + b"\n")
@@ -428,6 +431,27 @@ class Daemon:
                         code = request["code"]
                         if isinstance(code, str) and len(code) <= 4096 and "\n" not in code and self.native.login_pty is not None:
                             os.write(self.native.login_pty, code.encode() + b"\n")
+                            connection.sendall(b'{"accepted":true}\n')
+                    elif set(request) == {"method", "harness", "credential"} and request["method"] == "credential":
+                        with self.lock:
+                            credential = request["credential"]
+                            if request["harness"] != self.kind or self.native.started or not isinstance(credential, str) or len(credential.encode()) > 32768:
+                                continue
+                            if self.kind == "codex":
+                                value = json.loads(credential)
+                                tokens = value.get("tokens", {}) if isinstance(value, dict) else {}
+                                if not isinstance(value, dict) or not isinstance(tokens, dict) or value.get("auth_mode") != "chatgpt" or value.get("OPENAI_API_KEY") or not all(isinstance(tokens.get(key), str) and tokens[key] for key in ("access_token", "refresh_token")):
+                                    continue
+                                path = HOME / "codex/auth.json"
+                            else:
+                                if not re.fullmatch(r"sk-ant-oat01-[A-Za-z0-9_-]{20,}", credential):
+                                    continue
+                                path = HOME / "claude-plan-token"
+                            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+                            with os.fdopen(descriptor, "w") as output:
+                                output.write(credential + "\n")
+                                output.flush()
+                                os.fsync(output.fileno())
                             connection.sendall(b'{"accepted":true}\n')
                 except (OSError, ValueError, TypeError):
                     continue

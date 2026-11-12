@@ -66,6 +66,7 @@ pub fn domains(harness: Harness) -> Vec<String> {
         Harness::ClaudeCode => vec![
             "api.anthropic.com",
             "claude.ai",
+            "claude.com",
             "platform.claude.com",
             "console.anthropic.com",
         ],

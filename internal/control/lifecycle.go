@@ -762,6 +762,9 @@ func (s *Service) lifeTickOnce() {
 				hardStop = append(hardStop, idleCandidate{id: id, owner: sb.OwnerId, revision: sb.Revision})
 				continue
 			}
+			if s.sessionSandboxBusy(id) {
+				continue
+			}
 			if action == "keep" {
 				continue
 			}

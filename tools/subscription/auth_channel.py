@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import socket
+import stat
 
 
 def exchange(root, sandbox, request):
@@ -31,8 +32,10 @@ def main():
     parser.add_argument("--sandbox", required=True)
     parser.add_argument("--challenge-file", type=Path)
     parser.add_argument("--code-file", type=Path)
+    parser.add_argument("--credential-file", type=Path)
+    parser.add_argument("--harness", choices=["claude_code", "codex"])
     args = parser.parse_args()
-    if os.geteuid() != 0 or (args.challenge_file is None) == (args.code_file is None):
+    if os.geteuid() != 0 or sum(path is not None for path in (args.challenge_file, args.code_file, args.credential_file)) != 1:
         raise ValueError("owner root and exactly one private delivery file required")
     request = {"method": "challenge"}
     if args.code_file:
@@ -40,6 +43,18 @@ def main():
         if len(code) > 4096 or "\n" in code:
             raise ValueError("invalid native authorization code")
         request = {"method": "code", "code": code}
+    if args.credential_file:
+        if args.harness is None:
+            raise ValueError("credential delivery requires its enrolled harness")
+        descriptor = os.open(args.credential_file, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "r") as source:
+            info = os.fstat(source.fileno())
+            if info.st_uid != os.geteuid() or info.st_mode & 0o077 or not stat.S_ISREG(info.st_mode):
+                raise ValueError("credential source must be owner-private")
+            credential = source.read(32769).strip()
+        if not credential or len(credential.encode()) > 32768:
+            raise ValueError("invalid native credential size")
+        request = {"method": "credential", "harness": args.harness, "credential": credential}
     result = exchange(args.root, args.sandbox, request)
     if args.challenge_file:
         if result.get("type") not in ("chatgptDeviceCode", "claude_code"):

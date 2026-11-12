@@ -74,6 +74,10 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			s.waitOperation(w, r, id, in)
 			return
 		}
+		if op.Name == "session_watch" {
+			s.watchSession(w, r, id, in)
+			return
+		}
 	}
 	if op.Mutation {
 		if r.URL.RawQuery != "" {
@@ -123,10 +127,35 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			writeError(w, id, "INVALID_ARGUMENT", "wait_ms limit is 60000", nil)
 			return
 		}
+		if strings.HasPrefix(op.Scope, "change_set.") {
+			s.readLock()
+			legacy := strings.HasPrefix(textField(in, "source_session_id"), "sb_") || s.life.ChangeSets[textField(in, "change_set_id")] != nil
+			s.mu.Unlock()
+			if legacy {
+				path := map[string]any{}
+				if value := textField(in, "change_set_id"); value != "" {
+					path["change_set_id"] = value
+				}
+				r.Body = io.NopCloser(bytes.NewReader(data))
+				s.lifeHTTP(w, r, id, op, path)
+				return
+			}
+		}
 	}
 	if op.Name == "connection_invoke" {
 		s.invokeProtected(w, r, id, in)
 		return
+	}
+	if op.Name == "session_input" {
+		if err := s.wakeSessionInput(r.Context(), requestCaller(r), in); err != nil {
+			var denied *coreError
+			code := "DATA_UNAVAILABLE"
+			if errors.As(err, &denied) {
+				code = denied.code
+			}
+			writeError(w, id, code, err.Error(), nil)
+			return
+		}
 	}
 	var guardRecords []any
 	if op.Name == "audit_record_export" {
@@ -272,10 +301,16 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	adapter := api.AdapterDocument(resultRaw)
 	operation := api.Operation{Id: operationID, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "succeeded", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(op.Name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CompletedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Outcome: &api.Outcome{Result: &adapter}}
 	rec := &record{Operation: operation, Hash: hash, Key: key, Resource: ref}
+	async := s.armSessionTransfer(ref.Id, operationID)
+	if async {
+		rec.Operation.State, rec.Operation.CompletedAt = "running", nil
+	}
 	s.journal.Operations[operationID] = rec
 	s.keys[key] = operationID
 	done := make(chan struct{})
-	close(done)
+	if !async {
+		close(done)
+	}
 	s.done[operationID] = done
 	changed = append(changed, operationID)
 	if digest(old) != digest(s.journal.Control) {
@@ -420,6 +455,52 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	items := []map[string]any{}
 	c := s.journal.Control
 	switch kind {
+	case "change_set":
+		for _, change := range c.ChangeSets {
+			if textField(change.Resource, "owner_id") == a.Principal {
+				items = append(items, object(change.Resource))
+			}
+		}
+		for _, item := range s.lifeItems(a, kind) {
+			items = append(items, object(item))
+		}
+	case "session":
+		for _, work := range c.Sessions {
+			if s.sessionAllowed(a, work.Resource, "session.get") {
+				m := object(work.Resource)
+				m["output_cursor"] = s.cursor(a, "session:"+textField(m, "id"), strconv.Itoa(len(work.Frames)))
+				items = append(items, m)
+			}
+		}
+	case "lease":
+		for _, lease := range c.InputLeases {
+			if lease["holder_id"] == a.Principal {
+				m := object(lease)
+				if sessionExpired(m) && m["state"] == "active" {
+					m["state"] = "expired"
+				}
+				items = append(items, m)
+			}
+		}
+	case "share":
+		for _, share := range c.SessionShares {
+			if share["owner_id"] == a.Principal || share["subject_id"] == a.Principal {
+				m := object(share)
+				if sessionExpired(m) && m["state"] == "active" {
+					m["state"] = "expired"
+				}
+				items = append(items, m)
+			}
+		}
+	case "harness":
+		for id, h := range s.sessions.Harnesses {
+			if h.OwnerID == a.Principal {
+				m := newResource("harness", h.OwnerID)
+				m["id"], m["auth_modes"], m["version"] = id, h.AuthModes, "enrolled"
+				m["created_at"], m["updated_at"] = c.Fleet.CreatedAt, c.Fleet.CreatedAt
+				items = append(items, m)
+			}
+		}
 	case "budget", "task", "audit_record":
 		for _, item := range s.accountResources(a, kind) {
 			items = append(items, item)
@@ -502,6 +583,9 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 		return ref, nil, nil, nil, reject(code, message)
 	}
 	kind, verb, _ := strings.Cut(op.Scope, ".")
+	if kind == "change_set" || kind == "session" && (verb == "spawn" || verb == "teleport" || verb == "checkpoint") {
+		return s.sessionTransferMutation(a, op, in)
+	}
 	if kind == "budget" || kind == "task" || kind == "audit_record" || kind == "telemetry" {
 		return s.accountMutation(a, op, in)
 	}
@@ -510,6 +594,9 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 	}
 	if kind == "approval" {
 		return s.approvalMutation(a, op, in)
+	}
+	if kind == "session" || kind == "lease" || kind == "share" {
+		return s.sessionMutation(a, op, in)
 	}
 	if kind == "update" {
 		return s.updateMutation(a, verb, in)

@@ -62,6 +62,16 @@ func (s *Service) addEvents(delta *journal) {
 		for id, r := range c.Approvals {
 			items = append(items, item{"approval", id, value(r.PrincipalId), string(r.State), r.Revision})
 		}
+		for id, session := range c.Sessions {
+			r := session.Resource
+			items = append(items, item{"session", id, textField(r, "owner_id"), textField(r, "state"), uintField(r, "revision")})
+		}
+		for id, r := range c.InputLeases {
+			items = append(items, item{"lease", id, textField(r, "owner_id"), textField(r, "state"), uintField(r, "revision")})
+		}
+		for id, r := range c.SessionShares {
+			items = append(items, item{"share", id, textField(r, "owner_id"), textField(r, "state"), uintField(r, "revision")})
+		}
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].kind+"/"+items[i].id < items[j].kind+"/"+items[j].id })
 	for _, r := range items {
@@ -136,6 +146,10 @@ func (s *Service) eventCursorKind() string {
 	return "events"
 }
 func (s *Service) eventAllowed(a caller, e storedEvent) bool {
+	if e.Event.ResourceKind == "session" {
+		work := s.journal.Control.Sessions[e.Event.ResourceId]
+		return work != nil && s.sessionAllowed(a, work.Resource, "session.get")
+	}
 	if e.Owner != a.Principal {
 		return false
 	}

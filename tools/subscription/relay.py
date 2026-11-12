@@ -47,14 +47,18 @@ def auth_relay():
                 continue
             connection.settimeout(5)
             try:
-                line = connection.makefile("rb").readline(8193)
-                if len(line) > 8192:
+                line = connection.makefile("rb").readline(65537)
+                if len(line) > 65536:
                     continue
                 request = json.loads(line)
                 allowed = request == {"method": "challenge"} or (
                     isinstance(request, dict) and set(request) == {"method", "code"}
                     and request["method"] == "code" and isinstance(request["code"], str)
                     and len(request["code"]) <= 4096 and "\n" not in request["code"]
+                ) or (
+                    isinstance(request, dict) and set(request) == {"method", "harness", "credential"}
+                    and request["method"] == "credential" and request["harness"] in ("claude_code", "codex")
+                    and isinstance(request["credential"], str) and len(request["credential"].encode()) <= 32768
                 )
                 if not allowed:
                     continue

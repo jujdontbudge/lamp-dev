@@ -2,10 +2,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -37,6 +39,7 @@ func run() error {
 	quotaFile := flags.String("quota-file", "", "host admission quota JSON")
 	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
+	sessionsFile := flags.String("sessions-config", "", "owner-enrolled harnesses and native session runner locations")
 	nativeFile := flags.String("native-fallback-file", "", "trusted local native runtime and immutable job credential bindings")
 	kitsConfig := flags.String("kits-config", "", "private kits/vault configuration; start the bundled headless backend")
 	kitsSocket := flags.String("kits-socket", "", "enrolled owner-only kits Unix socket (instead of a managed backend)")
@@ -161,6 +164,28 @@ func run() error {
 			return err
 		}
 	}
+	var sessions control.SessionConfig
+	if *sessionsFile != "" {
+		info, err := os.Lstat(*sessionsFile)
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 1<<20 {
+			return fmt.Errorf("session enrollment requires a private regular configuration file of at most 1 MiB")
+		}
+		data, err := os.ReadFile(*sessionsFile)
+		if err != nil {
+			return err
+		}
+		decoder := json.NewDecoder(bytes.NewReader(data))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&sessions); err != nil {
+			return err
+		}
+		if decoder.Decode(new(any)) != io.EOF {
+			return fmt.Errorf("expected one session enrollment configuration")
+		}
+	}
 	var quotas control.Quotas
 	if *quotaFile != "" {
 		raw, e := os.ReadFile(*quotaFile)
@@ -196,7 +221,7 @@ func run() error {
 		defer closeBackend()
 		*kitsSocket = backend
 	}
-	service, err := control.Open(control.Config{KitsSocket: *kitsSocket, AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
+	service, err := control.Open(control.Config{KitsSocket: *kitsSocket, AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
 	if err != nil {
 		return err
 	}

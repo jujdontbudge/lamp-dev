@@ -65,6 +65,7 @@ type Config struct {
 	NativeFallback        *NativeFallbackConfig
 	ExportsDir            string
 	SharedReaders         map[uint32]string
+	Sessions              SessionConfig
 	// StateAdmin is the trusted argv prefix of the supervisor's root-only
 	// state administration (for example `sudo -n lamp-supervisor state
 	// --admin-socket P`); Lamp appends `delete <capture>` to discard saved
@@ -130,6 +131,7 @@ type Service struct {
 	auditRelease          []string
 	auditReleased         map[string]bool
 	github                *ci.GitHub
+	sessions              SessionConfig
 	// changed is closed (and replaced) whenever a journal change becomes
 	// durable, waking long-polling readers instead of having them spin.
 	changed chan struct{}
@@ -363,6 +365,10 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	if err := s.initSessions(config.Sessions); err != nil {
+		lock.Close()
+		return nil, err
+	}
 	s.kitsSocket = config.KitsSocket
 	s.initKits()
 	if err := s.initNative(config); err != nil {
@@ -390,6 +396,10 @@ func Open(config Config) (*Service, error) {
 			}
 			s.keys[r.Key] = id
 			ch := make(chan struct{})
+			if transfer := s.journal.Control.SessionTransfers[r.Resource.Id]; transfer != nil && transfer.OperationID == id && transfer.Phase != "done" && !terminal(r.Operation.State) {
+				s.done[id] = ch
+				continue
+			}
 			close(ch)
 			s.done[id] = ch
 			if !terminal(r.Operation.State) {
@@ -453,6 +463,7 @@ func Open(config Config) (*Service, error) {
 		}
 	}
 	if err := s.initLifecycle(config.StateAdmin); err != nil {
+		s.cancel()
 		lock.Close()
 		return nil, err
 	}
@@ -462,6 +473,8 @@ func Open(config Config) (*Service, error) {
 	}
 	s.installDir = config.InstallDir
 	s.wantFleet = config.Fleet != nil
+	s.wg.Add(1)
+	go s.driveSessions()
 	s.wg.Add(1)
 	go s.updateDriver()
 	if config.RecoveryKeyFile != "" {

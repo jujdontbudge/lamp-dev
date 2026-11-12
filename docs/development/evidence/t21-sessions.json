@@ -1,0 +1,98 @@
+{
+  "ticket_complete": false,
+  "development_attempts": [
+    {
+      "attempt": 1,
+      "outcome": "failed",
+      "observation": "The demonstration used the invalid fleet mode multi_user. The public contract uses team."
+    },
+    {
+      "attempt": 2,
+      "outcome": "failed",
+      "observation": "Empty session maps were omitted during the control transaction clone, causing a nil-map panic on session creation."
+    },
+    {
+      "attempt": 3,
+      "outcome": "failed",
+      "observation": "Input sequence zero was omitted from the runner request. Input remained pending in the durable control journal; the owned PTY was explicitly stopped afterward."
+    },
+    {
+      "attempt": 4,
+      "outcome": "passed for the then-implemented native session journey",
+      "observation": "This was not a sandbox, model-authentication, public-console-bridge, git-return or teleport demonstration."
+    },
+    {
+      "attempt": 5,
+      "outcome": "passed for the native session journey, including SSH attach and idempotent input retry",
+      "observations": [
+        {
+          "step": "scope",
+          "observed_at": "2026-11-11T00:10:05.481555+00:00",
+          "source_sha256": "dd83788d09c914c415bcb2279f23f12f24434588ed74a1515a11278cbb1051ce",
+          "description": "Live native PTY sessions through the public Lamp API and stock SSH; partial T21, not a complete ticket demonstration"
+        },
+        {
+          "step": "separate-live-sessions",
+          "sessions": [
+            "se_2752d35df4f52470e8b18121d93299fa",
+            "se_b5e628ef172b8aaa4821265746e25e71"
+          ],
+          "parent": "se_2752d35df4f52470e8b18121d93299fa",
+          "project": "octocat/Hello-World",
+          "location": "native M5 PTYs, not sandboxes"
+        },
+        {
+          "step": "unshared-private",
+          "recipient_sessions": 0
+        },
+        {
+          "step": "explicit-watch-only",
+          "visible_sessions": 1,
+          "input_denied": true
+        },
+        {
+          "step": "stock-ssh",
+          "fleet_endpoint": "disposable loopback SSH with pinned CA",
+          "sessions": 2
+        },
+        {
+          "step": "stock-ssh-attach",
+          "child_input_acknowledged": true
+        },
+        {
+          "step": "live-input-and-watch",
+          "project_readme": true,
+          "ssh_watch_received_input_result": true,
+          "identical_input_retry_replayed": true
+        },
+        {
+          "step": "explicit-input-and-exclusive-writer",
+          "competing_lease_denied": true,
+          "recipient_input_observed": true
+        },
+        {
+          "step": "daemon-restart",
+          "durable_output_retained": true,
+          "existing_pty_accepts_next_sequence": true
+        },
+        {
+          "step": "cleanup",
+          "session_states": [
+            "ended",
+            "ended"
+          ]
+        },
+        {
+          "step": "not-demonstrated",
+          "features": [
+            "sandbox PTY execution",
+            "Claude Code/Codex API or subscription turns",
+            "T3 Code/Herdr public console bridges",
+            "git change-set return",
+            "laptop/sandbox continuation transfer"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -40,6 +40,9 @@ var lifeKinds = map[string]bool{"blob": true, "cache": true, "volume": true, "at
 	"template": true, "recipe": true, "warm_pool": true, "change_set": true}
 
 func lifeOperation(name string) bool {
+	if strings.HasPrefix(name, "change_set_") {
+		return false
+	}
 	if _, ok := lifeHandlers[name]; ok {
 		return true
 	}

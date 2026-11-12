@@ -128,6 +128,7 @@ fn command_name(command: &request::Command) -> &'static str {
         request::Command::Inspect(_) => "inspect",
         request::Command::Cancel(_) => "cancel",
         request::Command::Rebuild(_) => "rebuild",
+        request::Command::SessionCall(_) => "session_call",
     }
 }
 
@@ -468,6 +469,16 @@ impl Server {
             request::Command::Inspect(i) => self
                 .engine
                 .inspect(&ctx.sandbox_id, &i.command_operation_id),
+            #[cfg(target_os = "linux")]
+            request::Command::SessionCall(call) => {
+                self.engine
+                    .session_call(auth, call.request_json, call.bridge_source)
+            }
+            #[cfg(target_os = "macos")]
+            request::Command::SessionCall(_) => Err(EngineError::new(
+                "ENGINE_UNQUALIFIED",
+                "guest session relay is not available on this engine",
+            )),
             request::Command::Cancel(_) => Err(EngineError::invalid(
                 "cancel is not supported; operations are short and atomic",
             )),

@@ -132,8 +132,28 @@ fn vanished(e: &io::Error) -> bool {
 /// Still recorded before anything resumes; only the identity is unavailable.
 fn identity(pid: i32) -> io::Result<Value> {
     match full_identity(pid) {
+        // An exited but unreaped child has lost /proc/<pid>/exe yet is still
+        // ours to report: record it as exited rather than vanished.
+        Err(error) if error.kind() == io::ErrorKind::NotFound && exited_child(pid) => Ok(json!({
+            "pid":pid,
+            "state":"exited",
+            "executable_unavailable":"exited_before_observation"
+        })),
         Err(e) if vanished(&e) => Ok(json!({"pid":pid,"vanished":true})),
         other => other,
+    }
+}
+
+fn exited_child(pid: i32) -> bool {
+    let mut observed: libc::siginfo_t = unsafe { std::mem::zeroed() };
+    unsafe {
+        libc::waitid(
+            libc::P_PID,
+            pid as _,
+            &mut observed,
+            libc::WEXITED | libc::WNOWAIT | libc::WNOHANG | libc::__WALL,
+        ) == 0
+            && observed.si_pid() == pid
     }
 }
 fn full_identity(pid: i32) -> io::Result<Value> {

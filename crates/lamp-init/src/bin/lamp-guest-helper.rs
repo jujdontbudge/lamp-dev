@@ -16,7 +16,7 @@ fn main() {
 mod linux {
     use lamp_init::*;
     use std::fs::File;
-    use std::io::{self, Read, Write};
+    use std::io::{self, BufRead, BufReader, Read, Write};
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     use std::os::unix::process::{CommandExt, ExitStatusExt};
     use std::process::{Command, Stdio};
@@ -164,6 +164,7 @@ mod linux {
                 Ok(ack) => GuestResponse::BarrierAck(ack),
                 Err(e) => error("BARRIER_FAILED", &e),
             },
+            GuestRequest::SessionCall(call) => session_call(&call, state),
             // Served by `serve`, which owns the result table.
             GuestRequest::Exec(_) | GuestRequest::Wait(_) => {
                 error("INVALID_ARGUMENT", "served with results")
@@ -178,6 +179,91 @@ mod linux {
             },
             GuestRequest::Shutdown(Empty {}) => GuestResponse::ShuttingDown,
         }
+    }
+
+    fn session_call(call: &SessionCall, state: &Shared) -> GuestResponse {
+        if let Err(refusal) = admit(&call.sandbox_id, call.generation, state) {
+            return *refusal;
+        }
+        if call.request_json.len() > 131072
+            || serde_json::from_str::<serde_json::Value>(&call.request_json).is_err()
+        {
+            return error("INVALID_ARGUMENT", "invalid session request");
+        }
+        match relay_call(call) {
+            Ok(response_json) => GuestResponse::SessionReply { response_json },
+            Err(_) => error("DATA_UNAVAILABLE", "session relay unavailable"),
+        }
+    }
+
+    fn relay_call(call: &SessionCall) -> io::Result<String> {
+        use std::os::unix::net::UnixStream;
+        static BOOT: Mutex<()> = Mutex::new(());
+        let endpoint = "/tmp/lamp-session-bridge/io.sock";
+        let mut connection = {
+            let _boot = BOOT.lock().unwrap();
+            match UnixStream::connect(endpoint) {
+                Ok(connection) => connection,
+                Err(error)
+                    if error.kind() == io::ErrorKind::NotFound
+                        && !std::path::Path::new(endpoint).exists() =>
+                {
+                    let running = start(&Exec {
+                        sandbox_id: call.sandbox_id.clone(),
+                        generation: call.generation,
+                        exec_id: "lamp-session-bridge".into(),
+                        argv: vec![
+                            "/usr/bin/python3".into(),
+                            "-c".into(),
+                            call.bridge_source.clone(),
+                            "--serve".into(),
+                            endpoint.into(),
+                            "/tmp/lamp-sessions".into(),
+                        ],
+                        env: Default::default(),
+                        cwd: "/".into(),
+                        timeout_ms: 0,
+                        output_limit: DEFAULT_OUTPUT_LIMIT,
+                        audit: call.audit.clone(),
+                    })?;
+                    std::thread::spawn(move || {
+                        let _ = finish(running);
+                    });
+                    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+                    loop {
+                        match UnixStream::connect(endpoint) {
+                            Ok(connection) => break connection,
+                            Err(error) => {
+                                if std::time::Instant::now() >= deadline {
+                                    return Err(error);
+                                }
+                                std::thread::sleep(Duration::from_millis(10));
+                            }
+                        }
+                    }
+                }
+                Err(error) => return Err(error),
+            }
+        };
+        connection.set_read_timeout(Some(Duration::from_secs(8)))?;
+        connection.set_write_timeout(Some(Duration::from_secs(8)))?;
+        connection.write_all(call.request_json.as_bytes())?;
+        connection.write_all(b"\n")?;
+        let mut response = Vec::new();
+        BufReader::new(connection)
+            .take(131073)
+            .read_until(b'\n', &mut response)?;
+        if response.len() > 131072 || !response.ends_with(b"\n") {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid session response",
+            ));
+        }
+        let response = String::from_utf8(response)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid session response"))?;
+        serde_json::from_str::<serde_json::Value>(&response)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid session response"))?;
+        Ok(response)
     }
 
     /// Starts a command and records it; its completion lands in `results`
