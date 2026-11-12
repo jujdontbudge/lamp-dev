@@ -23,9 +23,19 @@ use std::{
 
 const STOP_DIR: &str = "/run/lamp/process-stops";
 
+fn proc_observation<T>(result: io::Result<T>, stage: &'static str) -> io::Result<T> {
+    // Keep a vanished tracee's raw errno so callers can still recognise it.
+    result.map_err(|e| {
+        if vanished(&e) {
+            e
+        } else {
+            io::Error::new(e.kind(), stage)
+        }
+    })
+}
+
 fn start_ticks(pid: i32) -> io::Result<String> {
-    let stat = fs::read_to_string(format!("/proc/{pid}/stat"))
-        .map_err(|error| process_error(pid, "stat", error))?;
+    let stat = proc_observation(fs::read_to_string(format!("/proc/{pid}/stat")), "proc_stat")?;
     stat.rsplit_once(')')
         .and_then(|(_, tail)| tail.split_whitespace().nth(19))
         .map(str::to_string)
@@ -33,11 +43,15 @@ fn start_ticks(pid: i32) -> io::Result<String> {
 }
 
 fn stop_marker(pid: i32) -> io::Result<(PathBuf, String)> {
-    let namespace = fs::metadata(format!("/proc/{pid}/ns/pid"))
-        .map_err(|error| process_error(pid, "pid namespace", error))?
-        .ino();
-    let status = fs::read_to_string(format!("/proc/{pid}/status"))
-        .map_err(|error| process_error(pid, "stop status", error))?;
+    let namespace = proc_observation(
+        fs::metadata(format!("/proc/{pid}/ns/pid")),
+        "proc_namespace",
+    )?
+    .ino();
+    let status = proc_observation(
+        fs::read_to_string(format!("/proc/{pid}/status")),
+        "proc_status",
+    )?;
     let tid = status
         .lines()
         .find_map(|line| line.strip_prefix("NSpid:"))
@@ -89,15 +103,11 @@ fn resume_or_await_exit(request: crate::PtraceRequest, pid: i32, signal: usize) 
     }
 }
 
-fn process_error(pid: i32, observation: &str, error: io::Error) -> io::Error {
-    io::Error::new(
-        error.kind(),
-        format!("process {pid} {observation}: {error}"),
-    )
-}
-
 fn status(pid: i32) -> io::Result<Value> {
-    let s = match fs::read_to_string(format!("/proc/{pid}/status")) {
+    let s = match proc_observation(
+        fs::read_to_string(format!("/proc/{pid}/status")),
+        "proc_status",
+    ) {
         Err(e) if vanished(&e) => return Ok(json!({"pid":pid,"vanished":true})),
         other => other?,
     };
@@ -109,7 +119,7 @@ fn status(pid: i32) -> io::Result<Value> {
             .to_string()
     };
     Ok(
-        json!({"state":field("State:"),"tgid":field("Tgid:"),"parent_pid":field("PPid:"),"uid":field("Uid:"),
+        json!({"tgid":field("Tgid:"),"parent_pid":field("PPid:"),"uid":field("Uid:"),
         "gid":field("Gid:"),"namespace_pids":field("NSpid:")}),
     )
 }
@@ -122,6 +132,8 @@ fn vanished(e: &io::Error) -> bool {
 /// Still recorded before anything resumes; only the identity is unavailable.
 fn identity(pid: i32) -> io::Result<Value> {
     match full_identity(pid) {
+        // An exited but unreaped child has lost /proc/<pid>/exe yet is still
+        // ours to report: record it as exited rather than vanished.
         Err(error) if error.kind() == io::ErrorKind::NotFound && exited_child(pid) => Ok(json!({
             "pid":pid,
             "state":"exited",
@@ -144,36 +156,14 @@ fn exited_child(pid: i32) -> bool {
             && observed.si_pid() == pid
     }
 }
-
 fn full_identity(pid: i32) -> io::Result<Value> {
     let mut s = status(pid)?;
+    let path = format!("/proc/{pid}/exe");
+    let exe = proc_observation(fs::read_link(&path), "proc_executable_link")?;
+    let meta = proc_observation(fs::metadata(&path), "proc_executable_stat")?;
     s["pid"] = json!(pid);
     s["start_ticks"] = json!(start_ticks(pid)?);
-    let path = format!("/proc/{pid}/exe");
-    let executable = (|| {
-        let exe =
-            fs::read_link(&path).map_err(|error| process_error(pid, "executable link", error))?;
-        let meta = fs::metadata(&path)
-            .map_err(|error| process_error(pid, "executable metadata", error))?;
-        Ok::<_, io::Error>(json!({"path":exe,"device":meta.dev(),"inode":meta.ino()}))
-    })();
-    match executable {
-        Ok(executable) => s["executable"] = executable,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            let observed = status(pid)?;
-            if !matches!(
-                observed["state"]
-                    .as_str()
-                    .and_then(|s| s.split_whitespace().next()),
-                Some("Z" | "X")
-            ) {
-                return Err(error);
-            }
-            s["state"] = observed["state"].clone();
-            s["executable_unavailable"] = json!("exited_before_observation");
-        }
-        Err(error) => return Err(error),
-    }
+    s["executable"] = json!({"path":exe,"device":meta.dev(),"inode":meta.ino()});
     // Raw argv/env may contain secrets. Do not serialize them before T23 redaction.
     s["safe_argv"] = json!([]);
     s["argv_redacted"] = json!(true);
@@ -221,9 +211,7 @@ fn register(
     let thread = id["tgid"].as_str() != Some(&pid.to_string());
     emit(
         emitter,
-        if id["tgid"].is_null() {
-            json!({"type":"process_exit_pending","identity":id})
-        } else if thread {
+        if thread {
             json!({"type":"thread_start","identity":id})
         } else {
             json!({"type":"process_start","visibility":"process","infrastructure":false,"identity":id})
@@ -370,31 +358,7 @@ pub fn run(
     uid: u32,
     argv: Vec<String>,
     env: Vec<(CString, CString)>,
-    exit_report: Option<fs::File>,
-) -> io::Result<i32> {
-    let mut diagnostic = None;
-    let outcome = run_inner(emitter, uid, argv, env, exit_report, &mut diagnostic);
-    if let (Err(error), Some(emitter)) = (&outcome, diagnostic) {
-        let _ = emit(
-            &emitter,
-            json!({
-                "type":"collector_failure",
-                "errno":error.raw_os_error(),
-                "error_kind":format!("{:?}", error.kind()),
-                "message":error.to_string()
-            }),
-        );
-    }
-    outcome
-}
-
-fn run_inner(
-    emitter: Emitter,
-    uid: u32,
-    argv: Vec<String>,
-    env: Vec<(CString, CString)>,
     mut exit_report: Option<fs::File>,
-    diagnostic: &mut Option<Arc<Mutex<Emitter>>>,
 ) -> io::Result<i32> {
     if unsafe { libc::geteuid() } != 0 || uid < 65536 || uid == u32::MAX || argv.is_empty() {
         return Err(io::Error::other(
@@ -584,7 +548,6 @@ fn run_inner(
     let mut emitter = emitter;
     emitter.defer();
     let emitter = Arc::new(Mutex::new(emitter));
-    *diagnostic = Some(emitter.clone());
     let alive = emitter.clone();
     let complete = Arc::new(AtomicBool::new(false));
     let completed = complete.clone();
@@ -617,255 +580,301 @@ fn run_inner(
     // before the task's exec is still traced syscall by syscall.
     let mut filtered: HashSet<i32> = HashSet::new();
     let mut seen_stops = HashSet::from([root]);
-    let mut observed_forks = HashSet::new();
-    let mut early_exits = HashSet::new();
     let mut stop_markers = HashMap::<i32, PathBuf>::new();
     let mut task_pid = None;
     let mut command_pid = None;
     let mut mapped = false;
     let mut result = 0;
-    trace(libc::PTRACE_SYSCALL, root, 0, 0)?;
-    loop {
-        let mut code = 0;
-        let pid = unsafe { libc::waitpid(-1, &mut code, libc::__WALL) };
-        if pid < 0 {
-            let e = io::Error::last_os_error();
-            if e.raw_os_error() == Some(libc::EINTR) {
+    // waitpid can deliver an auto-attached child's stop, exec and exit before
+    // its parent's fork event. Birth is already durably recorded at that first
+    // stop; retain an exit tombstone so the delayed fork does not re-register
+    // a vanished /proc entry. A reused PID's new stop clears its tombstone.
+    let mut exited = HashSet::<i32>::new();
+    let outcome = (|| -> io::Result<i32> {
+        trace(libc::PTRACE_SYSCALL, root, 0, 0)?;
+        loop {
+            let mut code = 0;
+            let pid = unsafe { libc::waitpid(-1, &mut code, libc::__WALL) };
+            if pid < 0 {
+                let e = io::Error::last_os_error();
+                if e.raw_os_error() == Some(libc::EINTR) {
+                    continue;
+                }
+                return Err(e);
+            }
+            if let Some(path) = stop_markers.remove(&pid) {
+                // Revoke the acknowledgement before any event can resume this TID.
+                clear_stop_marker(&path)?;
+            }
+            if libc::WIFEXITED(code) || libc::WIFSIGNALED(code) {
+                // The exit already happened; its record need not block the tree.
+                note(
+                    &emitter,
+                    json!({"type":"process_exit","pid":pid,"exit_code":if libc::WIFEXITED(code){libc::WEXITSTATUS(code)}else{128+libc::WTERMSIG(code)}}),
+                )?;
+                exited.insert(pid);
+                known.remove(&pid);
+                filtered.remove(&pid);
+                seen_stops.remove(&pid);
+                if Some(pid) == command_pid {
+                    release(&emitter)?;
+                    if let Some(mut s) = exit_report.take() {
+                        // Best effort: without it the caller waits for the whole tree.
+                        let _ = writeln!(s, "{code}");
+                    }
+                }
+                if pid == root {
+                    result = if libc::WIFEXITED(code) {
+                        libc::WEXITSTATUS(code)
+                    } else {
+                        128 + libc::WTERMSIG(code)
+                    };
+                }
+                if known.is_empty() {
+                    break;
+                }
                 continue;
             }
-            return Err(e);
-        }
-        if let Some(path) = stop_markers.remove(&pid) {
-            // Revoke the acknowledgement before any event can resume this TID.
-            clear_stop_marker(&path)?;
-        }
-        if libc::WIFEXITED(code) || libc::WIFSIGNALED(code) {
-            // The exit already happened; its record need not block the tree.
-            note(
-                &emitter,
-                json!({"type":"process_exit","pid":pid,"exit_code":if libc::WIFEXITED(code){libc::WEXITSTATUS(code)}else{128+libc::WTERMSIG(code)}}),
-            )?;
-            known.remove(&pid);
-            filtered.remove(&pid);
-            seen_stops.remove(&pid);
-            if pid != root && !observed_forks.remove(&pid) {
-                early_exits.insert(pid);
+            if !libc::WIFSTOPPED(code) {
+                return Err(io::Error::other("unexpected ptrace state"));
             }
-            if Some(pid) == command_pid {
-                release(&emitter)?;
-                if let Some(mut s) = exit_report.take() {
-                    // Best effort: without it the caller waits for the whole tree.
-                    let _ = writeln!(s, "{code}");
+            let signal = libc::WSTOPSIG(code);
+            let event = code >> 16;
+            let first_stop = seen_stops.insert(pid);
+            if !known.contains_key(&pid) {
+                exited.remove(&pid);
+                if let Err(e) = trace(libc::PTRACE_SETOPTIONS, pid, 0, options as usize) {
+                    if !vanished(&e) {
+                        return Err(e);
+                    }
+                }
+                register(&mut known, &emitter, pid)?;
+                if seccomp_filtered(pid) {
+                    filtered.insert(pid);
                 }
             }
-            if pid == root {
-                result = if libc::WIFEXITED(code) {
-                    libc::WEXITSTATUS(code)
-                } else {
-                    128 + libc::WTERMSIG(code)
-                };
-            }
-            if known.is_empty() {
-                break;
-            }
-            continue;
-        }
-        if !libc::WIFSTOPPED(code) {
-            return Err(io::Error::other("unexpected ptrace state"));
-        }
-        let signal = libc::WSTOPSIG(code);
-        let event = code >> 16;
-        let first_stop = seen_stops.insert(pid);
-        if first_stop {
-            early_exits.remove(&pid);
-        }
-        if !known.contains_key(&pid) {
-            if let Err(e) = trace(libc::PTRACE_SETOPTIONS, pid, 0, options as usize) {
-                if !vanished(&e) {
+            let mut deliver = 0;
+            if event == libc::PTRACE_EVENT_STOP {
+                if !first_stop
+                    && matches!(
+                        signal,
+                        libc::SIGSTOP | libc::SIGTSTP | libc::SIGTTIN | libc::SIGTTOU
+                    )
+                {
+                    match trace(libc::PTRACE_LISTEN, pid, 0, 0) {
+                        Err(e) if vanished(&e) => continue,
+                        other => other?,
+                    };
+                    let (path, ticks) = match stop_marker(pid) {
+                        Ok(marker) => marker,
+                        Err(e) if vanished(&e) => continue,
+                        Err(e) => return Err(e),
+                    };
+                    fs::write(&path, ticks)?;
+                    fs::set_permissions(&path, fs::Permissions::from_mode(0o444))?;
+                    stop_markers.insert(pid, path);
+                    continue;
+                }
+            } else if event == libc::PTRACE_EVENT_FORK
+                || event == libc::PTRACE_EVENT_VFORK
+                || event == libc::PTRACE_EVENT_CLONE
+            {
+                let mut child = 0_usize;
+                if let Err(e) = trace(
+                    libc::PTRACE_GETEVENTMSG,
+                    pid,
+                    0,
+                    ptr::from_mut(&mut child) as usize,
+                ) {
+                    // The parent died at its fork stop; its child (if any) reports
+                    // its own first stop and is registered there.
+                    if vanished(&e) {
+                        continue;
+                    }
                     return Err(e);
                 }
-            }
-            register(&mut known, &emitter, pid)?;
-            if seccomp_filtered(pid) {
-                filtered.insert(pid);
-            }
-        }
-        let mut deliver = 0;
-        if event == libc::PTRACE_EVENT_STOP {
-            if !first_stop
-                && matches!(
-                    signal,
-                    libc::SIGSTOP | libc::SIGTSTP | libc::SIGTTIN | libc::SIGTTOU
-                )
-            {
-                match trace(libc::PTRACE_LISTEN, pid, 0, 0) {
+                if pid == root && task_pid.is_none() {
+                    task_pid = Some(child as i32);
+                } else if Some(pid) == task_pid && command_pid.is_none() {
+                    command_pid = Some(child as i32);
+                }
+                // Record the child's creation BEFORE resuming the parent. Waiting for
+                // the child's own initial stop can miss a child killed by its parent
+                // (or namespace-init death) before that stop is consumed. Children
+                // inherit all ptrace options and cannot run before our resume.
+                let child = child as i32;
+                if exited.contains(&child) {
+                    emit(
+                        &emitter,
+                        json!({"type":"fork_observed_after_exit","parent_pid":pid,"pid":child}),
+                    )?;
+                } else {
+                    register(&mut known, &emitter, child)?;
+                    if filtered.contains(&pid) {
+                        filtered.insert(child);
+                    }
+                }
+            } else if event == libc::PTRACE_EVENT_SECCOMP {
+                // A filtered task entered a credential/namespace syscall: observe
+                // its result at the syscall exit.
+                known.insert(pid, true);
+                resume_or_await_exit(libc::PTRACE_SYSCALL, pid, 0)?;
+                continue;
+            } else if event == libc::PTRACE_EVENT_EXEC {
+                let mut old = 0_usize;
+                if let Err(e) = trace(
+                    libc::PTRACE_GETEVENTMSG,
+                    pid,
+                    0,
+                    ptr::from_mut(&mut old) as usize,
+                ) {
+                    if vanished(&e) {
+                        continue;
+                    }
+                    return Err(e);
+                }
+                if old as i32 != pid {
+                    known.remove(&(old as i32));
+                    filtered.remove(&(old as i32));
+                    seen_stops.remove(&(old as i32));
+                    if let Some(path) = stop_markers.remove(&(old as i32)) {
+                        clear_stop_marker(&path)?;
+                    }
+                }
+                match stop_marker(pid) {
+                    Ok((path, _)) => clear_stop_marker(&path)?,
+                    Err(e) if vanished(&e) => {}
+                    Err(e) => return Err(e),
+                }
+                if pid != root {
+                    // Every task exec happens after the task seccomp filter.
+                    filtered.insert(pid);
+                }
+                emit(
+                    &emitter,
+                    json!({"type":"process_exec","visibility":"process","identity":identity(pid)?}),
+                )?;
+                if Some(pid) == command_pid {
+                    // The command's own code runs only after its setup is durable.
+                    release(&emitter)?;
+                }
+            } else if signal == libc::SIGTRAP | 0x80 {
+                let mut info = [0_u8; 88];
+                let size = match trace(
+                    crate::PTRACE_GET_SYSCALL_INFO,
+                    pid,
+                    info.len(),
+                    info.as_mut_ptr() as usize,
+                ) {
                     Err(e) if vanished(&e) => continue,
                     other => other?,
                 };
-                let (path, ticks) = match stop_marker(pid) {
-                    Ok(marker) => marker,
-                    Err(e) if vanished(&e) => continue,
-                    Err(e) => return Err(e),
-                };
-                fs::write(&path, ticks)?;
-                fs::set_permissions(&path, fs::Permissions::from_mode(0o444))?;
-                stop_markers.insert(pid, path);
-                continue;
-            }
-        } else if event == libc::PTRACE_EVENT_FORK
-            || event == libc::PTRACE_EVENT_VFORK
-            || event == libc::PTRACE_EVENT_CLONE
-        {
-            let mut child = 0_usize;
-            if let Err(e) = trace(
-                libc::PTRACE_GETEVENTMSG,
-                pid,
-                0,
-                ptr::from_mut(&mut child) as usize,
-            ) {
-                // The parent died at its fork stop; its child (if any) reports
-                // its own first stop and is registered there.
-                if vanished(&e) {
-                    continue;
+                if size < 24 {
+                    return Err(io::Error::other("missing ptrace syscall information"));
                 }
-                return Err(e);
-            }
-            if pid == root && task_pid.is_none() {
-                task_pid = Some(child as i32);
-            } else if Some(pid) == task_pid && command_pid.is_none() {
-                command_pid = Some(child as i32);
-            }
-            // Record the child's creation BEFORE resuming the parent. Waiting for
-            // the child's own initial stop can miss a child killed by its parent
-            // (or namespace-init death) before that stop is consumed. Children
-            // inherit all ptrace options and cannot run before our resume.
-            let child = child as i32;
-            if !early_exits.remove(&child) || Path::new(&format!("/proc/{child}")).exists() {
-                register(&mut known, &emitter, child)?;
-                observed_forks.insert(child);
-                if filtered.contains(&pid) {
-                    filtered.insert(child);
+                if info[0] == 1 {
+                    let nr = u64::from_ne_bytes(info[24..32].try_into().unwrap());
+                    let arch = u32::from_ne_bytes(info[4..8].try_into().unwrap());
+                    let relevant = match arch {
+                        0xc000003e => {
+                            [105, 106, 113, 114, 116, 117, 119, 122, 123, 272, 308].contains(&nr)
+                        }
+                        0xc00000b7 => {
+                            [97, 144, 145, 146, 147, 149, 151, 152, 159, 268].contains(&nr)
+                        }
+                        0x40000003 => [
+                            23, 46, 70, 71, 81, 138, 139, 164, 170, 199, 200, 203, 204, 206, 208,
+                            210, 213, 214, 215, 310, 346,
+                        ]
+                        .contains(&nr),
+                        _ => {
+                            return Err(io::Error::other("unsupported syscall audit architecture"));
+                        }
+                    };
+                    known.insert(pid, relevant);
+                } else if info[0] == 2 && known.get(&pid) == Some(&true) {
+                    emit(
+                        &emitter,
+                        json!({"type":"credential_change","pid":pid,"identity":status(pid)?}),
+                    )?;
+                    known.insert(pid, false);
                 }
-            }
-        } else if event == libc::PTRACE_EVENT_SECCOMP {
-            // A filtered task entered a credential/namespace syscall: observe
-            // its result at the syscall exit.
-            known.insert(pid, true);
-            resume_or_await_exit(libc::PTRACE_SYSCALL, pid, 0)?;
-            continue;
-        } else if event == libc::PTRACE_EVENT_EXEC {
-            let mut old = 0_usize;
-            if let Err(e) = trace(
-                libc::PTRACE_GETEVENTMSG,
-                pid,
-                0,
-                ptr::from_mut(&mut old) as usize,
-            ) {
-                if vanished(&e) {
-                    continue;
+            } else if signal == libc::SIGSTOP {
+                if Some(pid) == task_pid
+                    && !mapped
+                    && fs::read_to_string(format!("/proc/{pid}/uid_map"))?
+                        .trim()
+                        .is_empty()
+                {
+                    fs::write(format!("/proc/{pid}/setgroups"), "deny")?;
+                    fs::write(format!("/proc/{pid}/uid_map"), format!("0 {uid} 1\n"))?;
+                    fs::write(format!("/proc/{pid}/gid_map"), format!("0 {uid} 1\n"))?;
+                    mapped = true;
+                    emit(
+                        &emitter,
+                        json!({"type":"credential_change","pid":pid,"identity":status(pid)?}),
+                    )?;
+                } else {
+                    deliver = signal;
                 }
-                return Err(e);
-            }
-            if old as i32 != pid {
-                known.remove(&(old as i32));
-                filtered.remove(&(old as i32));
-                seen_stops.remove(&(old as i32));
-                if let Some(path) = stop_markers.remove(&(old as i32)) {
-                    clear_stop_marker(&path)?;
-                }
-            }
-            match stop_marker(pid) {
-                Ok((path, _)) => clear_stop_marker(&path)?,
-                Err(e) if vanished(&e) => {}
-                Err(e) => return Err(e),
-            }
-            if pid != root {
-                // Every task exec happens after the task seccomp filter.
-                filtered.insert(pid);
-            }
-            emit(
-                &emitter,
-                json!({"type":"process_exec","visibility":"process","identity":identity(pid)?}),
-            )?;
-            if Some(pid) == command_pid {
-                // The command's own code runs only after its setup is durable.
-                release(&emitter)?;
-            }
-        } else if signal == libc::SIGTRAP | 0x80 {
-            let mut info = [0_u8; 88];
-            let size = match trace(
-                crate::PTRACE_GET_SYSCALL_INFO,
-                pid,
-                info.len(),
-                info.as_mut_ptr() as usize,
-            ) {
-                Err(e) if vanished(&e) => continue,
-                other => other?,
-            };
-            if size < 24 {
-                return Err(io::Error::other("missing ptrace syscall information"));
-            }
-            if info[0] == 1 {
-                let nr = u64::from_ne_bytes(info[24..32].try_into().unwrap());
-                let arch = u32::from_ne_bytes(info[4..8].try_into().unwrap());
-                let relevant = match arch {
-                    0xc000003e => {
-                        [105, 106, 113, 114, 116, 117, 119, 122, 123, 272, 308].contains(&nr)
-                    }
-                    0xc00000b7 => [97, 144, 145, 146, 147, 149, 151, 152, 159, 268].contains(&nr),
-                    0x40000003 => [
-                        23, 46, 70, 71, 81, 138, 139, 164, 170, 199, 200, 203, 204, 206, 208, 210,
-                        213, 214, 215, 310, 346,
-                    ]
-                    .contains(&nr),
-                    _ => return Err(io::Error::other("unsupported syscall audit architecture")),
-                };
-                known.insert(pid, relevant);
-            } else if info[0] == 2 && known.get(&pid) == Some(&true) {
-                emit(
-                    &emitter,
-                    json!({"type":"credential_change","pid":pid,"identity":status(pid)?}),
-                )?;
-                known.insert(pid, false);
-            }
-        } else if signal == libc::SIGSTOP {
-            if Some(pid) == task_pid
-                && !mapped
-                && fs::read_to_string(format!("/proc/{pid}/uid_map"))?
-                    .trim()
-                    .is_empty()
-            {
-                fs::write(format!("/proc/{pid}/setgroups"), "deny")?;
-                fs::write(format!("/proc/{pid}/uid_map"), format!("0 {uid} 1\n"))?;
-                fs::write(format!("/proc/{pid}/gid_map"), format!("0 {uid} 1\n"))?;
-                mapped = true;
-                emit(
-                    &emitter,
-                    json!({"type":"credential_change","pid":pid,"identity":status(pid)?}),
-                )?;
-            } else {
+            } else if signal != libc::SIGTRAP {
                 deliver = signal;
             }
-        } else if signal != libc::SIGTRAP {
-            deliver = signal;
+            let resume = if filtered.contains(&pid) && known.get(&pid) != Some(&true) {
+                libc::PTRACE_CONT
+            } else {
+                libc::PTRACE_SYSCALL
+            };
+            resume_or_await_exit(resume, pid, deliver as usize)?;
         }
-        let resume = if filtered.contains(&pid) && known.get(&pid) != Some(&true) {
-            libc::PTRACE_CONT
-        } else {
-            libc::PTRACE_SYSCALL
-        };
-        resume_or_await_exit(resume, pid, deliver as usize)?;
+        if !mapped {
+            return Err(io::Error::other("task namespace admission failed"));
+        }
+        complete.store(true, Ordering::SeqCst);
+        release(&emitter)?;
+        emit(
+            &emitter,
+            json!({"type":"collector_complete","exit_code":result}),
+        )?;
+        Ok(result)
+    })();
+    if let Err(error) = &outcome {
+        // Stop all execution before attempting a diagnostic storage barrier.
+        // Record only a closed error kind/errno, never argv, env or task output.
+        for pid in known.keys() {
+            unsafe {
+                libc::kill(*pid, libc::SIGKILL);
+            }
+        }
+        unsafe {
+            libc::kill(root, libc::SIGKILL);
+        }
+        complete.store(true, Ordering::SeqCst);
+        let message = error.to_string();
+        let reason = [
+            "unexpected ptrace state",
+            "missing ptrace syscall information",
+            "task namespace admission failed",
+            "missing process start time",
+            "missing namespace thread ID",
+            "audit ACK sequence mismatch",
+            "audit ACK not received within the reconnect deadline",
+            "unsupported syscall audit architecture",
+            "proc_stat",
+            "proc_namespace",
+            "proc_status",
+            "proc_executable_link",
+            "proc_executable_stat",
+        ]
+        .into_iter()
+        .find(|s| *s == message)
+        .unwrap_or("other");
+        let _ = emit(
+            &emitter,
+            json!({"type":"collector_failed","error_kind":format!("{:?}",error.kind()),"os_error":error.raw_os_error(),"reason":reason}),
+        );
     }
-    if !mapped {
-        return Err(io::Error::other("task namespace admission failed"));
-    }
-    complete.store(true, Ordering::SeqCst);
-    release(&emitter)?;
-    emit(
-        &emitter,
-        json!({"type":"collector_complete","exit_code":result}),
-    )?;
-    Ok(result)
+    outcome
 }
 
 #[cfg(test)]

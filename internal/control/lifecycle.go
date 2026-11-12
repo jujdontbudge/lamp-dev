@@ -180,11 +180,42 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 	if sb.Revision != uintField(in, "expected_revision") {
 		return lifePlan{}, reject("REVISION_CONFLICT", "sandbox revision is "+strconv.FormatUint(sb.Revision, 10))
 	}
-	if textField(in, "continuation_task_id") != "" || textField(in, "expected_task_id") != "" || len(stringsField(in, "exposure_ids")) > 0 {
-		return lifePlan{}, reject("CONTINUATION_UNSUPPORTED", "Task continuation needs the budget and task subsystem")
+	if len(stringsField(in, "exposure_ids")) > 0 {
+		return lifePlan{}, reject("CONTINUATION_UNSUPPORTED", "old exposures must not be revived with a saved CI job")
+	}
+	continuation := textField(in, "continuation_task_id")
+	if continuation != "" {
+		if textField(in, "expected_task_id") != value(sb.TaskId) || continuation == value(sb.TaskId) {
+			return lifePlan{}, reject("REVISION_CONFLICT", "inspection needs the expected old Task and a distinct new Task")
+		}
+		task, ok := s.journal.Accountability.Tasks[continuation]
+		if !ok || task.OwnerId != a.Principal || s.taskStopped(task) || !s.resourceAllowed(a, lifeRef("task", continuation)) {
+			return lifePlan{}, reject("SCOPE_DENIED", "new Task authority is unavailable")
+		}
+		sb.TaskId = pointer(continuation)
+		// Admission rechecks the new Task's budget and the host's quotas rather
+		// than replenishing the completed job's authority.
+		if err := s.accountAdmission(a, "sandbox_resume", sb); err != nil {
+			return lifePlan{}, err
+		}
+	} else {
+		if textField(in, "expected_task_id") != "" && textField(in, "expected_task_id") != value(sb.TaskId) {
+			return lifePlan{}, reject("REVISION_CONFLICT", "Task changed")
+		}
+		if task, ok := s.journal.Accountability.Tasks[value(sb.TaskId)]; ok && s.taskStopped(task) {
+			return lifePlan{}, reject("TASK_AUTHORITY_EXPIRED", "saved job inspection requires a new Task")
+		}
 	}
 	if sb.State != "suspended" || s.busy[id] {
 		return lifePlan{}, reject("RESOURCE_IN_USE", "sandbox is not suspended")
+	}
+	for _, job := range s.life.Jobs {
+		if textField(job.R, "sandbox_id") == id && job.Retain {
+			if err := ownerMachineAdmission(); err != nil {
+				return lifePlan{}, err
+			}
+			break
+		}
 	}
 	if s.taskExpired(sb) {
 		return lifePlan{}, reject("TASK_AUTHORITY_EXPIRED", "the sandbox deadline has passed; saved work needs an authorized continuation")

@@ -1,0 +1,15 @@
+﻿2026-11-11T06:20:10.0184130Z ##[group]Run if [ "$COPILOT_AGENT_FIREWALL_ENABLED" == "true" ]; then
+2026-11-11T06:20:10.0184698Z [36;1mif [ "$COPILOT_AGENT_FIREWALL_ENABLED" == "true" ]; then[0m
+2026-11-11T06:20:10.0185089Z [36;1m  [0m
+2026-11-11T06:20:10.0185362Z [36;1m  echo "SHOULD_CONTINUE=false" >> $GITHUB_ENV[0m
+2026-11-11T06:20:10.0186452Z [36;1m  echo "You have configured Copilot cloud agent to use self-hosted GitHub Actions runners in copilot-setup-steps.yml, but the agent firewall is enabled. You must disable the agent firewall in the repository's settings to use self-hosted runners. For more information, see https://gh.io/cca-self-hosted-disable-firewall."[0m
+2026-11-11T06:20:10.0187524Z [36;1m  exit 1[0m
+2026-11-11T06:20:10.0187757Z [36;1m  [0m
+2026-11-11T06:20:10.0188096Z [36;1mfi[0m
+2026-11-11T06:20:10.0190956Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-11T06:20:10.0191573Z env:
+2026-11-11T06:20:10.0191837Z   SHOULD_CONTINUE: true
+2026-11-11T06:20:10.0192156Z   COPILOT_AGENT_FIREWALL_ENABLED: true
+2026-11-11T06:20:10.0192524Z ##[endgroup]
+2026-11-11T06:20:10.0568832Z You have configured Copilot cloud agent to use self-hosted GitHub Actions runners in copilot-setup-steps.yml, but the agent firewall is enabled. You must disable the agent firewall in the repository's settings to use self-hosted runners. For more information, see https://gh.io/cca-self-hosted-disable-firewall.
+2026-11-11T06:20:10.0580052Z ##[error]Process completed with exit code 1.

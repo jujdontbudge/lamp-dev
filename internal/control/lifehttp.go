@@ -475,6 +475,10 @@ func (s *Service) lifeItems(a caller, kind string) []map[string]any {
 		}
 	}
 	switch kind {
+	case "job":
+		for _, v := range s.life.Jobs {
+			add(v.R)
+		}
 	case "blob":
 		for _, v := range s.life.Blobs {
 			add(v.R)
