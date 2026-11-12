@@ -78,6 +78,8 @@ type Config struct {
 	// <sandbox>`, deletes those spools. Empty keeps every spool and its slot.
 	AuditRelease []string
 	KitsSocket   string
+	// Notifications enrolls private notification destinations (OPS-003).
+	Notifications *NotificationConfig
 	// RecoveryPublicKey is the owner's offline data-recovery public key file;
 	// every new backup is also wrapped to it.
 	RecoveryPublicKey string
@@ -90,6 +92,9 @@ type Config struct {
 	InstallDir string
 }
 type Service struct {
+	notifyConfig          *NotificationConfig
+	notifyKick            chan struct{}
+	notifyInflight        map[string]bool
 	forges                map[string]ci.Forge
 	ciConfig              *ci.Config
 	kitsSocket            string
@@ -112,6 +117,7 @@ type Service struct {
 	protected             map[string]ProtectedAction
 	native                *NativeFallbackConfig
 	eventRevisions        map[string]uint64
+	eventStates           map[string]string // last emitted state, so task.* fire on transitions only
 	journal               journal
 	dir                   string
 	exportsDir            string
@@ -377,6 +383,7 @@ func Open(config Config) (*Service, error) {
 	}
 	s.protected = config.ProtectedActions
 	s.eventRevisions = map[string]uint64{}
+	s.eventStates = map[string]string{}
 	for _, event := range s.journal.Events {
 		if event.Event.Sequence > s.journal.EventSequence {
 			s.journal.EventSequence = event.Event.Sequence
@@ -485,6 +492,10 @@ func Open(config Config) (*Service, error) {
 	}
 	s.wg.Add(1)
 	go s.watchAccountability()
+	s.notifyKick, s.notifyInflight = make(chan struct{}, 1), map[string]bool{}
+	s.readLock()
+	s.initNotifications(config.Notifications)
+	s.mu.Unlock()
 	for _, rec := range s.journal.Operations {
 		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
 			s.wg.Add(1)

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lamp dashboard</title>
+<link rel="stylesheet" href="/dashboard/style.css">
+<script src="/dashboard/app.js" defer></script>
+</head>
+<body>
+<header>
+  <h1>Lamp</h1>
+  <span id="live" class="pill">offline</span>
+  <span id="who"></span>
+  <nav id="nav"></nav>
+  <button id="signout" hidden>Sign out</button>
+</header>
+<main>
+  <section id="signin" hidden>
+    <h2>Sign in</h2>
+    <p>Paste a Lamp API key. It stays in this tab only and is sent as a bearer header, never in a URL.</p>
+    <form id="signin-form"><input id="token" type="password" autocomplete="off" placeholder="lamp key" aria-label="API key"><button>Sign in</button></form>
+    <p id="signin-error" class="err"></p>
+  </section>
+  <div id="errors"></div>
+  <div id="decide"></div>
+  <div id="app"></div>
+</main>
+<footer id="footer"></footer>
+</body>
+</html>

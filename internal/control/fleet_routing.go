@@ -330,7 +330,8 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 			allowed := ok && s.sandboxAllowed(a, sb)
 			s.mu.Unlock()
 			if allowed {
-				if sb.State != "deleted" {
+				// Saved state survives its host sleeping: it stays suspended (stranded).
+				if sb.State != "deleted" && sb.State != "suspended" {
 					sb.State = "unavailable"
 					sb.Readiness = coreReadiness(false, nil)
 				}
@@ -561,7 +562,7 @@ func (f *Fleet) catalogHTTP(w http.ResponseWriter, r *http.Request, id string, a
 				continue
 			}
 			if op.Name == "sandbox_list" {
-				if !online[host] && sb.State != "deleted" {
+				if !online[host] && sb.State != "deleted" && sb.State != "suspended" {
 					sb.State = "unavailable"
 					sb.Readiness = coreReadiness(false, nil)
 				}

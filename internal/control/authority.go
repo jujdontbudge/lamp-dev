@@ -415,6 +415,9 @@ func narrow(parent, child api.Scope) api.Scope {
 	return child
 }
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if serveDashboard(w, r) {
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/internal/accountability/") {
 		s.accountabilityBridge(w, r)
 		return
@@ -474,6 +477,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
+	// The dashboard shows who is signed in without guessing from lists.
+	w.Header().Set("X-Lamp-Principal", a.Principal)
 	if op.Name == "plugin_get" && ciPluginID(textField(selectors, "plugin_id")) {
 		s.ciPluginHTTP(w, r, id, textField(selectors, "plugin_id"))
 		return

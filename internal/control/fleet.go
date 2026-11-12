@@ -605,6 +605,9 @@ func (f *Fleet) collect() {
 	_ = os.WriteFile(filepath.Join(f.service.dir, "fleet-catalog.json"), raw, 0600)
 }
 func (f *Fleet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if serveDashboard(w, r) {
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/internal/accountability/") {
 		// The bridge checks the Unix peer itself. Public TLS and mTLS
 		// forwarding cannot supply the owner peer context.

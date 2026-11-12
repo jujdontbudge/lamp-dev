@@ -69,6 +69,11 @@ type accountability struct {
 	Exports       []api.AuditRecord        `json:"exports,omitempty"`
 	Telemetry     map[string]api.Telemetry `json:"telemetry"`
 	Usage         map[string][]usageSample `json:"usage"`
+	// Notification sinks and deliveries (OPS-003, notifications.go).
+	Sinks          map[string]api.NotificationSink `json:"notification_sinks,omitempty"`
+	Notifications  map[string]*notificationRecord  `json:"notifications,omitempty"`
+	NotifySequence uint64                          `json:"notify_sequence,omitempty"`
+	NotifyStarted  bool                            `json:"notify_started,omitempty"`
 }
 
 func (s *Service) initAccountability() {
@@ -228,9 +233,6 @@ func (s *Service) accountMutation(a caller, op api.OperationDescriptor, in map[s
 			if w, ok := m["watchdog"].(map[string]any); ok {
 				if uintField(w, "warn_after_ms") != 0 || uintField(w, "repeated_action_limit") != 0 || textField(w, "on_stuck") == "ask" {
 					return fail("INVALID_ARGUMENT", "this watchdog supports hard block/stop only")
-				}
-				if block := uintField(w, "block_after_ms"); block > 0 && (uintField(m, "wall_time_ms") == 0 || block < uintField(m, "wall_time_ms")) {
-					m["wall_time_ms"] = block
 				}
 			}
 			m["token_home_host_id"] = s.hostID()
@@ -545,8 +547,15 @@ func (s *Service) watchAccountability() {
 		}
 		changed := false
 		for id, t := range s.journal.Accountability.Tasks {
-			if t.State == "running" && s.taskStopRequired(t, checkAuthority) {
+			stalled := t.State == "running" && s.taskStalled(t)
+			if stalled || t.State == "running" && s.taskStopRequired(t, checkAuthority) {
+				// A watchdog block (no progress for block_after_ms before the
+				// deadline) is stuck (OPS-003 task.stuck); every other stop is
+				// stopped. Either way taskStopRequired then stops its sandboxes.
 				t.State = "stopped"
+				if stalled {
+					t.State = "blocked"
+				}
 				t.Revision++
 				t.UpdatedAt = timestamp()
 				s.journal.Accountability.Tasks[id] = t
@@ -1029,4 +1038,37 @@ func (s *Service) readGuardAudit(a caller, in map[string]any) ([]any, error) {
 func (s *Service) chargeFork(sb api.Sandbox) {
 	t := s.journal.Accountability.Tasks[value(sb.TaskId)]
 	s.journal.Accountability.RetainedBytes[value(t.BudgetId)] += (sb.Resources.DiskGib << 30) + (sb.Resources.MemoryMib << 20)
+}
+
+// taskStalled reports a running task whose budget watchdog saw no progress for
+// block_after_ms before its deadline. Progress is the task's own updates and
+// its sandboxes' activity (a ready sandbox not yet observed idle counts as
+// progressing now).
+func (s *Service) taskStalled(t api.Task) bool {
+	b, ok := s.journal.Accountability.Budgets[value(t.BudgetId)]
+	if !ok || b.Watchdog == nil || b.Watchdog.BlockAfterMs == nil || *b.Watchdog.BlockAfterMs == 0 || s.expired(t.DeadlineAt) || s.expired(b.DeadlineAt) {
+		return false
+	}
+	last, _ := time.Parse(time.RFC3339Nano, t.UpdatedAt)
+	for id, sb := range s.journal.Sandboxes {
+		if sb.TaskId == nil || *sb.TaskId != t.Id || sb.State == "deleted" {
+			continue
+		}
+		if at, err := time.Parse(time.RFC3339Nano, sb.UpdatedAt); err == nil && at.After(last) {
+			last = at
+		}
+		if s.life != nil {
+			if l := s.life.Sandboxes[id]; l != nil {
+				if sb.State == "ready" && l.idleFrom.IsZero() {
+					return false
+				}
+				for _, at := range []time.Time{l.activity, l.idleFrom} {
+					if at.After(last) {
+						last = at
+					}
+				}
+			}
+		}
+	}
+	return time.Since(last) >= time.Duration(*b.Watchdog.BlockAfterMs)*time.Millisecond
 }
