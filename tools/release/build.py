@@ -51,7 +51,7 @@ def linux_engine(host, commit, out, ssh_opts=()):
     ssh = ['ssh', *ssh_opts, host]
     archive = subprocess.run(['git', 'archive', '--format=tar', commit], cwd=ROOT, capture_output=True, check=True).stdout
     sh(ssh + [f'rm -rf {work} && mkdir {work} && tar -x -C {work}'], input=archive)
-    sh(ssh + [f'cd {work} && . "$HOME/.cargo/env" 2>/dev/null; CARGO_TARGET_DIR=target cargo build --release --locked -p lamp-supervisor -p lamp-guard'])
+    sh(ssh + [f'cd {work} && . "$HOME/.cargo/env" 2>/dev/null; CARGO_TARGET_DIR=target RUSTFLAGS="--remap-path-prefix=$HOME=/build" cargo build --release --locked -p lamp-supervisor -p lamp-guard'])
     out.mkdir(parents=True, exist_ok=True)
     for b in ['lamp-supervisor', 'lamp-guard']:
         sh(['scp', *ssh_opts, f'{host}:{work}/target/release/{b}', out / b])
@@ -59,7 +59,9 @@ def linux_engine(host, commit, out, ssh_opts=()):
 
 
 def mac_engine(out):
-    sh(['cargo', 'build', '--release', '--locked', '-p', 'lamp-vz', '-p', 'lamp-supervisor'], cwd=ROOT)
+    # Keep build-machine paths (home, cargo registry, checkout) out of the shipped binaries.
+    env = {**os.environ, 'RUSTFLAGS': f'--remap-path-prefix={Path.home()}=/build'}
+    sh(['cargo', 'build', '--release', '--locked', '-p', 'lamp-vz', '-p', 'lamp-supervisor'], cwd=ROOT, env=env)
     target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target')) / 'release'
     for b in ['lamp-vz', 'lamp-supervisor']:
         shutil.copy2(target / b, out / b)
