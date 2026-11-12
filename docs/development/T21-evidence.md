@@ -447,3 +447,78 @@ No Codex credential was ever stored by these sign-in attempts. The
 `login --device-auth` process was stopped, and the leftover sign-in files
 (device-code prompts, logs, PID files) were removed from Ubuntu and from the M5
 without printing them.
+
+## 7. Review fixes: credential reach and teleport input settlement
+
+### Subscription credentials stay out of every agent-reachable environment
+
+`internal/control/native_harness.py` now does the following:
+
+- Claude's plan token is handed over through
+  `CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR`, a one-shot pipe that is drained at
+  startup. The token is never in any process environment.
+- Credential variables (`LAMP_MODEL_TOKEN`, `ANTHROPIC_*`,
+  `CLAUDE_CODE_OAUTH_TOKEN`, `OPENAI_API_KEY`, `CODEX_API_KEY`) are removed
+  from the harness environment.
+- The Lamp MCP bridge is launched through `env -u ...`, so neither it nor
+  anything it starts receives them.
+- With a subscription credential, the agent has no host tools: Claude runs
+  with `--tools ""`, and Codex has `shell_tool` and `unified_exec` disabled.
+  Its commands run only through `mcp__lamp__exec` in the sandbox, which cannot
+  see the harness host's environment, `/proc`, or the root-only custody file.
+- The harness refuses a subscription credential at a sandbox location. There,
+  agent exec would share the runner's identity, so subscription work inside a
+  sandbox uses only the guest custody route (section 2).
+- API mode holds the Lamp broker's task grant (`model/task.token`), which works
+  only at the broker's `/v1/models/{claude,codex}` endpoints. It is not a
+  provider key.
+
+Real run on Ubuntu, 2026-11-12 ~00:00 UTC:
+
+- Official Claude Code ran on the owner's subscription through the fixed
+  harness on the host, with its Lamp exec bridge pointed at Firecracker
+  sandbox `sb_b337487d8cab96441a1a15631a7f134b`.
+- The agent ran `env` (`ex_c99d916e02a2840300b2c616bb7ee5a8`, exit 0) and a
+  dump of every `/proc/*/environ` (`ex_7802af29a8962a190ac73717aeb91b05`,
+  exit 0) through the bridge.
+- It replied `T21_ENV_CHECK 0`, and the turn completed (continuation
+  `70d2c0ec-7bb8-4307-8cbb-711c7260a740`).
+- Neither exec output contained the token or any `OAUTH` variable.
+- While the turn ran, root sampled `/proc/<pid>/environ` of every process in
+  the harness tree: the harness, `claude`, and the MCP bridge (52 samples). The
+  token appeared 0 times, and the harness output did not contain it either.
+
+### Teleport settles queued input at the fence
+
+At the fence the session leaves `active`, so new input and resize are refused
+until the move finishes. The source runner's fenced snapshot now returns its
+input ledger. Anything still queued is settled against that ledger:
+
+- Inputs the source delivered are dropped as delivered, because they are
+  already in the native snapshot.
+- Undelivered inputs are carried to the target. They are re-keyed to a
+  per-epoch carry lease and numbered from zero.
+- Non-input work is dropped.
+
+The counts are recorded on the session as `transfer_inputs`. Previously, the
+restore step replaced the queue without any record.
+
+Real run on Ubuntu, using the same subscription route and two enrolled
+host-runner locations (`hs_fix_a` → `hs_fix_b`):
+
+- Session `se_9246a8d93762a71ae0b0ba750a69cdbb`. Input 0 completed. Inputs 1
+  and 2 were acknowledged and queued, and the teleport was requested
+  immediately after.
+- The move completed at `location_epoch` 2, with
+  `transfer_inputs = {"delivered_at_source": 0, "carried_to_target": 0,
+  "dropped_non_input": 0}`. Both inputs were delivered to the source before
+  the fence, and none remained to settle.
+- `T21_A`, `T21_B` and `T21_C` each appear exactly once in the session output.
+  Each prompt appears exactly once in both the source and the restored target
+  native transcripts.
+- Input on the old lease after the move was refused with `SCOPE_DENIED`.
+
+Deployment notes: the t21a worker grant was reissued with a generation range,
+and two disposable host locations were added to a copy of the sessions
+configuration. Afterwards the sessions were ended, and the sandbox was deleted
+at 00:08 UTC. No credential appeared in any demonstration file.

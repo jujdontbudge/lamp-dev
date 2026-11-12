@@ -5,12 +5,15 @@ import subprocess
 import sys
 
 
+SECRET_NAMES = ["LAMP_MODEL_TOKEN", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "OPENAI_API_KEY", "CODEX_API_KEY"]
+
+
 def emit(value):
     print("\x1eLAMP " + json.dumps(value, separators=(",", ":")), flush=True)
 
 
 def display(text, environment):
-    for name in ["LAMP_MODEL_TOKEN", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"]:
+    for name in SECRET_NAMES:
         if value := environment.get(name):
             text = text.replace(value, "[REDACTED]")
     print(text, flush=True)
@@ -45,10 +48,19 @@ def main():
             for key, value in values.items():
                 part = part.replace(key, value)
             argv.append(part)
-        mcp = {"command": argv[0], "args": argv[1:]}
+        # The MCP bridge and everything it starts never see model credentials.
+        strip = [part for name in SECRET_NAMES for part in ("-u", name)]
+        mcp = {"command": "/usr/bin/env", "args": strip + argv}
         mcp_path = home / "lamp-mcp.json"
         mcp_path.write_text(json.dumps({"mcpServers": {"lamp": mcp}}))
         config["mcp_config"] = str(mcp_path)
+    subscription = config["auth"] == "subscription"
+    if subscription and config.get("location_kind") == "sandbox":
+        # Inside a sandbox the agent's exec shares this runner's identity, so a
+        # subscription credential there must use the guest custody route.
+        raise ValueError("subscription credentials run inside a sandbox only through guest custody")
+    for name in SECRET_NAMES:
+        environment.pop(name, None)
     for line in sys.stdin:
         request = json.loads(line)
         identity = request["input_id"]
@@ -58,14 +70,16 @@ def main():
             environment.update({"LAMP_MODEL_TOKEN": token, "ANTHROPIC_AUTH_TOKEN": token, "ANTHROPIC_API_KEY": "", "ANTHROPIC_BASE_URL": config["endpoint"]})
         elif config["auth"] == "subscription":
             if config["kind"] == "claude":
-                environment["CLAUDE_CODE_OAUTH_TOKEN"] = Path(config["credential_file"]).read_text().strip()
+                pass
             elif Path(config["credential_file"]).resolve() != (home / "codex/auth.json").resolve():
                 raise ValueError("Codex subscription credentials must remain in the enrolled native custody home")
         emit({"type": "status", "status": "working", "input_id": identity})
         argv = [config["binary"]]
         if config["kind"] == "claude":
             argv += ["-p", "--output-format", "stream-json", "--verbose", "--setting-sources", "", "--permission-mode", "dontAsk", "--no-chrome", "--disallowedTools", "Agent,Task"]
-            if config.get("agent_mode") == "outside":
+            if config.get("agent_mode") == "outside" or subscription:
+                # With a subscription credential the agent gets no host tools;
+                # its commands run only through the Lamp exec bridge.
                 argv += ["--tools", ""]
             if config.get("model"):
                 argv += ["--model", config["model"]]
@@ -75,7 +89,7 @@ def main():
                 argv += ["--strict-mcp-config", "--mcp-config", config["mcp_config"], "--allowedTools", "mcp__lamp__exec,mcp__lamp__spawn,mcp__lamp__git_return"]
         else:
             argv += ["--disable", "multi_agent", "-c", 'approval_policy="never"', "-c", 'web_search="disabled"']
-            if config.get("agent_mode") == "outside":
+            if config.get("agent_mode") == "outside" or subscription:
                 argv += ["--disable", "shell_tool", "--disable", "unified_exec"]
             if mcp:
                 setting = dict(mcp, enabled_tools=["exec", "spawn", "git_return"], default_tools_approval_mode="approve", tool_timeout_sec=180)
@@ -91,7 +105,19 @@ def main():
             else:
                 argv += ["--sandbox", "workspace-write", "--skip-git-repo-check"]
             argv += ["--json", "-"]
-        process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=environment, text=True)
+        passed = ()
+        child = dict(environment)
+        if subscription and config["kind"] == "claude":
+            # Hand the plan token over a one-shot pipe: it never enters any
+            # process environment, and the drained pipe holds nothing later.
+            reader, writer = os.pipe()
+            os.write(writer, Path(config["credential_file"]).read_bytes().strip())
+            os.close(writer)
+            child["CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR"] = str(reader)
+            passed = (reader,)
+        process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=child, text=True, pass_fds=passed)
+        for descriptor in passed:
+            os.close(descriptor)
         process.stdin.write(prompt)
         process.stdin.close()
         success = False

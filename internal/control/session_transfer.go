@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,6 +28,9 @@ type sessionTransfer struct {
 	Archive, SHA256                              string
 	Paths                                        []string
 	Metadata                                     map[string]any
+	// Carried holds acknowledged inputs the fenced source never delivered;
+	// they are replayed once on the target after its start.
+	Carried []sessionWork `json:",omitempty"`
 }
 
 type sessionChangeSet struct {
@@ -389,6 +393,26 @@ func (s *Service) driveSessionTransfer(id string) {
 				return
 			}
 			t.FinalOutput, t.FinalEvents, t.Phase = uintField(reply, "size"), uintField(reply, "event_offset"), "drain"
+			// Settle what is still queued against what the source runner
+			// actually delivered before the fence. Delivered inputs are part of
+			// the native snapshot and must not run again; undelivered ones are
+			// carried to the target; anything else is dropped on the record.
+			inputs := object(reply["inputs"])
+			delivered, dropped := 0, 0
+			for _, work := range source.Pending {
+				if work.Action != "input" {
+					dropped++
+					continue
+				}
+				seen := object(inputs[work.Lease])
+				if (textField(seen, "state") == "delivered" && uintField(seen, "sequence") >= work.Sequence) || uintField(seen, "sequence") > work.Sequence {
+					delivered++
+				} else {
+					t.Carried = append(t.Carried, work)
+				}
+			}
+			source.Pending = nil
+			source.Resource["transfer_inputs"] = map[string]any{"delivered_at_source": delivered, "carried_to_target": len(t.Carried), "dropped_non_input": dropped, "location_epoch": t.TargetEpoch}
 		}
 	case "drain":
 		t.Phase = "export"
@@ -441,6 +465,14 @@ func (s *Service) driveSessionTransfer(id string) {
 		target.Resource["state"], target.Resource["observation_state"] = "starting", "stale"
 		target.Offset, target.EventOffset = 0, 0
 		target.Pending = []sessionWork{{ID: newID("dispatch"), Action: "start"}}
+		// The target runner starts with a fresh input ledger, so carried inputs
+		// are re-keyed to one per-epoch lease and numbered from zero.
+		carry := "carry@" + strconv.FormatUint(t.TargetEpoch, 10)
+		for i, work := range t.Carried {
+			work.ID, work.Lease, work.Sequence = newID("dispatch"), carry, uint64(i)
+			target.Pending = append(target.Pending, work)
+		}
+		t.Carried = nil
 		editResource(target.Resource)
 		t.Phase = "start"
 	case "start":
