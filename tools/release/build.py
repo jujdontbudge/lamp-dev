@@ -30,7 +30,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 GO_BINS = ['lampd', 'lamp', 'lamp-installer', 'lamp-access', 'lamp-mcp', 'lamp-broker',
            'lamp-network', 'lamp-relay-client', 'lamp-gitlab-executor', 'lamp-fleeting']
-SITE = 'https://lamp.eilmer.si'  # served by GitLab Pages from the public project (tools/release/site.py)
+SITE = 'https://lamp.eilmer.si'  # a Cloudflare Worker in front of the public project (tools/release/worker.js)
 RCODESIGN = os.environ.get('RCODESIGN', str(Path.home() / '.local/rcodesign/bin/rcodesign'))
 
 
@@ -132,8 +132,8 @@ def main():
     ap.add_argument('--out', required=True, type=Path)
     ap.add_argument('--release-key', required=True, type=Path)
     ap.add_argument('--apple-dir', type=Path, help='Developer ID + notary key files; omit for an unsigned local build')
-    ap.add_argument('--linux-host', help='ssh host that builds the Linux engine; omit to ship Linux control binaries only')
-    ap.add_argument('--linux-arm64-host', help='ssh host (Linux arm64) that builds the arm64 engine')
+    ap.add_argument('--linux-host', help='ssh host that builds the Linux engine; omit to ship Linux control binaries only (install.sh says so)')
+    ap.add_argument('--linux-arm64-host', help='ssh host (Linux arm64) that builds the arm64 engine; omit to ship arm64 control binaries only (install.sh says so)')
     ap.add_argument('--ssh-config', help='ssh -F file for the engine hosts (for example a Lima VM)')
     ap.add_argument('--platforms', default='linux-amd64,linux-arm64,darwin-arm64')
     ap.add_argument('--reuse', type=Path, help='an earlier output of this version: keep its files byte for byte, '
@@ -238,6 +238,8 @@ def main():
         if plat not in missing:
             digest = hashlib.sha256((out / f'lamp-{a.version}-{plat}.tar.gz').read_bytes()).hexdigest()
             script = script.replace(f'@SHA_{plat}@', digest)
+        engine = plat == 'darwin-arm64' or record['platforms'].get(plat, {}).get('engine', False)
+        script = script.replace(f'@ENGINE_{plat}@', 'yes' if engine else 'no')
     if missing:  # a partial pass; a later --reuse pass completes the release
         print(f'install.sh not written: {",".join(missing)} still to build')
     else:

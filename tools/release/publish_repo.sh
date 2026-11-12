@@ -8,9 +8,9 @@
 # a temporary directory. Without --go it stops there and changes nothing. With
 # --go, one step at a time with pauses (no bursts): create the private project
 # gitlab.com/johansardar/lamp, upload RELEASE_DIR to its generic package
-# registry, push the one commit (its Pages job publishes lamp.eilmer.si), protect
+# registry, push the one commit, protect
 # every branch so no one can push or merge, tag and release v<version>, and make
-# the project public. The lamp.eilmer.si Pages domain and DNS are set up separately.
+# the project public. lamp.eilmer.si is a Cloudflare Worker (tools/release/deploy_worker.sh).
 set -eu
 patterns=${1:?usage: publish_repo.sh PATTERNS_FILE REF RELEASE_DIR [--go]}
 ref=${2:?usage: publish_repo.sh PATTERNS_FILE REF RELEASE_DIR [--go]}
@@ -50,8 +50,9 @@ echo "redacted export: $(git -C "$work" ls-files | wc -l | tr -d ' ') files, com
 glab api -X POST projects -f name=lamp -f path=lamp -f visibility=private \
   -f description="Fast, isolated sandboxes for agents, harnesses and CI on your own machines" >/dev/null
 echo "created $project (private)"; pause
-for f in "$rel"/*; do
-  [ -f "$f" ] || continue
+# Only SHA256SUMS and the files it lists (checked above) reach the registry.
+for name in SHA256SUMS $(awk '{print $2}' "$rel/SHA256SUMS"); do
+  f=$rel/$name
   glab api -X PUT "$api/packages/generic/lamp/$version/$(basename "$f")" --input "$f" >/dev/null
   echo "uploaded $(basename "$f")"; sleep 5
 done
