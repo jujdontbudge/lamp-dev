@@ -1,0 +1,28 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Lamp @VERSION@ installer:  curl -fsSL @BASE@/install.sh | sh
+# Downloads this release from GitHub, checks the archive digest built into this
+# script, then lamp-installer checks the Ed25519 release signature against the
+# release key below and pins it for updates. Options (env): LAMP_PREFIX
+# (default ~/.local/lamp), LAMP_SERVICE (systemd|launchd|process).
+set -eu
+VERSION=@VERSION@
+BASE=@BASE@
+TRUST='@TRUST@'
+case "$(uname -s)/$(uname -m)" in
+  Linux/x86_64) PLAT=linux-amd64; SHA=@SHA_linux-amd64@; SVC=systemd ;;
+  Darwin/arm64) PLAT=darwin-arm64; SHA=@SHA_darwin-arm64@; SVC=launchd ;;
+  *) echo "lamp: no $VERSION build for $(uname -s)/$(uname -m)" >&2; exit 1 ;;
+esac
+PREFIX=${LAMP_PREFIX:-$HOME/.local/lamp}
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+cd "$work"
+curl -fsSL -o lamp.tar.gz "$BASE/lamp-$VERSION-$PLAT.tar.gz"
+if command -v sha256sum >/dev/null; then got=$(sha256sum lamp.tar.gz | cut -d' ' -f1); else got=$(shasum -a 256 lamp.tar.gz | cut -d' ' -f1); fi
+[ "$got" = "$SHA" ] || { echo "lamp: archive digest mismatch; refusing to install" >&2; exit 1; }
+tar -xzf lamp.tar.gz
+printf '%s\n' "$TRUST" > release-trust.pub
+"lamp-$VERSION/$PLAT/payload/bin/lamp-installer" install --release "lamp-$VERSION" \
+  --trust release-trust.pub --prefix "$PREFIX" --service "${LAMP_SERVICE:-$SVC}"
+echo "Lamp $VERSION installed in $PREFIX. Engine setup: https://github.com/JohanSardar/lamp/releases/tag/v$VERSION"

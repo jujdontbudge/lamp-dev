@@ -201,6 +201,18 @@ def main():
     sh(['npm', 'pack', '--pack-destination', out], cwd=ROOT / 'sdk/typescript')
     shutil.copytree(ROOT / 'sdk/python', scratch / 'sdk-python')  # keep build debris out of the checkout
     sh([sys.executable, '-m', 'pip', 'wheel', '--no-deps', '-w', out, scratch / 'sdk-python'])
+    sh([sys.executable, '-c', 'import sys; from setuptools import build_meta as b; b.build_sdist(sys.argv[1])', out],
+       cwd=scratch / 'sdk-python')
+
+    # curl | sh installer: archive digests and the release key are built in.
+    base = f'https://github.com/JohanSardar/lamp/releases/download/v{a.version}'
+    script = (ROOT / 'tools/release/install.sh.in').read_text()
+    script = script.replace('@VERSION@', a.version).replace('@BASE@', base)
+    script = script.replace('@TRUST@', (out / 'release-trust.pub').read_text().strip())
+    for plat in ['linux-amd64', 'darwin-arm64']:
+        digest = hashlib.sha256((out / f'lamp-{a.version}-{plat}.tar.gz').read_bytes()).hexdigest()
+        script = script.replace(f'@SHA_{plat}@', digest)
+    (out / 'install.sh').write_text(script)
 
     (out / 'release.json').write_text(json.dumps(record, indent=1) + '\n')
     shutil.rmtree(scratch)

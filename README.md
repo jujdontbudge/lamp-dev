@@ -17,17 +17,18 @@ Created in [T3 Code](https://t3.codes).
 - **CI in fresh VMs.** GitHub Actions and GitLab runners, plus other CI systems.
 - **Fleets.** Join several machines into one fleet; updates roll out one host at
   a time and roll back on failure.
-- **Yours.** Everything runs on your own hardware. The hosted Eilmer account and
-  relay at `eilmer.si` are optional.
+- **Yours.** Everything runs on your own hardware, including the optional relay.
 
 ## Install
 
-Download a release from
-[GitHub Releases](https://github.com/JohanSardar/lamp/releases) and follow the
+```sh
+curl -fsSL https://github.com/JohanSardar/lamp/releases/download/v0.1.0/install.sh | sh
+```
+
+The installer checks the download's digest and the release signature. Then set
+up the engine and, if you want them, the SDKs: see the
 [0.1.0 release notes](docs/release/0.1.0.md). Linux needs KVM; macOS needs
 version 26 or later on Apple Silicon.
-
-SDKs: `npm install @eilmer/lamp-sdk` and `pip install lamp-sdk`.
 
 ## Build from source
 
