@@ -1,9 +1,9 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
 # One-time publication of Lamp's public repository from one redacted commit.
-#   tools/release/publish_repo.sh PATTERNS_FILE [--go]
+#   tools/release/publish_repo.sh PATTERNS_FILE REF [--go]   (REF: the reviewed commit to publish)
 #
-# Order: preflight -> export origin/main -> stage -> redact -> check, all in a
+# Order: preflight -> export REF -> stage -> redact -> check, all in a
 # temporary directory. Without --go it stops there: it modifies no checkout,
 # remote or repository, and prints the remotes it would rewrite. With --go it
 # then renames the private JohanSardar/lamp to lamp-dev, rewrites every remote
@@ -11,8 +11,9 @@
 # Ubuntu laptop and the Air, creates the public JohanSardar/lamp, pushes the one
 # commit, and adds a ruleset that blocks branch creation and pushes for everyone.
 set -eu
-patterns=${1:?usage: publish_repo.sh PATTERNS_FILE [--go]}
-go=${2:-}
+patterns=${1:?usage: publish_repo.sh PATTERNS_FILE REF [--go]}
+ref=${2:?usage: publish_repo.sh PATTERNS_FILE REF [--go]}
+go=${3:-}
 owner=JohanSardar
 hosts=${LAMP_PUBLISH_HOSTS:?set LAMP_PUBLISH_HOSTS to the other machines ssh aliases}
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
@@ -31,8 +32,8 @@ if gh repo view $owner/lamp-dev >/dev/null 2>&1; then die "JohanSardar/lamp-dev 
 # Export, stage and redact in a temporary directory; check before any effect.
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-git -C "$root" fetch -q origin main
-git -C "$root" archive origin/main | tar -x -C "$work"
+git -C "$root" fetch -q origin
+git -C "$root" archive "$ref" | tar -x -C "$work"
 git -C "$work" init -q -b main
 git -C "$work" add -A
 python3 "$root/tools/release/redact.py" --root "$work" --patterns "$patterns"
