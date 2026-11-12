@@ -1,7 +1,7 @@
 [
   {
     "kind": "pi",
-    "official_binary": "/Users/johansardar/.local/bin/pi",
+    "official_binary": "/Users/owner/.local/bin/pi",
     "version": [
       "1.5.0"
     ],
@@ -30,7 +30,7 @@
   },
   {
     "kind": "droid",
-    "official_binary": "/Users/johansardar/.local/bin/droid",
+    "official_binary": "/Users/owner/.local/bin/droid",
     "version": [
       "1.6.0"
     ],
@@ -59,7 +59,7 @@
   },
   {
     "kind": "opencode",
-    "official_binary": "/Users/johansardar/.opencode/bin/opencode",
+    "official_binary": "/Users/owner/.opencode/bin/opencode",
     "version": [
       "1.19.5"
     ],
@@ -146,7 +146,7 @@
   },
   {
     "kind": "claude",
-    "official_binary": "/Users/johansardar/.local/bin/claude",
+    "official_binary": "/Users/owner/.local/bin/claude",
     "version": [
       "2.1.322 (Claude Code)"
     ],
@@ -175,7 +175,7 @@
   },
   {
     "kind": "codex",
-    "official_binary": "/Users/johansardar/.local/bin/codex",
+    "official_binary": "/Users/owner/.local/bin/codex",
     "version": [
       "codex-cli 0.167.0"
     ],
