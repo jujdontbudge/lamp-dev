@@ -219,7 +219,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		input = in
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		_, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id wait_ms")
+		_, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms")
 		in.IdempotencyKey = key
 		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "create requires template_id and Idempotency-Key; only demo body fields are admitted", nil)
@@ -252,6 +252,13 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		in.WaitMs = nil
 		input = in
 		sb = newSandbox()
+		if in.Labels != nil {
+			if (*in.Labels)["lamp.browser-custody"] != "" && !s.kitOwner(requestCaller(r)) {
+				writeError(w, requestID, "SCOPE_DENIED", "browser custody label requires owner authority", nil)
+				return
+			}
+			sb.Labels = *in.Labels
+		}
 		sb.TaskId = in.TaskId
 		sb.Id = s.resourceID("sb")
 		sb.HostId = pointer(s.hostID())

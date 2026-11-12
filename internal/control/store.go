@@ -76,6 +76,7 @@ type Config struct {
 	// prints a deleted sandbox's guard spool records and, given `remove
 	// <sandbox>`, deletes those spools. Empty keeps every spool and its slot.
 	AuditRelease []string
+	KitsSocket   string
 	// RecoveryPublicKey is the owner's offline data-recovery public key file;
 	// every new backup is also wrapped to it.
 	RecoveryPublicKey string
@@ -88,13 +89,10 @@ type Config struct {
 	InstallDir string
 }
 type Service struct {
-	auditReservationBytes uint64
-	auditRelease          []string
-	auditReleased         map[string]bool
-	github                *ci.GitHub
 	forges                map[string]ci.Forge
 	ciConfig              *ci.Config
-	native                *NativeFallbackConfig
+	kitsSocket            string
+	kitsMu                sync.Mutex
 	clockWall             time.Time
 	clockTicks            int64
 	quotas                Quotas
@@ -107,7 +105,11 @@ type Service struct {
 	durableOps            map[string]*record
 	commitChanged         chan struct{}
 	identity              IdentityConfig
+	recoveryPublic        *ecdh.PublicKey
+	installDir            string
+	wantFleet             bool
 	protected             map[string]ProtectedAction
+	native                *NativeFallbackConfig
 	eventRevisions        map[string]uint64
 	journal               journal
 	dir                   string
@@ -124,9 +126,10 @@ type Service struct {
 	broken                bool
 	keys                  map[string]string
 	logRecords            int
-	recoveryPublic        *ecdh.PublicKey
-	installDir            string
-	wantFleet             bool
+	auditReservationBytes uint64
+	auditRelease          []string
+	auditReleased         map[string]bool
+	github                *ci.GitHub
 	// changed is closed (and replaced) whenever a journal change becomes
 	// durable, waking long-polling readers instead of having them spin.
 	changed chan struct{}
@@ -360,6 +363,8 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	s.kitsSocket = config.KitsSocket
+	s.initKits()
 	if err := s.initNative(config); err != nil {
 		lock.Close()
 		return nil, err

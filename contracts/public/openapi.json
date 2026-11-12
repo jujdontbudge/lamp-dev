@@ -8237,9 +8237,27 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "external",
+                      "copied"
+                    ]
+                  },
+                  "source_browser_id": {
+                    "type": "string"
+                  },
+                  "login_origin": {
+                    "type": "string"
+                  },
+                  "acknowledge_agent_can_read_logins": {
+                    "type": "boolean"
                   }
                 },
-                "required": []
+                "required": [
+                  "sandbox_id"
+                ]
               }
             }
           }
@@ -9058,6 +9076,15 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "origin": {
+                    "type": "string"
+                  },
+                  "submit": {
+                    "type": "boolean"
+                  },
+                  "plan": {
+                    "$ref": "#/components/schemas/AdapterDocument"
                   }
                 },
                 "required": []
@@ -24181,9 +24208,29 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "tools": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "git",
+                        "docker",
+                        "browser",
+                        "python",
+                        "node",
+                        "go",
+                        "rust",
+                        "c"
+                      ]
+                    }
                   }
                 },
-                "required": []
+                "required": [
+                  "tools"
+                ]
               }
             }
           }
@@ -24793,6 +24840,302 @@
                   }
                 },
                 "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/kits/{kit_id}:install": {
+      "post": {
+        "operationId": "kit_install",
+        "x-lamp-scope": "kit.install",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64",
+              "readOnly": true
+            }
+          },
+          {
+            "name": "kit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitInstallResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "lease_id": {
+                    "type": "string"
+                  },
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  },
+                  "sandbox_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "sandbox_id"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/kits/{kit_id}/installations/{job_id}": {
+      "get": {
+        "operationId": "kit_install_status",
+        "x-lamp-scope": "kit.install_status",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "kit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitInstallStatusResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
               }
             }
           }
@@ -36126,6 +36469,9 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "labels": {
+                    "$ref": "#/components/schemas/StringMap"
                   }
                 },
                 "required": [],
@@ -52789,6 +53135,8 @@
                 "kit.create",
                 "kit.delete",
                 "kit.get",
+                "kit.install",
+                "kit.install_status",
                 "kit.list",
                 "kit.update",
                 "lease.create",
@@ -55882,6 +56230,24 @@
           },
           "state_schema": {
             "$ref": "#/components/schemas/JSONSchema"
+          },
+          "tools": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "enum": [
+                "git",
+                "docker",
+                "browser",
+                "python",
+                "node",
+                "go",
+                "rust",
+                "c"
+              ]
+            }
           }
         },
         "required": [
@@ -58442,6 +58808,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "external",
+              "copied"
+            ]
+          },
+          "warning": {
+            "type": "string"
           }
         },
         "required": [
@@ -63958,10 +64334,29 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "tools": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "enum": [
+                "git",
+                "docker",
+                "browser",
+                "python",
+                "node",
+                "go",
+                "rust",
+                "c"
+              ]
+            }
           }
         },
         "required": [
-          "idempotency_key"
+          "idempotency_key",
+          "tools"
         ]
       },
       "KitCreateResult": {
@@ -65845,6 +66240,9 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "labels": {
+            "$ref": "#/components/schemas/StringMap"
           }
         },
         "required": [
@@ -70553,10 +70951,27 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "external",
+              "copied"
+            ]
+          },
+          "source_browser_id": {
+            "type": "string"
+          },
+          "login_origin": {
+            "type": "string"
+          },
+          "acknowledge_agent_can_read_logins": {
+            "type": "boolean"
           }
         },
         "required": [
-          "idempotency_key"
+          "idempotency_key",
+          "sandbox_id"
         ]
       },
       "BrowserCreateResult": {
@@ -80678,6 +81093,15 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "origin": {
+            "type": "string"
+          },
+          "submit": {
+            "type": "boolean"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/AdapterDocument"
           }
         },
         "required": [
@@ -84778,7 +85202,23 @@
       "BrowserFillPasswordCompletion": {
         "type": "object",
         "additionalProperties": false,
-        "properties": {}
+        "properties": {
+          "approval_id": {
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/AdapterDocument"
+          },
+          "state": {
+            "type": "string"
+          },
+          "filled": {
+            "type": "boolean"
+          },
+          "private": {
+            "type": "boolean"
+          }
+        }
       },
       "BrowserTakeoverCompletion": {
         "type": "object",
@@ -85012,6 +85452,134 @@
           "sha256",
           "eof",
           "request_id"
+        ]
+      },
+      "KitInstallCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "sandbox_id": {
+            "type": "string"
+          },
+          "generation": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "job_id",
+          "sandbox_id",
+          "generation"
+        ]
+      },
+      "KitInstallInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "lease_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "kit_id": {
+            "type": "string"
+          },
+          "sandbox_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kit_id",
+          "idempotency_key",
+          "expected_revision",
+          "sandbox_id"
+        ]
+      },
+      "KitInstallResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/KitInstallCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "KitInstallStatusInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kit_id": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kit_id",
+          "job_id"
+        ]
+      },
+      "KitInstallStatusResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AdapterDocument"
+          }
+        },
+        "required": [
+          "request_id",
+          "data"
         ]
       }
     }

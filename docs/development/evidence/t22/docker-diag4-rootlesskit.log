@@ -1,0 +1,30 @@
+vm sb_5bd2518f08a4a5cd239903194de2a539
+{'state': 'installing', 'job_id': 'debe19d7a3ac2d92e0244a67dc04379f', 'sandbox_id': 'sb_5bd2518f08a4a5cd239903194de2a539', 'generation': 1}
+0 {'state': 'failed', 'failure_code': 'KIT_INSTALL_FAILED', 'phase': 'docker', 'exception_class': 'RuntimeError', 'job_id': 'debe19d7a3ac2d92e0244a67dc04379f', 'sandbox_id': 'sb_5bd2518f08a4a5cd239903194de2a539', 'generation': 1}
+{
+"/tmp/lamp-kit-jobs": [
+"debe19d7a3ac2d92e0244a67dc04379f.bootstrap.log",
+"debe19d7a3ac2d92e0244a67dc04379f.meta.json",
+"debe19d7a3ac2d92e0244a67dc04379f.py",
+"debe19d7a3ac2d92e0244a67dc04379f.result.json",
+"install.lock"
+],
+"/tmp/lamp-kit-docker": [
+"containerd-data",
+"containerd-run",
+"containerd.sock",
+"containerd.sock.ttrpc",
+"containerd.toml",
+"data",
+"docker.sock",
+"exec",
+"runc",
+"runtime.log"
+],
+"/tmp/lamp-toolchains/cache": [
+"debe19d7a3ac2d92e0244a67dc04379f"
+],
+"/tmp/lamp-kit-docker/runtime.log": "ist, skipping: failed to monitor for changes: no such file or directory\" dir=/etc/cdi\ntime=\"2026-11-11T09:08:09.990810098Z\" level=info msg=\"CDI directory does not exist, skipping: failed to monitor for changes: no such file or directory\" dir=/var/run/cdi\ntime=\"2026-11-11T09:08:10.057393463Z\" level=debug msg=\"Golang's threads limit set to 28260\"\ntime=\"2026-11-11T09:08:10.057705613Z\" level=info msg=\"Creating a containerd client\" address=/tmp/lamp-kit-docker/containerd.sock timeout=1m0s\ntime=\"2026-11-11T09:08:10.057751572Z\" level=debug msg=\"metrics API listening on /tmp/lamp-kit-docker/exec/metrics.sock\"\ntime=\"2026-11-11T09:08:10.058276132Z\" level=debug msg=\"Using default logging driver json-file\"\ntime=\"2026-11-11T09:08:10.058397041Z\" level=debug msg=\"No quota support for local volumes in /tmp/lamp-kit-docker/data/volumes: Filesystem does not support, or has not enabled quotas\"\ntime=\"2026-11-11T09:08:10.059285033Z\" level=info msg=\"Loading containers: start.\"\ntime=\"2026-11-11T09:08:10.059330351Z\" level=info msg=\"[graphdriver] trying configured driver: vfs\"\ntime=\"2026-11-11T09:08:10.059412961Z\" level=debug msg=\"Initialized graph driver vfs\"\ntime=\"2026-11-11T09:08:10.059856473Z\" level=debug msg=\"Not attempting migration with 0 containers and -1 image threshold\"\ntime=\"2026-11-11T09:08:10.059871349Z\" level=debug msg=\"Max Concurrent Downloads: 3\"\ntime=\"2026-11-11T09:08:10.059876410Z\" level=debug msg=\"Max Concurrent Uploads: 5\"\ntime=\"2026-11-11T09:08:10.059879948Z\" level=debug msg=\"Max Download Attempts: 5\"\ntime=\"2026-11-11T09:08:10.059896039Z\" level=info msg=\"Restoring containers: start.\"\ntime=\"2026-11-11T09:08:10.059921015Z\" level=debug msg=\"Option DefaultDriver: bridge\"\ntime=\"2026-11-11T09:08:10.059926265Z\" level=debug msg=\"Option DefaultNetwork: bridge\"\ntime=\"2026-11-11T09:08:10.059929643Z\" level=debug msg=\"Network Control Plane MTU: 1500\"\ntime=\"2026-11-11T09:08:10.059980647Z\" level=debug msg=\"processing event stream\" module=libcontainerd namespace=plugins.moby\ntime=\"2026-11-11T09:08:10.060474834Z\" level=debug msg=\"processing event stream\" module=libcontainerd namespace=moby\ntime=\"2026-11-11T09:08:10.061151951Z\" level=debug msg=\"daemon configured with a 15 seconds minimum shutdown timeout\"\ntime=\"2026-11-11T09:08:10.061175780Z\" level=debug msg=\"start clean shutdown of all containers with a 15 seconds timeout...\"\ntime=\"2026-11-11T09:08:10.062042903Z\" level=info msg=\"stopping event stream following graceful shutdown\" error=\"<nil>\" module=libcontainerd namespace=moby\ntime=\"2026-11-11T09:08:10.062114787Z\" level=debug msg=\"Cleaning up old mountid : start.\"\ntime=\"2026-11-11T09:08:10.062274597Z\" level=debug msg=\"Cleaning up old mountid : done.\"\ntime=\"2026-11-11T09:08:10.062330687Z\" level=debug msg=\"unmounting daemon root\" mountpoint=/tmp/lamp-kit-docker/data\nfailed to start daemon: Error initializing network controller: error obtaining controller instance: failed to create port driver client: $ROOTLESSKIT_STATE_DIR needs to be set\nlamp-kit: docker info exit 1\n",
+"/tmp/lamp-kit-jobs/debe19d7a3ac2d92e0244a67dc04379f.bootstrap.log": ""
+}
+released

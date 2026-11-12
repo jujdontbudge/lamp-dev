@@ -41,6 +41,13 @@ pub enum GuestRequest {
 
 /// Guest cgroup v2 directory every command and its descendants run in.
 pub const TASKS_CGROUP: &str = "/sys/fs/cgroup/tasks";
+/// Subordinate guest UID/GID that task namespace root maps to.
+pub const TASK_UID: u32 = 65_537;
+/// Files that delegate a cgroup v2 subtree (kernel cgroup-v2 "Delegation").
+/// Only a per-exec leaf under `TASKS_CGROUP` is ever delegated; the tasks
+/// cgroup itself stays guest-root-owned so no task can block later execs.
+pub const DELEGATED_CGROUP_FILES: [&str; 3] =
+    ["cgroup.procs", "cgroup.threads", "cgroup.subtree_control"];
 
 /// Payload of commands without arguments; still rejects unknown fields.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
