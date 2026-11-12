@@ -77,7 +77,7 @@ def apple_files(d):
 
 def mac_sign(binaries, apple):
     for b in binaries:
-        args = [RCODESIGN, 'sign', '--pem-file', apple['app_cert'], '--pem-file', apple['app_key'],
+        args = [RCODESIGN, 'sign', '--certificate-der-file', apple['app_cert'], '--pem-file', apple['app_key'],
                 '--code-signature-flags', 'runtime', '--for-notarization']
         ent = ROOT / 'crates/lamp-vz' / f'{b.name}.entitlements'
         if ent.exists():
