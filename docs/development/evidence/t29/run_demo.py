@@ -66,7 +66,7 @@ try:
   worker=dict(Socket='/run/t29/w.sock',WorkerID='lamp-supervisor@'+os.uname().nodename,BootID=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),UID=0,PID=pid,GrantID=grant['grant_id'],Timeout=60000000000))))
  conf.chmod(0o600)
  env=dict(os.environ,LAMP_T29_GITLAB_DRIVER=str(base/'src/docs/development/evidence/t29/gitlab_demo.py'),LAMP_T29_ONLY=os.environ.get('LAMP_T29_ONLY',''),LAMP_T29_LIVE_CONFIG=str(conf),PATH='/home/johan/go-sdk/bin:'+os.environ['PATH'])
- p=subprocess.run(['go','test','./internal/control','-run','^TestT29Demonstration$','-count=1','-v','-timeout','60m'],cwd=base/'src',env=env)
+ p=subprocess.run(['go','test','-tags','t29demo','./internal/control','-run','^TestT29Demonstration$','-count=1','-v','-timeout','60m'],cwd=base/'src',env=env)
  print('demonstration_exit',p.returncode,flush=True)
  if broker:
   broker.terminate();broker.wait();broker=None

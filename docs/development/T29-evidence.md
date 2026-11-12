@@ -18,7 +18,10 @@ The project in every case is a copy of public zlib. Each VM's network is
 deny-by-default, with exact exceptions for those ports only.
 
 Each run is driven by `docs/development/evidence/t29/run_demo.py`, which
-starts the supervisor and runs `t29_demo_test.go`. The GitLab half is driven
+starts the supervisor and runs `t29_demo_test.go`. The harness is built only
+with the `t29demo` tag, so it stays out of `./...`. It is copied into
+`internal/control` and run as `go test -tags t29demo ./internal/control -run
+'^TestT29Demonstration$'`. The GitLab half is driven
 by `gitlab_demo.py`. The seed image comes from `prepare_seed2.py`. The logs
 below are the unedited run output, except that colour codes are stripped and
 token-like values are redacted.
