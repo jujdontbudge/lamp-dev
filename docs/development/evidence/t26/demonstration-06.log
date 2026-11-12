@@ -1,0 +1,9 @@
+=== RUN   TestCIControlledDemonstration
+    ci_demo_test.go:149: controlled RSA issuer + Ed25519 proof: scoped key works, authority escalation and replay denied; JWT and key absent from durable files
+    ci_demo_test.go:366: demonstration operation failed: &{DATA_UNAVAILABLE runner exited before native job completion false 0x36c574946c50 <nil>}
+--- FAIL: TestCIControlledDemonstration (6.80s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	7.734s
+FAIL
+demonstration_exit 1
+firecracker_remaining 1

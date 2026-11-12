@@ -1,0 +1,12 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:220: enrolled plugins: [pg_forgejo pg_woodpecker]
+    t29_demo_test.go:562: policy job jb_a92c6e8ffacd83278fe5428dbb386fe8 trust=public_pr attested exceptions (7) [10.219.29.1:3929 10.219.29.1:3930 10.219.29.1:3931 10.219.29.1:3932 10.219.29.1:3933 10.219.29.1:3934 10.219.29.1:3935] err=<nil>; broker grant issued=false
+    t29_demo_test.go:181: job jb_a92c6e8ffacd83278fe5428dbb386fe8 plugin=pg_woodpecker external=lamp-admin/zlib-public/6 state=completed result=success trust=public_pr runner=6 sandbox=sb_7971c192249db282066ab906d0c0d216(deleted) outputs=[woodpecker-build.log(complete,3383 bytes)]
+    t29_demo_test.go:580: retention: job jb_a92c6e8ffacd83278fe5428dbb386fe8 trust=public_pr retain_stopped=true sandbox sb_7971c192249db282066ab906d0c0d216 is deleted
+    t29_demo_test.go:273: forge runners still registered: 0
+--- PASS: TestT29Demonstration (22.06s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	22.714s
+demonstration_exit 0
+broker audit (grant lifecycle, redacted by the broker):
+firecracker_remaining 0

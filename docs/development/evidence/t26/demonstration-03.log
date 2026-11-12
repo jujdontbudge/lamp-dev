@@ -1,0 +1,10 @@
+=== RUN   TestCIControlledDemonstration
+    ci_demo_test.go:149: controlled RSA issuer + Ed25519 proof: scoped key works, authority escalation and replay denied; JWT and key absent from durable files
+    ci_demo_test.go:365: demonstration operation failed: &{DATA_UNAVAILABLE fresh CI VM did not become ready (HOST_UNAVAILABLE: lamp-guard did not become ready: lamp-guard: unknown field `policy_ceiling`, expected one of `attribution`, `interface`, `guest_ip`, `queue`, `guard_uid`, `host_denies`, `spool`, `spool_bytes`, `exceptions`, `proxy` at line 1 column 569)
+        CI authority or VM cleanup needs reconciliation false 0x3df18c930a0 <nil>}
+--- FAIL: TestCIControlledDemonstration (0.21s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	0.763s
+FAIL
+demonstration_exit 1
+firecracker_remaining 1

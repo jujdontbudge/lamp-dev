@@ -49,6 +49,7 @@ type controlState struct {
 	SessionShares    map[string]map[string]any    `json:"session_shares"`
 	SessionTransfers map[string]*sessionTransfer  `json:"session_transfers"`
 	ChangeSets       map[string]*sessionChangeSet `json:"change_sets"`
+	Kits             *kitState                    `json:"kits,omitempty"`
 	// Updates are fleet-wide rollouts (HST-005), replicated with authority.
 	Updates map[string]api.Update `json:"updates,omitempty"`
 }
@@ -238,6 +239,19 @@ func (s *Service) can(a caller, action string) bool {
 }
 func (s *Service) own(a caller, owner string) bool { return a.Principal == owner }
 func (s *Service) resourceAllowed(a caller, refs ...api.ResourceRef) bool {
+	for _, ref := range refs {
+		if ref.Kind == "browser" && s.journal.Control.Kits != nil {
+			if browser := s.journal.Control.Kits.Browsers[ref.Id]; browser != nil && !s.sandboxSelectors(a, s.journal.Sandboxes[textField(browser.Data, "sandbox_id")]) {
+				return false
+			}
+		}
+		if ref.Kind == "sandbox" && s.privateBrowserDenied(a, s.journal.Sandboxes[ref.Id]) {
+			return false
+		}
+		if ref.Kind == "snapshot" && s.privateBrowserDenied(a, s.journal.Sandboxes[value(s.journal.Snapshots[ref.Id].Snapshot.SandboxId)]) {
+			return false
+		}
+	}
 	for _, sc := range s.scopes(a) {
 		if sc.ResourceIds == nil {
 			continue
@@ -257,6 +271,9 @@ func (s *Service) resourceAllowed(a caller, refs ...api.ResourceRef) bool {
 	return true
 }
 func (s *Service) sandboxSelectors(a caller, sb api.Sandbox) bool {
+	if s.privateBrowserDenied(a, sb) {
+		return false
+	}
 	if !s.current(a) || !s.own(a, sb.OwnerId) {
 		return false
 	}
@@ -404,6 +421,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	id := newID("req")
 	w.Header().Set("X-Request-ID", id)
+	if strings.HasPrefix(r.URL.Path, "/hooks/triggers/") {
+		s.triggerHookHTTP(w, r, id)
+		return
+	}
 	if r.Method == "POST" && r.URL.Path == "/internal/native-tasks" {
 		s.nativeHTTP(w, r, id)
 		return
@@ -421,6 +442,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !s.serveCustody(w, r, id) {
 			writeError(w, id, "NOT_FOUND", "shared projection not found", nil)
 		}
+		return
+	}
+	if (op.Name == "auth_flow_bootstrap" || op.Name == "auth_flow_exchange") && s.github != nil {
+		s.ciAuthHTTP(w, r, id, op.Name, selectors)
 		return
 	}
 	s.readLock()
@@ -449,6 +474,14 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
+	if op.Name == "plugin_get" && ciPluginID(textField(selectors, "plugin_id")) {
+		s.ciPluginHTTP(w, r, id, textField(selectors, "plugin_id"))
+		return
+	}
+	if kitOperation(op.Name) {
+		s.kitsHTTP(w, r, id, op, selectors)
+		return
+	}
 	if s.cleanExportRead(op.Name, selectors) {
 		// T9's clean-export templates and blobs keep their own read path.
 		s.engineHTTP(w, r)

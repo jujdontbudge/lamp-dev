@@ -61,6 +61,10 @@ impl Queue {
             if set == 0 {
                 break;
             }
+            if option == libc::SO_RCVBUF {
+                // Neither size could be reserved: refuse to start (fail closed).
+                return Err(io::Error::last_os_error());
+            }
         }
         let mut addr: libc::sockaddr_nl = unsafe { mem::zeroed() };
         addr.nl_family = libc::AF_NETLINK as u16;

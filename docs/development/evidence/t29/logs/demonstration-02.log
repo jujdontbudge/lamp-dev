@@ -1,0 +1,26 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:181: enrolled plugins: [pg_forgejo]
+    t29_demo_test.go:143: job jb_452b92599c58bd1c5b4602f3c8054323 plugin=pg_forgejo external=lamp-admin/zlib/1 state=completed result=success trust=trusted runner=05be5021-15cf-4aeb-8969-0a9934edeecc sandbox=sb_cf64a615a6fee4a877c793364bb7374d(deleted) outputs=[forgejo-job.log(complete,5118 bytes)]
+    t29_demo_test.go:223: native Forgejo run 1: status=success (runners registered before=0 after=0)
+    t29_demo_test.go:143: job jb_3dde867280b2e54b7ef8aba383ffa08c plugin=pg_forgejo external=lamp-admin/zlib/2 state=canceled result=cancelled trust=trusted runner=162609a2-1475-4948-bf1e-51d645c70a3e sandbox=sb_39464fac7a6e05fa598820573890d8e0(deleted) outputs=[forgejo-job.log(complete,310 bytes)]
+    t29_demo_test.go:245: native Forgejo run 2 after Lamp cancel: status=cancelled
+    t29_demo_test.go:257: controller stopped while job jb_7fe116da2a2e7991317b6d9faa1e89c6 was running
+    t29_demo_test.go:143: job jb_7fe116da2a2e7991317b6d9faa1e89c6 plugin=pg_forgejo external=lamp-admin/zlib/3 state=canceled result=cancelled trust=trusted runner=af6a9bfa-34ce-4d0c-89e4-1e2e87b028d4 sandbox=sb_1a14b05a1720ac6c38e80aa56a884559(deleted) outputs=[forgejo-job.log(incomplete,0 bytes) forgejo-job.log(incomplete,0 bytes)]
+    t29_demo_test.go:270: native Forgejo run 3 after controller recovery: status=cancelled; runners left registered=0
+    t29_demo_test.go:303: webhook delivery HTTP 202 replayed=false; retry HTTP 202 replayed=true same-operation=true; forged HTTP 202 <nil>
+    t29_demo_test.go:310: slack event HTTP 202; replayed-old timestamp HTTP 202 <nil>
+    t29_demo_test.go:143: job jb_ed84a7ec5f727b614564d597644964a5 plugin=pg_webhook external=tr_1fe6a34b3101ed2ee5a0e97fc9b809ec/webhook:dlv-1 state=failed result= trust=trigger runner= sandbox=() outputs=[]
+    t29_demo_test.go:143: job jb_b65c5fc2bf42c84143d04c213646ff7e plugin=pg_slack external=tr_ffac905471db1ec5d917847e5b1079cd/slack:Ev0T29 state=failed result= trust=trigger runner= sandbox=() outputs=[]
+    t29_demo_test.go:339: webhook jobs created from 3 deliveries (1 retry, 1 forged): 1
+    t29_demo_test.go:349: 02:30 daily after 2026-03-07T12:00:00Z: shift=2026-03-08T01:30:00-05:00 skip=2026-03-09T02:30:00-04:00
+    t29_demo_test.go:349: 02:30 daily after 2026-03-08T12:00:00Z: shift=2026-03-09T02:30:00-04:00 skip=2026-03-09T02:30:00-04:00
+    t29_demo_test.go:349: 02:30 daily after 2026-10-31T12:00:00Z: shift=2026-11-01T02:30:00-05:00 skip=2026-11-01T02:30:00-05:00
+    t29_demo_test.go:355: 01:30 daily on the fall-back day runs once: 2026-11-01T01:30:00-04:00 then 2026-11-02T01:30:00-05:00
+    t29_demo_test.go:143: job jb_d25535289b8b7368d5d59dc59f538fd7 plugin=pg_schedule external=sc_fe2e6627a0db9502de3e9cfb5338c37b/schedule:2026-11-11T16:25:00Z state=failed result= trust=trigger runner= sandbox=() outputs=[]
+    t29_demo_test.go:370: schedule sc_fe2e6627a0db9502de3e9cfb5338c37b next_run_at=2026-11-11T16:29:00Z skipped_overlap=3
+    t29_demo_test.go:386: sandboxes not deleted at end: 0; forge runners still registered: 0
+--- PASS: TestT29Demonstration (614.09s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	615.114s
+demonstration_exit 0
+firecracker_remaining 0

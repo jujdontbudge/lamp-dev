@@ -1,0 +1,70 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:208: enrolled plugins: [pg_forgejo]
+gitlab: project root/zlib-demo id 1 visibility private
+gitlab: pipeline 7 for commit ee746306
+gitlab: job fleeting id=14 status=success runner=t29 lamp-fleeting artifacts=['artifacts.zip', 'metadata.gz']
+gitlab:   trace tail:
+    [0K
+    2026-11-11T20:05:49.460641Z 00O+[0KUploading artifacts for successful job
+    2026-11-11T20:05:50.031223Z 01O Uploading artifacts...
+    2026-11-11T20:05:50.179657Z 01E Runtime platform                                    arch=amd64 os=linux pid=90 revision=33227fd4 version=19.5.3
+    2026-11-11T20:05:50.179676Z 01E out.txt: found 1 matching artifact files and directories 
+    2026-11-11T20:05:50.521697Z 01E Uploading artifacts as "archive" to coordinator... 201 Created  correlation_id=01M763EYFHNFYWYXCJ0B8DVRQZ id=14 status=201 token=[redacted]
+    2026-11-11T20:05:50.529547Z 00O section_end:1794427550:upload_artifacts_on_success
+    [0K
+    2026-11-11T20:05:50.529796Z 00O+section_start:1794427550:cleanup_file_variables
+    [0K
+    2026-11-11T20:05:50.529802Z 00O+[0KCleaning up project directory and file based variables
+    2026-11-11T20:05:50.728980Z 00O section_end:1794427550:cleanup_file_variables
+    [0K
+    2026-11-11T20:05:50.729459Z 00O Job succeeded
+gitlab: job custom-executor id=13 status=failed runner=t29 lamp-custom artifacts=[]
+gitlab:   trace tail:
+    2026-11-11T20:05:51.227198Z 00O WARNING: Cleanup script failed: exit status 2
+    2026-11-11T20:05:51.227400Z 00O ERROR: Preparation failed: exit status 2
+    2026-11-11T20:05:51.227421Z 00O Will be retried in 3s ...
+    2026-11-11T20:05:54.230231Z 00O [0KUsing Custom executor with driver lamp 1...
+    2026-11-11T20:05:54.238334Z 00E lamp-gitlab-executor: Lamp POST /v1/sandboxes: HTTP 404 NOT_FOUND: resume capture
+    2026-11-11T20:05:54.240680Z 00O ERROR: Preparation failed: exit status 2
+    2026-11-11T20:05:54.240720Z 00O Will be retried in 3s ...
+    2026-11-11T20:05:57.244032Z 00O [0KUsing Custom executor with driver lamp 1...
+    2026-11-11T20:05:57.246492Z 00E lamp-gitlab-executor: Lamp POST /v1/sandboxes: HTTP 404 NOT_FOUND: resume capture
+    2026-11-11T20:05:57.249067Z 00O ERROR: Preparation failed: exit status 2
+    2026-11-11T20:05:57.249108Z 00O Will be retried in 3s ...
+    2026-11-11T20:06:00.249966Z 00O section_end:1794427560:prepare_executor
+    [0K
+    2026-11-11T20:06:00.255278Z 00O ERROR: Job failed (system failure): exit status 2
+gitlab: runners left on project: 0
+gitlab: runner log tail:
+    WARNING: Preparation failed: exit status 2          gitlab_user_id=1 job=13 job_name=custom-executor namespace_id=1 organization_id[
+    Will be retried in 3s ...                           gitlab_user_id=1 job=13 job_name=custom-executor namespace_id=1 organization_id=1 pipeline_id=7 project=1 pr
+    ERROR: Job failed (system failure): exit status 2   duration_s=9.072191489 error=exit status 2 failure_reason=runner_system_failure gitlab_user_i
+    Appending trace to coordinator...ok                 code=202 correlation_id=01M763F8A0MZR94J100C6JDJ4W job=13 job-log=0-1831 job-status=running runner=PxpfuUAuc runn
+    Updating job...                                     bytesize=1831 checksum=crc32:daf69de4 correlation_id=ade72404706a42509049db7ad98605db job=13 runner=PxpfuUAuc runner_n
+    WARNING: Submitting job to coordinator... job failed  bytesize=1831 checksum=crc32:daf69de4 code=200 correlation_id=01M763F8BN7MTK1BA276RXYR
+    Removed job from processing list                    builds=0 gitlab_user_id=1 job=13 max_builds=1 namespace_id=1 organization_id=1 pipeline_id=7 project=1 
+    WARNING: Failed to process runner                   builds=0 error=exit status 2 executor=custom max_builds=1 runner=PxpfuUAuc 
+    WARNING: [runWait] received stop signal             builds=0 max_builds=1 stop-signal=quit
+    WARNING: Starting graceful shutdown, waiting for builds to finish  StopSignal=quit builds=0 max_builds=1
+    All workers stopped.                                builds=0 max_builds=1
+    Shutting down executor providers                    builds=0 max_builds=1 shutdown-timeout=30s
+    Shutting down docker+machine executor provider      executor=docker+machine
+    No shutdown drain config, skipping machine pool drain  executor=docker+machine
+    received shutdown signal; stopping taskscaler's loop and triggering provisioner shutdown  runner=b5DSsfBup runner_name=lamp-fleeting subsystem=taskscaler
+    stopping main loop                                  runner=b5DSsfBup runner_name=lamp-fleeting subsystem=taskscaler
+    waiting for in-flight resumes to complete           runner=b5DSsfBup runner_name=lamp-fleeting subsystem=taskscaler
+    waiting for acquired instances to be released       runner=b5DSsfBup runner_name=lamp-fleeting subsystem=taskscaler
+    shutting down provisioner                           runner=b5DSsfBup runner_name=lamp-fleeting subsystem=taskscaler
+    received shutdown signal; stopping provisioner      group=lamp/rc_6e75c0d6914f774a941af7f415d63859 runner=b5DSsfBup runner_name=lamp-fleeting subsystem=taskscaler
+    provisioner shutdown completed                      group=lamp/rc_6e75c0d6914f774a941af7f415d63859 runner=b5DSsfBup runner_name=lamp-fleeting subsystem=taskscaler
+    taskscaler's shutdown completed                     runner=b5DSsfBup runner_name=lamp-fleeting subsystem=taskscaler
+    plugin process exited                               id=1394474 plugin=/home/johan/lamp-t29/bin/lamp-fleeting runner=b5DSsfBup runner_name=lamp-fleeting subsystem=fleeting
+    All executor providers shut down.                   builds=0 max_builds=1
+    Can exit now!                                       builds=0 max_builds=1
+    t29_demo_test.go:486: gitlab driver exit=exit status 1; sandboxes not deleted at end: 0
+--- FAIL: TestT29Demonstration (73.89s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	74.581s
+FAIL
+demonstration_exit 1
+firecracker_remaining 0

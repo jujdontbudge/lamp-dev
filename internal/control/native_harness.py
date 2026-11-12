@@ -15,8 +15,14 @@ import subprocess
 import sys
 import uuid
 
-SECRET_NAMES = ["LAMP_MODEL_TOKEN", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN", "OPENAI_API_KEY", "COPILOT_PROVIDER_API_KEY", "COPILOT_GITHUB_TOKEN", "CURSOR_API_KEY", "AMP_API_KEY", "GEMINI_API_KEY", "FACTORY_API_KEY", "WINDSURF_API_KEY", "DEVIN_API_KEY"]
+SECRET_NAMES = ["LAMP_MODEL_TOKEN", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "OPENAI_API_KEY", "CODEX_API_KEY", "COPILOT_PROVIDER_API_KEY", "COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "CURSOR_API_KEY", "AMP_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "FACTORY_API_KEY", "WINDSURF_API_KEY", "DEVIN_API_KEY"]
 LAMP_TOOLS = ["exec", "spawn", "git_return"]
+
+
+def refuse_vendor_credential(kind, how):
+    """A real vendor credential must never be reachable by the agent. Only
+    endpoint-scoped broker grants may sit in a harness environment."""
+    raise ValueError(kind + " accepts its vendor credential only " + how + ", which its own tools can reach; Lamp does not offer this route")
 
 
 def emit(value):
@@ -78,14 +84,16 @@ class Claude:
         if c["auth"] == "api_key":
             token = secret(c)
             env.update({"LAMP_MODEL_TOKEN": token, "ANTHROPIC_AUTH_TOKEN": token, "ANTHROPIC_API_KEY": "", "ANTHROPIC_BASE_URL": c["endpoint"]})
-        elif c["auth"] == "subscription":
-            env["CLAUDE_CODE_OAUTH_TOKEN"] = secret(c)
+        # A subscription token is handed over a one-shot pipe in main(), never
+        # through the environment.
 
     def argv(self, c, state, prompt):
         argv = [c["binary"], "-p", "--output-format", "stream-json", "--verbose", "--setting-sources", "", "--permission-mode", "dontAsk", "--no-chrome"]
         if not c.get("native_subagents"):
             argv += ["--disallowedTools", "Agent,Task"]
-        if c.get("agent_mode") == "outside":
+        if c.get("agent_mode") == "outside" or c["auth"] == "subscription":
+            # With a subscription credential the agent gets no host tools;
+            # its commands run only through the Lamp exec bridge.
             argv += ["--tools", ""]
         if c.get("model"):
             argv += ["--model", c["model"]]
@@ -129,7 +137,7 @@ class Codex:
 
     def argv(self, c, state, prompt):
         argv = [c["binary"]] + ([] if c.get("native_subagents") else ["--disable", "multi_agent"]) + ["-c", 'approval_policy="never"', "-c", 'web_search="disabled"']
-        if c.get("agent_mode") == "outside":
+        if c.get("agent_mode") == "outside" or c["auth"] == "subscription":
             argv += ["--disable", "shell_tool", "--disable", "unified_exec"]
         if mcp := c.get("mcp"):
             argv += ["-c", "mcp_servers.lamp={command=" + json.dumps(mcp["command"]) + ",args=" + json.dumps(mcp["args"]) + ',enabled_tools=["exec","spawn","git_return"],default_tools_approval_mode="approve",tool_timeout_sec=180}']
@@ -340,7 +348,7 @@ class Copilot:
             # Official BYOK provider route; GitHub entitlement is not used.
             env.update({"COPILOT_PROVIDER_BASE_URL": c["endpoint"], "COPILOT_PROVIDER_TYPE": "openai", "COPILOT_PROVIDER_API_KEY": secret(c), "COPILOT_MODEL": c["model"], "COPILOT_OFFLINE": "true"})
         elif c["auth"] == "subscription":
-            env["COPILOT_GITHUB_TOKEN"] = secret(c)
+            refuse_vendor_credential("copilot_cli", "as a GitHub token in its environment or its own login file")
 
     def argv(self, c, state, prompt):
         argv = [c["binary"], "-p", prompt, "--output-format", "json", "--allow-all-tools", "--no-auto-update", "--no-ask-user", "--disable-builtin-mcps"] + ([] if c.get("native_subagents") else ["--deny-tool", "task"])
@@ -408,7 +416,7 @@ class Cursor(StreamJSON):
     def prepare(self, c, home, env):
         env["CURSOR_CONFIG_DIR"] = str(home / "config")
         if c["auth"] == "api_key":
-            env["CURSOR_API_KEY"] = secret(c)
+            refuse_vendor_credential("cursor_cli", "through CURSOR_API_KEY or --api-key")
 
     def argv(self, c, state, prompt):
         argv = [c["binary"], "--print", "--output-format", "stream-json", "--trust", "--force"]
@@ -423,7 +431,7 @@ class Gemini(StreamJSON):
     def prepare(self, c, home, env):
         env["GEMINI_CLI_HOME"] = str(home / "config")
         if c["auth"] == "api_key":
-            env["GEMINI_API_KEY"] = secret(c)
+            refuse_vendor_credential("gemini_cli", "through GEMINI_API_KEY or its own login file")
         write_private(home / "config/.gemini/settings.json", {"security": {"auth": {"selectedType": "gemini-api-key" if c["auth"] == "api_key" else "oauth-personal"}}, "general": {"disableAutoUpdate": True}, "privacy": {"usageStatisticsEnabled": False}, "experimental": {"enableAgents": False}})
 
     def argv(self, c, state, prompt):
@@ -440,8 +448,8 @@ class Droid(StreamJSON):
         if c.get("endpoint"):
             # Factory's documented BYOK custom model, pointed at Lamp's broker.
             write_private(home / ".factory/settings.json", {"customModels": [{"model": c["model"], "displayName": "Lamp", "baseUrl": c["endpoint"], "apiKey": secret(c), "provider": "generic-chat-completion-api", "maxOutputTokens": 4096}], "enableTelemetry": False})
-        elif c["auth"] == "api_key":
-            env["FACTORY_API_KEY"] = secret(c)
+        elif c["auth"] in ("api_key", "subscription"):
+            refuse_vendor_credential("droid", "through FACTORY_API_KEY or its own login file")
 
     def argv(self, c, state, prompt):
         argv = [c["binary"], "exec", "-o", "stream-json", "--auto", "high", "--disable-builtin-skills"] + ([] if c.get("native_subagents") else ["--remove-tools", "Task,SpawnAgent"])
@@ -472,15 +480,11 @@ class Devin:
     def prepare(self, c, home, env):
         env["DEVIN_DISABLE_AUTOUPDATE"] = "1"
         if c["auth"] == "api_key":
-            env["WINDSURF_API_KEY"] = secret(c)
+            refuse_vendor_credential("devin", "through WINDSURF_API_KEY")
         elif c["auth"] == "subscription":
             # Devin reads its device login only from $XDG_DATA_HOME/devin/
-            # credentials.toml, so it is used in place, never copied. The
-            # session store goes to this session's own home.
-            login = Path(c["credential_file"]).resolve()
-            if login.name != "credentials.toml" or login.parent.name != "devin":
-                raise ValueError("Devin subscription credential must be the login's devin/credentials.toml")
-            env["XDG_DATA_HOME"] = str(login.parent.parent)
+            # credentials.toml, a file its own read and exec tools can reach.
+            refuse_vendor_credential("devin", "from its own login file")
         env["DEVIN_SESSIONS_DIR"] = str(home / "devin-sessions")
 
     def argv(self, c, state, prompt):
@@ -512,7 +516,7 @@ class Amp:
     def prepare(self, c, home, env):
         env.update({"XDG_CONFIG_HOME": str(home / "config"), "XDG_DATA_HOME": str(home / "data"), "AMP_SKIP_UPDATE_CHECK": "1"})
         if c["auth"] in ("api_key", "subscription"):
-            env["AMP_API_KEY"] = secret(c)
+            refuse_vendor_credential("amp", "through AMP_API_KEY or its own login file")
 
     def argv(self, c, state, prompt):
         argv = [c["binary"]]
@@ -579,10 +583,19 @@ def main():
             for key, value in values.items():
                 part = part.replace(key, value)
             argv.append(part)
-        config["mcp"] = {"command": argv[0], "args": argv[1:]}
+        # The MCP bridge and everything it starts never see model credentials.
+        strip = [part for name in SECRET_NAMES for part in ("-u", name)]
+        config["mcp"] = {"command": "/usr/bin/env", "args": strip + argv}
         path = home / "lamp-mcp.json"
         path.write_text(json.dumps({"mcpServers": {"lamp": config["mcp"]}}))
         config["mcp_config"] = str(path)
+    subscription = config["auth"] == "subscription"
+    if subscription and config.get("location_kind") == "sandbox":
+        # Inside a sandbox the agent's exec shares this runner's identity, so a
+        # subscription credential there must use the guest custody route.
+        raise ValueError("subscription credentials run inside a sandbox only through guest custody")
+    for name in SECRET_NAMES:
+        environment.pop(name, None)
     # Private native event trace for adapter diagnosis; stays in the session home.
     trace = (home / "native-events.jsonl").open("a") if config.get("trace") else None
     for line in sys.stdin:
@@ -594,7 +607,19 @@ def main():
         if hasattr(adapter, "before"):
             adapter.before(config, state, environment)
         argv, stdin = adapter.argv(config, state, request["text"])
-        process = subprocess.Popen(argv, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=environment, text=True)
+        passed = ()
+        child = dict(environment)
+        if subscription and config["kind"] == "claude":
+            # Hand the plan token over a one-shot pipe: it never enters any
+            # process environment, and the drained pipe holds nothing later.
+            reader, writer = os.pipe()
+            os.write(writer, Path(config["credential_file"]).read_bytes().strip())
+            os.close(writer)
+            child["CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR"] = str(reader)
+            passed = (reader,)
+        process = subprocess.Popen(argv, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=child, text=True, pass_fds=passed)
+        for descriptor in passed:
+            os.close(descriptor)
         if stdin is not None:
             process.stdin.write(stdin)
             process.stdin.close()

@@ -9,6 +9,7 @@ with a transcript.
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import select
@@ -22,6 +23,7 @@ from broker_demo import request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "internal/control"))
 from session_artifact import artifact_path, artifact_restore, artifact_snapshot  # noqa: E402
+from native_harness import SECRET_NAMES  # noqa: E402
 
 WRAPPER = Path(__file__).resolve().parents[1] / "internal/control/native_harness.py"
 # kind -> broker connection whose native wire protocol it speaks.
@@ -74,6 +76,7 @@ def main():
     parser.add_argument("--auth", action="append", default=[], help="kind=api_key|subscription:/credential/file (default: broker API route)")
     parser.add_argument("--move", action="store_true", help="move the native session to a new location between turns")
     parser.add_argument("--model", action="append", default=[], help="kind=model for non-broker routes")
+    parser.add_argument("--probe-env", action="store_true", help="one turn in which the agent's own shell prints its environment; checks that no provider key reached it")
     parser.add_argument("--subagents", action="store_true", help="enroll native_subagents and run one turn that delegates to the harness's own sub-agent")
     args = parser.parse_args()
     os.umask(0o077)
@@ -127,6 +130,17 @@ def main():
                 environment = {"HOME": str(where / "home"), "PATH": os.environ["PATH"], "TERM": "xterm-256color", "LANG": "en_US.UTF-8"}
                 return subprocess.Popen([sys.executable, "-u", str(WRAPPER), str(directory / "native.json")], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=environment, cwd=where / "work")
             process = start(directory)
+            if args.probe_env:
+                done, out = turn(process, "t25.env", "Use your shell tool to run exactly this command and show its full output verbatim: env", 300)
+                process.stdin.close()
+                process.wait(timeout=30)
+                provider = subprocess.run([sys.executable, "-c", reader], capture_output=True, text=True).stdout.strip()
+                names = sorted({line.split("=", 1)[0] for line in out.splitlines() if re.fullmatch(r"[A-Z_][A-Z0-9_]*=.*", line)})
+                record = {"kind": kind, "route": route, "turn_success": bool(done and done["success"]), "agent_env_names": names, "agent_env_count": len(names), "provider_key_in_agent_output": bool(provider) and provider in out, "secret_names_present": sorted(set(names) & set(SECRET_NAMES)), "grant_redacted_in_output": "[REDACTED]" in out}
+                evidence.append(record)
+                (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+                print(json.dumps({k: record[k] for k in ("kind", "turn_success", "agent_env_count", "provider_key_in_agent_output", "secret_names_present", "grant_redacted_in_output")}), flush=True)
+                continue
             if args.subagents:
                 SEEN.clear()
                 done, out = turn(process, "t25.sub", "Use your built-in sub-agent (task) tool exactly once: delegate to a sub-agent the job of replying with the single word LAMP_SUBAGENT_DONE. Then reply with what the sub-agent said.", 420)

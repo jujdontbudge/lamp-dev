@@ -100,13 +100,10 @@
     "id": "cursor_cli",
     "kind": "cursor",
     "name": "Cursor CLI (cursor-agent)",
-    "auth_modes": [
-      "api_key",
-      "subscription"
-    ],
+    "auth_modes": [],
     "routes": {
-      "api_key": "Official CURSOR_API_KEY (user or service account) held on the custody host; traffic goes to Cursor's own backend.",
-      "subscription": "Documented native 'agent login' into an isolated CURSOR_CONFIG_DIR on the custody host."
+      "api_key": "Not offered by Lamp (credential custody). Vendor route: Official CURSOR_API_KEY (user or service account) held on the custody host; traffic goes to Cursor's own backend.",
+      "subscription": "Not offered by Lamp (credential custody). Vendor route: Documented native 'agent login' into an isolated CURSOR_CONFIG_DIR on the custody host."
     },
     "permission_sources": [
       "https://cursor.com/docs/cli/reference/configuration",
@@ -127,7 +124,8 @@
     "limitations": [
       "Cursor has no bring-your-own-endpoint route; model traffic always goes to Cursor, so the Lamp broker cannot hold the credential.",
       "Needs a Cursor account; not yet signed in for Lamp tests.",
-      "On macOS the CLI tries to save the API-key login to the system keychain; Lamp runs it where no keychain is available (Linux hosts and sandboxes)."
+      "On macOS the CLI tries to save the API-key login to the system keychain; Lamp runs it where no keychain is available (Linux hosts and sandboxes).",
+      "Lamp does not offer a route that would hand a real vendor credential to the agent: Cursor takes its key only through CURSOR_API_KEY or --api-key, and its login only as a file in its own config directory. All of these are reachable by its own shell tools, and Cursor has no bring-your-own-endpoint route that could take a broker grant."
     ]
   },
   {
@@ -135,12 +133,11 @@
     "kind": "copilot",
     "name": "GitHub Copilot CLI",
     "auth_modes": [
-      "api_key",
-      "subscription"
+      "api_key"
     ],
     "routes": {
       "api_key": "Official BYOK (COPILOT_PROVIDER_BASE_URL, type openai) pointed at the broker; COPILOT_OFFLINE so no GitHub entitlement is used.",
-      "subscription": "Official device login or fine-grained token with the Copilot Requests permission (COPILOT_GITHUB_TOKEN); separate from any Actions token."
+      "subscription": "Not offered by Lamp (credential custody). Vendor route: Official device login or fine-grained token with the Copilot Requests permission (COPILOT_GITHUB_TOKEN); separate from any Actions token."
     },
     "permission_sources": [
       "https://docs.github.com/en/copilot/how-tos/copilot-cli",
@@ -160,18 +157,17 @@
       "linux-host"
     ],
     "limitations": [
-      "Copilot subscription device login needs the owner to enter a code on github.com; not yet done for Lamp tests."
+      "Copilot subscription device login needs the owner to enter a code on github.com; not yet done for Lamp tests.",
+      "Lamp does not offer a route that would hand a real vendor credential to the agent: Copilot's GitHub sign-in is a token in its environment (COPILOT_GITHUB_TOKEN) or its own login file, both reachable by its own tools. The BYOK route takes only an endpoint-scoped broker grant and stays offered."
     ]
   },
   {
     "id": "amp",
     "kind": "amp",
     "name": "Amp",
-    "auth_modes": [
-      "api_key"
-    ],
+    "auth_modes": [],
     "routes": {
-      "api_key": "Official AMP_API_KEY access token held on the custody host; execution is local (--execute), model traffic goes to ampcode.com."
+      "api_key": "Not offered by Lamp (credential custody). Vendor route: Official AMP_API_KEY access token held on the custody host; execution is local (--execute), model traffic goes to ampcode.com."
     },
     "permission_sources": [
       "https://ampcode.com/docs/cli/settings",
@@ -190,7 +186,8 @@
     ],
     "limitations": [
       "Remote orb execution (--orb-execute) runs on Amp's servers and is not relocated into a Lamp sandbox.",
-      "Needs an Amp account access token; not yet created for Lamp tests."
+      "Needs an Amp account access token; not yet created for Lamp tests.",
+      "Lamp does not offer a route that would hand a real vendor credential to the agent: Amp takes AMP_API_KEY from its environment or its own login file, both reachable by its own tools."
     ]
   },
   {
@@ -229,13 +226,10 @@
     "id": "gemini_cli",
     "kind": "gemini",
     "name": "Gemini CLI",
-    "auth_modes": [
-      "api_key",
-      "subscription"
-    ],
+    "auth_modes": [],
     "routes": {
-      "api_key": "Official GEMINI_API_KEY (AI Studio) or Vertex credentials held on the custody host; traffic goes to Google.",
-      "subscription": "Google sign-in only where the account's current eligibility allows it; checked per account, not assumed."
+      "api_key": "Not offered by Lamp (credential custody). Vendor route: Official GEMINI_API_KEY (AI Studio) or Vertex credentials held on the custody host; traffic goes to Google.",
+      "subscription": "Not offered by Lamp (credential custody). Vendor route: Google sign-in only where the account's current eligibility allows it; checked per account, not assumed."
     },
     "permission_sources": [
       "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
@@ -255,7 +249,8 @@
     ],
     "limitations": [
       "Lamp's broker does not speak the Gemini API wire format, so the key is held on the custody host rather than in the broker.",
-      "Google rejects automated browser sign-in; an API key must be created by the owner."
+      "Google rejects automated browser sign-in; an API key must be created by the owner.",
+      "Lamp does not offer a route that would hand a real vendor credential to the agent: Gemini CLI takes GEMINI_API_KEY from its environment or a Google login from its own home, both reachable by its own tools."
     ]
   },
   {
@@ -291,13 +286,10 @@
     "id": "devin",
     "kind": "devin",
     "name": "Devin CLI",
-    "auth_modes": [
-      "subscription",
-      "api_key"
-    ],
+    "auth_modes": [],
     "routes": {
-      "subscription": "Official 'devin auth login' (manual token flow) into the session's isolated home on the custody host; local execution.",
-      "api_key": "Official service API key where the account provides one."
+      "subscription": "Not offered by Lamp (credential custody). Vendor route: Official 'devin auth login' (manual token flow) into the session's isolated home on the custody host; local execution.",
+      "api_key": "Not offered by Lamp (credential custody). Vendor route: Official service API key where the account provides one."
     },
     "permission_sources": [
       "https://docs.devin.ai/cli/troubleshooting",
@@ -319,7 +311,8 @@
       "Cloud sessions (--cloud) run on Devin's machines; Lamp does not relocate them into a sandbox and does not present a cloud session as local.",
       "Headless output is plain text only.",
       "Use speed:standard; Devin's daily quota is shared.",
-      "Devin reads its device login only from $XDG_DATA_HOME/devin/credentials.toml and does not take the login's key from WINDSURF_API_KEY, so Lamp runs it with that login in place on its own host. DEVIN_SESSIONS_DIR keeps sessions in the Lamp session home. Print mode needs --respect-workspace-trust false."
+      "Devin reads its device login only from $XDG_DATA_HOME/devin/credentials.toml and does not take the login's key from WINDSURF_API_KEY, so Lamp runs it with that login in place on its own host. DEVIN_SESSIONS_DIR keeps sessions in the Lamp session home. Print mode needs --respect-workspace-trust false.",
+      "Lamp does not offer a route that would hand a real vendor credential to the agent: Devin reads its device login only from $XDG_DATA_HOME/devin/credentials.toml, and a service key only from WINDSURF_API_KEY. Its own read and exec tools reach both. Its exec sandbox and Deny(Read) rules might hide the login file, but that was not checked."
     ]
   },
   {
@@ -327,12 +320,11 @@
     "kind": "droid",
     "name": "Factory Droid",
     "auth_modes": [
-      "api_key",
-      "subscription"
+      "api_key"
     ],
     "routes": {
       "api_key": "Factory's documented BYOK custom model (generic-chat-completion-api) pointed at the broker; no Factory login is needed for this route.",
-      "subscription": "Official FACTORY_API_KEY or native login on the custody host for Factory-hosted models."
+      "subscription": "Not offered by Lamp (credential custody). Vendor route: Official FACTORY_API_KEY or native login on the custody host for Factory-hosted models."
     },
     "permission_sources": [
       "https://docs.factory.ai/cli/byok/overview",
@@ -351,7 +343,8 @@
       "linux-host"
     ],
     "limitations": [
-      "BYOK turns reach only the configured model endpoint (observed: no Factory host contacted from a vendor-only VM); Factory-hosted models need the owner's Factory key, not yet provided for Lamp tests."
+      "BYOK turns reach only the configured model endpoint (observed: no Factory host contacted from a vendor-only VM); Factory-hosted models need the owner's Factory key, not yet provided for Lamp tests.",
+      "Lamp does not offer a route that would hand a real vendor credential to the agent: Droid's Factory-hosted route takes FACTORY_API_KEY from its environment or its own login, both reachable by its own tools. The BYOK route takes only an endpoint-scoped broker grant and stays offered."
     ]
   }
 ]

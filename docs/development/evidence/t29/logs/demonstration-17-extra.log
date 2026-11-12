@@ -1,0 +1,50 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:216: enrolled plugins: [pg_forgejo]
+    t29_demo_test.go:632: linear delivery HTTP 202 replayed=false; redelivery HTTP 202 replayed=true same-operation=true; forged HTTP 401 map[code:UNAUTHENTICATED message:TRIGGER_UNAUTHORIZED: Linear signature mismatch retryable:false]; stale HTTP 401 map[code:UNAUTHENTICATED message:TRIGGER_UNAUTHORIZED: stale or missing Linear timestamp retryable:false]
+    t29_demo_test.go:177: job jb_1a8395dbf24ae9e04302cbb6a9787034 plugin=pg_linear external=tr_8bd3d3142419e0d8abaf10fe0c91ebf7/linear:lin-dlv-1 state=completed result=success trust=trigger runner= sandbox=sb_465bf9a40cda3de0372e99bd5d738253(deleted) outputs=[agent-output.log(complete,247 bytes)]
+    t29_demo_test.go:693: work output:
+        source=linear job=jb_1a8395dbf24ae9e04302cbb6a9787034
+        {"action":"create","type":"Issue","organizationId":"org-t29","webhookId":"wh-t29","webhookTimestamp":1794429633786,"data":{"title":"Summarize README"}}
+        fresh-sandbox
+        agent-done
+        
+        --- stderr ---
+    t29_demo_test.go:644: linear jobs created from 4 deliveries (1 redelivery, 1 forged, 1 stale): 1
+    t29_demo_test.go:662: cancel: work jb_76690e2a7666f5404123675ef2fbc01c running in sb_619e529450cd95f5adf425b565d5046d; cancelling through Lamp
+    t29_demo_test.go:177: job jb_76690e2a7666f5404123675ef2fbc01c plugin=pg_webhook external=tr_abea2644476dfd7ebf9f1a547b866fe2/webhook:dlv-cancel state=canceled result=cancelled trust=trigger runner= sandbox=sb_619e529450cd95f5adf425b565d5046d(deleted) outputs=[]
+    t29_demo_test.go:676: cancel: sandbox sb_619e529450cd95f5adf425b565d5046d deleted; guard audit released=false; execs still running in it=0; firecracker on host=0
+2026-11-11T15:40:41.839-0500 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-11T15:40:41.839-0500 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:37465 [Follower]" leader-address= leader-id=
+2026-11-11T15:40:41.850-0500 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-11T15:40:41.850-0500 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:32829 [Follower]" leader-address= leader-id=
+2026-11-11T15:40:46.059-0500 [WARN]  raft: heartbeat timeout reached, starting election: last-leader-addr= last-leader-id=
+2026-11-11T15:40:46.060-0500 [INFO]  raft: entering candidate state: node="Node at 127.0.0.1:37465 [Candidate]" term=2
+2026-11-11T15:40:46.060-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_t29a
+2026-11-11T15:40:46.060-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_t29b address=127.0.0.1:32829
+2026-11-11T15:40:46.060-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
+2026-11-11T15:40:46.060-0500 [DEBUG] raft: pre-vote received: from=hs_t29a term=2 tally=0
+2026-11-11T15:40:46.060-0500 [DEBUG] raft: pre-vote granted: from=hs_t29a term=2 tally=1
+2026-11-11T15:40:46.067-0500 [DEBUG] raft: received a requestPreVote with a newer term, grant the pre-vote
+2026-11-11T15:40:46.067-0500 [DEBUG] raft: pre-vote received: from=hs_t29b term=2 tally=1
+2026-11-11T15:40:46.067-0500 [DEBUG] raft: pre-vote granted: from=hs_t29b term=2 tally=2
+2026-11-11T15:40:46.067-0500 [INFO]  raft: pre-vote successful, starting election: term=2 tally=2 refused=0 votesNeeded=2
+2026-11-11T15:40:46.068-0500 [DEBUG] raft: voting for self: term=2 id=hs_t29a
+2026-11-11T15:40:46.068-0500 [DEBUG] raft: asking for vote: term=2 from=hs_t29b address=127.0.0.1:32829
+2026-11-11T15:40:46.068-0500 [DEBUG] raft: vote granted: from=hs_t29a term=2 tally=1
+2026-11-11T15:40:46.068-0500 [DEBUG] raft: lost leadership because received a requestVote with a newer term
+2026-11-11T15:40:46.069-0500 [DEBUG] raft: vote granted: from=hs_t29b term=2 tally=2
+2026-11-11T15:40:46.069-0500 [INFO]  raft: election won: term=2 tally=2
+2026-11-11T15:40:46.069-0500 [INFO]  raft: entering leader state: leader="Node at 127.0.0.1:37465 [Leader]"
+2026-11-11T15:40:46.069-0500 [INFO]  raft: added peer, starting replication: peer=hs_t29b
+2026-11-11T15:40:46.069-0500 [WARN]  raft: failed to get previous log: previous-index=1 last-index=0 error="log not found"
+2026-11-11T15:40:46.069-0500 [WARN]  raft: appendEntries rejected, sending older logs: peer="{Voter hs_t29b 127.0.0.1:32829}" next=1
+2026-11-11T15:40:46.070-0500 [INFO]  raft: pipelining replication: peer="{Voter hs_t29b 127.0.0.1:32829}"
+    t29_demo_test.go:753: fleet: hosts [hs_t29a hs_t29b], leader hs_t29a
+    t29_demo_test.go:758: recipe_create: authority changed
+2026-11-11T15:40:46.853-0500 [INFO]  raft: aborting pipeline replication: peer="{Voter hs_t29b 127.0.0.1:32829}"
+--- FAIL: TestT29Demonstration (13.09s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	13.715s
+FAIL
+demonstration_exit 1
+firecracker_remaining 0

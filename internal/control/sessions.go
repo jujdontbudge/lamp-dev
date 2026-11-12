@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -140,6 +141,16 @@ func (s *Service) initSessions(config SessionConfig) error {
 		}
 		if h.Native != nil && (catalogueByKind(h.Native.Kind) == nil || !strings.HasPrefix(h.Native.Binary, "/")) {
 			return fmt.Errorf("native session harness requires a catalogue harness kind and an enrolled absolute official binary")
+		}
+		if h.Native != nil {
+			// Only routes the catalogue offers: never one that would hand a
+			// real vendor credential to the agent.
+			entry := catalogueByKind(h.Native.Kind)
+			for _, mode := range h.AuthModes {
+				if mode != "none" && !slices.Contains(entry.AuthModes, mode) {
+					return fmt.Errorf("native harness %s does not offer the %s credential route", entry.ID, mode)
+				}
+			}
 		}
 		for name := range h.Env {
 			switch name {
@@ -756,6 +767,7 @@ func (s *Service) driveSession(id string) {
 			config["auth"] = textField(m, "auth_mode")
 			config["agent_mode"] = textField(m, "agent_mode")
 			config["session_id"], config["sandbox_id"] = id, textField(m, "sandbox_id")
+			config["location_kind"] = textField(location, "kind")
 			if profile, exists := harness.Native.Profiles[textField(location, "kind")+":"+textField(location, "host_id")]; exists {
 				for key, value := range object(profile) {
 					config[key] = value

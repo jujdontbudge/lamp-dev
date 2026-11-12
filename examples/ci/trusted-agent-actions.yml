@@ -1,0 +1,28 @@
+# Private, trusted disposable fixture ONLY. Not a public-PR workflow.
+# Auth must be approved and existing model keys provider-capped at $25/month.
+# These native routes have not been demonstrated against hosted GitHub.
+name: Trusted coding-agent actions on Lamp
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  claude:
+    runs-on: [self-hosted, lamp, 'lamp-${{ github.run_id }}-${{ github.run_attempt }}-claude']
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: anthropics/claude-code-action@97e0a7f336e732b8c9400f7c7d71d41725923201 # v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: Describe the public fixture project. Do not create a pull request.
+  codex:
+    runs-on: [self-hosted, lamp, 'lamp-${{ github.run_id }}-${{ github.run_attempt }}-codex']
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: openai/codex-action@1d82a3dba7c7988ec71ecae1ed5b8e8db96495c5 # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: Describe the public fixture project. Do not create a pull request.

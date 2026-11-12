@@ -1,0 +1,36 @@
+[
+  {
+    "kind": "opencode",
+    "route": "official API route via Lamp broker (chat)",
+    "turn_success": true,
+    "agent_env_names": [
+      "AGENT",
+      "HOME",
+      "LAMP_MODEL_TOKEN",
+      "LANG",
+      "LOGNAME",
+      "OLDPWD",
+      "OPENCODE",
+      "OPENCODE_CONFIG_CONTENT",
+      "OPENCODE_DISABLE_AUTOUPDATE",
+      "OPENCODE_DISABLE_LSP_DOWNLOAD",
+      "OPENCODE_DISABLE_SHARE",
+      "OPENCODE_PID",
+      "PATH",
+      "PWD",
+      "SHLVL",
+      "TERM",
+      "XDG_CACHE_HOME",
+      "XDG_CONFIG_HOME",
+      "XDG_DATA_HOME",
+      "XDG_STATE_HOME",
+      "_"
+    ],
+    "agent_env_count": 21,
+    "provider_key_in_agent_output": false,
+    "secret_names_present": [
+      "LAMP_MODEL_TOKEN"
+    ],
+    "grant_redacted_in_output": true
+  }
+]

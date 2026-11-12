@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JohanSardar/lamp/internal/ci"
 	"github.com/JohanSardar/lamp/pkg/api"
 	"golang.org/x/sys/unix"
 )
@@ -52,15 +53,19 @@ type journal struct {
 	Templates     map[string]cleanExport   `json:"templates,omitempty"`
 }
 type Config struct {
-	Fleet            *FleetConfig
-	StateDir         string
-	Worker           WorkerConfig
-	Identity         *IdentityConfig
-	ProtectedActions map[string]ProtectedAction
-	NativeFallback   *NativeFallbackConfig
-	ExportsDir       string
-	SharedReaders    map[uint32]string
-	Sessions         SessionConfig
+	// Trusted upper bound for one namespace's retained network/process audit
+	// spools. Match the enrolled supervisor policy; zero keeps the 24 MiB default.
+	AuditReservationBytes uint64
+	CI                    *ci.Config
+	Fleet                 *FleetConfig
+	StateDir              string
+	Worker                WorkerConfig
+	Identity              *IdentityConfig
+	ProtectedActions      map[string]ProtectedAction
+	NativeFallback        *NativeFallbackConfig
+	ExportsDir            string
+	SharedReaders         map[uint32]string
+	Sessions              SessionConfig
 	// StateAdmin is the trusted argv prefix of the supervisor's root-only
 	// state administration (for example `sudo -n lamp-supervisor state
 	// --admin-socket P`); Lamp appends `delete <capture>` to discard saved
@@ -68,6 +73,11 @@ type Config struct {
 	StateAdmin  []string
 	Quotas      Quotas
 	AuditReader string
+	// AuditRelease is the trusted argv prefix that, given `capture <sandbox>`,
+	// prints a deleted sandbox's guard spool records and, given `remove
+	// <sandbox>`, deletes those spools. Empty keeps every spool and its slot.
+	AuditRelease []string
+	KitsSocket   string
 	// RecoveryPublicKey is the owner's offline data-recovery public key file;
 	// every new backup is also wrapped to it.
 	RecoveryPublicKey string
@@ -80,40 +90,48 @@ type Config struct {
 	InstallDir string
 }
 type Service struct {
-	clockWall      time.Time
-	clockTicks     int64
-	quotas         Quotas
-	auditReader    string
-	fleet          *Fleet
-	sessions       SessionConfig
-	fleetEnabled   bool
-	mu             sync.Mutex
-	committing     bool
-	pending        []*pendingCommit
-	durableOps     map[string]*record
-	commitChanged  chan struct{}
-	identity       IdentityConfig
-	recoveryPublic *ecdh.PublicKey
-	installDir     string
-	wantFleet      bool
-	protected      map[string]ProtectedAction
-	native         *NativeFallbackConfig
-	eventRevisions map[string]uint64
-	journal        journal
-	dir            string
-	exportsDir     string
-	readers        map[uint32]string
-	lock           *os.File
-	worker         workerClient
-	rootContext    context.Context
-	done           map[string]chan struct{}
-	busy           map[string]bool
-	starting       map[string]int
-	wg             sync.WaitGroup
-	cancel         func()
-	broken         bool
-	keys           map[string]string
-	logRecords     int
+	forges                map[string]ci.Forge
+	ciConfig              *ci.Config
+	kitsSocket            string
+	kitsMu                sync.Mutex
+	clockWall             time.Time
+	clockTicks            int64
+	quotas                Quotas
+	auditReader           string
+	fleet                 *Fleet
+	fleetEnabled          bool
+	mu                    sync.Mutex
+	committing            bool
+	pending               []*pendingCommit
+	durableOps            map[string]*record
+	commitChanged         chan struct{}
+	identity              IdentityConfig
+	recoveryPublic        *ecdh.PublicKey
+	installDir            string
+	wantFleet             bool
+	protected             map[string]ProtectedAction
+	native                *NativeFallbackConfig
+	eventRevisions        map[string]uint64
+	journal               journal
+	dir                   string
+	exportsDir            string
+	readers               map[uint32]string
+	lock                  *os.File
+	worker                workerClient
+	rootContext           context.Context
+	done                  map[string]chan struct{}
+	busy                  map[string]bool
+	starting              map[string]int
+	wg                    sync.WaitGroup
+	cancel                func()
+	broken                bool
+	keys                  map[string]string
+	logRecords            int
+	auditReservationBytes uint64
+	auditRelease          []string
+	auditReleased         map[string]bool
+	github                *ci.GitHub
+	sessions              SessionConfig
 	// changed is closed (and replaced) whenever a journal change becomes
 	// durable, waking long-polling readers instead of having them spin.
 	changed chan struct{}
@@ -223,7 +241,11 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, fmt.Errorf("state directory is already in use: %w", err)
 	}
-	s := &Service{fleetEnabled: config.Fleet != nil, quotas: defaultQuotas(config.Quotas), auditReader: config.AuditReader, dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
+	reservation := config.AuditReservationBytes
+	if reservation == 0 {
+		reservation = 24 << 20
+	}
+	s := &Service{auditReservationBytes: reservation, fleetEnabled: config.Fleet != nil, quotas: defaultQuotas(config.Quotas), auditReader: config.AuditReader, auditRelease: config.AuditRelease, dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
 	s.journal = journal{Version: 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
 	path := filepath.Join(s.dir, "journal.json")
 	data, err := os.ReadFile(path)
@@ -347,6 +369,8 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	s.kitsSocket = config.KitsSocket
+	s.initKits()
 	if err := s.initNative(config); err != nil {
 		lock.Close()
 		return nil, err
@@ -428,6 +452,10 @@ func Open(config Config) (*Service, error) {
 	}
 	s.durableOps = cloneOperations(s.journal.Operations)
 	s.rootContext, s.cancel = context.WithCancel(context.Background())
+	if err := s.loadReleasedGuardAudit(); err != nil {
+		lock.Close()
+		return nil, err
+	}
 	if config.RecoveryPublicKey != "" {
 		if s.recoveryPublic, err = readRecoveryPublic(config.RecoveryPublicKey); err != nil {
 			lock.Close()
@@ -437,6 +465,10 @@ func Open(config Config) (*Service, error) {
 	if err := s.initLifecycle(config.StateAdmin); err != nil {
 		s.cancel()
 		lock.Close()
+		return nil, err
+	}
+	if err := s.initCI(config.CI); err != nil {
+		s.Close()
 		return nil, err
 	}
 	s.installDir = config.InstallDir
@@ -458,6 +490,23 @@ func Open(config Config) (*Service, error) {
 			s.wg.Add(1)
 			go s.reconcileSandbox(rec.Resource.Id, rec.Operation.Id)
 		}
+	}
+	if len(s.auditRelease) > 0 {
+		s.wg.Add(1)
+		go s.sweepGuardAudit()
+	}
+	s.wg.Add(2)
+	go s.workRecovery()
+	go s.scheduler()
+	if len(s.forges) > 0 {
+		var pending []string
+		for id, j := range s.life.Jobs {
+			if !ciTerminal(textField(j.R, "state")) && !workJob(j) {
+				pending = append(pending, id)
+			}
+		}
+		s.wg.Add(1)
+		go s.ciController(pending)
 	}
 	return s, nil
 }

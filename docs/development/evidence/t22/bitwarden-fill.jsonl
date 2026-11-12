@@ -1,0 +1,9 @@
+{"step": "allocation admission", "value": {"available_mib": 25447, "live_firecracker": 1}}
+{"step": "real agent suspended to release live slot", "value": {"admission": {"available_mib": 25270, "live_firecracker": 1}, "sandbox_id": "sb_47963ec1441ec6a554ee05c081c17968"}}
+{"step": "canonical external browser", "value": {"browser_id": "browser_897786562acfe570160ef40b3da8ace0", "separate_real_vm": true}}
+{"step": "broad same-owner agent key denied underlying VM read exec capture", "value": {"denied": true}}
+{"step": "owner reviews one-use per-vault item origin submit plan", "value": {"browser_id": "browser_897786562acfe570160ef40b3da8ace0", "generation": 1, "item_id": "69869125-3020-4977-8c34-32cd1a3196a8", "origin": "https://the-internet.herokuapp.com", "submit": true, "vault_id": "disposable-vaultwarden"}}
+{"step": "Vaultwarden native read approval real form fill", "value": {"real_login_completed": true, "server": "Vaultwarden"}}
+{"step": "password field refuses ordinary agent typing", "value": {"private_typing_required": true}}
+{"step": "browser released", "value": {"deleted": true}}
+{"step": "agent released", "value": {"deleted": true}}

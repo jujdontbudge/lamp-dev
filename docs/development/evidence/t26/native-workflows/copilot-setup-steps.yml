@@ -1,0 +1,11 @@
+name: Copilot setup on one-job Lamp VM
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  copilot-setup-steps:
+    runs-on: [self-hosted, lamp-native, 'lamp-native-${{ github.run_id }}-${{ github.run_attempt }}-copilot']
+    timeout-minutes: 15
+    steps:
+      - name: Public fixture tools
+        run: git --version && python3 --version

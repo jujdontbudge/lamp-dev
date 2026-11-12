@@ -238,6 +238,18 @@ the flag the feature is off and Lamp's spawn is used, as before. Raw:
 Codex's `multi_agent` route is built (section 2's reporting code) but was not
 run here.
 
+## 9. Credential custody after merging T21's review fix
+
+T21's fix (d225807) keeps every credential out of process environments the agent can reach. After the merge it applies to every harness:
+
+- `SECRET_NAMES` now also covers each harness's credential variable (`COPILOT_PROVIDER_API_KEY`, `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, `CURSOR_API_KEY`, `AMP_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `FACTORY_API_KEY`, `WINDSURF_API_KEY`, `DEVIN_API_KEY`). All are stripped from the inherited environment and from the MCP bridge (`/usr/bin/env -u …`).
+- Only endpoint-scoped broker grants are set in a harness environment, re-read each turn. This applies to claude_code, codex, opencode, pi, goose, copilot_cli BYOK and droid BYOK (droid's grant goes in its settings file).
+- Claude's plan token arrives only through `CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR` (a one-shot pipe). With a subscription credential, Claude runs with `--tools ""` and Codex with its shell tools turned off. A subscription credential inside a sandbox is refused unless it goes through guest custody.
+- Routes that can hand the agent only a real vendor credential, through its environment, a command-line flag or a login file its own tools can read, are no longer offered. These are cursor_cli, gemini_cli, amp, devin (both routes), copilot_cli subscription and droid's Factory-hosted route. The wrapper refuses them, and `lampd` refuses to enrol a harness with a route its catalogue entry does not list. The catalogue records the reason for each.
+- The Cursor (section 6) and Devin (section 7) runs above happened before this rule. They are kept as historical observations of routes Lamp no longer offers.
+
+Shown once on the M5 (raw: `evidence/t25-env-probe.json`). opencode on the broker route ran `env` with its own shell tool. It saw 21 variables. The only secret-named one was `LAMP_MODEL_TOKEN`, the endpoint-scoped grant, which is redacted in its output. The OpenRouter provider key was not in its environment. A cursor_cli enrolment with its real API key stopped in the wrapper with `cursor_cli accepts its vendor credential only through CURSOR_API_KEY or --api-key, which its own tools can reach; Lamp does not offer this route`, before any Cursor process started.
+
 ## Routes not exercised, and why
 
 The owner dropped these signed-in runs on 2026-11-11. Their adapters and
@@ -257,8 +269,8 @@ were not rerun here.
 
 | Ticket clause | Evidence |
 | --- | --- |
-| Ship the 11 §9.2 integrations | All 11 have a catalogue entry and an adapter, and `GET /v1/harnesses` lists all 11 (section 2). Nine ran on a real route: claude_code, codex, opencode, pi, goose, droid and copilot_cli through the broker (sections 1–3), cursor_cli on its API key (section 6) and devin on the owner's device login (section 7). amp and gemini_cli are built but were not run because the owner dropped them. |
-| Each uses its official permitted sign-in or API route | Each catalogue entry cites dated vendor permission sources. The runs used only documented routes: vendor BYOK or provider settings, Cursor's `CURSOR_API_KEY`, and Devin's own device login used in place. |
+| Ship the 11 §9.2 integrations | All 11 have a catalogue entry and an adapter, and `GET /v1/harnesses` lists all 11. Seven run on an offered route through the broker: claude_code, codex, opencode, pi, goose, droid and copilot_cli (sections 1–3). claude_code and codex subscriptions stay on T21's custody path. cursor_cli and devin ran earlier on routes since withdrawn (sections 6, 7, 9). amp and gemini_cli were dropped by the owner and are not offered either (section 9). |
+| Each uses its official permitted sign-in or API route | Each catalogue entry cites dated vendor permission sources. Lamp offers only official routes it can keep in custody (section 9), and states which vendor routes it does not offer and why. |
 | Sessions and native sub-agents visible separately | Native sub-agents stay on when enrolled. Each is reported as an observed child session with a stable native ID, its own output, and charging to the parent's grant. Shown through `lampd` for claude_code (section 2) and opencode (section 8), and through the wrapper for copilot_cli and goose (section 8). droid reports its sub-agent calls as children but cannot start them without a Factory sign-in, a stated gap. codex's route is built but not shown. |
 | Continuing work moves between host and sandbox through each harness's mechanism | Nine harnesses continued their native session after a move with the original deleted (sections 1, 6, 7). Seven continued across a `lampd` teleport between hosts (section 2). opencode and droid went host → Firecracker VM → host (section 3). The VM path was shown for those two only. |
 | Vendor limits described honestly; a new prompt with a transcript is not continuation | Each run resumed the harness's own native session ID. Pi's relocation is reported as `forked_from` and is not presented as the same session. Amp threads and Devin cloud sessions are stated as not moved. Model misses and failed attempts are kept. |

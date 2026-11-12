@@ -20,7 +20,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JohanSardar/lamp/internal/ci"
 	"github.com/JohanSardar/lamp/internal/control"
+	kitruntime "github.com/JohanSardar/lamp/kits"
 )
 
 func main() {
@@ -31,12 +33,16 @@ func main() {
 }
 func run() error {
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
+	auditReservation := flags.Uint64("audit-reservation-bytes", 24<<20, "trusted per-sandbox retained audit reservation, matching the supervisor policy")
+	ciFile := flags.String("ci-config", "", "private host-enrolled GitHub CI policy JSON")
 	auditReader := flags.String("audit-reader", "", "trusted absolute executable reading guard audit for sandbox ID and generation")
 	quotaFile := flags.String("quota-file", "", "host admission quota JSON")
 	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
 	sessionsFile := flags.String("sessions-config", "", "owner-enrolled harnesses and native session runner locations")
 	nativeFile := flags.String("native-fallback-file", "", "trusted local native runtime and immutable job credential bindings")
+	kitsConfig := flags.String("kits-config", "", "private kits/vault configuration; start the bundled headless backend")
+	kitsSocket := flags.String("kits-socket", "", "enrolled owner-only kits Unix socket (instead of a managed backend)")
 	recoveryPublic := flags.String("recovery-public-key", "", "owner's offline data-recovery public key; every backup is also wrapped to it")
 	recoveryKey := flags.String("recovery-key-file", "", "replacement host only: owner's recovery key file, read once to import sealed archives")
 	recoveryImport := flags.String("recovery-import-dir", "", "directory of sealed .lbk archives to import with --recovery-key-file")
@@ -73,6 +79,7 @@ func run() error {
 	pid := flags.Int("worker-pid", 0, "assigned supervisor OS PID (required)")
 	grant := flags.String("grant-id", "", "supervisor-installed control grant ID")
 	timeout := flags.Duration("worker-timeout", 30*time.Second, "absolute operation deadline (max 1m)")
+	auditRelease := flags.String("audit-release", "", "JSON argv of the trusted guard-spool release command (given capture|remove and a sandbox ID)")
 	stateAdmin := flags.String("state-admin", "", "JSON argv of the supervisor's root-only state administration, used to discard saved state")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		return err
@@ -87,6 +94,12 @@ func run() error {
 	if *stateAdmin != "" {
 		if err := json.Unmarshal([]byte(*stateAdmin), &admin); err != nil || len(admin) == 0 {
 			return fmt.Errorf("--state-admin must be a JSON argv")
+		}
+	}
+	var release []string
+	if *auditRelease != "" {
+		if err := json.Unmarshal([]byte(*auditRelease), &release); err != nil || len(release) == 0 {
+			return fmt.Errorf("--audit-release must be a JSON argv")
 		}
 	}
 	if *profileDir != "" {
@@ -183,7 +196,32 @@ func run() error {
 			return e
 		}
 	}
-	service, err := control.Open(control.Config{Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
+	var ciConfig *ci.Config
+	if *ciFile != "" {
+		raw, e := os.ReadFile(*ciFile)
+		if e != nil {
+			return e
+		}
+		ciConfig = &ci.Config{}
+		if e = json.Unmarshal(raw, ciConfig); e != nil {
+			return e
+		}
+	}
+	if *kitsConfig != "" {
+		if *kitsSocket != "" {
+			return fmt.Errorf("choose --kits-config or --kits-socket")
+		}
+		if err := control.PrivateDir(*state); err != nil {
+			return err
+		}
+		backend, closeBackend, err := kitruntime.Start(context.Background(), *kitsConfig, filepath.Join(*state, "kits"))
+		if err != nil {
+			return err
+		}
+		defer closeBackend()
+		*kitsSocket = backend
+	}
+	service, err := control.Open(control.Config{KitsSocket: *kitsSocket, AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -51,6 +52,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return usage("unknown operation")
 	}
 	for _, arg := range args[2:] {
+		if name == "browser_action" && strings.SplitN(strings.TrimLeft(arg, "-"), "=", 2)[0] == "arguments-json" {
+			return usage("browser arguments require --input file or private --input -; not argv")
+		}
 		if arg == "--help" {
 			json.NewEncoder(stdout).Encode(map[string]any{"command": op.CLI, "input_schema": surface.InputSchema(op.InputSchema), "scope": op.Scope})
 			return 0
@@ -68,7 +72,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	apiURL := flags.String("api-url", os.Getenv("LAMP_API_URL"), "HTTP API origin or lamp+fleet:///absolute/discovery.json")
 	tokenFile := flags.String("token-file", "", "private bearer file (or LAMP_TOKEN)")
 	jsonFlag := flags.Bool("json", false, "machine-readable result")
-	inputFile := flags.String("input", "", "canonical JSON input file")
+	inputFile := flags.String("input", "", "canonical JSON input file; - reads private stdin")
+	privatePNG := flags.String("private-png", "", "new private screenshot file; image data is never printed")
 	follow := flags.Bool("follow", false, "NDJSON events until interrupted")
 	in := map[string]any{}
 	props := surface.Definition(op.InputSchema)["properties"].(map[string]any)
@@ -83,6 +88,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 			flagName += "-json"
 		}
 		flags.Func(flagName, "canonical "+field, func(raw string) error {
+			if name == "browser_action" && field == "arguments" {
+				return fmt.Errorf("browser arguments require --input file or private --input -; not argv")
+			}
 			if _, exists := in[field]; exists {
 				return fmt.Errorf("duplicate %s", field)
 			}
@@ -136,7 +144,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	asJSON = *jsonFlag
 	if *inputFile != "" {
-		data, e := os.ReadFile(*inputFile)
+		var data []byte
+		var e error
+		if *inputFile == "-" {
+			data, e = io.ReadAll(io.LimitReader(os.Stdin, (96<<10)+1))
+		} else {
+			data, e = os.ReadFile(*inputFile)
+		}
 		if e != nil {
 			return usage(e.Error())
 		}
@@ -230,6 +244,32 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if !json.Valid(data) {
 		cliError(stderr, "DATA_UNAVAILABLE", "invalid API JSON", asJSON)
 		return 6
+	}
+	if name == "browser_action" && fmt.Sprint(in["action"]) == "screenshot" && status < 400 {
+		var reply struct {
+			Result struct {
+				Observations struct {
+					PNG string `json:"png"`
+				} `json:"observations"`
+			} `json:"result"`
+		}
+		if *privatePNG == "" || json.Unmarshal(data, &reply) != nil || reply.Result.Observations.PNG == "" {
+			return usage("private screenshot requires --private-png and a current owner screenshot response")
+		}
+		image, err := base64.StdEncoding.DecodeString(reply.Result.Observations.PNG)
+		if err != nil {
+			return usage("invalid private screenshot")
+		}
+		file, err := os.OpenFile(*privatePNG, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err != nil {
+			return usage("cannot create new private screenshot file")
+		}
+		_, err = file.Write(image)
+		closeErr := file.Close()
+		if err != nil || closeErr != nil {
+			return usage("cannot save private screenshot")
+		}
+		data = []byte("{\"private_png_saved\":true}\n")
 	}
 	target := stdout
 	if status >= 400 {

@@ -1551,6 +1551,26 @@ export const OPERATIONS = {
   "resultSchema": "KitGetResult",
   "scope": "kit.get"
  },
+ "kit_install": {
+  "cli": "lamp kit install",
+  "inputSchema": "KitInstallInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "kit_install",
+  "path": "/v1/kits/{kit_id}:install",
+  "resultSchema": "KitInstallResult",
+  "scope": "kit.install"
+ },
+ "kit_install_status": {
+  "cli": "lamp kit install-status",
+  "inputSchema": "KitInstallStatusInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "kit_install_status",
+  "path": "/v1/kits/{kit_id}/installations/{job_id}",
+  "resultSchema": "KitInstallStatusResult",
+  "scope": "kit.install_status"
+ },
  "kit_list": {
   "cli": "lamp kit list",
   "inputSchema": "KitListInput",
