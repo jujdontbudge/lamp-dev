@@ -1,0 +1,40 @@
+
+=== 05:46:21Z VM capacity: MiB available=6479, live firecracker=0, aarch64, PRETTY_NAME="Ubuntu 26.04.1 LTS"
+
+=== 05:46:21Z curl | sh from https://lamp.eilmer.si/install.sh into a fresh prefix
+{"at":"2026-11-12T05:46:28Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l31u","service":"process","version":"0.1.1"}
+Lamp 0.1.1 installed in /tmp/l31u. Engine setup: https://gitlab.com/johansardar/lamp/-/releases/v0.1.1
+{"current":"0.1.1","healthy":true,"highest_version":"0.1.1","name":"default","previous":"","saved_items":0,"service":"process","update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000}}
+ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV)
+
+=== 05:46:28Z host tools: passt for the guard uplink; Firecracker v1.17.0 aarch64 (digest pinned by install-engine.sh)
+pasta: /usr/bin/pasta
+~/lamp-t20-la/firecracker-v1.17.0-aarch64.tgz: OK
+
+=== 05:46:29Z disposable XFS reflink store
+
+=== 05:46:29Z Linux arm64 seed: the pinned 6.18.62 kernel (Firecracker's aarch64 config) and Ubuntu 26.04 root from the Mac seed, in the Linux seed format
+seed lamp-seed/ubuntu-26.04-arm64@sha256:1ad625c4fbad70fc2f7105263019ad0c9c138529a0ab6d92fea8bccd0738937b
+memory image: 966 MiB of zero pages left as holes
+published tp_dba4497157122307f0283f23c0 as t31-release-arm64 in 38940 ms
+{"manifest_digest":"dba4497157122307f0283f23c0d8b9c1e65a4716e4ec26a2765ce168c85a17e7","template_id":"tp_dba4497157122307f0283f23c0"}
+template tp_dba4497157122307f0283f23c0
+supervisor pid 683986: /tmp/l31u/releases/0.1.1/lib/lamp-supervisor
+
+=== 05:47:22Z the installed lampd attached to that supervisor
+
+=== 05:47:23Z one sandbox (template memory 1 GiB, to fit the 8 GiB VM)
+{"operation_id":"op_49463106e94952ac9156377641b96e0c","resource_ids":[{"kind":"sandbox","id":"sb_993dbf52f6711aba84cfc5c3d6d300ab"}],"request_id":"req_5546240ee54df80d9ad32af0e1f795cd","replayed":false,"operation":{"id":"op_49463106e94952ac9156377641b96e0c","kind":"operation","fleet_id":"fl_local","owner_id":"pr_local","revision":3,"created_at":"2026-11-12T05:47:23.362968809Z","updated_at":"2026-1
+sandbox sb_993dbf52f6711aba84cfc5c3d6d300ab ready; live firecracker=1; VM MiB available=5996
+exec ex_22ba3a7a502b14a8ad1dcd4eccf5f164: exited 0
+hello from a Lamp 0.1.1 arm64 sandbox
+Linux 6.18.62 aarch64
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+2
+
+=== 05:47:28Z release the sandbox
+sandbox delete rc=0; live firecracker=0
+
+=== 05:47:31Z clean up
+{"at":"2026-11-12T05:47:31Z","data":"deleted","event":"uninstalled","name":"default","owner_data":"delete"}
+left: live firecracker=0, VM MiB available=6462
