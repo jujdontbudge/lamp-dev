@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Host-side owner work for tools/install_demo.py, driven through the generated
-Python SDK. Prints one JSON line per command; never prints the bearer.
+"""Host-side owner work for tools/install_demo.py, driven through the public API with a
+minimal standard-library client. Prints one JSON line per command; never prints the bearer.
 
   save PREFIX FILE JOB      upload FILE, publish it as an artifact, back it up
   check PREFIX ARTIFACT SHA download the artifact and verify its SHA-256
@@ -8,13 +8,99 @@ Python SDK. Prints one JSON line per command; never prints the bearer.
 """
 import base64
 import hashlib
+import http.client
 import json
 import os
+import secrets
+import socket
 import sys
+import time
+import urllib.parse
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sdk-python'))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'sdk', 'python'))
-from lamp_sdk import LampClient, LampError  # noqa: E402
+# The public API routes this script uses (contracts/public/schema.json).
+OPS = {
+    'operation_wait': ('GET', '/v1/operations/{operation_id}/wait', False),
+    'artifact_download': ('GET', '/v1/artifacts/{artifact_id}/content', False),
+    'blob_create': ('POST', '/v1/blobs', True),
+    'blob_upload': ('PUT', '/v1/blobs/{blob_id}/content', True),
+    'blob_get': ('GET', '/v1/blobs/{blob_id}', False),
+    'blob_finalize': ('POST', '/v1/blobs/{blob_id}:finalize', True),
+    'artifact_create': ('POST', '/v1/artifacts', True),
+    'backup_create': ('POST', '/v1/backups', True),
+    'backup_get': ('GET', '/v1/backups/{backup_id}', False),
+    'backup_list': ('GET', '/v1/backups', False),
+    'backup_restore': ('POST', '/v1/backups/{backup_id}:restore', True),
+}
+
+
+class LampError(Exception):
+    def __init__(self, status, body):
+        err = (body or {}).get('error', {}) if isinstance(body, dict) else {}
+        super().__init__(err.get('message') or f'HTTP {status}')
+        self.code = err.get('code', 'UNKNOWN')
+
+
+class _Unix(http.client.HTTPConnection):
+    def __init__(self, path):
+        super().__init__('lamp', timeout=70)
+        self._path = path
+
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect(self._path)
+
+
+class LampClient:
+    """Minimal standard-library client over the public API Unix socket."""
+
+    def __init__(self, socket, token):
+        self.socket, self.token = socket, token
+
+    def call(self, name, body):
+        method, path, mutation = OPS[name]
+        body = dict(body)
+        headers = {'Accept': 'application/json', 'Authorization': 'Bearer ' + self.token}
+        for k in list(body):
+            if '{' + k + '}' in path:
+                path = path.replace('{' + k + '}', urllib.parse.quote(body.pop(k), safe=''))
+        if mutation:
+            headers['Idempotency-Key'] = 'demo-' + secrets.token_hex(32)
+            if 'expected_revision' in body:
+                headers['If-Match'] = str(body.pop('expected_revision'))
+        data = None
+        if method == 'GET':
+            if body:
+                path += '?' + urllib.parse.urlencode({k: str(v) for k, v in body.items()})
+        else:
+            data = json.dumps(body).encode()
+            headers['Content-Type'] = 'application/json'
+        conn = _Unix(self.socket)
+        try:
+            conn.request(method, path, body=data, headers=headers)
+            resp = conn.getresponse()
+            text = resp.read().decode()
+        finally:
+            conn.close()
+        out = json.loads(text) if text else None
+        if resp.status >= 400:
+            raise LampError(resp.status, out)
+        return out
+
+    def __getattr__(self, name):
+        if name not in OPS:
+            raise AttributeError(name)
+        return lambda **kw: self.call(name, kw)
+
+    def wait_operation(self, operation_id, timeout_ms=60000):
+        deadline = time.monotonic() + timeout_ms / 1000
+        while True:
+            left = max(0, min(30000, int((deadline - time.monotonic()) * 1000)))
+            op = self.call('operation_wait', {'operation_id': operation_id, 'timeout_ms': left})
+            op = op.get('data', op)
+            if op.get('state') not in ('accepted', 'running') or time.monotonic() >= deadline:
+                return op
+
 
 CHUNK = 1 << 20
 

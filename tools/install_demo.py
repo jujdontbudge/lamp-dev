@@ -132,15 +132,11 @@ def main():
         files = [str(WORK / f'bin-{h["goos"]}-{h["goarch"]}' / 'lamp-installer'), str(WORK / 'keys' / 'release-trust.pub'),
                  str(WORK / 'keys' / 'owner-recovery.pub'), str(WORK / 'requests-2.32.3.tar.gz'), str(ROOT / 'tools' / 'install_demo_work.py')]
         rels = [str(releases[(v, h['goos'])]) for v in ['0.1.0', '0.2.0', '0.3.0']] + ([str(tampered)] if h['name'] == 'ubuntu' else [])
-        sdk = str(ROOT / 'sdk' / 'python')
         if h['ssh'] is None:
             for x in files + rels:
                 sh(['cp', '-R', x, h['remote_dir'] + '/'])
-            sh(['rm', '-rf', h['remote_dir'] + '/sdk-python']); sh(['cp', '-R', sdk, h['remote_dir'] + '/sdk-python'])
         else:
             sh(['scp', '-q', '-r'] + files + rels + [f'{h["ssh"]}:{h["remote_dir"]}/'])
-            on(h, f'rm -rf {h["remote_dir"]}/sdk-python')
-            sh(['scp', '-q', '-r', sdk, f'{h["ssh"]}:{h["remote_dir"]}/sdk-python'])
         h['rel'] = lambda v, h=h: f'{h["remote_dir"]}/release-{v}-{h["goos"]}-{h["goarch"]}'
 
     ubuntu, m5, air = HOSTS
@@ -152,10 +148,10 @@ def main():
         step('systemd unit active', ubuntu, 'systemctl is-active lamp-t28demo.service && systemctl is-enabled lamp-t28demo.service')
     step('automatic updates start disabled: timer run is a no-op', ubuntu, f'{tool(ubuntu)} auto --prefix {ubuntu["prefix"]} --release {ubuntu["rel"]("0.2.0")}')
 
-    # Owner work through the generated Python SDK on each host.
+    # Owner work through the public API on each host.
     work = {}
     for h in HOSTS:
-        out = step('save owner work via Python SDK', h, f'python3 {h["remote_dir"]}/install_demo_work.py save {h["prefix"]} {h["remote_dir"]}/requests-2.32.3.tar.gz job_t28_{h["name"]}')
+        out = step('save owner work via the public API', h, f'python3 {h["remote_dir"]}/install_demo_work.py save {h["prefix"]} {h["remote_dir"]}/requests-2.32.3.tar.gz job_t28_{h["name"]}')
         work[h['name']] = jline(out, 'artifact_id')
     # TypeScript SDK on the M5 against the same daemon.
     ts = ("node --input-type=module -e \"import {LampClient} from '" + str(ROOT / 'sdk/typescript/index.js') + "';"

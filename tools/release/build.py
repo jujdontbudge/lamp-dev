@@ -6,7 +6,7 @@ Produces, under --out:
   lamp-<v>-<os>-<arch>.tar.gz   signed installer release (manifest.json, manifest.sig,
                                 payload/, index.json) for lamp-installer install/update
   lamp-relay-<v>-<os>-<arch>.tar.gz  the AGPL-3.0 relay, built and shipped separately
-  lamp-sdk (npm .tgz) and lamp_sdk (wheel)
+  the TypeScript SDK (npm .tgz)
   release-trust.pub, SHA256SUMS
 
 Mac binaries are signed with the Developer ID Application certificate and
@@ -24,7 +24,6 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import tarfile
 from pathlib import Path
 
@@ -199,10 +198,6 @@ def main():
         tar_dir(rb, out / f'lamp-relay-{a.version}-{goos}-{goarch}.tar.gz', f'lamp-relay-{a.version}')
 
     sh(['npm', 'pack', '--pack-destination', out], cwd=ROOT / 'sdk/typescript')
-    shutil.copytree(ROOT / 'sdk/python', scratch / 'sdk-python')  # keep build debris out of the checkout
-    sh([sys.executable, '-m', 'pip', 'wheel', '--no-deps', '-w', out, scratch / 'sdk-python'])
-    sh([sys.executable, '-c', 'import sys; from setuptools import build_meta as b; b.build_sdist(sys.argv[1])', out],
-       cwd=scratch / 'sdk-python')
 
     # curl | sh installer: archive digests and the release key are built in.
     base = f'https://github.com/JohanSardar/lamp/releases/download/v{a.version}'

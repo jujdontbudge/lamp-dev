@@ -114,7 +114,7 @@ Rust implements engine workers, `lamp-supervisor`, `lamp-init`, guest helper, pa
 Apple bindings use a thin generated Objective-C boundary in Rust. A small platform shim is allowed when the SDK demands it; no second control state machine.
 The dashboard is static HTML/CSS/JavaScript served by hosts. No Node server is required.
 OpenAPI 3.1 and shared JSON Schemas generate resource, event, CLI/MCP metadata and SDK types.
-TypeScript/Python SDKs ship first; Go/Rust follow immediately [owner-confirmed O1].
+The TypeScript SDK ships first; Go/Rust follow immediately [owner-confirmed O1; Python SDK dropped 2026-11-12].
 
 Go is the only owner of operation, authorization, placement and quota state. Rust validates signed grants, generations, handle ownership and hard local limits independently.
 Local protocol `lamp.worker/1` uses bounded generated Protobuf frames over peer-authenticated Unix sockets.
@@ -1148,7 +1148,7 @@ The owner accepted O1–O10 and A1–A5 on 2026-11-08, and the brief and ADR 000
 
 | Marker | Decision / affected sections | If reversed later |
 | --- | --- | --- |
-| [owner-confirmed O1] | TS/Python SDKs in release one; Go/Rust immediately after (§4, §12, §21) | Change SDK delivery order; all interfaces still use the canonical schema |
+| [owner-confirmed O1] | TypeScript SDK in release one (Python dropped 2026-11-12); Go/Rust immediately after (§4, §12, §21) | Change SDK delivery order; all interfaces still use the canonical schema |
 | [owner-confirmed O2, replaced 2026-11-08; process amended 2026-11-10] | Use only the owner’s Ubuntu laptop, M5 Mac and MacBook Air; no new spending or required test lanes (§20; brief §22) | A different infrastructure plan needs owner authorization; no spending inferred |
 | [owner-confirmed O3] | Open public internet with private/LAN/metadata blocked; stranger PR allowlist (§2, §8, §11, §16, §18) | Recompile defaults/fixtures; explicit private-service grants and immutable CI safety remain |
 | [owner-confirmed O4] | Private signed-in dev URLs and expiring shares (§8.2, §11–12, §15) | Change Port defaults and admission behavior, preserving scope/revoke/origin rules |

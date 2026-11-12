@@ -26,7 +26,7 @@ curl -fsSL https://github.com/JohanSardar/lamp/releases/download/v0.1.0/install.
 ```
 
 The installer checks the download's digest and the release signature. Then set
-up the engine and, if you want them, the SDKs: see the
+up the engine and, if you want it, the TypeScript SDK: see the
 [0.1.0 release notes](docs/release/0.1.0.md). Linux needs KVM; macOS needs
 version 26 or later on Apple Silicon.
 

@@ -63,4 +63,3 @@ fmt:
 sdk-pack:
 	mkdir -p dist
 	cd sdk/typescript && npm pack --pack-destination ../../dist
-	$(PYTHON) -m pip wheel --no-deps -w dist sdk/python
