@@ -1,0 +1,449 @@
+[
+  {
+    "step": "harness-catalogue",
+    "at": "2026-11-11T16:30:24.839399+00:00",
+    "count": 12,
+    "harnesses": [
+      {
+        "id": "amp",
+        "catalogue_id": "amp",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "",
+        "continuation": "amp threads continue <thread_id> --execute"
+      },
+      {
+        "id": "cursor_cli",
+        "catalogue_id": "cursor_cli",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key",
+          "subscription"
+        ],
+        "binary_digest": "",
+        "continuation": "cursor-agent --print --resume <chatId>"
+      },
+      {
+        "id": "devin",
+        "catalogue_id": "devin",
+        "state": "disabled",
+        "auth_modes": [
+          "subscription",
+          "api_key"
+        ],
+        "binary_digest": "",
+        "continuation": "devin -p --resume <session_id>; ID read from 'devin list --format json'"
+      },
+      {
+        "id": "gemini_cli",
+        "catalogue_id": "gemini_cli",
+        "state": "disabled",
+        "auth_modes": [
+          "api_key",
+          "subscription"
+        ],
+        "binary_digest": "",
+        "continuation": "gemini -p --resume <session_id>"
+      },
+      {
+        "id": "hr_claude",
+        "catalogue_id": "claude_code",
+        "state": "active",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "sha256:a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+        "continuation": "claude -p --resume <session_id>; session_id from stream-json"
+      },
+      {
+        "id": "hr_claude_subagents",
+        "catalogue_id": "claude_code",
+        "state": "active",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "sha256:a9d237949db816a0b7afd88a9a8e1df36b3a597a30f5a41d1c0539eb180a3450",
+        "continuation": "claude -p --resume <session_id>; session_id from stream-json"
+      },
+      {
+        "id": "hr_codex",
+        "catalogue_id": "codex",
+        "state": "active",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "sha256:030316ecfbb41f4e7946e584b0063ef333b7a36cd312ba349f2f6869e39b62cc",
+        "continuation": "codex exec resume <thread_id>; thread_id from thread.started"
+      },
+      {
+        "id": "hr_copilot",
+        "catalogue_id": "copilot_cli",
+        "state": "active",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "sha256:d83678c00d0560eb715628b49318f6fc77e634696743aee025496956015f88e0",
+        "continuation": "copilot -p --resume <sessionId>"
+      },
+      {
+        "id": "hr_droid",
+        "catalogue_id": "droid",
+        "state": "active",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "sha256:b93842902913591726f4e668e332bc5ae2bdc8e0d3f9a0b3da4c37f19bba0db9",
+        "continuation": "droid exec -s <session_id>"
+      },
+      {
+        "id": "hr_goose",
+        "catalogue_id": "goose",
+        "state": "active",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "sha256:d7f8b3df03dd30a5c9e654aafdf6aa2f88821c3a8442083cbaee1ea2810b16f1",
+        "continuation": "goose run --name <name> --resume"
+      },
+      {
+        "id": "hr_opencode",
+        "catalogue_id": "opencode",
+        "state": "active",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "sha256:feaafead8cd563af0c2dcb386b0757e4355e327ebb6bd1aaad5440fe2f83596c",
+        "continuation": "opencode run -s <sessionID>"
+      },
+      {
+        "id": "hr_pi",
+        "catalogue_id": "pi",
+        "state": "active",
+        "auth_modes": [
+          "api_key"
+        ],
+        "binary_digest": "sha256:e79626f2dd6f94aa45d30f3fa63cd84319a6eefcd150b353cfaf274366926774",
+        "continuation": "pi -p --session-id <uuid> (Lamp chooses the ID before the first turn)"
+      }
+    ]
+  },
+  {
+    "step": "teleported-continuation",
+    "at": "2026-11-11T16:31:09.996425+00:00",
+    "kind": "pi",
+    "session_id": "se_45c33b6d02164c8121d876298d0443a4",
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "location_before": {
+      "host_id": "hs_a",
+      "kind": "host"
+    },
+    "location_after": {
+      "host_id": "hs_b",
+      "kind": "host"
+    },
+    "turn1": "Warning: No project session found with id 'dda5cc6e-409f-4543-a932-274be378c056'; creating a new session with that id.",
+    "turn1_success": true,
+    "turn2": "READY",
+    "turn2_success": true,
+    "continuation_before": "dda5cc6e-409f-4543-a932-274be378c056",
+    "continuation_after": "79899ffa-90ea-4b9b-a9d4-0be9ff6e435a",
+    "native_fork_of": "dda5cc6e-409f-4543-a932-274be378c056",
+    "codeword_recalled": false,
+    "source_root_entries": [
+      "se_45c33b6d02164c8121d876298d0443a4.e1"
+    ]
+  },
+  {
+    "step": "teleported-continuation",
+    "at": "2026-11-11T16:31:31.717398+00:00",
+    "kind": "opencode",
+    "session_id": "se_6efa62eacf0d348c4fb517ae30c90b9c",
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "location_before": {
+      "host_id": "hs_a",
+      "kind": "host"
+    },
+    "location_after": {
+      "host_id": "hs_b",
+      "kind": "host"
+    },
+    "turn1": "READY",
+    "turn1_success": true,
+    "turn2": "LAMPA67F37",
+    "turn2_success": true,
+    "continuation_before": "ses_e348d01bfffeVFRVfcOnwWV56U",
+    "continuation_after": "ses_e348d01bfffeVFRVfcOnwWV56U",
+    "native_fork_of": null,
+    "codeword_recalled": true,
+    "source_root_entries": [
+      "se_45c33b6d02164c8121d876298d0443a4.e1",
+      "se_6efa62eacf0d348c4fb517ae30c90b9c.e1"
+    ]
+  },
+  {
+    "step": "teleported-continuation",
+    "at": "2026-11-11T16:31:43.688271+00:00",
+    "kind": "droid",
+    "session_id": "se_8ba0e90ce7f1a3f09dfae964ebfaf8ad",
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "location_before": {
+      "host_id": "hs_a",
+      "kind": "host"
+    },
+    "location_after": {
+      "host_id": "hs_b",
+      "kind": "host"
+    },
+    "turn1": "READY",
+    "turn1_success": true,
+    "turn2": "LAMP745DAF",
+    "turn2_success": true,
+    "continuation_before": "e4b5f1db-2c77-4ce9-b555-b51bb69d4927",
+    "continuation_after": "e4b5f1db-2c77-4ce9-b555-b51bb69d4927",
+    "native_fork_of": null,
+    "codeword_recalled": true,
+    "source_root_entries": [
+      "se_45c33b6d02164c8121d876298d0443a4.e1",
+      "se_8ba0e90ce7f1a3f09dfae964ebfaf8ad.e1",
+      "se_6efa62eacf0d348c4fb517ae30c90b9c.e1"
+    ]
+  },
+  {
+    "step": "teleported-continuation",
+    "at": "2026-11-11T16:31:56.466033+00:00",
+    "kind": "copilot",
+    "session_id": "se_af33b11e6f6660cf597d44ed7eec4e4d",
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "location_before": {
+      "host_id": "hs_a",
+      "kind": "host"
+    },
+    "location_after": {
+      "host_id": "hs_b",
+      "kind": "host"
+    },
+    "turn1": "READY",
+    "turn1_success": true,
+    "turn2": "LAMPBD631E",
+    "turn2_success": true,
+    "continuation_before": "c2eee3b5-2154-45c2-a6d8-a7225500fd84",
+    "continuation_after": "c2eee3b5-2154-45c2-a6d8-a7225500fd84",
+    "native_fork_of": null,
+    "codeword_recalled": true,
+    "source_root_entries": [
+      "se_45c33b6d02164c8121d876298d0443a4.e1",
+      "se_8ba0e90ce7f1a3f09dfae964ebfaf8ad.e1",
+      "se_af33b11e6f6660cf597d44ed7eec4e4d.e1",
+      "se_6efa62eacf0d348c4fb517ae30c90b9c.e1"
+    ]
+  },
+  {
+    "step": "teleported-continuation",
+    "at": "2026-11-11T16:32:02.728610+00:00",
+    "kind": "goose",
+    "session_id": "se_d0e14be542a35590e4e95b0bf3b8a7f3",
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "location_before": {
+      "host_id": "hs_a",
+      "kind": "host"
+    },
+    "location_after": {
+      "host_id": "hs_b",
+      "kind": "host"
+    },
+    "turn1": "__( O)>  \u25cf new session \u00b7 openai openrouter/free\n   \\____)    20261111_1 \u00b7 /private/var/tmp/l25/live-final/hs_a/se_d0e14be542a35590e4e95b0bf3b8a7f3.e1/work\n     L L     goose is ready\nREADY",
+    "turn1_success": true,
+    "turn2": "e/var/tmp/l25/live-final/hs_a/se_d0e14be542a35590e4e95b0bf3b8a7f3.e1/work). Staying in current directory.\n    __( O)>  \u25cf resuming \u00b7 openai openrouter/free\n   \\____)    20261111_1 \u00b7 /private/var/tmp/l25/live-final/hs_b/se_d0e14be542a35590e4e95b0bf3b8a7f3.e2/work\n     L L     goose is ready\nLAMP4C2E15",
+    "turn2_success": true,
+    "continuation_before": "lamp-se_d0e14be542a35590e4e95b0bf3b8a7f3",
+    "continuation_after": "lamp-se_d0e14be542a35590e4e95b0bf3b8a7f3",
+    "native_fork_of": null,
+    "codeword_recalled": true,
+    "source_root_entries": [
+      "se_d0e14be542a35590e4e95b0bf3b8a7f3.e1",
+      "se_45c33b6d02164c8121d876298d0443a4.e1",
+      "se_8ba0e90ce7f1a3f09dfae964ebfaf8ad.e1",
+      "se_af33b11e6f6660cf597d44ed7eec4e4d.e1",
+      "se_6efa62eacf0d348c4fb517ae30c90b9c.e1"
+    ]
+  },
+  {
+    "step": "teleported-continuation",
+    "at": "2026-11-11T16:32:10.182483+00:00",
+    "kind": "claude",
+    "session_id": "se_2fd6bb4b624afc83f2d9e83899609eac",
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "location_before": {
+      "host_id": "hs_a",
+      "kind": "host"
+    },
+    "location_after": {
+      "host_id": "hs_b",
+      "kind": "host"
+    },
+    "turn1": "[claude-code:unrecognized_model] {\"model\":\"openrouter/free\",\"query_source\":\"sdk\"}\nREADY",
+    "turn1_success": true,
+    "turn2": "[claude-code:unrecognized_model] {\"model\":\"openrouter/free\",\"query_source\":\"sdk\"}\nLAMP7D7D14",
+    "turn2_success": true,
+    "continuation_before": "36013e7a-181a-40c8-9c36-ad0168d1f1bf",
+    "continuation_after": "36013e7a-181a-40c8-9c36-ad0168d1f1bf",
+    "native_fork_of": null,
+    "codeword_recalled": true,
+    "source_root_entries": [
+      "se_d0e14be542a35590e4e95b0bf3b8a7f3.e1",
+      "se_45c33b6d02164c8121d876298d0443a4.e1",
+      "se_2fd6bb4b624afc83f2d9e83899609eac.e1",
+      "se_8ba0e90ce7f1a3f09dfae964ebfaf8ad.e1",
+      "se_af33b11e6f6660cf597d44ed7eec4e4d.e1",
+      "se_6efa62eacf0d348c4fb517ae30c90b9c.e1"
+    ]
+  },
+  {
+    "step": "teleported-continuation",
+    "at": "2026-11-11T16:32:19.707884+00:00",
+    "kind": "codex",
+    "session_id": "se_3ab794ffcfd8c4944c63d7abe560ccc4",
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "location_before": {
+      "host_id": "hs_a",
+      "kind": "host"
+    },
+    "location_after": {
+      "host_id": "hs_b",
+      "kind": "host"
+    },
+    "turn1": "READY",
+    "turn1_success": true,
+    "turn2": "LAMPCB573B",
+    "turn2_success": true,
+    "continuation_before": "01a1cb73-dda7-76d1-8e2d-1243d66340ad",
+    "continuation_after": "01a1cb73-dda7-76d1-8e2d-1243d66340ad",
+    "native_fork_of": null,
+    "codeword_recalled": true,
+    "source_root_entries": [
+      "se_3ab794ffcfd8c4944c63d7abe560ccc4.e1",
+      "se_d0e14be542a35590e4e95b0bf3b8a7f3.e1",
+      "se_45c33b6d02164c8121d876298d0443a4.e1",
+      "se_2fd6bb4b624afc83f2d9e83899609eac.e1",
+      "se_8ba0e90ce7f1a3f09dfae964ebfaf8ad.e1",
+      "se_af33b11e6f6660cf597d44ed7eec4e4d.e1",
+      "se_6efa62eacf0d348c4fb517ae30c90b9c.e1"
+    ]
+  },
+  {
+    "step": "native-subagent-children",
+    "at": "2026-11-11T16:32:47.128526+00:00",
+    "parent": "se_ac50ba1f0665577d27ba25748642a440",
+    "parent_output": "[claude-code:unrecognized_model] {\"model\":\"openrouter/free\",\"query_source\":\"sdk\"}\n\n\nThe sub-agent is still running in the background. I'll notify you as soon as it completes.\nThe sub-agent has completed its task. Here's the result:\n\n**LAMP_SUBAGENT_DONE**\n\nThe sub-agent was launched to reply with exactly \"LAMP_SUBAGENT_DONE\" and nothing else. The task has been completed successfully.",
+    "success": true,
+    "children": [
+      {
+        "id": "se_a4c31a795fdc853259f2a8c27b3ebfe9",
+        "state": "ended",
+        "status": "idle",
+        "continuation_ref": "call_fef4e89b22194ec8909d151e",
+        "labels": {
+          "lamp.native_label": "Lamp subagent done",
+          "lamp.native_subagent": "true"
+        },
+        "output": "f-9f7a4614f4cd/tasks/acaa8f16f820f576f.output\nDo NOT Read or tail this file via the shell tool \u2014 it is the full subagent JSONL transcript and reading it will overflow your context. If the user asks for progress, say the agent is still running; you'll get a completion notification.\nLAMP_SUBAGENT_DONE"
+      },
+      {
+        "id": "se_d068502527318389d99f7eaa137999f2",
+        "state": "ended",
+        "status": "idle",
+        "continuation_ref": "call-bd9c8055-7d5a-491a-9db3-1e8cb0e642ea",
+        "labels": {
+          "lamp.native_label": "sub-agent",
+          "lamp.native_subagent": "true"
+        },
+        "output": "<tool_use_error>InputValidationError: Agent failed due to the following issue:\nThe required parameter `description` is missing</tool_use_error>"
+      }
+    ]
+  },
+  {
+    "step": "sessions-listed",
+    "at": "2026-11-11T16:32:47.142880+00:00",
+    "sessions": [
+      {
+        "id": "se_2fd6bb4b624afc83f2d9e83899609eac",
+        "harness_id": "hr_claude",
+        "parent_session_id": null,
+        "state": "ended",
+        "location": "hs_b"
+      },
+      {
+        "id": "se_3ab794ffcfd8c4944c63d7abe560ccc4",
+        "harness_id": "hr_codex",
+        "parent_session_id": null,
+        "state": "ended",
+        "location": "hs_b"
+      },
+      {
+        "id": "se_45c33b6d02164c8121d876298d0443a4",
+        "harness_id": "hr_pi",
+        "parent_session_id": null,
+        "state": "ended",
+        "location": "hs_b"
+      },
+      {
+        "id": "se_6efa62eacf0d348c4fb517ae30c90b9c",
+        "harness_id": "hr_opencode",
+        "parent_session_id": null,
+        "state": "ended",
+        "location": "hs_b"
+      },
+      {
+        "id": "se_8ba0e90ce7f1a3f09dfae964ebfaf8ad",
+        "harness_id": "hr_droid",
+        "parent_session_id": null,
+        "state": "ended",
+        "location": "hs_b"
+      },
+      {
+        "id": "se_a4c31a795fdc853259f2a8c27b3ebfe9",
+        "harness_id": "hr_claude_subagents",
+        "parent_session_id": "se_ac50ba1f0665577d27ba25748642a440",
+        "state": "ended",
+        "location": "hs_a"
+      },
+      {
+        "id": "se_ac50ba1f0665577d27ba25748642a440",
+        "harness_id": "hr_claude_subagents",
+        "parent_session_id": null,
+        "state": "active",
+        "location": "hs_a"
+      },
+      {
+        "id": "se_af33b11e6f6660cf597d44ed7eec4e4d",
+        "harness_id": "hr_copilot",
+        "parent_session_id": null,
+        "state": "ended",
+        "location": "hs_b"
+      },
+      {
+        "id": "se_d068502527318389d99f7eaa137999f2",
+        "harness_id": "hr_claude_subagents",
+        "parent_session_id": "se_ac50ba1f0665577d27ba25748642a440",
+        "state": "ended",
+        "location": "hs_a"
+      },
+      {
+        "id": "se_d0e14be542a35590e4e95b0bf3b8a7f3",
+        "harness_id": "hr_goose",
+        "parent_session_id": null,
+        "state": "ended",
+        "location": "hs_b"
+      }
+    ]
+  }
+]
