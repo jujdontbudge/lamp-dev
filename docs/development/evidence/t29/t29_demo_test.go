@@ -1,3 +1,5 @@
+//go:build t29demo
+
 package control
 
 // T29 explicit manual demonstration, not a smoke gate. Copied into

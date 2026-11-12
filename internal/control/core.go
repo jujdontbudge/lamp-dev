@@ -494,6 +494,8 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 		}
 	case "harness":
 		items = append(items, s.harnessResources(a)...)
+	case "notification", "notification_sink":
+		items = append(items, s.notifyResources(a, kind)...)
 	case "budget", "task", "audit_record":
 		for _, item := range s.accountResources(a, kind) {
 			items = append(items, item)
@@ -501,7 +503,7 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	case "sandbox":
 		for _, v := range s.journal.Sandboxes {
 			if s.sandboxAllowed(a, v) {
-				items = append(items, object(v))
+				items = append(items, s.withCountdowns(v))
 			}
 		}
 	case "exec":
@@ -578,6 +580,9 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 	kind, verb, _ := strings.Cut(op.Scope, ".")
 	if kind == "change_set" || kind == "session" && (verb == "spawn" || verb == "teleport" || verb == "checkpoint") {
 		return s.sessionTransferMutation(a, op, in)
+	}
+	if kind == "notification" || kind == "notification_sink" {
+		return s.notifyMutation(a, op, in)
 	}
 	if kind == "budget" || kind == "task" || kind == "audit_record" || kind == "telemetry" {
 		return s.accountMutation(a, op, in)
