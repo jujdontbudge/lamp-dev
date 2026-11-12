@@ -1,0 +1,25 @@
+
+=== 02:42:03Z VM capacity: MiB available=6419, live firecracker=0, aarch64, PRETTY_NAME="Ubuntu 26.04.1 LTS"
+
+=== 02:42:03Z curl | sh from the public release into a fresh prefix
+curl: (22) The requested URL returned error: 404
+/tmp/t31-la.sh: line 15: /tmp/l31u/current/bin/lamp-installer: No such file or directory
+cannot open `/tmp/l31u/current/lib/lamp-supervisor' (No such
+
+=== 02:42:03Z host tools: passt for the guard uplink; Firecracker v1.17.0 aarch64 (digest pinned by install-engine.sh)
+pasta: /usr/bin/pasta
+/home/owner.guest/lamp-t20-la/firecracker-v1.17.0-aarch64.tgz: OK
+
+=== 02:42:03Z disposable XFS reflink store
+
+=== 02:42:03Z Linux arm64 seed: the pinned 6.18.62 kernel (Firecracker's aarch64 config) and Ubuntu 26.04 root from the Mac seed, in the Linux seed format
+seed 
+sudo: '/tmp/l31u/current/lib/lamp-supervisor': command not found
+Traceback (most recent call last):
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+template build failed
+template 
+
+=== 02:42:05Z clean up
+/tmp/t31-la.sh: line 93: /tmp/l31u/current/bin/lamp-installer: No such file or directory
+left: live firecracker=0, VM MiB available=6444

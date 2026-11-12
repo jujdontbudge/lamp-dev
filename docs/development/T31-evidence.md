@@ -92,3 +92,52 @@ Lamp 0.1.0 is public, 2026-11-12.
 
 The public repository's ruleset blocks every push and merge, admins included.
 The owner has to relax it before anyone can merge into the public repository.
+
+## Linux arm64 follow-up, 2026-11-12 — incomplete: GitHub account suspended
+
+The review found that REQ "Release one must support Linux x86_64 and arm64"
+was not met: only the relay shipped for arm64. What happened next, in order:
+
+1. `tools/release/build.py` learned `--linux-arm64-host`, `--ssh-config`,
+   `--platforms` and `--reuse`. `--reuse` keeps an earlier output's files byte
+   for byte and gives each new platform its own signed index. `install.sh.in`
+   gained a `Linux/aarch64` case, and the release notes a `linux-arm64` row
+   (commit `6484ea9`).
+2. `lamp-0.1.0-linux-arm64.tar.gz` was built: control binaries cross-compiled
+   for arm64, and the engine built natively in the LA Lima VM (Ubuntu 26.04
+   aarch64, nested KVM on the M5), signed with the same release key. The
+   existing archives' digests were confirmed unchanged. The archive,
+   `install.sh`, `SHA256SUMS` and `release.json` were uploaded to v0.1.0
+   (`--clobber` for the three replaced files) and the release body updated.
+3. LA demo attempt 1: `curl … | sh` from the public release worked (healthy;
+   aarch64 supervisor). The seed was built in the Linux format from the M5's
+   arm64 seed (the same pinned 6.18.62 kernel, Firecracker's aarch64 config).
+   The template boot probe was refused with `NO_CAPACITY`: the default 4 GiB
+   guest does not fit an 8 GiB VM after its host reserve. Attempt 2 repeated
+   it, because a script edit had failed.
+4. Attempt 3 (template `memory_mib=1024`): **Firecracker refused the snapshot
+   restore: "clock_realtime is not supported on aarch64."** The Linux arm64
+   engine at `18dcaf6` could not run any sandbox. Fix `7c90e5d`: send
+   `clock_realtime` only on x86_64. The guest helper's identity barrier already
+   sets `CLOCK_REALTIME` on every architecture. The x86_64 and macOS builds are
+   unaffected, and their published archives were not rebuilt. The arm64
+   archive was rebuilt from `7c90e5d` (sha256 `6fa325eb…`) and re-uploaded.
+5. Attempt 4: the template now built and boot-probed on arm64
+   (`published tp_fef0dab… in 19323 ms`). The create failed on a script error
+   (`wait_ms` over its 60000 limit). Attempt 5: `NO_CAPACITY`, because `lampd`
+   asked for its default 4 GiB. Attempt 6: `disk_gib is required` in my
+   resources JSON.
+6. Attempt 7: **`curl` got HTTP 404 for the public `install.sh`.** The GitHub
+   API then answered **"Sorry. Your account was suspended"**. The public
+   repository, the release and the profile page all return 404. All GitHub
+   activity stopped there.
+
+Not done because of the suspension:
+- the arm64 sandbox `exec` on LA;
+- the fast-forward public commit (and so the ruleset disable/re-enable and
+  probe);
+- the PR body update and the push of this branch.
+
+The LA VM was left clean each time (0 Firecracker processes, store, loop image
+and prefix removed). The workflow-scope problem from the first publication is
+recorded above; the planned follow-up push would also have gone over SSH.

@@ -28,6 +28,10 @@
     "notary log>   \"uploadDate\": \"2026-11-12T02:14:25.024Z\"",
     "notary log> }"
    ]
+  },
+  "linux-arm64": {
+   "engine": true,
+   "commit": "7c90e5d3a8f19d9d0fd97c6d9261ab84edc635af"
   }
  }
 }
