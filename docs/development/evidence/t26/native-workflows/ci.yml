@@ -1,0 +1,53 @@
+name: Native Lamp zlib
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [build, cancel, retain]
+        default: build
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  zlib:
+    runs-on: [self-hosted, lamp-native, 'lamp-native-${{ github.run_id }}-${{ github.run_attempt }}-zlib']
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Fresh private root and public build
+        run: |
+          test ! -e /var/tmp/previous-ci-job
+          printf fresh-private-root > /var/tmp/previous-ci-job
+          ./configure --static
+          make -j2
+          ./minigzip < README > README.gz
+          ./minigzip -d < README.gz > README.restored
+          cmp README README.restored
+          echo ZLIB_NATIVE_ROUNDTRIP_OK
+      - name: Untrusted PR authority
+        if: github.event_name == 'pull_request'
+        env:
+          JOB_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os,socket,urllib.request,urllib.error
+          assert not any(os.environ.get(k) for k in ('LAMP_TOKEN','OPENAI_API_KEY','ANTHROPIC_API_KEY','ACTIONS_ID_TOKEN_REQUEST_TOKEN'))
+          req=urllib.request.Request('https://api.github.com/repos/JohanSardar/lamp-t26-fixture/actions/runners/registration-token',data=b'{}',headers={'Authorization':'Bearer '+os.environ['JOB_TOKEN'],'Content-Type':'application/json'})
+          try: urllib.request.urlopen(req);raise AssertionError('job minted runner authority')
+          except urllib.error.HTTPError as e: assert e.code==403;print('ONE_JOB_TOKEN_CANNOT_MINT_RUNNERS')
+          try: socket.create_connection(('169.254.169.254',80),timeout=2);raise AssertionError('metadata reachable')
+          except OSError: print('METADATA_NETWORK_DENIED')
+          print('UNTRUSTED_PR_WITHOUT_OWNER_OR_LAMP_CREDENTIALS')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-zlib-output
+          path: README.gz
+      - name: Native cancel point
+        if: inputs.mode == 'cancel'
+        run: |
+          echo CANCEL_READY
+          while :; do sleep 1; done

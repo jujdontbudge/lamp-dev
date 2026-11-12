@@ -30,7 +30,11 @@ const lifeStateFile = "lifecycle.json"
 // objects (map form) so reads return exactly what was committed; private
 // fields sit beside them and are never serialized to callers.
 type lifeState struct {
-	Version int `json:"version"`
+	Jobs      map[string]*ciJob        `json:"jobs,omitempty"`
+	AuthFlows map[string]*ciAuthFlow   `json:"auth_flows,omitempty"`
+	Triggers  map[string]*lifeTrigger  `json:"triggers,omitempty"`
+	Schedules map[string]*lifeSchedule `json:"schedules,omitempty"`
+	Version   int                      `json:"version"`
 	// HighWater is the latest host time this service has observed. Deadlines
 	// are compared against max(now, HighWater): a clock rollback can never
 	// extend a retention or expiry deadline.
@@ -151,7 +155,7 @@ type lifeSandbox struct {
 func (s *Service) lifePath() string { return filepath.Join(s.dir, lifeStateFile) }
 
 func newLifeState() *lifeState {
-	return &lifeState{Version: 1, Blobs: map[string]*lifeBlob{}, Caches: map[string]*lifeCache{}, Volumes: map[string]*lifeVolume{},
+	return &lifeState{Jobs: map[string]*ciJob{}, AuthFlows: map[string]*ciAuthFlow{}, Version: 1, Blobs: map[string]*lifeBlob{}, Caches: map[string]*lifeCache{}, Volumes: map[string]*lifeVolume{},
 		Attachments: map[string]*lifeAttachment{}, Artifacts: map[string]*lifeArtifact{}, Backups: map[string]*lifeBackup{},
 		Templates: map[string]*lifeTemplate{}, Recipes: map[string]*lifeRecipe{}, RecipeNames: map[string]string{},
 		WarmPools: map[string]*lifePool{}, ChangeSets: map[string]*lifeChangeSet{}, Sandboxes: map[string]*lifeSandbox{}, Discards: map[string]string{}}

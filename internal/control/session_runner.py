@@ -227,6 +227,7 @@ def serve(directory, endpoint, request):
                         reply["input_delivery"] = state["inputs"][operation["lease"]]["state"]
                     if action == "snapshot" and not operation.get("wait"):
                         reply.update(artifact_info(directory, operation))
+                        reply["inputs"] = state["inputs"]
                     if operation.get("wait"):
                         reply["wait"] = True
                     if "git_result" in operation:
@@ -333,7 +334,7 @@ def main(request):
         if state["epoch"] != request["epoch"]:
             return {"error": "REVISION_CONFLICT"}
         if request["action"] == "snapshot" and state["state"] == "fenced":
-            return dict(artifact_info(directory, request), state="fenced", size=state["size"], event_offset=len(state.get("events", [])))
+            return dict(artifact_info(directory, request), state="fenced", size=state["size"], event_offset=len(state.get("events", [])), inputs=state["inputs"])
         if not Path(endpoint).exists() and state["state"] != "active":
             if request["action"] not in {"read", "end"}:
                 return {"error": "RESOURCE_IN_USE"}

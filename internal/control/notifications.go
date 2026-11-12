@@ -328,7 +328,7 @@ func (s *Service) describeEvent(e api.Event) (taskID, summary, link string) {
 	return
 }
 
-type delivery struct {
+type notifyDelivery struct {
 	id, url, secretFile string
 	body                []byte
 }
@@ -376,7 +376,7 @@ func (s *Service) notifyLoop() {
 			}
 		}
 		now := time.Now()
-		var due []delivery
+		var due []notifyDelivery
 		for id, r := range c.Notifications {
 			n := r.Notification
 			if n.State != "pending" || s.notifyInflight[id] {
@@ -401,7 +401,7 @@ func (s *Service) notifyLoop() {
 				"action_link": r.Link, "attempt": value(n.AttemptCount) + 1, "sent_at": timestamp(),
 			})
 			s.notifyInflight[id] = true
-			due = append(due, delivery{id, dest.URL, dest.SecretFile, body})
+			due = append(due, notifyDelivery{id, dest.URL, dest.SecretFile, body})
 		}
 		if changed {
 			if err := s.save("$accountability"); err != nil {
@@ -424,7 +424,7 @@ func (s *Service) notifyLoop() {
 	}
 }
 
-func (s *Service) deliver(client *http.Client, d delivery) (int, string) {
+func (s *Service) deliver(client *http.Client, d notifyDelivery) (int, string) {
 	secret, err := os.ReadFile(d.secretFile)
 	if err != nil {
 		return 0, "signing secret unavailable"

@@ -1,0 +1,69 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:208: enrolled plugins: [pg_forgejo]
+gitlab: project root/zlib-demo id 1 visibility private
+gitlab: pipeline 9 for commit ac47bde1
+gitlab: job fleeting id=18 status=success runner=t29 lamp-fleeting artifacts=['artifacts.zip', 'metadata.gz']
+gitlab:   trace tail:
+    [0K
+    2026-11-11T20:28:28.288463Z 00O+[0KUploading artifacts for successful job
+    2026-11-11T20:28:28.564497Z 01O Uploading artifacts...
+    2026-11-11T20:28:28.633989Z 01E Runtime platform                                    arch=amd64 os=linux pid=90 revision=33227fd4 version=19.5.3
+    2026-11-11T20:28:28.634007Z 01E out.txt: found 1 matching artifact files and directories 
+    2026-11-11T20:28:28.775299Z 01E Uploading artifacts as "archive" to coordinator... 201 Created  correlation_id=01M764RD40RZ70JR58XGVVX7K6 id=18 status=201 token=[redacted]
+    2026-11-11T20:28:28.779339Z 00O section_end:1794428908:upload_artifacts_on_success
+    [0K
+    2026-11-11T20:28:28.779529Z 00O+section_start:1794428908:cleanup_file_variables
+    [0K
+    2026-11-11T20:28:28.779532Z 00O+[0KCleaning up project directory and file based variables
+    2026-11-11T20:28:28.979045Z 00O section_end:1794428908:cleanup_file_variables
+    [0K
+    2026-11-11T20:28:28.979341Z 00O Job succeeded
+gitlab: job custom-executor id=17 status=success runner=t29 lamp-custom artifacts=['artifacts.zip', 'metadata.gz']
+gitlab:   trace tail:
+    [0K
+    2026-11-11T20:28:52.287239Z 00O+[0KUploading artifacts for successful job
+    2026-11-11T20:28:52.967699Z 01O Uploading artifacts...
+    2026-11-11T20:28:52.967748Z 01E Runtime platform                                    arch=amd64 os=linux pid=13 revision=33227fd4 version=19.5.3
+    2026-11-11T20:28:52.967755Z 01E out.txt: found 1 matching artifact files and directories 
+    2026-11-11T20:28:52.967756Z 01E Uploading artifacts as "archive" to coordinator... 201 Created  correlation_id=01M764S4P54Z42RVFD5DG2EJG3 id=17 status=201 token=[redacted]
+    2026-11-11T20:28:52.969197Z 00O section_end:1794428932:upload_artifacts_on_success
+    [0K
+    2026-11-11T20:28:52.969639Z 00O+section_start:1794428932:cleanup_file_variables
+    [0K
+    2026-11-11T20:28:52.969647Z 00O+[0KCleaning up project directory and file based variables
+    2026-11-11T20:28:53.347791Z 00O section_end:1794428933:cleanup_file_variables
+    [0K
+    2026-11-11T20:28:54.359893Z 00O Job succeeded
+gitlab: runners left on project: 0
+gitlab: runner log tail:
+    instance pruned                                     group=lamp/rc_f67b3e12200003e452a694006c851ef5 id=lf-f2c0ff79b8e7a00e lifetime=25.023874366s runner=DryxIKTlU runner_name[
+    Appending trace to coordinator...ok                 code=202 correlation_id=01M764RGN4DRW6CDCCCD8PZ5EM job=17 job-log=0-1248 job-status=running runner=1uDllVMHp runn
+    WARNING: Starting with version 17.0 the 'build_script' stage will be replaced with 'step_script': https://gitlab.com/groups/gitlab-org/-/epics/6112  gitlab_user_id=1 job
+    Job succeeded                                       duration_s=25.014960651 gitlab_user_id=1 job=17 job-status=success job_name=custom-executor namespace_id=1 organi
+    Appending trace to coordinator...ok                 code=202 correlation_id=01M764S66SADHF9BH2ZXF9N26D job=17 job-log=0-3990 job-status=running runner=1uDllVMHp runn
+    Updating job...                                     bytesize=3990 checksum=crc32:8b0d6b54 correlation_id=7ce64c5d73024da9aa8bf401c9527ad9 job=17 runner=1uDllVMHp runner_n
+    Submitting job to coordinator...ok                  bytesize=3990 checksum=crc32:8b0d6b54 code=200 correlation_id=01M764S68BPKRRCP4RHP5WPXJY job=17 job-status=succes
+    Removed job from processing list                    builds=0 gitlab_user_id=1 job=17 max_builds=1 namespace_id=1 organization_id=1 pipeline_id=9 project=1 
+    WARNING: [runWait] received stop signal             builds=0 max_builds=1 stop-signal=quit
+    WARNING: Starting graceful shutdown, waiting for builds to finish  StopSignal=quit builds=0 max_builds=1
+    All workers stopped.                                builds=0 max_builds=1
+    Shutting down executor providers                    builds=0 max_builds=1 shutdown-timeout=30s
+    Shutting down docker+machine executor provider      executor=docker+machine
+    No shutdown drain config, skipping machine pool drain  executor=docker+machine
+    received shutdown signal; stopping taskscaler's loop and triggering provisioner shutdown  runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
+    stopping main loop                                  runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
+    waiting for in-flight resumes to complete           runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
+    waiting for acquired instances to be released       runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
+    shutting down provisioner                           runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
+    received shutdown signal; stopping provisioner      group=lamp/rc_f67b3e12200003e452a694006c851ef5 runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
+    provisioner shutdown completed                      group=lamp/rc_f67b3e12200003e452a694006c851ef5 runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
+    taskscaler's shutdown completed                     runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
+    plugin process exited                               id=1808135 plugin=/home/johan/lamp-t29/bin/lamp-fleeting runner=DryxIKTlU runner_name=lamp-fleeting subsystem=fleeting
+    All executor providers shut down.                   builds=0 max_builds=1
+    Can exit now!                                       builds=0 max_builds=1
+    t29_demo_test.go:486: gitlab driver exit=<nil>; sandboxes not deleted at end: 0
+--- PASS: TestT29Demonstration (89.32s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	89.903s
+demonstration_exit 0
+firecracker_remaining 0

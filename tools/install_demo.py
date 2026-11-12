@@ -90,7 +90,8 @@ def build_release(version, goos, goarch, bad=False, out=None):
         '--key', str(WORK / 'keys' / 'release.key'), '--out', str(out),
         '--file', f'bin/lampd={lampd}', '--file', f'bin/lamp={bins / "lamp"}', '--file', f'bin/lamp-installer={bins / "lamp-installer"}',
         '--file', f'LICENSE={ROOT / "LICENSE"}', '--file', f'THIRD_PARTY.md={ROOT / "THIRD_PARTY.md"}',
-        '--file', f'licenses/relay-AGPL-3.0.txt={ROOT / "internal/relay/LICENSE"}'])
+        '--file', f'licenses/relay-AGPL-3.0.txt={ROOT / "internal/relay/LICENSE"}',
+        '--file', f'tools/guard-audit-release.py={ROOT / "tools/guard-audit-release.py"}'])
     return out
 
 

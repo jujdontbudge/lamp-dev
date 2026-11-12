@@ -746,6 +746,7 @@ func (s *Service) driveSession(id string) {
 			config["auth"] = textField(m, "auth_mode")
 			config["agent_mode"] = textField(m, "agent_mode")
 			config["session_id"], config["sandbox_id"] = id, textField(m, "sandbox_id")
+			config["location_kind"] = textField(location, "kind")
 			if profile, exists := harness.Native.Profiles[textField(location, "kind")+":"+textField(location, "host_id")]; exists {
 				for key, value := range object(profile) {
 					config[key] = value

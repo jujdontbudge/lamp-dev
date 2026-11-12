@@ -1,0 +1,27 @@
+name: Native GitHub identity to Lamp
+on: workflow_dispatch
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  identity:
+    runs-on: [self-hosted, lamp-native, 'lamp-native-${{ github.run_id }}-${{ github.run_attempt }}-identity']
+    timeout-minutes: 15
+    steps:
+      - name: Exchange real GitHub identity without a stored Lamp secret
+        env:
+          LAMP_API_URL: ${{ vars.LAMP_API_URL }}
+        run: |
+          python3 /opt/lamp-tools/github-oidc-exchange.py --api-url "$LAMP_API_URL" --output "$RUNNER_TEMP/lamp-key"
+          python3 - <<'PY'
+          import os,pathlib,urllib.request,urllib.error,json
+          path=pathlib.Path(os.environ['RUNNER_TEMP'])/'lamp-key'
+          token=path.read_text().strip()
+          origin=os.environ['LAMP_API_URL']
+          request=lambda route:urllib.request.Request(origin+route,headers={'Authorization':'Bearer '+token})
+          with urllib.request.urlopen(request('/v1/fleets/fl_local')) as r: assert r.status==200
+          print('REAL_GITHUB_OIDC_SCOPED_FLEET_READ_OK')
+          try: urllib.request.urlopen(request('/v1/keys'));raise AssertionError('key scope escaped')
+          except urllib.error.HTTPError as e: assert e.code==403;print('SCOPED_KEY_CANNOT_LIST_KEYS')
+          path.unlink()
+          PY

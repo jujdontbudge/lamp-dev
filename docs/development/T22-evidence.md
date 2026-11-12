@@ -1,6 +1,6 @@
 # T22 — kits evidence
 
-Status: **partial: only 1Password and Proton Pass remain (waiting on owner).** The browser/KeePassXC
+Status: **done for every goal item the owner kept.** 1Password and Proton Pass real-account runs were dropped by the owner; their adapters stay as built. The browser/KeePassXC
 browser, KeePassXC, Bitwarden, password-field private typing, toolchain and
 Docker container journeys each have one real passing run.
 No benchmark, trial-count, soak or attack gate was used as a completion target.
@@ -26,7 +26,7 @@ screenshot is included in the committed evidence.
 | KIT-005 KeePassXC | Owner reads authoritative vault/item/origin/submit plan; one approval causes real native read, sealed fill and successful form submission | browser journey, steps 4–11 |
 | KIT-005/B3 password-field private typing | Agent typing refused; owner types privately, real login, safe `about:blank` handback | [private typing](evidence/t22/password-private-typing.jsonl) |
 | KIT-005 Bitwarden (Vaultwarden) | Per-vault approval, native Bitwarden CLI read, sealed fill and real login on the public test site | [Bitwarden fill](evidence/t22/bitwarden-fill.jsonl) |
-| KIT-005 1Password / Proton Pass | Not demonstrated | **Not done, waiting on owner** |
+| KIT-005 1Password / Proton Pass | Real-account runs **dropped by the owner** (2026-11-11, "skip password managers"); native adapters kept as built | **Dropped by owner** |
 | KIT-004 Docker container | `docker run` in the guest prints `lamp-kit-docker-working`; no host daemon or socket | [Docker pass](evidence/t22/docker-container-pass.jsonl) |
 
 The full browser journey exited **1 at its later Docker step**. The successful
@@ -546,3 +546,13 @@ between that leaf's `create_dir` and its child's `cgroup.procs` write. A
 mutex-protected in-flight set now holds every leaf from creation until its exec's
 `spawn` returns (or fails). The sweep runs under the same lock and skips those
 leaves. Built on LX (`cargo build --release -p lamp-init --bins`); not rerun.
+
+## Owner decision: password managers — 2026-11-11
+
+The owner said "skip password managers" (about 23:15Z). The real-account runs for
+**1Password** and **Proton Pass** are **dropped by the owner**, like owner drops in
+other tickets. Their native adapters (`kits/vaults.py`) stay in the code as built,
+but neither has a real-account demonstration. No 1Password account was ever
+created. The earlier Proton free signup stopped before any verification email or
+code was requested, so no Proton account exists either.
+KeePassXC and Bitwarden (Vaultwarden) keep their passing runs above.

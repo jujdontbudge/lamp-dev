@@ -1,0 +1,10 @@
+=== RUN   TestCIControlledDemonstration
+    ci_demo_test.go:149: controlled RSA issuer + Ed25519 proof: scoped key works, authority escalation and replay denied; JWT and key absent from durable files
+    ci_demo_test.go:395: real Firecracker job jb_114b0a3d2046f2a09bf8b30388d98c86: completed, sandbox sb_47ff6810df11d70479b93375c4a55b4a deleted
+    ci_demo_test.go:395: real Firecracker job jb_86a120af7c3c9974b4e61120475fbd11: canceled, sandbox sb_3d08c6718dfdd95e46b9ab6c34a454f2 deleted
+    ci_demo_test.go:430: distinct private roots; second job cancellation; durable output readable after deletion; controlled forge issued and revoked exactly one authority per job
+--- PASS: TestCIControlledDemonstration (10.36s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	10.968s
+demonstration_exit 0
+firecracker_remaining 0

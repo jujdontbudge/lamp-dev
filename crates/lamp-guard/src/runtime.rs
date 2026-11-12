@@ -30,6 +30,13 @@ struct Flow {
     dirty: bool,
 }
 impl Flow {
+    fn expired(&self, tuple: &Tuple, now: Instant) -> bool {
+        // An idle established TCP socket is still an admitted connection. HTTP
+        // clients reuse it after long local work; discarding it would drop data
+        // without a new SYN. Keep open TCP until FIN/RST, policy fencing or task
+        // teardown. The hard MAX_FLOWS cap still bounds memory/admissions.
+        (tuple.protocol != 6 || self.draining) && now.duration_since(self.last) >= IDLE
+    }
     fn record(&self, tuple: &Tuple, phase: &str, reason: &str) -> serde_json::Value {
         json!({"type":"connection","visibility":"opaque","phase":phase,"decision":"allow",
             "flow_id":self.id,"tuple":tuple,"reason":reason,"started_at_ms":self.start,
@@ -66,19 +73,19 @@ impl Connections {
             last_batch: Instant::now(),
         }
     }
-    fn live(&self) -> io::Result<()> {
+    fn live(&mut self, spool: &mut Spool) -> io::Result<()> {
         if self.last_audit.elapsed() > AUDIT_DEADLINE {
-            return Err(io::Error::other("audit liveness deadline exceeded"));
+            self.flush(spool, None)?;
         }
         Ok(())
     }
     fn durable(&mut self, spool: &mut Spool, events: Vec<serde_json::Value>) -> io::Result<()> {
-        self.live()?;
+        // This is the sole verdict thread: a blocked storage barrier blocks
+        // both directions of every flow, including established connections.
+        // A slow successful fsync is not lost audit. Resume only after it is
+        // durable, rather than permanently killing networking for a disk pause.
+        // Actual I/O failure still propagates and closes the entire path.
         spool.record_batch("host_guard", events)?;
-        // A late successful barrier cannot rescue a missed audit deadline.
-        if self.last_audit.elapsed() > AUDIT_DEADLINE {
-            return Err(io::Error::other("audit storage deadline exceeded"));
-        }
         self.last_audit = Instant::now();
         Ok(())
     }
@@ -86,7 +93,7 @@ impl Connections {
         let now = Instant::now();
         let mut events = vec![json!({"type":"heartbeat","flow_count":self.flows.len()})];
         for (tuple, f) in &self.flows {
-            let expired = now.duration_since(f.last) >= IDLE;
+            let expired = f.expired(tuple, now);
             if f.dirty || expired {
                 events.push(f.record(
                     tuple,
@@ -106,7 +113,7 @@ impl Connections {
         }
         events.extend(fault);
         self.durable(spool, events)?;
-        self.flows.retain(|_, f| now.duration_since(f.last) < IDLE);
+        self.flows.retain(|tuple, f| !f.expired(tuple, now));
         for f in self.flows.values_mut() {
             f.dirty = false;
         }
@@ -115,7 +122,7 @@ impl Connections {
         Ok(())
     }
     fn tick(&mut self, spool: &mut Spool) -> io::Result<()> {
-        self.live()?;
+        self.live(spool)?;
         if self.last_batch.elapsed() >= AUDIT_BATCH {
             self.flush(spool, None)?;
         }
@@ -212,7 +219,7 @@ impl Connections {
         spool: &mut Spool,
         p: &crate::netlink::Packet,
     ) -> io::Result<bool> {
-        self.live()?;
+        self.live(spool)?;
         let Some(t) = packet(&p.bytes) else {
             return self.deny(spool, None, "unsupported_packet", &p.bytes);
         };
@@ -368,7 +375,7 @@ pub fn run_with_control(mut config: Config, mut control: Option<Control>) -> io:
     crate::confinement::enter(config.guard_uid, true, &keep)?;
     spool.record("host_guard",json!({"type":"lifecycle","state":"ready","filter_mode":"transport","policy_sha256":config.policy_digest()?,
         "ipv6":"deny","policy_layers":config.policy_layers.len(),"policy_ceiling_layers":config.policy_ceiling.len(),"require_allowlist":config.require_allowlist,"live_revisions":control.is_some(),"max_flows":MAX_FLOWS,"idle_deadline_ms":IDLE.as_millis(),
-        "audit_batch_ms":AUDIT_BATCH.as_millis(),"exceptions":config.exceptions,"proxy":config.proxy,"audit_deadline_ms":AUDIT_DEADLINE.as_millis(),"max_pending_denials":MAX_DENIALS}))?;
+        "audit_batch_ms":AUDIT_BATCH.as_millis(),"exceptions":config.exceptions,"proxy":config.proxy,"audit_flush_due_ms":AUDIT_DEADLINE.as_millis(),"audit_wait_mode":"block_verdict_until_durable","max_pending_denials":MAX_DENIALS}))?;
     println!(
         "{}",
         json!({"state":"ready","policy_revision":config.attribution.policy_revision})

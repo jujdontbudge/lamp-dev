@@ -1,0 +1,14 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:221: enrolled plugins: [pg_forgejo]
+    t29_demo_test.go:646: linear delivery HTTP 202 replayed=false; redelivery HTTP 202 replayed=true same-operation=true; forged HTTP 401 map[code:UNAUTHENTICATED message:TRIGGER_UNAUTHORIZED: Linear signature mismatch retryable:false]; stale HTTP 401 map[code:UNAUTHENTICATED message:TRIGGER_UNAUTHORIZED: stale or missing Linear timestamp retryable:false]
+    t29_demo_test.go:182: job jb_661577a9444e1e857b2e6f946b3ff589 plugin=pg_linear external=tr_a218a5f758201257accb90f27f729b4e/linear:wh-t29:01e07c120447ed8fde03a843552ea6c16e69d588a9f3d2ad8b7f86a3e768e99a state=completed result=success trust=trigger runner= sandbox=sb_9209ceb0703fc496051d68ac7fed131a(deleted) outputs=[agent-output.log(complete,247 bytes)]
+    t29_demo_test.go:664: replay linear: first HTTP 202; resent with new delivery ID HTTP 202 replayed=true same-operation=true; jobs=1
+    t29_demo_test.go:182: job jb_bb7eaa6f850e90d528015d8ba39aa15c plugin=pg_webhook external=tr_465c60b5ea16a9e1498e4102d4dc106e/webhook:lamp:28d6181e568ddbcec9cd86475f5c18315eb6f0b1ee1a6edd3a9ed1ed090ad950 state=completed result=success trust=trigger runner= sandbox=sb_1e5bf72d38c61e0c1f85db27e388616c(deleted) outputs=[agent-output.log(complete,27 bytes)]
+    t29_demo_test.go:664: replay lamp-scheme: first HTTP 202; resent with new delivery ID HTTP 202 replayed=true same-operation=true; jobs=1
+    t29_demo_test.go:182: job jb_39677edaeec111f35157d1ee33be92a2 plugin=pg_webhook external=tr_8b41fa045d9c653329d13b1cb2671261/webhook:hub:912f88b90b05e77ec20478935209347236238c3805bb6afd776050b295791fb3 state=completed result=success trust=trigger runner= sandbox=sb_91ced7309a30f5b8340a6e3f923fd847(deleted) outputs=[agent-output.log(complete,27 bytes)]
+    t29_demo_test.go:664: replay forge-scheme: first HTTP 202; resent with new delivery ID HTTP 202 replayed=true same-operation=true; jobs=1
+--- PASS: TestT29Demonstration (18.04s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	18.728s
+demonstration_exit 0
+firecracker_remaining 0

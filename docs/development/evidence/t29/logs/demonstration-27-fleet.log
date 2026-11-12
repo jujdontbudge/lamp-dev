@@ -1,0 +1,41 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:220: enrolled plugins: [pg_forgejo]
+2026-11-11T17:26:27.740-0500 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-11T17:26:27.740-0500 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:38263 [Follower]" leader-address= leader-id=
+2026-11-11T17:26:27.756-0500 [INFO]  raft: initial configuration: index=0 servers=[]
+2026-11-11T17:26:27.756-0500 [INFO]  raft: entering follower state: follower="Node at 127.0.0.1:38021 [Follower]" leader-address= leader-id=
+2026-11-11T17:26:31.086-0500 [WARN]  raft: heartbeat timeout reached, starting election: last-leader-addr= last-leader-id=
+2026-11-11T17:26:31.086-0500 [INFO]  raft: entering candidate state: node="Node at 127.0.0.1:38263 [Candidate]" term=2
+2026-11-11T17:26:31.086-0500 [DEBUG] raft: pre-voting for self: term=2 id=hs_t29a
+2026-11-11T17:26:31.086-0500 [DEBUG] raft: asking for pre-vote: term=2 from=hs_t29b address=127.0.0.1:38021
+2026-11-11T17:26:31.086-0500 [DEBUG] raft: calculated votes needed: needed=2 term=2
+2026-11-11T17:26:31.086-0500 [DEBUG] raft: pre-vote received: from=hs_t29a term=2 tally=0
+2026-11-11T17:26:31.086-0500 [DEBUG] raft: pre-vote granted: from=hs_t29a term=2 tally=1
+2026-11-11T17:26:31.090-0500 [DEBUG] raft: received a requestPreVote with a newer term, grant the pre-vote
+2026-11-11T17:26:31.090-0500 [DEBUG] raft: pre-vote received: from=hs_t29b term=2 tally=1
+2026-11-11T17:26:31.090-0500 [DEBUG] raft: pre-vote granted: from=hs_t29b term=2 tally=2
+2026-11-11T17:26:31.090-0500 [INFO]  raft: pre-vote successful, starting election: term=2 tally=2 refused=0 votesNeeded=2
+2026-11-11T17:26:31.091-0500 [DEBUG] raft: voting for self: term=2 id=hs_t29a
+2026-11-11T17:26:31.091-0500 [DEBUG] raft: asking for vote: term=2 from=hs_t29b address=127.0.0.1:38021
+2026-11-11T17:26:31.091-0500 [DEBUG] raft: vote granted: from=hs_t29a term=2 tally=1
+2026-11-11T17:26:31.091-0500 [DEBUG] raft: lost leadership because received a requestVote with a newer term
+2026-11-11T17:26:31.091-0500 [DEBUG] raft: vote granted: from=hs_t29b term=2 tally=2
+2026-11-11T17:26:31.091-0500 [INFO]  raft: election won: term=2 tally=2
+2026-11-11T17:26:31.091-0500 [INFO]  raft: entering leader state: leader="Node at 127.0.0.1:38263 [Leader]"
+2026-11-11T17:26:31.091-0500 [INFO]  raft: added peer, starting replication: peer=hs_t29b
+2026-11-11T17:26:31.091-0500 [WARN]  raft: failed to get previous log: previous-index=1 last-index=0 error="log not found"
+2026-11-11T17:26:31.091-0500 [WARN]  raft: appendEntries rejected, sending older logs: peer="{Voter hs_t29b 127.0.0.1:38021}" next=1
+2026-11-11T17:26:31.092-0500 [INFO]  raft: pipelining replication: peer="{Voter hs_t29b 127.0.0.1:38021}"
+    t29_demo_test.go:771: fleet: hosts [hs_t29a hs_t29b], leader hs_t29a
+    t29_demo_test.go:799: fleet: schedule fleet_key=t29-nightly enrolled as sc_73882faba024dab37c572c3aa68cc93b_h_hs_t29a on hs_t29a and sc_ce3514d065bfb29468ffc04e72fa142f_h_hs_t29b on hs_t29b
+    t29_demo_test.go:825: fleet: hs_t29a skipped 1 occurrence(s) another host claimed
+    t29_demo_test.go:825: fleet: hs_t29b skipped 2 occurrence(s) another host claimed
+    t29_demo_test.go:834: fleet: occurrence 2026-11-11T22:27:00Z ran 1 time(s) fleet-wide: [hs_t29a:jb_7079be33bd55f278af27e1f168a038b1_h_hs_t29a(failed/ work could not start after 5 attempts: sandbox admission failed (HTTP 429 NO_CAPACITY: local reserved slice exhausted))]
+    t29_demo_test.go:839: fleet: replicated claim schedule:pr_t29owner:fleet-t29-nightly:2026-11-11T22:27:00Z -> hs_t29a
+    t29_demo_test.go:839: fleet: replicated claim schedule:pr_t29owner:fleet-t29-nightly:2026-11-11T22:28:00Z -> hs_t29a
+2026-11-11T17:30:46.115-0500 [INFO]  raft: aborting pipeline replication: peer="{Voter hs_t29b 127.0.0.1:38021}"
+--- PASS: TestT29Demonstration (258.42s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	258.944s
+demonstration_exit 0
+firecracker_remaining 0

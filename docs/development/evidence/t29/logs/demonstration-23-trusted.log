@@ -1,0 +1,29 @@
+=== RUN   TestT29Demonstration
+    t29_demo_test.go:220: enrolled plugins: [pg_forgejo pg_gitea]
+    t29_demo_test.go:562: policy job jb_e02eb335f797194b92b463cba62a3d1c trust=trusted attested exceptions (8) [10.219.29.1:3929 10.219.29.1:3930 10.219.29.1:3931 10.219.29.1:3932 10.219.29.1:3933 10.219.29.1:3934 10.219.29.1:3935 10.219.29.1:3936] err=<nil>; broker grant issued=true
+    t29_demo_test.go:248: runner output tail (jb_e02eb335f797194b92b463cba62a3d1c):
+        
+        --stderr--
+        level=info msg="Registering runner, arch=amd64, os=linux, version=v6.0.0."
+        level=debug msg="Successfully pinged the Gitea instance server"
+        level=info msg="Runner registered successfully."
+        time="2026-11-11T22:02:27Z" level=info msg="Starting runner daemon"
+        time="2026-11-11T22:02:27Z" level=info msg="runner: lamp-jb_e02eb335f797194b92b463cba62a3d1c, with version: v6.0.0, with labels: [lamp-t29g], declare successfully"
+        time="2026-11-11T22:02:27Z" level=info msg="removed the spent ephemeral registration \".runner\""
+        time="2026-11-11T22:02:27Z" level=info msg="task started" actions_url="https://github.com" address="http://10.219.29.1:3930" job=build job_id=7 repository=lamp-admin/zlib run_id=8 run_number=8 task_id=5
+        time="2026-11-11T22:02:27Z" level=info msg="Running job with maxParallel=1 for 1 matrix combinations"
+        time="2026-11-11T22:02:27Z" level=info msg="NewParallelExecutor: Creating 1 workers for 1 executors"
+        time="2026-11-11T22:02:40Z" level=info msg="runner: lamp-jb_e02eb335f797194b92b463cba62a3d1c shutdown initiated, waiting 0s for running jobs to complete before shutting down"
+    t29_demo_test.go:174: job jb_e02eb335f797194b92b463cba62a3d1c error: native job result unavailable after runner exit
+    t29_demo_test.go:181: job jb_e02eb335f797194b92b463cba62a3d1c plugin=pg_gitea external=lamp-admin/zlib/8 state=failed result= trust=trusted runner=lamp-jb_e02eb335f797194b92b463cba62a3d1c sandbox=sb_416abe6cd048867c90ef47b2b803ce53(deleted) outputs=[gitea-job.log(incomplete,0 bytes)]
+    t29_demo_test.go:580: retention: job jb_e02eb335f797194b92b463cba62a3d1c trust=trusted retain_stopped=true sandbox sb_416abe6cd048867c90ef47b2b803ce53 is deleted
+    t29_demo_test.go:273: forge runners still registered: 0
+--- PASS: TestT29Demonstration (82.10s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	82.727s
+demonstration_exit 0
+broker audit (grant lifecycle, redacted by the broker):
+  {"connection":"grant","outcome":"issued","sandbox":"sb_416abe6cd048867c90ef47b2b803ce53","time":"2026-11-11T22:02:26.845477747Z"}
+  {"connection":"renew","outcome":"renewed","sandbox":"sb_416abe6cd048867c90ef47b2b803ce53","time":"2026-11-11T22:03:26.853427373Z"}
+  {"connection":"revoke","outcome":"revoked","sandbox":"sb_416abe6cd048867c90ef47b2b803ce53","time":"2026-11-11T22:03:44.996741145Z"}
+firecracker_remaining 0

@@ -424,6 +424,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	id := newID("req")
 	w.Header().Set("X-Request-ID", id)
+	if strings.HasPrefix(r.URL.Path, "/hooks/triggers/") {
+		s.triggerHookHTTP(w, r, id)
+		return
+	}
 	if r.Method == "POST" && r.URL.Path == "/internal/native-tasks" {
 		s.nativeHTTP(w, r, id)
 		return
@@ -441,6 +445,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !s.serveCustody(w, r, id) {
 			writeError(w, id, "NOT_FOUND", "shared projection not found", nil)
 		}
+		return
+	}
+	if (op.Name == "auth_flow_bootstrap" || op.Name == "auth_flow_exchange") && s.github != nil {
+		s.ciAuthHTTP(w, r, id, op.Name, selectors)
 		return
 	}
 	s.readLock()
@@ -471,6 +479,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
 	// The dashboard shows who is signed in without guessing from lists.
 	w.Header().Set("X-Lamp-Principal", a.Principal)
+	if op.Name == "plugin_get" && ciPluginID(textField(selectors, "plugin_id")) {
+		s.ciPluginHTTP(w, r, id, textField(selectors, "plugin_id"))
+		return
+	}
 	if kitOperation(op.Name) {
 		s.kitsHTTP(w, r, id, op, selectors)
 		return

@@ -1,0 +1,22 @@
+# Copy to a DISPOSABLE fork of a public third-party project for a live demo.
+# Enroll this exact workflow digest on the host. Never register persistent
+# owner-machine runners on that public repository.
+name: Public project on a fresh Lamp VM
+on: [workflow_dispatch, pull_request]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: [self-hosted, lamp, 'lamp-${{ github.run_id }}-${{ github.run_attempt }}-build']
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      # This example expects a disposable madler/zlib fork and a clean template
+      # with its public build tools installed; dependencies stay inside the VM.
+      - run: ./configure --static && make -j2 && ./minigzip < README > README.gz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: public-build-output
+          path: README.gz

@@ -12,12 +12,15 @@ import (
 // Only authority and retry-home metadata enter consensus. Worker journals,
 // outputs and guest bytes remain at their immutable home.
 type fleetState struct {
-	Control       *controlState      `json:"control,omitempty"`
-	Records       map[string]*record `json:"records"`
-	Homes         map[string]string  `json:"homes"`
-	Epoch         uint64             `json:"epoch"`
-	ExpiresAt     string             `json:"expires_at"`
-	Configuration string             `json:"configuration"`
+	Control *controlState      `json:"control,omitempty"`
+	Records map[string]*record `json:"records"`
+	Homes   map[string]string  `json:"homes"`
+	// Active holds, per fleet schedule claim, the occurrence some host is
+	// running ("host|occurrence|started"), so overlap policy holds fleet-wide.
+	Active        map[string]string `json:"active,omitempty"`
+	Epoch         uint64            `json:"epoch"`
+	ExpiresAt     string            `json:"expires_at"`
+	Configuration string            `json:"configuration"`
 }
 type fleetCommand struct {
 	RenewExpiresAt string             `json:"renew_expires_at,omitempty"`
@@ -27,6 +30,12 @@ type fleetCommand struct {
 	HomeKey        string             `json:"home_key,omitempty"`
 	Home           string             `json:"home,omitempty"`
 	Genesis        *fleetState        `json:"genesis,omitempty"`
+	// ActiveKey compare-and-sets Active[ActiveKey] from ActiveExpect to
+	// ActiveSet ("" clears it). Applied before HomeKey; a mismatch rejects
+	// the whole command, so a refused overlap never claims the occurrence.
+	ActiveKey    string `json:"active_key,omitempty"`
+	ActiveExpect string `json:"active_expect,omitempty"`
+	ActiveSet    string `json:"active_set,omitempty"`
 }
 type fleetFSM struct {
 	mu    sync.Mutex
@@ -72,6 +81,24 @@ func (f *fleetFSM) Apply(log *raft.Log) any {
 		f.state.Control = command.Control
 		for id, rec := range command.Records {
 			f.state.Records[id] = rec
+		}
+	}
+	if command.ActiveKey != "" {
+		if f.state.Active[command.ActiveKey] != command.ActiveExpect {
+			return errors.New("schedule occurrence already active elsewhere")
+		}
+		if f.state.Homes[command.HomeKey] != "" && f.state.Homes[command.HomeKey] != command.Home {
+			return errors.New("retry home already assigned")
+		}
+		if f.state.Active == nil {
+			f.state.Active = map[string]string{}
+		}
+		if command.ActiveSet == "" {
+			delete(f.state.Active, command.ActiveKey)
+		} else if len(f.state.Active) >= maxOperations && f.state.Active[command.ActiveKey] == "" {
+			return errors.New("active occurrence retention limit reached")
+		} else {
+			f.state.Active[command.ActiveKey] = command.ActiveSet
 		}
 	}
 	if command.HomeKey != "" {
