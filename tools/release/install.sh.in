@@ -11,6 +11,7 @@ BASE=@BASE@
 TRUST='@TRUST@'
 case "$(uname -s)/$(uname -m)" in
   Linux/x86_64) PLAT=linux-amd64; SHA=@SHA_linux-amd64@; SVC=systemd ;;
+  Linux/aarch64) PLAT=linux-arm64; SHA=@SHA_linux-arm64@; SVC=systemd ;;
   Darwin/arm64) PLAT=darwin-arm64; SHA=@SHA_darwin-arm64@; SVC=launchd ;;
   *) echo "lamp: no $VERSION build for $(uname -s)/$(uname -m)" >&2; exit 1 ;;
 esac

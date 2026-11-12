@@ -44,16 +44,17 @@ def go_build(goos, goarch, out, names):
     sh(['go', 'build', '-trimpath', '-ldflags=-s -w', '-o', str(out) + '/'] + [f'./cmd/{n}' for n in names], cwd=ROOT, env=env)
 
 
-def linux_engine(host, commit, out):
+def linux_engine(host, commit, out, ssh_opts=()):
     """Build lamp-supervisor and lamp-guard on a Linux host from this exact commit."""
     work = f'lamp-release-{commit[:12]}'
+    ssh = ['ssh', *ssh_opts, host]
     archive = subprocess.run(['git', 'archive', '--format=tar', commit], cwd=ROOT, capture_output=True, check=True).stdout
-    sh(['ssh', host, f'rm -rf {work} && mkdir {work} && tar -x -C {work}'], input=archive)
-    sh(['ssh', host, f'cd {work} && . "$HOME/.cargo/env" 2>/dev/null; cargo build --release --locked -p lamp-supervisor -p lamp-guard'])
+    sh(ssh + [f'rm -rf {work} && mkdir {work} && tar -x -C {work}'], input=archive)
+    sh(ssh + [f'cd {work} && . "$HOME/.cargo/env" 2>/dev/null; CARGO_TARGET_DIR=target cargo build --release --locked -p lamp-supervisor -p lamp-guard'])
     out.mkdir(parents=True, exist_ok=True)
     for b in ['lamp-supervisor', 'lamp-guard']:
-        sh(['scp', f'{host}:{work}/target/release/{b}', out / b])
-    sh(['ssh', host, f'rm -rf {work}'])
+        sh(['scp', *ssh_opts, f'{host}:{work}/target/release/{b}', out / b])
+    sh(ssh + [f'rm -rf {work}'])
 
 
 def mac_engine(out):
@@ -129,6 +130,11 @@ def main():
     ap.add_argument('--release-key', required=True, type=Path)
     ap.add_argument('--apple-dir', type=Path, help='Developer ID + notary key files; omit for an unsigned local build')
     ap.add_argument('--linux-host', help='ssh host that builds the Linux engine; omit to ship Linux control binaries only')
+    ap.add_argument('--linux-arm64-host', help='ssh host (Linux arm64) that builds the arm64 engine')
+    ap.add_argument('--ssh-config', help='ssh -F file for the engine hosts (for example a Lima VM)')
+    ap.add_argument('--platforms', default='linux-amd64,linux-arm64,darwin-arm64')
+    ap.add_argument('--reuse', type=Path, help='an earlier output of this version: keep its files byte for byte, '
+                    'build only --platforms, and regenerate install.sh, release.json and SHA256SUMS')
     ap.add_argument('--snapshot-format', default='1')
     a = ap.parse_args()
     if subprocess.run(['git', 'status', '--porcelain'], cwd=ROOT, capture_output=True, text=True).stdout.strip():
@@ -148,39 +154,22 @@ def main():
         key.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         sh([inst, 'keygen', '--out', key, '--public', key_pub])
     shutil.copy2(key_pub, out / 'release-trust.pub')
+    if a.reuse and (a.reuse / 'release-trust.pub').read_bytes() != key_pub.read_bytes():
+        raise SystemExit('--reuse output was signed with a different release key')
     record = {'version': a.version, 'commit': commit, 'platforms': {}}
-    rels = scratch / 'releases'
+    platforms = a.platforms.split(',')
+    if a.reuse:
+        for f in a.reuse.iterdir():
+            if f.is_file() and f.name not in ('install.sh', 'release.json', 'SHA256SUMS'):
+                shutil.copy2(f, out / f.name)
+        record = json.loads((a.reuse / 'release.json').read_text())
+    ssh_opts = ['-F', a.ssh_config] if a.ssh_config else []
 
-    # Linux amd64: control binaries plus, when a Linux host is given, the engine.
-    lb = scratch / 'linux-amd64'
-    go_build('linux', 'amd64', lb, GO_BINS)
-    files = [(f'bin/{n}', lb / n) for n in GO_BINS] + common_files() + [
-        ('tools/guard-audit-release.py', ROOT / 'tools/guard-audit-release.py'),
-        ('infra/linux/install-engine.sh', ROOT / 'infra/linux/install-engine.sh'),
-        ('infra/linux/lamp-supervisor.service', ROOT / 'infra/linux/lamp-supervisor.service'),
-        ('infra/linux/var-lib-lamp.mount', ROOT / 'infra/linux/var-lib-lamp.mount')]
-    if a.linux_host:
-        linux_engine(a.linux_host, commit, lb)
-        files += [('lib/lamp-supervisor', lb / 'lamp-supervisor'), ('lib/lamp-guard', lb / 'lamp-guard')]
-    installer_release(inst, a.version, 'linux', 'amd64', key, rels, files)
-    record['platforms']['linux-amd64'] = {'engine': bool(a.linux_host)}
-
-    # macOS arm64: control binaries, the VZ engine and supervisor, Developer ID signed.
-    mb = scratch / 'darwin-arm64'
-    go_build('darwin', 'arm64', mb, GO_BINS)
-    mac_engine(mb)
-    mac_bins = [mb / n for n in GO_BINS + ['lamp-vz', 'lamp-supervisor']]
-    if a.apple_dir:
-        apple = apple_files(a.apple_dir)
-        mac_sign(mac_bins, apple)
-        record['platforms']['darwin-arm64'] = {'notarization': mac_notarize(mac_bins, apple, scratch)}
-    else:
-        sh(['codesign', '--force', '--sign', '-', '--entitlements', ROOT / 'crates/lamp-vz/lamp-vz.entitlements', mb / 'lamp-vz'])
-        record['platforms']['darwin-arm64'] = {'notarization': None}
-    files = [(f'bin/{n}', mb / n) for n in GO_BINS + ['lamp-vz', 'lamp-supervisor']] + common_files()
-    installer_release(inst, a.version, 'darwin', 'arm64', key, rels, files, a.snapshot_format)
-
-    for plat in ['linux-amd64', 'darwin-arm64']:
+    def package(plat, files, snapshot_format=None):
+        # Each new platform gets its own signed index, so reused archives keep theirs.
+        goos, goarch = plat.split('-')
+        rels = scratch / f'releases-{plat}'
+        installer_release(inst, a.version, goos, goarch, key, rels, files, snapshot_format)
         d = scratch / f'lamp-{a.version}-{plat}'
         shutil.copytree(rels / plat, d / plat)
         for f in rels.iterdir():
@@ -188,8 +177,44 @@ def main():
                 shutil.copy2(f, d / f.name)
         tar_dir(d, out / f'lamp-{a.version}-{plat}.tar.gz', f'lamp-{a.version}')
 
+    # Linux: control binaries plus, when a Linux host of that architecture is given, the engine.
+    for arch, host in [('amd64', a.linux_host), ('arm64', a.linux_arm64_host)]:
+        plat = f'linux-{arch}'
+        if plat not in platforms:
+            continue
+        lb = scratch / plat
+        go_build('linux', arch, lb, GO_BINS)
+        files = [(f'bin/{n}', lb / n) for n in GO_BINS] + common_files() + [
+            ('tools/guard-audit-release.py', ROOT / 'tools/guard-audit-release.py'),
+            ('infra/linux/install-engine.sh', ROOT / 'infra/linux/install-engine.sh'),
+            ('infra/linux/lamp-supervisor.service', ROOT / 'infra/linux/lamp-supervisor.service'),
+            ('infra/linux/var-lib-lamp.mount', ROOT / 'infra/linux/var-lib-lamp.mount')]
+        if host:
+            linux_engine(host, commit, lb, ssh_opts)
+            files += [('lib/lamp-supervisor', lb / 'lamp-supervisor'), ('lib/lamp-guard', lb / 'lamp-guard')]
+        package(plat, files)
+        record['platforms'][plat] = {'engine': bool(host), 'commit': commit}
+
+    # macOS arm64: control binaries, the VZ engine and supervisor, Developer ID signed.
+    if 'darwin-arm64' in platforms:
+        mb = scratch / 'darwin-arm64'
+        go_build('darwin', 'arm64', mb, GO_BINS)
+        mac_engine(mb)
+        mac_bins = [mb / n for n in GO_BINS + ['lamp-vz', 'lamp-supervisor']]
+        if a.apple_dir:
+            apple = apple_files(a.apple_dir)
+            mac_sign(mac_bins, apple)
+            record['platforms']['darwin-arm64'] = {'notarization': mac_notarize(mac_bins, apple, scratch)}
+        else:
+            sh(['codesign', '--force', '--sign', '-', '--entitlements', ROOT / 'crates/lamp-vz/lamp-vz.entitlements', mb / 'lamp-vz'])
+            record['platforms']['darwin-arm64'] = {'notarization': None}
+        package('darwin-arm64', [(f'bin/{n}', mb / n) for n in GO_BINS + ['lamp-vz', 'lamp-supervisor']] + common_files(),
+                a.snapshot_format)
+
     # The relay: AGPL-3.0-only, its own archive with the full licence and source pointer.
     for goos, goarch in [('linux', 'amd64'), ('linux', 'arm64')]:
+        if (out / f'lamp-relay-{a.version}-{goos}-{goarch}.tar.gz').exists():
+            continue
         rb = scratch / f'relay-{goos}-{goarch}'
         go_build(goos, goarch, rb, ['lamp-relay'])
         shutil.copy2(ROOT / 'internal/relay/LICENSE', rb / 'LICENSE')
@@ -197,14 +222,15 @@ def main():
                                    'internal/relay and cmd/lamp-relay are AGPL-3.0-only.\n')
         tar_dir(rb, out / f'lamp-relay-{a.version}-{goos}-{goarch}.tar.gz', f'lamp-relay-{a.version}')
 
-    sh(['npm', 'pack', '--pack-destination', out], cwd=ROOT / 'sdk/typescript')
+    if not list(out.glob('*-lamp-sdk-*.tgz')):
+        sh(['npm', 'pack', '--pack-destination', out], cwd=ROOT / 'sdk/typescript')
 
     # curl | sh installer: archive digests and the release key are built in.
     base = f'https://github.com/JohanSardar/lamp/releases/download/v{a.version}'
     script = (ROOT / 'tools/release/install.sh.in').read_text()
     script = script.replace('@VERSION@', a.version).replace('@BASE@', base)
     script = script.replace('@TRUST@', (out / 'release-trust.pub').read_text().strip())
-    for plat in ['linux-amd64', 'darwin-arm64']:
+    for plat in ['linux-amd64', 'linux-arm64', 'darwin-arm64']:
         digest = hashlib.sha256((out / f'lamp-{a.version}-{plat}.tar.gz').read_bytes()).hexdigest()
         script = script.replace(f'@SHA_{plat}@', digest)
     (out / 'install.sh').write_text(script)
