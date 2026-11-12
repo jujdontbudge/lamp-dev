@@ -1,0 +1,20 @@
+files redacted: 0
+files with private details: 0
+files with private details: 0
+redacted export: 1413 files, commit 28be737, 0 known test fixtures
+created johansardar/lamp (private)
+uploaded SHA256SUMS
+uploaded eilmer-lamp-sdk-0.1.1.tgz
+uploaded install.sh
+uploaded lamp-0.1.1-darwin-arm64.tar.gz
+uploaded lamp-0.1.1-linux-amd64.tar.gz
+uploaded lamp-0.1.1-linux-arm64.tar.gz
+uploaded lamp-relay-0.1.1-linux-amd64.tar.gz
+uploaded lamp-relay-0.1.1-linux-arm64.tar.gz
+uploaded release-trust.pub
+uploaded release.json
+pushed main
+protected every branch: no one may push or merge
+released v0.1.1
+published https://gitlab.com/johansardar/lamp
+rc=0

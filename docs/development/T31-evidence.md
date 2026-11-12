@@ -175,3 +175,85 @@ checked before install). The arm64 `curl | sh` from the published release is
 Still pending on the account's restoration: the arm64 `curl | sh` from the
 release, the fast-forward public commit, the push of this branch and the PR
 body update.
+
+## Move to GitLab and lamp.eilmer.si, 2026-11-12 — blocked: GitLab identity verification
+
+After the GitHub suspension, the owner moved Lamp to GitLab, with every one of
+their GitHub URLs moving to the eilmer.si domain.
+
+**Changed** (commits `718f900`…`1d505d0`):
+- **Go module:** `github.com/JohanSardar/lamp` → `lamp.eilmer.si`, all imports, and
+  `go_package` in the worker proto and its checked-in descriptor.
+- **Install and downloads:** the installer is now `https://lamp.eilmer.si/install.sh`
+  and downloads come from `https://lamp.eilmer.si/releases/v0.1.1/`, served by GitLab
+  Pages from the public project. `tools/release/site.py` builds that site: it
+  fetches the release from the project's package registry, checks each file
+  against SHA256SUMS, and writes go-import pages for the module. `.gitlab-ci.yml`
+  holds the Pages job, limited to the public project's default branch.
+- **Source and SDK metadata** point at `gitlab.com/johansardar/lamp`. The README and
+  the 0.1.1 release notes use the new URLs.
+- **`publish_repo.sh`** now targets GitLab. Its steps are paced: create the project
+  private, upload the release to the package registry, push one commit, protect
+  every branch so no one can push or merge, release, then make it public. It
+  also refuses credential-shaped text that is not a listed fixture.
+- **Release 0.1.1:** the v0.1.0 GitHub release is gone. 0.1.1 is 0.1.0 plus the
+  aarch64 snapshot fix and these URL moves.
+- **`build.py` fixes found while building:**
+  - a partial pass (`--platforms`) now finishes, so a `--reuse` pass can complete
+    the release;
+  - Rust binaries are built with `--remap-path-prefix=$HOME=/build`. The first
+    0.1.1 build was checked before upload and **its supervisor, guard and VZ
+    binaries held the build machines' home paths** (Cargo registry and checkout).
+    The 0.1.0 archives on GitHub were built the same way, so they very likely
+    held them too. The rebuilt archives were scanned (80 files, gzip and tar
+    members included, 0 private details) before upload.
+
+**Done:**
+1. **Built and signed 0.1.1** from `1d505d0`:
+   - the amd64 engine on the Ubuntu laptop and the arm64 engine in the LA VM;
+   - Mac binaries Developer ID-signed and notarized (Apple: **Accepted**).
+   - Checksums: [SHA256SUMS](evidence/t31/0.1.1/SHA256SUMS); build record:
+     [release.json](evidence/t31/0.1.1/release.json).
+2. **Secret check** before anything became public:
+   - The redacted export had 0 private details and 0 credential-shaped strings.
+   - A second scan read the real secrets held on the M5 (release key, Apple
+     signing and notary keys, Cloudflare and Clerk tokens, OAuth client, relay
+     tokens, SSH keys, model and GitLab tokens), 116 strings from 27 files. It
+     searched every blob of the export for them, printing paths only.
+   - After false positives were removed (a callback URL, a key-format constant),
+     4 blobs matched. None is a secret: they hold the Clerk user IDs of T24's
+     disposable test accounts and a DNS record name, all already in the 0.1.0
+     publication.
+3. **`publish_repo.sh … 1d505d0 … --go`** ([log](evidence/t31/0.1.1/publish-gitlab.log)):
+   - created `gitlab.com/johansardar/lamp` as private;
+   - uploaded the 10 release files to its generic package registry, 5 s apart.
+     The registry's sha256 values match SHA256SUMS.
+   - pushed one commit `28be737` (author `Lamp <noreply@lamp.eilmer.si>`);
+   - protected `*` with no push or merge access for anyone;
+   - created release **v0.1.1**;
+   - made the project and its Pages **public**.
+4. **Anonymous checks:**
+   - `git clone https://gitlab.com/johansardar/lamp.git` with an empty HOME gives
+     one commit. Outside historical records, the only `github.com/JohanSardar`
+     URL left is in `infra/ci/install.py`, the retired GitHub runner installer.
+   - The release and its package files download without signing in.
+
+**Blocked:** both pipelines (main and the v0.1.1 tag) failed with no jobs run.
+GitLab's GraphQL `failureReason` says: **"The pipeline failed due to the user not
+being verified."** GitLab.com runs no CI, Pages included, for an account that has
+not passed identity verification, which takes a phone number or a card. The
+owner's rule says to stop and report that, so:
+- no Pages domain was added and no eilmer.si DNS record was created;
+  `lamp.eilmer.si` does not resolve;
+- `curl -fsSL https://lamp.eilmer.si/install.sh | sh` does not work yet;
+- the release's asset links (pointing at `lamp.eilmer.si`) return nothing;
+- `go install lamp.eilmer.si/cmd/lamp@v0.1.1` cannot resolve its go-import page;
+- the arm64 `curl | sh` demo from the real release on LA is still pending.
+
+When the owner has verified the account (or chosen another way to serve
+`lamp.eilmer.si`), the remaining steps are:
+1. retry the main pipeline;
+2. add the `lamp.eilmer.si` Pages domain and its two new DNS records: a CNAME to
+   the namespace's `gitlab.io` Pages host and the `_gitlab-pages-verification-code.lamp` TXT;
+3. run the `curl | sh` installs plus a sandbox on the Ubuntu laptop and LA, and
+   `go install` from a clean GOPATH.
