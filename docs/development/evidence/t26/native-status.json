@@ -1,0 +1,498 @@
+{
+  "fixture": "JohanSardar/lamp-t26-fixture",
+  "visibility": "private",
+  "source": "public zlib v1.3.1",
+  "native_runs": {
+    "build": {
+      "conclusion": "success",
+      "databaseId": 42961916224,
+      "headSha": "110eedc8e1c21331389c90d8d0fa0fc38cfb20a1",
+      "jobs": [
+        {
+          "completedAt": "2026-11-11T04:52:01Z",
+          "conclusion": "success",
+          "databaseId": 130330207536,
+          "name": "zlib",
+          "startedAt": "2026-11-11T04:51:41Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-11-11T04:51:45Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-11-11T04:51:42Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T04:51:50Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 2,
+              "startedAt": "2026-11-11T04:51:45Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T04:51:56Z",
+              "conclusion": "success",
+              "name": "Fresh private root and public build",
+              "number": 3,
+              "startedAt": "2026-11-11T04:51:50Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T04:51:56Z",
+              "conclusion": "skipped",
+              "name": "Untrusted PR authority",
+              "number": 4,
+              "startedAt": "2026-11-11T04:51:56Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T04:51:58Z",
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "number": 5,
+              "startedAt": "2026-11-11T04:51:56Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T04:51:58Z",
+              "conclusion": "skipped",
+              "name": "Native cancel point",
+              "number": 6,
+              "startedAt": "2026-11-11T04:51:58Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T04:52:00Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 12,
+              "startedAt": "2026-11-11T04:51:58Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T04:52:00Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 13,
+              "startedAt": "2026-11-11T04:52:00Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42961916224/job/130330207536"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42961916224"
+    },
+    "oidc": {
+      "conclusion": "success",
+      "databaseId": 42962635889,
+      "headSha": "110eedc8e1c21331389c90d8d0fa0fc38cfb20a1",
+      "jobs": [
+        {
+          "completedAt": "2026-11-11T04:58:35Z",
+          "conclusion": "success",
+          "databaseId": 130332540355,
+          "name": "identity",
+          "startedAt": "2026-11-11T04:58:29Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-11-11T04:58:30Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-11-11T04:58:30Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T04:58:34Z",
+              "conclusion": "success",
+              "name": "Exchange real GitHub identity without a stored Lamp secret",
+              "number": 2,
+              "startedAt": "2026-11-11T04:58:31Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T04:58:34Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 3,
+              "startedAt": "2026-11-11T04:58:34Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42962635889/job/130332540355"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42962635889"
+    },
+    "cancel": {
+      "conclusion": "cancelled",
+      "databaseId": 42962867545,
+      "headSha": "110eedc8e1c21331389c90d8d0fa0fc38cfb20a1",
+      "jobs": [
+        {
+          "completedAt": "2026-11-11T05:01:11Z",
+          "conclusion": "cancelled",
+          "databaseId": 130333288358,
+          "name": "zlib",
+          "startedAt": "2026-11-11T05:00:47Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-11-11T05:00:49Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-11-11T05:00:48Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:00:52Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 2,
+              "startedAt": "2026-11-11T05:00:49Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:00:56Z",
+              "conclusion": "success",
+              "name": "Fresh private root and public build",
+              "number": 3,
+              "startedAt": "2026-11-11T05:00:52Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:00:56Z",
+              "conclusion": "skipped",
+              "name": "Untrusted PR authority",
+              "number": 4,
+              "startedAt": "2026-11-11T05:00:56Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:00:57Z",
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "number": 5,
+              "startedAt": "2026-11-11T05:00:56Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:01:08Z",
+              "conclusion": "cancelled",
+              "name": "Native cancel point",
+              "number": 6,
+              "startedAt": "2026-11-11T05:00:57Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:01:09Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 12,
+              "startedAt": "2026-11-11T05:01:08Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:01:09Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 13,
+              "startedAt": "2026-11-11T05:01:09Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42962867545/job/130333288358"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42962867545"
+    },
+    "retain": {
+      "conclusion": "success",
+      "databaseId": 42963069751,
+      "headSha": "110eedc8e1c21331389c90d8d0fa0fc38cfb20a1",
+      "jobs": [
+        {
+          "completedAt": "2026-11-11T05:02:46Z",
+          "conclusion": "success",
+          "databaseId": 130333926772,
+          "name": "zlib",
+          "startedAt": "2026-11-11T05:02:28Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-11-11T05:02:31Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-11-11T05:02:29Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:02:38Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 2,
+              "startedAt": "2026-11-11T05:02:31Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:02:42Z",
+              "conclusion": "success",
+              "name": "Fresh private root and public build",
+              "number": 3,
+              "startedAt": "2026-11-11T05:02:38Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:02:42Z",
+              "conclusion": "skipped",
+              "name": "Untrusted PR authority",
+              "number": 4,
+              "startedAt": "2026-11-11T05:02:42Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:02:43Z",
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "number": 5,
+              "startedAt": "2026-11-11T05:02:42Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:02:43Z",
+              "conclusion": "skipped",
+              "name": "Native cancel point",
+              "number": 6,
+              "startedAt": "2026-11-11T05:02:43Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:02:44Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 12,
+              "startedAt": "2026-11-11T05:02:43Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T05:02:44Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 13,
+              "startedAt": "2026-11-11T05:02:44Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42963069751/job/130333926772"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42963069751"
+    }
+  },
+  "retention_inspection": {
+    "lamp_job_id": "jb_ef5a11154bdfaf743c746e31086101fe",
+    "sandbox_id": "sb_e8313a0a7f0e4a7fa0116aadb4b5558c",
+    "retained_state": "suspended",
+    "old_task_resume_status": 409,
+    "new_task_id": "tk_d885501ebfe2e07e30311f8eee713c50",
+    "new_budget_id": "bg_50f4e77d72b32dc537f6a6be994258c3",
+    "inspection_exit_code": 0,
+    "final_state": "deleted"
+  },
+  "stranger_fork_pr": "not run; open evidence",
+  "claude_code_action": "not run: no usable existing credential",
+  "untrusted_same_repository_pr": {
+    "run": {
+      "conclusion": "success",
+      "databaseId": 42971889992,
+      "headSha": "5ac44013c7bd51550ac32b99211a714320abc996",
+      "jobs": [
+        {
+          "completedAt": "2026-11-11T06:25:32Z",
+          "conclusion": "success",
+          "databaseId": 130362043456,
+          "name": "zlib",
+          "startedAt": "2026-11-11T06:25:18Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-11-11T06:25:21Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-11-11T06:25:19Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:23Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 2,
+              "startedAt": "2026-11-11T06:25:21Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:26Z",
+              "conclusion": "success",
+              "name": "Fresh private root and public build",
+              "number": 3,
+              "startedAt": "2026-11-11T06:25:23Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:28Z",
+              "conclusion": "success",
+              "name": "Untrusted PR authority",
+              "number": 4,
+              "startedAt": "2026-11-11T06:25:26Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:30Z",
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "number": 5,
+              "startedAt": "2026-11-11T06:25:28Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:30Z",
+              "conclusion": "skipped",
+              "name": "Native cancel point",
+              "number": 6,
+              "startedAt": "2026-11-11T06:25:30Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:30Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+              "number": 12,
+              "startedAt": "2026-11-11T06:25:30Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-11-11T06:25:30Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 13,
+              "startedAt": "2026-11-11T06:25:30Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42971889992/job/130362043456"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/JohanSardar/lamp-t26-fixture/actions/runs/42971889992"
+    },
+    "lamp_job": {
+      "artifact_ids": [
+        "ar_3a310434329116d9be506994a9280947"
+      ],
+      "created_at": "2026-11-11T06:25:10.93418963Z",
+      "external_id": "JohanSardar/lamp-t26-fixture/130362043456",
+      "fleet_id": "fl_local",
+      "id": "jb_3a1055831e50fad52b2a3eb3a1dd02e0",
+      "job_token": {
+        "actions": [
+          "one-job-runner"
+        ],
+        "audience": "JohanSardar/lamp-t26-fixture",
+        "issuer": "https://github.com",
+        "resource_ids": [
+          "130362043456"
+        ]
+      },
+      "kind": "job",
+      "labels": {
+        "route": "workflow"
+      },
+      "owner_id": "pr_t26_native",
+      "plugin_id": "pg_github",
+      "repository_visibility": "private",
+      "result": "success",
+      "revision": 14,
+      "runner_ref": "22",
+      "sandbox_id": "sb_adffa9b5cc87b180b519b5fff82af34d",
+      "source_identity": {
+        "event": "pull_request",
+        "issuer": "https://token.actions.githubusercontent.com",
+        "repository_id": "1453466594",
+        "repository_owner_id": "68117503",
+        "sha": "5ac44013c7bd51550ac32b99211a714320abc996"
+      },
+      "state": "completed",
+      "task_id": "tk_6421c91d4b91654c4a7e9a9f06b4e218",
+      "trust_class": "public_pr",
+      "updated_at": "2026-11-11T06:25:35.753145988Z",
+      "visibility": "private"
+    },
+    "sandbox_final_state": "deleted",
+    "trusted_actor_ids": [],
+    "retain_stopped": true,
+    "repository_secret_count": 0,
+    "copilot_environment_secret_count": 0,
+    "pr_url": "https://github.com/JohanSardar/lamp-t26-fixture/pull/3",
+    "not_a_stranger_fork": true
+  },
+  "cleanup": {
+    "fixture_private": true,
+    "sandbox_count": 22,
+    "all_sandboxes_deleted": true,
+    "fixture_runner_count": 0,
+    "queued_runs": 0,
+    "in_progress_runs": 0,
+    "repository_secret_count": 0,
+    "copilot_environment_secret_count": 0,
+    "archived": true,
+    "visibility": "private",
+    "controller_stopped": true,
+    "supervisor_stopped": true,
+    "worker_grant_revoked": true,
+    "copied_native_credentials_removed": true,
+    "owned_live_firecracker": 0,
+    "owned_capture_directories": 0,
+    "tunnel_stopped": true,
+    "forward_stopped": true
+  },
+  "coding_agents": {
+    "claude": {
+      "inference": "not_run",
+      "reason": "cached M5 OAuth expired; no usable headless credential located; no API key provisioned"
+    },
+    "codex": {
+      "inference": "not_run",
+      "native_attempts": {
+        "42964816530": "failed archive ownership restore",
+        "42965630506": "failed: subscription credential does not supply the Action API-key proxy",
+        "42967604409": "failed: runner lost communication before inference; underlying cause unknown"
+      },
+      "model_api_key_available": false,
+      "existing_subscription_secret_removed": true
+    },
+    "copilot": {
+      "native_placement": "observed",
+      "inference": "not_run",
+      "existing_plan": "individual",
+      "overage_permitted": false,
+      "native_attempts": {
+        "42965716001": "failed: missing jq",
+        "42970831688": "failed: effective provider firewall enabled",
+        "42971386194": "failed: effective provider firewall enabled despite legacy environment variable"
+      },
+      "provider_policy_not_bypassed": true
+    }
+  }
+}

@@ -46,7 +46,11 @@ func reserveTokens(ctx context.Context, c Connection, in Invocation) (uint64, er
 	if c.Kind != "model" {
 		return 0, nil
 	}
-	output, err := modelOutputLimit(in.Arguments["max_tokens"])
+	key := "max_tokens"
+	if in.Operation == "responses" {
+		key = "max_output_tokens"
+	}
+	output, err := modelOutputLimit(in.Arguments[key])
 	if err != nil {
 		return 0, err
 	}
@@ -67,7 +71,7 @@ func reserveTokens(ctx context.Context, c Connection, in Invocation) (uint64, er
 	// Chat tokenization is vendor-specific. A configured vendor tokenizer must
 	// provide an exact prompt count; otherwise reserve a conservative UTF-8 byte
 	// bound plus the maximum output and report best-effort token visibility.
-	messages, _ := json.Marshal(in.Arguments["messages"])
+	messages, _ := json.Marshal(in.Arguments)
 	return uint64(len(messages)) + output + 1024, nil
 }
 

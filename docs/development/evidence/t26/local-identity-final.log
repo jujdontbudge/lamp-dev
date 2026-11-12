@@ -1,0 +1,6 @@
+=== RUN   TestCIControlledDemonstration
+    ci_demo_test.go:149: controlled RSA issuer + Ed25519 proof: scoped key works, authority escalation and replay denied; JWT and key absent from durable files
+    ci_demo_test.go:151: real VM portion not requested; set LAMP_CI_LIVE_CONFIG for the explicit manual demonstration
+--- PASS: TestCIControlledDemonstration (0.28s)
+PASS
+ok  	github.com/JohanSardar/lamp/internal/control	1.418s

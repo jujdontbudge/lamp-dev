@@ -198,6 +198,28 @@ func (b *Broker) owner(w http.ResponseWriter, r *http.Request) {
 		}
 		b.log(id, "owner", "access_changed")
 		send(w, 200, map[string]string{"access": in.Access})
+	case r.Method == "POST" && r.URL.Path == "/owner/renew":
+		// Extends a live grant by at most one TTL from now, so a holder (such as
+		// a CI job) keeps one token for its whole lifetime only while its owner
+		// keeps renewing. An expired or revoked grant is never revived.
+		var in struct {
+			GrantID string `json:"grant_id"`
+			TTL     int    `json:"ttl_seconds"`
+		}
+		if decode(r, &in) != nil || in.TTL < 1 || in.TTL > 300 {
+			fail(w, "INVALID_ARGUMENT")
+			return
+		}
+		for k, g := range b.grants {
+			if g.id == in.GrantID {
+				g.expires = time.Now().Add(time.Duration(in.TTL) * time.Second)
+				b.grants[k] = g
+				b.log("renew", g.Sandbox, "renewed")
+				send(w, 200, map[string]any{"grant_id": g.id, "expires_at": g.expires})
+				return
+			}
+		}
+		fail(w, "NOT_FOUND")
 	case r.Method == "POST" && r.URL.Path == "/owner/revoke":
 		var in struct {
 			GrantID string `json:"grant_id"`
@@ -291,6 +313,7 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 	}
 	var in Invocation
 	modelRoute := false
+	nativeRoute := false
 	if r.URL.Path == "/v1/invoke" {
 		if decode(r, &in) != nil {
 			fail(w, "INVALID_ARGUMENT")
@@ -324,6 +347,19 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 			in.Approval = header[0]
 		}
 		modelRoute = true
+	} else if strings.HasPrefix(r.URL.Path, "/v1/models/") && (strings.HasSuffix(r.URL.Path, "/v1/messages") || strings.HasSuffix(r.URL.Path, "/responses")) {
+		tail := strings.TrimPrefix(r.URL.Path, "/v1/models/")
+		suffix := "/responses"
+		in.Operation = "responses"
+		if strings.HasSuffix(tail, "/v1/messages") {
+			suffix, in.Operation = "/v1/messages", "messages"
+		}
+		in.Connection = strings.TrimSuffix(tail, suffix)
+		if decode(r, &in.Arguments) != nil {
+			fail(w, "INVALID_ARGUMENT")
+			return
+		}
+		modelRoute, nativeRoute = true, true
 	} else {
 		fail(w, "SCOPE_DENIED")
 		return
@@ -341,6 +377,12 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 	if err := validateFields(in.Arguments, op.Fields); err != nil {
 		fail(w, err.Error())
 		return
+	}
+	if nativeRoute {
+		if err := normalizeNative(in); err != nil {
+			fail(w, err.Error())
+			return
+		}
 	}
 	if err := validateInvocation(c, in); err != nil {
 		fail(w, err.Error())
@@ -415,7 +457,13 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 	}
-	result, err := b.execute(ctx, c, in)
+	var result json.RawMessage
+	var nativeContent string
+	if nativeRoute {
+		result, nativeContent, err = b.nativeModel(ctx, c, in)
+	} else {
+		result, err = b.execute(ctx, c, in)
+	}
 	close(finished)
 	b.mu.Lock()
 	delete(b.flights, flightID)
@@ -423,6 +471,9 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 		var actual *uint64
 		if err == nil && c.Kind == "model" {
 			actual = modelUsage(result)
+			if nativeRoute {
+				actual = nativeModelUsage(result)
+			}
 		}
 		settleCtx, settleCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		_, settleErr := b.accounting(settleCtx, "settle", map[string]any{"sandbox_id": g.Sandbox, "reservation_id": reservationID, "actual_tokens": actual, "duration_ms": time.Since(started).Milliseconds()})
@@ -438,6 +489,13 @@ func (b *Broker) task(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b.log(in.Connection, g.Sandbox, "completed")
+	if nativeRoute {
+		w.Header().Set("Content-Type", nativeContent)
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(200)
+		_, _ = w.Write(result)
+		return
+	}
 	if modelRoute {
 		send(w, 200, result)
 		return

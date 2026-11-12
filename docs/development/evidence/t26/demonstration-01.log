@@ -1,0 +1,9 @@
+=== RUN   TestCIControlledDemonstration
+    ci_demo_test.go:149: controlled RSA issuer + Ed25519 proof: scoped key works, authority escalation and replay denied; JWT and key absent from durable files
+    ci_demo_test.go:365: demonstration operation failed: &{DATA_UNAVAILABLE CI authority or VM cleanup needs reconciliation false 0x12b5e2eb32c0 <nil>}
+--- FAIL: TestCIControlledDemonstration (0.28s)
+FAIL
+FAIL	github.com/JohanSardar/lamp/internal/control	0.889s
+FAIL
+demonstration_exit 1
+firecracker_remaining 1
