@@ -1,6 +1,6 @@
 syntax = "proto3";
 package lamp.worker.v1;
-option go_package = "github.com/JohanSardar/lamp/pkg/workerpb";
+option go_package = "lamp.eilmer.si/pkg/workerpb";
 
 // lamp.worker/1 control only. Bulk content never appears in these messages.
 message Hello {

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/surface"
-	"github.com/JohanSardar/lamp/pkg/api"
+	"lamp.eilmer.si/internal/surface"
+	"lamp.eilmer.si/pkg/api"
 )
 
 type sessionTransfer struct {

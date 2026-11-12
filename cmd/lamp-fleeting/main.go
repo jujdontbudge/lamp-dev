@@ -61,7 +61,7 @@ type instance struct {
 	// Boot is a one-time nonce: the only credential in the bootstrap exec's
 	// argv (which Lamp records and the guard audits). The first "bin" request
 	// that presents it consumes it and receives Secret over the callback.
-	Boot string `json:"boot,omitempty"`
+	Boot    string `json:"boot,omitempty"`
 	Exec    string `json:"exec,omitempty"`
 	User    string `json:"user,omitempty"`
 	port    int

@@ -1,84 +1,71 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
-# One-time publication of Lamp's public repository from one redacted commit.
-#   tools/release/publish_repo.sh PATTERNS_FILE REF [--go]   (REF: the reviewed commit to publish)
+# One-time publication of Lamp's public GitLab project from one redacted commit.
+#   tools/release/publish_repo.sh PATTERNS_FILE REF RELEASE_DIR [--go]
+# REF is the reviewed development commit; RELEASE_DIR is tools/release/build.py's output.
 #
-# Order: preflight -> export REF -> stage -> redact -> check, all in a
-# temporary directory. Without --go it stops there: it modifies no checkout,
-# remote or repository, and prints the remotes it would rewrite. With --go it
-# then renames the private JohanSardar/lamp to lamp-dev, rewrites every remote
-# url/pushurl pointing at JohanSardar/lamp in every checkout on the M5, the
-# Ubuntu laptop and the Air, creates the public JohanSardar/lamp, pushes the one
-# commit, and adds a ruleset that blocks branch creation and pushes for everyone.
+# Order: preflight -> export REF -> redact -> check -> secret-pattern scan, all in
+# a temporary directory. Without --go it stops there and changes nothing. With
+# --go, one step at a time with pauses (no bursts): create the private project
+# gitlab.com/johansardar/lamp, upload RELEASE_DIR to its generic package
+# registry, push the one commit (its Pages job publishes lamp.eilmer.si), protect
+# every branch so no one can push or merge, tag and release v<version>, and make
+# the project public. The lamp.eilmer.si Pages domain and DNS are set up separately.
 set -eu
-patterns=${1:?usage: publish_repo.sh PATTERNS_FILE REF [--go]}
-ref=${2:?usage: publish_repo.sh PATTERNS_FILE REF [--go]}
-go=${3:-}
-owner=JohanSardar
-hosts=${LAMP_PUBLISH_HOSTS:?set LAMP_PUBLISH_HOSTS to the other machines ssh aliases}
+patterns=${1:?usage: publish_repo.sh PATTERNS_FILE REF RELEASE_DIR [--go]}
+ref=${2:?usage: publish_repo.sh PATTERNS_FILE REF RELEASE_DIR [--go]}
+rel=${3:?usage: publish_repo.sh PATTERNS_FILE REF RELEASE_DIR [--go]}
+go=${4:-}
+project=johansardar/lamp
+api=projects/johansardar%2Flamp
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 die() { echo "publish_repo: $*" >&2; exit 1; }
+pause() { sleep 20; }
 
-# Preflight; an API failure is a refusal, never an empty pass.
-vis=$(gh repo view $owner/lamp --json visibility -q .visibility) || die "cannot read repository visibility"
-[ "$vis" = PRIVATE ] || die "JohanSardar/lamp is not the private repository"
-runners=$(gh api repos/$owner/lamp/actions/runners -q '.total_count') || die "cannot list runners"
-if [ "$runners" != 0 ]; then
-  [ "$go" = --go ] && die "retire the $runners self-hosted runners first"
-  echo "note: $runners self-hosted runners still registered (--go refuses until retired)"
-fi
-if gh repo view $owner/lamp-dev >/dev/null 2>&1; then die "JohanSardar/lamp-dev already exists"; fi
+version=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["version"])' "$rel/release.json")
+(cd "$rel" && shasum -a 256 -c SHA256SUMS >/dev/null) || die "release files do not match SHA256SUMS"
+if glab api "$api" >/dev/null 2>&1; then die "$project already exists"; fi
 
-# Export, stage and redact in a temporary directory; check before any effect.
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-git -C "$root" fetch -q origin
 git -C "$root" archive "$ref" | tar -x -C "$work"
 git -C "$work" init -q -b main
 git -C "$work" add -A
 python3 "$root/tools/release/redact.py" --root "$work" --patterns "$patterns"
 git -C "$work" add -A
 python3 "$root/tools/release/redact.py" --root "$work" --patterns "$patterns" --check || die "redaction check failed; nothing was changed"
-git -C "$work" -c user.name="$owner" -c user.email="68117503+$owner@users.noreply.github.com" commit -qm "Lamp 0.1.0"
-echo "redacted export: $(git -C "$work" ls-files | wc -l | tr -d ' ') files, commit $(git -C "$work" rev-parse --short HEAD)"
-
-# Every git config under a home directory whose remotes point at JohanSardar/lamp.
-rewrite='
-mode=$1
-find "$HOME" -maxdepth 6 \( -name Library -o -name node_modules -o -name .cache -o -name target -o -name anaconda3 \
-  -o -name .cargo -o -name .rustup -o -name go -o -name .npm -o -name .Trash -o -name .local -o -name snap \
-  -o -name objects -o -name .venv \) -prune -o -type f -path "*.git/config" -print 2>/dev/null | while read -r c; do
-  git config --file "$c" --get-regexp "^remote\..*\.(url|pushurl)$" 2>/dev/null |
-  while read -r key url; do
-    case "$url" in
-      *JohanSardar/lamp|*JohanSardar/lamp.git|*JohanSardar/lamp/)
-        new=$(printf %s "$url" | sed -E "s#JohanSardar/lamp(\.git|/)?\$#JohanSardar/lamp-dev.git#")
-        echo "$(hostname -s): $c $key -> $new"
-        if [ "$mode" = go ]; then git config --file "$c" "$key" "$new"; fi ;;
-    esac
-  done
-done'
-echo "remotes to rewrite:"
-sh -c "$rewrite" sh dry
-for h in $hosts; do ssh -o BatchMode=yes "$h" sh -s dry <<EOF || die "cannot inspect checkouts on $h"
-$rewrite
-EOF
+# Credential formats; every hit must be a known test fixture, listed by path.
+hits=$(git -C "$work" grep -lE -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' -e 'glpat-[0-9A-Za-z_-]{20}' \
+  -e '(ghp|gho|ghs|ghu)_[0-9A-Za-z]{36}' -e 'github_pat_[0-9A-Za-z_]{40}' -e 'sk-(ant|or|proj)-[0-9A-Za-z_-]{20}' \
+  -e 'AKIA[0-9A-Z]{16}' -e 'xox[abpr]-[0-9A-Za-z-]{10}' -e 'AIza[0-9A-Za-z_-]{35}' -e 'sk_(live|test)_[0-9A-Za-z]{20}' || true)
+allowed=$(cat "$root/tools/release/secret-fixtures.txt")
+for h in $hits; do
+  printf '%s\n' "$allowed" | grep -qxF "$h" || die "credential-shaped text in $h; not publishing"
 done
+git -C "$work" -c user.name=johansardar -c user.email=44356258-johansardar@users.noreply.gitlab.com commit -qm "Lamp $version"
+echo "redacted export: $(git -C "$work" ls-files | wc -l | tr -d ' ') files, commit $(git -C "$work" rev-parse --short HEAD), $(printf '%s\n' $hits | grep -c . || true) known test fixtures"
 [ "$go" = --go ] || { echo "dry run: nothing was changed"; exit 0; }
 
-gh repo rename lamp-dev --repo $owner/lamp --yes
-sh -c "$rewrite" sh go
-for h in $hosts; do ssh -o BatchMode=yes "$h" sh -s go <<EOF
-$rewrite
-EOF
+glab api -X POST projects -f name=lamp -f path=lamp -f visibility=private \
+  -f description="Fast, isolated sandboxes for agents, harnesses and CI on your own machines" >/dev/null
+echo "created $project (private)"; pause
+for f in "$rel"/*; do
+  [ -f "$f" ] || continue
+  glab api -X PUT "$api/packages/generic/lamp/$version/$(basename "$f")" --input "$f" >/dev/null
+  echo "uploaded $(basename "$f")"; sleep 5
 done
-gh repo create $owner/lamp --public --description "Fast, isolated sandboxes for agents, harnesses and CI on your own machines"
-git -C "$work" push "https://github.com/$owner/lamp.git" main
-# No one, admins included, can create branches or push: a missed private
-# checkout cannot publish into the public repository.
-gh api -X POST repos/$owner/lamp/rulesets --input - <<'EOF'
-{"name": "no pushes", "target": "branch", "enforcement": "active", "bypass_actors": [],
- "conditions": {"ref_name": {"include": ["~ALL"], "exclude": []}},
- "rules": [{"type": "creation"}, {"type": "update"}, {"type": "deletion"}, {"type": "non_fast_forward"}]}
-EOF
-echo "published https://github.com/$owner/lamp"
+pause
+git -C "$work" push -q "git@gitlab.com:$project.git" main
+echo "pushed main"; pause
+glab api -X DELETE "$api/protected_branches/main" >/dev/null 2>&1 || true
+glab api -X POST "$api/protected_branches" -f name='*' -f push_access_level=0 -f merge_access_level=0 \
+  -f allow_force_push=false >/dev/null
+echo "protected every branch: no one may push or merge"; pause
+base="https://lamp.eilmer.si/releases/v$version"
+links=$(cd "$rel" && for f in *; do printf '{"name":"%s","url":"%s/%s","direct_asset_path":"/%s"},' "$f" "$base" "$f" "$f"; done)
+printf '{"name":"Lamp %s","tag_name":"v%s","ref":"main","description":%s,"assets":{"links":[%s]}}' \
+  "$version" "$version" "$(python3 -c 'import json,sys;print(json.dumps(open(sys.argv[1]).read()))' "$work/docs/release/$version.md")" \
+  "${links%,}" | glab api -X POST "$api/releases" -H 'Content-Type: application/json' --input - >/dev/null
+echo "released v$version"; pause
+glab api -X PUT "$api" -f visibility=public -f pages_access_level=public >/dev/null
+echo "published https://gitlab.com/$project"

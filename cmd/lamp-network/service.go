@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/network"
-	"github.com/JohanSardar/lamp/internal/surface"
+	"lamp.eilmer.si/internal/network"
+	"lamp.eilmer.si/internal/surface"
 )
 
 const maxControlActionBytes = 1 << 20

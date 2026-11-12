@@ -36,8 +36,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/control"
-	"github.com/JohanSardar/lamp/internal/release"
+	"lamp.eilmer.si/internal/control"
+	"lamp.eilmer.si/internal/release"
 )
 
 type fileEntry = release.FileEntry

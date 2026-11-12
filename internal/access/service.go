@@ -18,12 +18,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/accountidentity"
-	"github.com/JohanSardar/lamp/internal/surface"
 	"github.com/caddyserver/certmagic"
 	"github.com/coder/websocket"
 	ssh "github.com/gliderlabs/ssh"
 	xssh "golang.org/x/crypto/ssh"
+	"lamp.eilmer.si/internal/accountidentity"
+	"lamp.eilmer.si/internal/surface"
 	"tailscale.com/client/local"
 	"tailscale.com/tsnet"
 )

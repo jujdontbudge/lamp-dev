@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/surface"
-	"github.com/JohanSardar/lamp/pkg/api"
 	ssh "github.com/gliderlabs/ssh"
+	"lamp.eilmer.si/internal/surface"
+	"lamp.eilmer.si/pkg/api"
 )
 
 func randomID() string { var b [16]byte; _, _ = rand.Read(b[:]); return hex.EncodeToString(b[:]) }

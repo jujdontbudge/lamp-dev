@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/ci"
+	"lamp.eilmer.si/internal/ci"
 )
 
 // Only the API-verified trusted workflow can select a host-enrolled model

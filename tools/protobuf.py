@@ -16,7 +16,7 @@ def main():
     env=dict(os.environ);env['GOBIN']=str(ROOT/'.tools/bin');env['PATH']=env['GOBIN']+os.pathsep+env['PATH']
     subprocess.run(['go','install','google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11'],cwd=ROOT,env=env,check=True)
     with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run(['protoc','-I','contracts/worker','--go_out='+tmp,'--go_opt=module=github.com/JohanSardar/lamp','contracts/worker/worker.proto'],cwd=ROOT,env=env,check=True)
+        subprocess.run(['protoc','-I','contracts/worker','--go_out='+tmp,'--go_opt=module=lamp.eilmer.si','contracts/worker/worker.proto'],cwd=ROOT,env=env,check=True)
         subprocess.run(['cargo','run','--locked','-p','lamp-protogen','--',tmp],cwd=ROOT,check=True)
         rust=Path(tmp)/'lamp.worker.v1.rs'
         subprocess.run(['rustfmt','--edition','2024',str(rust)],check=True)

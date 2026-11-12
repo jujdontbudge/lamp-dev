@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohanSardar/lamp/pkg/api"
+	"lamp.eilmer.si/pkg/api"
 )
 
 type Client struct {

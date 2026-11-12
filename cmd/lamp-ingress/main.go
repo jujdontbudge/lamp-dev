@@ -22,8 +22,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/hostedissuer"
-	"github.com/JohanSardar/lamp/internal/hostedlogin"
+	"lamp.eilmer.si/internal/hostedissuer"
+	"lamp.eilmer.si/internal/hostedlogin"
 )
 
 type user struct {

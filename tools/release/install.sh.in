@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
 # Lamp @VERSION@ installer:  curl -fsSL @BASE@/install.sh | sh
-# Downloads this release from GitHub, checks the archive digest built into this
+# Downloads this release from lamp.eilmer.si, checks the archive digest built into this
 # script, then lamp-installer checks the Ed25519 release signature against the
 # release key below and pins it for updates. Options (env): LAMP_PREFIX
 # (default ~/.local/lamp), LAMP_SERVICE (systemd|launchd|process).
@@ -26,4 +26,4 @@ tar -xzf lamp.tar.gz
 printf '%s\n' "$TRUST" > release-trust.pub
 "lamp-$VERSION/$PLAT/payload/bin/lamp-installer" install --release "lamp-$VERSION" \
   --trust release-trust.pub --prefix "$PREFIX" --service "${LAMP_SERVICE:-$SVC}"
-echo "Lamp $VERSION installed in $PREFIX. Engine setup: https://github.com/JohanSardar/lamp/releases/tag/v$VERSION"
+echo "Lamp $VERSION installed in $PREFIX. Engine setup: https://gitlab.com/johansardar/lamp/-/releases/v$VERSION"

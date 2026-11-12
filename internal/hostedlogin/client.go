@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/accountidentity"
+	"lamp.eilmer.si/internal/accountidentity"
 )
 
 type Identity = accountidentity.Identity

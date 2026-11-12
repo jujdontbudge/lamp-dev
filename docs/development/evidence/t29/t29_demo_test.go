@@ -40,9 +40,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/ci"
-	"github.com/JohanSardar/lamp/pkg/api"
-	pb "github.com/JohanSardar/lamp/pkg/workerpb"
+	"lamp.eilmer.si/internal/ci"
+	"lamp.eilmer.si/pkg/api"
+	pb "lamp.eilmer.si/pkg/workerpb"
 )
 
 type t29Live struct {

@@ -4,9 +4,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/JohanSardar/lamp/pkg/api"
-	w "github.com/JohanSardar/lamp/pkg/workerpb"
 	"io"
+	"lamp.eilmer.si/pkg/api"
+	w "lamp.eilmer.si/pkg/workerpb"
 	"os"
 )
 

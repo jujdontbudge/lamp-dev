@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/JohanSardar/lamp/pkg/workerpb"
+	pb "lamp.eilmer.si/pkg/workerpb"
 )
 
 // Lamp's own guest work (idle observation, file transfer, materializing

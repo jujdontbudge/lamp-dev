@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/JohanSardar/lamp/pkg/plugin"
+	"lamp.eilmer.si/pkg/plugin"
 )
 
 func send(m plugin.Message) bool {

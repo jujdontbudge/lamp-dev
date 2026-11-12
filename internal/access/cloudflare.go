@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohanSardar/lamp/pkg/plugin"
+	"lamp.eilmer.si/pkg/plugin"
 )
 
 // The plugin is a confined planner. Only this owner-configured authority can

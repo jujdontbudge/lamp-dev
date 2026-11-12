@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/JohanSardar/lamp/internal/hostedlogin"
+	"lamp.eilmer.si/internal/hostedlogin"
 )
 
 type Fleet struct {

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohanSardar/lamp/pkg/api"
+	"lamp.eilmer.si/pkg/api"
 )
 
 // NotificationConfig is the owner's private sink configuration (OPS-003).

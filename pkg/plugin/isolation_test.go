@@ -3,8 +3,8 @@ package plugin_test
 import (
 	"context"
 	"encoding/json"
-	"github.com/JohanSardar/lamp/pkg/plugin"
 	"golang.org/x/sys/unix"
+	"lamp.eilmer.si/pkg/plugin"
 	"net"
 	"os"
 	"os/exec"

@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/ci"
-	"github.com/JohanSardar/lamp/pkg/api"
 	"golang.org/x/sys/unix"
+	"lamp.eilmer.si/internal/ci"
+	"lamp.eilmer.si/pkg/api"
 )
 
 const maxOperations = 1_000_000

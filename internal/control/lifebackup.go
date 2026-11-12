@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/JohanSardar/lamp/pkg/api"
 	"golang.org/x/sys/unix"
+	"lamp.eilmer.si/pkg/api"
 )
 
 // Backups (STO-005) are sealed archives: AES-256-GCM in 1 MiB chunks under

@@ -22,17 +22,18 @@ Created in [T3 Code](https://t3.codes).
 ## Install
 
 ```sh
-curl -fsSL https://github.com/JohanSardar/lamp/releases/download/v0.1.0/install.sh | sh
+curl -fsSL https://lamp.eilmer.si/install.sh | sh
 ```
 
 The installer checks the download's digest and the release signature. Then set
 up the engine and, if you want it, the TypeScript SDK: see the
-[0.1.0 release notes](docs/release/0.1.0.md). Linux needs KVM; macOS needs
+[0.1.1 release notes](docs/release/0.1.1.md). Linux needs KVM; macOS needs
 version 26 or later on Apple Silicon.
 
 ## Build from source
 
 ```sh
+git clone https://gitlab.com/johansardar/lamp.git && cd lamp
 make build              # Go, Rust and the plugin launcher
 make bootstrap verify   # build plus selected smoke tests
 ```
@@ -41,7 +42,7 @@ You need Go, Rust (see `rust-toolchain.toml`), a C compiler and Python 3.
 
 ## Documentation
 
-- [Release notes](docs/release/0.1.0.md) and [release measurements](docs/release/measurements.md)
+- [Release notes](docs/release/0.1.1.md) and [release measurements](docs/release/measurements.md)
 - [Specification](docs/spec/brief.md), [requirements](docs/spec/requirements.md) and [architecture](docs/spec/architecture.md)
 - [Public API schema](contracts/public/schema.json) and [OpenAPI](contracts/public/openapi.json)
 - [Development evidence](docs/development/README.md): what each feature was shown doing, failures included

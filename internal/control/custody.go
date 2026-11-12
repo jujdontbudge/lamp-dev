@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/JohanSardar/lamp/pkg/api"
-	pb "github.com/JohanSardar/lamp/pkg/workerpb"
+	"lamp.eilmer.si/pkg/api"
+	pb "lamp.eilmer.si/pkg/workerpb"
 )
 
 // Native device authorization and offline clean builds outlive an RPC admission.

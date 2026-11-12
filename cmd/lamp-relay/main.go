@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/JohanSardar/lamp/internal/relay"
+	"lamp.eilmer.si/internal/relay"
 )
 
 func main() {

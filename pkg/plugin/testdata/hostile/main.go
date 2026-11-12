@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/JohanSardar/lamp/pkg/plugin"
+	"lamp.eilmer.si/pkg/plugin"
 )
 
 func send(m plugin.Message) { raw, _ := json.Marshal(m); _ = plugin.WriteFrame(os.Stdout, raw) }

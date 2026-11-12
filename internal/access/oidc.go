@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/accountidentity"
+	"lamp.eilmer.si/internal/accountidentity"
 )
 
 func validateOIDC(c OIDC) error {

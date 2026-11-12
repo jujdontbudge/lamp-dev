@@ -14,7 +14,7 @@ notarized with an App Store Connect API key, all read from files by rcodesign;
 no keychain is touched. Linux engine binaries are built on a Linux host given
 by --linux-host (ssh), which needs Go, Rust and this commit.
 
-    python3 tools/release/build.py --version 0.1.0 --out /tmp/lamp-release \
+    python3 tools/release/build.py --version 0.1.1 --out /tmp/lamp-release \
       --release-key ~/.config/lamp/release/release.key \
       --apple-dir ~/.config/lamp/apple --linux-host ubuntu-server
 """
@@ -30,6 +30,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 GO_BINS = ['lampd', 'lamp', 'lamp-installer', 'lamp-access', 'lamp-mcp', 'lamp-broker',
            'lamp-network', 'lamp-relay-client', 'lamp-gitlab-executor', 'lamp-fleeting']
+SITE = 'https://lamp.eilmer.si'  # served by GitLab Pages from the public project (tools/release/site.py)
 RCODESIGN = os.environ.get('RCODESIGN', str(Path.home() / '.local/rcodesign/bin/rcodesign'))
 
 
@@ -218,7 +219,7 @@ def main():
         rb = scratch / f'relay-{goos}-{goarch}'
         go_build(goos, goarch, rb, ['lamp-relay'])
         shutil.copy2(ROOT / 'internal/relay/LICENSE', rb / 'LICENSE')
-        (rb / 'SOURCE').write_text(f'Corresponding source: https://github.com/JohanSardar/lamp/tree/{commit}\n'
+        (rb / 'SOURCE').write_text(f'Corresponding source: https://gitlab.com/johansardar/lamp (built from development commit {commit})\n'
                                    'internal/relay and cmd/lamp-relay are AGPL-3.0-only.\n')
         tar_dir(rb, out / f'lamp-relay-{a.version}-{goos}-{goarch}.tar.gz', f'lamp-relay-{a.version}')
 
@@ -226,7 +227,7 @@ def main():
         sh(['npm', 'pack', '--pack-destination', out], cwd=ROOT / 'sdk/typescript')
 
     # curl | sh installer: archive digests and the release key are built in.
-    base = f'https://github.com/JohanSardar/lamp/releases/download/v{a.version}'
+    base = f'{SITE}/releases/v{a.version}'
     script = (ROOT / 'tools/release/install.sh.in').read_text()
     script = script.replace('@VERSION@', a.version).replace('@BASE@', base)
     script = script.replace('@TRUST@', (out / 'release-trust.pub').read_text().strip())

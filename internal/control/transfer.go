@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/JohanSardar/lamp/pkg/api"
 	"golang.org/x/sys/unix"
+	"lamp.eilmer.si/pkg/api"
 )
 
 var exportBlobID = regexp.MustCompile(`^bl_[0-9a-f]{64}$`)

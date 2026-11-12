@@ -1947,7 +1947,7 @@ const file_worker_proto_rawDesc = "" +
 	"\x12HANDLE_KIND_PACKET\x10\x04\x12\x13\n" +
 	"\x0fHANDLE_KIND_PTY\x10\x05\x12\x15\n" +
 	"\x11HANDLE_KIND_MEDIA\x10\x06\x12\x14\n" +
-	"\x10HANDLE_KIND_BULK\x10\aB*Z(github.com/JohanSardar/lamp/pkg/workerpbb\x06proto3"
+	"\x10HANDLE_KIND_BULK\x10\aB\x1dZ\x1blamp.eilmer.si/pkg/workerpbb\x06proto3"
 
 var (
 	file_worker_proto_rawDescOnce sync.Once

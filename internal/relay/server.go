@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/hostedlogin"
 	"github.com/coder/websocket"
+	"lamp.eilmer.si/internal/hostedlogin"
 )
 
 type carrier struct {

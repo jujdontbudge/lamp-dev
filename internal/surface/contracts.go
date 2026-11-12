@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	public "github.com/JohanSardar/lamp/contracts/public"
-	"github.com/JohanSardar/lamp/pkg/api"
+	public "lamp.eilmer.si/contracts/public"
+	"lamp.eilmer.si/pkg/api"
 )
 
 var definitions map[string]map[string]any

@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/broker"
-	"github.com/JohanSardar/lamp/internal/control"
 	"golang.org/x/sys/unix"
+	"lamp.eilmer.si/internal/broker"
+	"lamp.eilmer.si/internal/control"
 )
 
 func main() {

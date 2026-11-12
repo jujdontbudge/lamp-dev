@@ -18,9 +18,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohanSardar/lamp/pkg/api"
 	"github.com/hashicorp/raft"
 	raftbolt "github.com/hashicorp/raft-boltdb/v2"
+	"lamp.eilmer.si/pkg/api"
 )
 
 // FleetConfig is private operator enrollment, never caller-supplied authority.
