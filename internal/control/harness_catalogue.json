@@ -100,14 +100,18 @@
     "id": "cursor_cli",
     "kind": "cursor",
     "name": "Cursor CLI (cursor-agent)",
-    "auth_modes": [],
+    "auth_modes": [
+      "api_key",
+      "subscription"
+    ],
     "routes": {
-      "api_key": "Not offered by Lamp (credential custody). Vendor route: Official CURSOR_API_KEY (user or service account) held on the custody host; traffic goes to Cursor's own backend.",
-      "subscription": "Not offered by Lamp (credential custody). Vendor route: Documented native 'agent login' into an isolated CURSOR_CONFIG_DIR on the custody host."
+      "api_key": "Official CURSOR_API_KEY (user or service account) held on the custody host; traffic goes to Cursor's own backend.",
+      "subscription": "Documented native 'agent login' into an isolated CURSOR_CONFIG_DIR on the custody host."
     },
     "permission_sources": [
       "https://cursor.com/docs/cli/reference/configuration",
-      "https://cursor.com/docs/cli/reference/authentication"
+      "https://cursor.com/docs/cli/reference/authentication",
+      "https://cursor.com/docs/cli/reference/permissions"
     ],
     "endpoints": [
       "api2.cursor.sh",
@@ -125,7 +129,7 @@
       "Cursor has no bring-your-own-endpoint route; model traffic always goes to Cursor, so the Lamp broker cannot hold the credential.",
       "Needs a Cursor account; not yet signed in for Lamp tests.",
       "On macOS the CLI tries to save the API-key login to the system keychain; Lamp runs it where no keychain is available (Linux hosts and sandboxes).",
-      "Lamp does not offer a route that would hand a real vendor credential to the agent: Cursor takes its key only through CURSOR_API_KEY or --api-key, and its login only as a file in its own config directory. All of these are reachable by its own shell tools, and Cursor has no bring-your-own-endpoint route that could take a broker grant."
+      "Vendor credential custody: Lamp runs Cursor with its documented permissions (https://cursor.com/docs/cli/reference/permissions) denying Shell(*), Read(/**), Read(**), Write(/**), Write(**) and WebFetch(*), and allowing only Mcp(lamp:*). Deny rules take precedence over allow rules. The agent works only through Lamp's MCP tools, which run in the sandbox from an environment without credentials. The key (CURSOR_API_KEY) or login stays in custody on the harness host. Lamp refuses a workspace that carries .cursor/ project config, and refuses this route at a sandbox location. On macOS the CLI also tries to save the key to the system keychain, so Lamp runs this route on Linux hosts."
     ]
   },
   {
@@ -286,14 +290,18 @@
     "id": "devin",
     "kind": "devin",
     "name": "Devin CLI",
-    "auth_modes": [],
+    "auth_modes": [
+      "subscription",
+      "api_key"
+    ],
     "routes": {
-      "subscription": "Not offered by Lamp (credential custody). Vendor route: Official 'devin auth login' (manual token flow) into the session's isolated home on the custody host; local execution.",
-      "api_key": "Not offered by Lamp (credential custody). Vendor route: Official service API key where the account provides one."
+      "subscription": "Official 'devin auth login' (manual token flow) into the session's isolated home on the custody host; local execution.",
+      "api_key": "Official service API key where the account provides one."
     },
     "permission_sources": [
       "https://docs.devin.ai/cli/troubleshooting",
-      "https://docs.devin.ai/cli"
+      "https://docs.devin.ai/cli",
+      "https://docs.devin.ai/cli/reference/permissions"
     ],
     "endpoints": [
       "devin.ai",
@@ -312,7 +320,7 @@
       "Headless output is plain text only.",
       "Use speed:standard; Devin's daily quota is shared.",
       "Devin reads its device login only from $XDG_DATA_HOME/devin/credentials.toml and does not take the login's key from WINDSURF_API_KEY, so Lamp runs it with that login in place on its own host. DEVIN_SESSIONS_DIR keeps sessions in the Lamp session home. Print mode needs --respect-workspace-trust false.",
-      "Lamp does not offer a route that would hand a real vendor credential to the agent: Devin reads its device login only from $XDG_DATA_HOME/devin/credentials.toml, and a service key only from WINDSURF_API_KEY. Its own read and exec tools reach both. Its exec sandbox and Deny(Read) rules might hide the login file, but that was not checked."
+      "Vendor credential custody: Lamp runs Devin with its documented permissions (https://docs.devin.ai/cli/reference/permissions) denying its read, edit, grep, glob and exec tools and web fetch, and allowing only mcp__lamp__*. A deny rule always wins. Project config outranks user config, so Lamp refuses a workspace that carries .devin/. The device login is used in place from $XDG_DATA_HOME/devin/credentials.toml, or WINDSURF_API_KEY stays in custody. The agent works only through Lamp's MCP tools in the sandbox. Lamp refuses this route at a sandbox location. Not run with these rules: the owner's Devin login was deleted after the section 7 run."
     ]
   },
   {
@@ -320,16 +328,18 @@
     "kind": "droid",
     "name": "Factory Droid",
     "auth_modes": [
-      "api_key"
+      "api_key",
+      "subscription"
     ],
     "routes": {
       "api_key": "Factory's documented BYOK custom model (generic-chat-completion-api) pointed at the broker; no Factory login is needed for this route.",
-      "subscription": "Not offered by Lamp (credential custody). Vendor route: Official FACTORY_API_KEY or native login on the custody host for Factory-hosted models."
+      "subscription": "Official FACTORY_API_KEY or native login on the custody host for Factory-hosted models."
     },
     "permission_sources": [
       "https://docs.factory.ai/cli/byok/overview",
       "https://docs.factory.com/enterprise/network-and-deployment",
-      "https://docs.factory.ai/cli/configuration/custom-droids"
+      "https://docs.factory.ai/cli/configuration/custom-droids",
+      "https://docs.factory.ai/cli/configuration/mcp"
     ],
     "endpoints": [
       "api.factory.ai"
@@ -344,7 +354,7 @@
     ],
     "limitations": [
       "BYOK turns reach only the configured model endpoint (observed: no Factory host contacted from a vendor-only VM); Factory-hosted models need the owner's Factory key, not yet provided for Lamp tests.",
-      "Lamp does not offer a route that would hand a real vendor credential to the agent: Droid's Factory-hosted route takes FACTORY_API_KEY from its environment or its own login, both reachable by its own tools. The BYOK route takes only an endpoint-scoped broker grant and stays offered."
+      "Vendor credential custody: Lamp runs droid's Factory-hosted route with --only-tools MCP:lamp (https://docs.factory.ai/cli/configuration/mcp), so droid has only Lamp's MCP tools, which run in the sandbox. FACTORY_API_KEY stays in custody on the harness host. Project and ancestor .factory/ config (mcp.json, hooks.json) is refused, as is this route at a sandbox location. Not run: no Factory credential is available without reading the owner's macOS keychain."
     ]
   }
 ]

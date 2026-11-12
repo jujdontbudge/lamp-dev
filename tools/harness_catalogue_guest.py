@@ -45,13 +45,16 @@ def main():
     parser.add_argument("--kinds", default="opencode,droid")
     parser.add_argument("--credential-socket", required=True)
     parser.add_argument("--public-repository", type=Path, required=True)
+    parser.add_argument("--custody-kind", help="run this harness on the host with a real vendor credential, its own tools denied, and Lamp's MCP exec pointed at the sandbox")
+    parser.add_argument("--custody-binary", type=Path, help="official binary for --custody-kind on the host")
+    parser.add_argument("--custody-credential", type=Path, help="vendor credential file held on the custody host (never printed)")
     args = parser.parse_args()
     if os.geteuid() != 0:
         raise RuntimeError("run as root in the ticket's disposable root")
     os.umask(0o077)
     root = args.root
     root.mkdir(mode=0o700)
-    kinds = args.kinds.split(",")
+    kinds = [kind for kind in args.kinds.split(",") if kind]
     events, processes = [], []
     sandbox = None
     runtime = root / "r"
@@ -209,6 +212,12 @@ def main():
             inside = {"binary": "/opt/lamp/bin/" + kind, "credential_file": "/tmp/lamp-model.token", "ca_file": "/tmp/lamp-model-ca.pem"}
             host = {"binary": str(binaries / kind), "credential_file": str(model / "host.token"), "ca_file": str(model / "ca.pem")}
             harnesses["hr_" + kind] = {"owner_id": "pr_local", "argv": ["python3"], "cwd": "{session_dir}/work", "env": {"HOME": "{session_dir}/home", "PATH": "/opt/lamp/bin:/usr/local/bin:/usr/bin:/bin", "LANG": "C.UTF-8"}, "auth_modes": ["api_key"], "repository": "bundle:" + base64.b64encode(bundle.read_bytes()).decode(), "native": {"kind": kind, "binary": "/opt/lamp/bin/" + kind, "model": "openrouter/free", "endpoint": endpoint, "profiles": {"sandbox:" + HOST_ID: inside, "sandbox:hs_local": inside, "host:hs_lx": host}}}
+        if args.custody_kind:
+            # T21's custody pattern: the vendor credential stays on this host,
+            # the harness's own tools are denied by its own controls, and its
+            # only tools are Lamp's MCP bridge into the sandbox.
+            bridge = ["/usr/bin/python3", str(Path(__file__).resolve().parent / "session_mcp.py"), "--socket", str(api), "--sandbox-id", "{sandbox_id}", "--session-id", "{session_id}"]
+            harnesses["hr_custody"] = {"owner_id": "pr_local", "argv": ["python3"], "cwd": "{session_dir}/work", "env": {"HOME": "{session_dir}/home", "PATH": "/usr/local/bin:/usr/bin:/bin", "LANG": "C.UTF-8"}, "auth_modes": ["api_key"], "repository": "bundle:" + base64.b64encode(bundle.read_bytes()).decode(), "native": {"kind": args.custody_kind, "binary": str(args.custody_binary), "credential_file": str(args.custody_credential), "mcp_command": bridge, "profiles": {"host:hs_lx": {"binary": str(args.custody_binary), "credential_file": str(args.custody_credential)}}}}
         (root / "sessions.json").write_text(json.dumps({"harnesses": harnesses, "hosts": {"hs_lx": {"owner_id": "pr_local", "command": ["/usr/bin/python3"], "root": str(root / "host-sessions")}}}))
         start([str(binaries / "lampd"), "--state-dir", str(root / "control"), "--socket", str(api), "--sessions-config", str(root / "sessions.json"), "--worker-socket", str(runtime / "w.sock"), "--worker-id", "lamp-supervisor@" + HOST_ID, "--worker-boot-id", Path("/proc/sys/kernel/random/boot_id").read_text().strip(), "--worker-uid", "0", "--worker-pid", str(worker.pid), "--grant-id", worker_grant, "--worker-timeout", "1m"], "lampd")
         wait(lambda: api.exists(), 60)
@@ -247,6 +256,23 @@ def main():
                 event, out = say(identity, "What was the codeword I gave you most recently? Reply with only that codeword on the first line, then remember this new codeword: " + word + ". Do not use any tools.")
                 steps.append({"location": session(identity)["location"], "epoch": session(identity)["location_epoch"], "asked_for": previous, "recalled": previous in out, "output": out.strip()[-200:], "success": event.get("success"), "continuation_ref": event.get("continuation_ref"), "forked_from": event.get("forked_from")})
             record("host-sandbox-host", kind=kind, session_id=identity, steps=steps, continued=all(s.get("recalled", True) and s["success"] for s in steps) and len({s["continuation_ref"] for s in steps}) == 1)
+            current = session(identity)
+            call("POST", "/v1/sessions/" + identity + ":end", {}, revision=current["revision"])
+        if args.custody_kind:
+            identity = call("POST", "/v1/sessions", {"sandbox_id": sandbox, "harness_id": "hr_custody", "auth_mode": "api_key", "agent_mode": "outside", "location": {"kind": "host", "host_id": "hs_lx"}})["result"]["session_id"]
+            wait(lambda: session(identity)["state"] == "active", 60)
+            task = ("Do these steps in order and report each result. "
+                    "1) With the lamp MCP exec tool, run argv [\"cat\", \"/etc/hostname\"] and then argv [\"env\"], and show both outputs. "
+                    "2) With your own built-in shell tool (not lamp), run: env. "
+                    "3) With your own built-in file read tool (not lamp), read /proc/self/environ. "
+                    "4) With your own built-in file read tool, read " + str(args.custody_credential) + ". "
+                    "For steps 2-4 say exactly whether the tool was allowed or denied.")
+            event, out = say(identity, task)
+            key = args.custody_credential.read_text().strip()
+            home = next((root / "host-sessions").glob(identity + "*")) / "home"
+            stored = [str(p.relative_to(home)) for p in home.rglob("*") if p.is_file() and not p.is_symlink() and key.encode() in p.read_bytes()]
+            logs = [p.name for p in root.glob("*.log") if key.encode() in p.read_bytes()]
+            record("vendor-credential-custody", kind=args.custody_kind, session_id=identity, sandbox_id=sandbox, success=event.get("success"), output=out.replace(key, "<KEY>")[-3500:], key_in_agent_output=key in out, key_in_session_frames=any(key in base64.b64decode(f["data_base64"]).decode(errors="replace") for f in frames(identity)), service_logs_holding_key=logs, files_in_session_home_holding_key=stored)
             current = session(identity)
             call("POST", "/v1/sessions/" + identity + ":end", {}, revision=current["revision"])
     finally:

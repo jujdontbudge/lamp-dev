@@ -19,6 +19,31 @@ SECRET_NAMES = ["LAMP_MODEL_TOKEN", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
 LAMP_TOOLS = ["exec", "spawn", "git_return"]
 
 
+# Each harness's own project-level config directory. It can carry permission
+# overrides, hooks or MCP servers that would run with the vendor credential.
+VENDOR_PROJECT_CONFIG = {"cursor": ".cursor", "devin": ".devin", "droid": ".factory"}
+
+
+def vendor_credential(c):
+    """A real vendor credential, as opposed to an endpoint-scoped broker grant."""
+    return c["auth"] == "subscription" or c["auth"] == "api_key" and not c.get("endpoint")
+
+
+def custody_pattern(c, home):
+    """T21's pattern for a real vendor credential: the vendor's own controls
+    deny every built-in tool that could read files, the environment or the
+    process table, and the agent works only through Lamp's MCP tools. Those run
+    in the sandbox from an environment without credentials (main() starts the
+    bridge through env -u)."""
+    if not c.get("mcp"):
+        raise ValueError(c["kind"] + " with a vendor credential needs the Lamp exec bridge (mcp_command)")
+    marker = VENDOR_PROJECT_CONFIG.get(c["kind"])
+    here = Path.cwd().resolve()
+    for directory in [here, *here.parents]:
+        if directory != home.resolve() and marker and (directory / marker).exists():
+            raise ValueError(c["kind"] + " with a vendor credential refuses a workspace that carries " + str(directory / marker) + ": project config could re-enable tools or run hooks")
+
+
 def refuse_vendor_credential(kind, how):
     """A real vendor credential must never be reachable by the agent. Only
     endpoint-scoped broker grants may sit in a harness environment."""
@@ -415,11 +440,33 @@ class StreamJSON:
 class Cursor(StreamJSON):
     def prepare(self, c, home, env):
         env["CURSOR_CONFIG_DIR"] = str(home / "config")
+        if c["auth"] in ("api_key", "subscription"):
+            custody_pattern(c, home)
+            # Cursor's documented permissions: deny shell, every file read and
+            # write, and web fetch; allow only Lamp's MCP tools. Deny rules
+            # take precedence over allow rules.
+            path = home / "config/cli-config.json"
+            try:
+                current = json.loads(path.read_text())
+            except (OSError, ValueError):
+                current = {}
+            current["permissions"] = {"allow": ["Mcp(lamp:*)"], "deny": ["Shell(*)", "Read(/**)", "Read(**)", "Write(/**)", "Write(**)", "WebFetch(*)"]}
+            write_private(path, current)
+            write_private(home / ".cursor/mcp.json", {"mcpServers": {"lamp": c["mcp"]}})
         if c["auth"] == "api_key":
-            refuse_vendor_credential("cursor_cli", "through CURSOR_API_KEY or --api-key")
+            env["CURSOR_API_KEY"] = secret(c)
+        elif c["auth"] == "subscription" and Path(c["credential_file"]).resolve() != (home / ".config/cursor/auth.json").resolve():
+            raise ValueError("Cursor's login must remain in the enrolled native custody home")
+
+    def after(self, c, state, env):
+        # Cursor saves an environment-supplied key to its own login file;
+        # Read(...) is denied, but no copy of the key is kept between turns.
+        if c["auth"] == "api_key":
+            (Path(env["HOME"]) / ".config/cursor/auth.json").unlink(missing_ok=True)
 
     def argv(self, c, state, prompt):
-        argv = [c["binary"], "--print", "--output-format", "stream-json", "--trust", "--force"]
+        argv = [c["binary"], "--print", "--output-format", "stream-json", "--trust"]
+        argv += ["--approve-mcps"] if vendor_credential(c) else ["--force"]
         if state.get("session_id"):
             argv += ["--resume", state["session_id"]]
         if c.get("model"):
@@ -449,10 +496,18 @@ class Droid(StreamJSON):
             # Factory's documented BYOK custom model, pointed at Lamp's broker.
             write_private(home / ".factory/settings.json", {"customModels": [{"model": c["model"], "displayName": "Lamp", "baseUrl": c["endpoint"], "apiKey": secret(c), "provider": "generic-chat-completion-api", "maxOutputTokens": 4096}], "enableTelemetry": False})
         elif c["auth"] in ("api_key", "subscription"):
-            refuse_vendor_credential("droid", "through FACTORY_API_KEY or its own login file")
+            # Factory-hosted models: the key stays on the custody host; droid
+            # runs with only Lamp's MCP tools (--only-tools MCP:lamp).
+            custody_pattern(c, home)
+            env["FACTORY_API_KEY"] = secret(c)
+            write_private(home / ".factory/mcp.json", {"mcpServers": {"lamp": dict(c["mcp"], type="stdio")}})
 
     def argv(self, c, state, prompt):
-        argv = [c["binary"], "exec", "-o", "stream-json", "--auto", "high", "--disable-builtin-skills"] + ([] if c.get("native_subagents") else ["--remove-tools", "Task,SpawnAgent"])
+        argv = [c["binary"], "exec", "-o", "stream-json", "--auto", "high", "--disable-builtin-skills"]
+        if vendor_credential(c):
+            argv += ["--only-tools", "MCP:lamp"]
+        elif not c.get("native_subagents"):
+            argv += ["--remove-tools", "Task,SpawnAgent"]
         if state.get("session_id"):
             argv += ["-s", state["session_id"]]
         if c.get("model"):
@@ -479,16 +534,32 @@ class Devin:
 
     def prepare(self, c, home, env):
         env["DEVIN_DISABLE_AUTOUPDATE"] = "1"
+        custody_pattern(c, home)
         if c["auth"] == "api_key":
-            refuse_vendor_credential("devin", "through WINDSURF_API_KEY")
+            env["WINDSURF_API_KEY"] = secret(c)
         elif c["auth"] == "subscription":
             # Devin reads its device login only from $XDG_DATA_HOME/devin/
-            # credentials.toml, a file its own read and exec tools can reach.
-            refuse_vendor_credential("devin", "from its own login file")
+            # credentials.toml, so it is used in place, never copied.
+            login = Path(c["credential_file"]).resolve()
+            if login.name != "credentials.toml" or login.parent.name != "devin":
+                raise ValueError("Devin subscription credential must be the login's devin/credentials.toml")
+            env["XDG_DATA_HOME"] = str(login.parent.parent)
+        # Devin's documented permissions: deny its read, edit, grep, glob and
+        # exec tools and web fetch; allow only Lamp's MCP tools. A deny rule
+        # always wins; project config is refused above.
+        config = home / ".config/devin/config.json"
+        try:
+            current = json.loads(config.read_text())
+        except (OSError, ValueError):
+            current = {}
+        current["permissions"] = {"deny": ["read", "edit", "grep", "glob", "exec", "Fetch(http://*)", "Fetch(https://*)"], "allow": ["mcp__lamp__*"]}
+        write_private(config, current)
+        write_private(home / ".config/devin/mcp_config.json", {"mcpServers": {"lamp": c["mcp"]}})
         env["DEVIN_SESSIONS_DIR"] = str(home / "devin-sessions")
 
     def argv(self, c, state, prompt):
-        argv = [c["binary"], "--respect-workspace-trust", "false", "--permission-mode", "dangerous"]
+        # Default permission mode: only the allow rule (Lamp's MCP tools) runs.
+        argv = [c["binary"], "--respect-workspace-trust", "false"]
         if state.get("session_id"):
             argv += ["--resume", state["session_id"]]
         if c.get("model"):
@@ -590,7 +661,7 @@ def main():
         path.write_text(json.dumps({"mcpServers": {"lamp": config["mcp"]}}))
         config["mcp_config"] = str(path)
     subscription = config["auth"] == "subscription"
-    if subscription and config.get("location_kind") == "sandbox":
+    if vendor_credential(config) and config.get("location_kind") == "sandbox":
         # Inside a sandbox the agent's exec shares this runner's identity, so a
         # subscription credential there must use the guest custody route.
         raise ValueError("subscription credentials run inside a sandbox only through guest custody")
