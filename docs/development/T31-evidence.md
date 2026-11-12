@@ -141,3 +141,37 @@ Not done because of the suspension:
 The LA VM was left clean each time (0 Firecracker processes, store, loop image
 and prefix removed). The workflow-scope problem from the first publication is
 recorded above; the planned follow-up push would also have gone over SSH.
+
+## Linux arm64 sandbox from the local signed archive (GitHub suspended), 2026-11-12
+
+This proves fix `7c90e5d` on arm64 without GitHub. **It is not the `curl | sh`
+from the real release:** the account is suspended, so the installer ran from the
+local archive. That archive is `lamp-0.1.0-linux-arm64.tar.gz`, built and signed
+locally, and is the same bytes as the uploaded asset (sha256 `6fa325eb…`,
+checked before install). The arm64 `curl | sh` from the published release is
+**still pending** until the account is back.
+
+([log](evidence/t31/la-local-archive-sandbox.log),
+[script](evidence/t31/la-local-archive-sandbox.sh))
+
+- **Capacity before:** 6421 MiB available in the LA VM; 0 Firecracker processes.
+- **Install:** `install.sh` installed the archive into a fresh prefix from its
+  local-archive path, using the pinned trust key. It reported `healthy: true`,
+  and the supervisor is an aarch64 ELF.
+- **Template:** the Linux-format arm64 seed
+  (`lamp-seed/ubuntu-26.04-arm64@sha256:1ad625c4…`) with `memory_mib=1024`
+  produced `published tp_97e9720… in 22222 ms`. The snapshot restore succeeded,
+  so the `clock_realtime` refusal is gone.
+- **Sandbox:** `sb_4483d50…` was created with 2 vCPU, 1 GiB memory and 20 GiB
+  disk, and reached `ready` (1 live Firecracker).
+- **Exec:** `exec ex_d352a51…` exited 0 and printed
+  `hello from a Lamp 0.1.0 arm64 sandbox`, `Linux 6.18.62 aarch64`,
+  `Ubuntu 26.04.1 LTS` and `2` (CPUs).
+- **Cleanup:** the sandbox was deleted (rc 0) and the prefix uninstalled. The
+  store, loop image and temporary files were removed.
+- **Capacity after:** 0 Firecracker processes, 6461 MiB available. The owner's
+  services stayed active.
+
+Still pending on the account's restoration: the arm64 `curl | sh` from the
+release, the fast-forward public commit, the push of this branch and the PR
+body update.
