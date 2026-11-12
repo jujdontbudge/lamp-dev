@@ -1,0 +1,76 @@
+[
+  {
+    "step": "guest-seed",
+    "at": "2026-11-11T17:18:49Z",
+    "base": "/var/lib/lamp/t21a/seed-relay",
+    "harnesses": {
+      "droid": {
+        "binary_sha256": "be70c3e44b576958b0e682d2256f2cf4e2ff3c5a16ff517d02926f35e40566a8",
+        "version": "1.8.0"
+      }
+    }
+  },
+  {
+    "step": "allocation-admission",
+    "at": "2026-11-11T17:20:31Z",
+    "live_firecracker": 0,
+    "available_mib": 24562
+  },
+  {
+    "step": "sandbox",
+    "at": "2026-11-11T17:20:31Z",
+    "sandbox_id": "sb_c873cee0fa624554ae71a964d830c2a1",
+    "boundary": "vm"
+  },
+  {
+    "step": "host-sandbox-host",
+    "at": "2026-11-11T17:21:45Z",
+    "kind": "droid",
+    "session_id": "se_d0cbd3b95bb90540757000736d41bd1b",
+    "steps": [
+      {
+        "location": {
+          "host_id": "hs_lx",
+          "kind": "host"
+        },
+        "epoch": 1,
+        "output": "READY",
+        "success": true,
+        "continuation_ref": "dc29698d-09c3-4ac1-8959-95a9b491e1b2"
+      },
+      {
+        "location": {
+          "host_id": "hs_local",
+          "kind": "sandbox",
+          "sandbox_id": "sb_c873cee0fa624554ae71a964d830c2a1"
+        },
+        "epoch": 2,
+        "asked_for": "LAMPE20B48",
+        "recalled": true,
+        "output": "LAMPE20B48",
+        "success": true,
+        "continuation_ref": "dc29698d-09c3-4ac1-8959-95a9b491e1b2",
+        "forked_from": null
+      },
+      {
+        "location": {
+          "host_id": "hs_lx",
+          "kind": "host"
+        },
+        "epoch": 3,
+        "asked_for": "LAMPDEA5EC",
+        "recalled": false,
+        "output": "LAMPE20B48",
+        "success": true,
+        "continuation_ref": "dc29698d-09c3-4ac1-8959-95a9b491e1b2",
+        "forked_from": null
+      }
+    ],
+    "continued": false
+  },
+  {
+    "step": "sandbox-deleted",
+    "at": "2026-11-11T17:21:45Z",
+    "sandbox_id": "sb_c873cee0fa624554ae71a964d830c2a1"
+  }
+]

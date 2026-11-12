@@ -1,0 +1,31 @@
+{
+  "broker": "/var/tmp/l25/lamp-broker",
+  "limit_key": "max_completion_tokens",
+  "http_status": 200,
+  "first_byte_s": 10.48,
+  "total_s": 43.93,
+  "bytes": 337366,
+  "chunks": 951,
+  "reply_chars": 17358,
+  "ended_with_done": true,
+  "finish_reason": "length",
+  "ledger": [
+    {
+      "operation": "reserve",
+      "tokens": 5416,
+      "actual_tokens": null,
+      "duration_ms": null,
+      "type": "chat.chat_completions"
+    },
+    {
+      "operation": "settle",
+      "tokens": null,
+      "actual_tokens": 4138,
+      "duration_ms": 43908,
+      "type": null
+    }
+  ],
+  "broker_log": [
+    "lamp-broker: owner socket and scoped task listener ready"
+  ]
+}

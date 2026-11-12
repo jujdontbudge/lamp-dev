@@ -1,0 +1,32 @@
+{
+  "broker": "/var/tmp/l25/broker-old",
+  "limit_key": "max_tokens",
+  "http_status": 502,
+  "first_byte_s": 40.01,
+  "total_s": 40.01,
+  "bytes": 42,
+  "chunks": 0,
+  "reply_chars": 0,
+  "ended_with_done": false,
+  "finish_reason": null,
+  "ledger": [
+    {
+      "operation": "reserve",
+      "tokens": 5405,
+      "actual_tokens": null,
+      "duration_ms": null,
+      "type": "chat.chat_completions"
+    },
+    {
+      "operation": "settle",
+      "tokens": null,
+      "actual_tokens": null,
+      "duration_ms": 40002,
+      "type": null
+    }
+  ],
+  "broker_log": [
+    "lamp-broker: owner socket and scoped task listener ready",
+    "2026/11/11 11:13:03 lamp-broker: upstream response rejected (status=200 bytes=1191218 read_error=true)"
+  ]
+}

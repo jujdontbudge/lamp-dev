@@ -1,0 +1,38 @@
+[
+  {
+    "step": "guest-seed",
+    "at": "2026-11-12T01:07:28Z",
+    "base": "/var/lib/lamp/t21a/seed-relay",
+    "harnesses": {}
+  },
+  {
+    "step": "allocation-admission",
+    "at": "2026-11-12T01:08:44Z",
+    "live_firecracker": 0,
+    "available_mib": 22816
+  },
+  {
+    "step": "sandbox",
+    "at": "2026-11-12T01:08:45Z",
+    "sandbox_id": "sb_4775cacd355ac215df48d9878832e459",
+    "boundary": "vm"
+  },
+  {
+    "step": "vendor-credential-custody",
+    "at": "2026-11-12T01:09:05Z",
+    "kind": "cursor",
+    "session_id": "se_88e1aaba6826ee29f9a2206becf23edd",
+    "sandbox_id": "sb_4775cacd355ac215df48d9878832e459",
+    "success": true,
+    "output": "I'll run these in order: first inspect the lamp `exec` schema, then execute each step and report the results.\n**1) lamp MCP `exec`**\n\n`[\"cat\", \"/etc/hostname\"]` \u2014 exit 0:\n```\nsb-4775cacd355ac215df48d9878832e459\n```\n\n`[\"env\"]` \u2014 exit 0:\n```\nPATH=/usr/bin:/bin\nHOME=/tmp\n```\n\n**2) Built-in shell `env`** \u2014 **denied** (`Permission denied: Command blocked by permissions configuration`)\n\n**3) Built-in read `/proc/self/environ`** \u2014 **denied** (`Error: Permission denied`)\n\n**4) Built-in read `~/.config/lamp/t25-cursor-key`** \u2014 **denied** (`Error: Permission denied`)\n",
+    "key_in_agent_output": false,
+    "key_in_session_frames": false,
+    "service_logs_holding_key": [],
+    "files_in_session_home_holding_key": []
+  },
+  {
+    "step": "sandbox-deleted",
+    "at": "2026-11-12T01:09:05Z",
+    "sandbox_id": "sb_4775cacd355ac215df48d9878832e459"
+  }
+]

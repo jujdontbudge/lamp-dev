@@ -1,0 +1,478 @@
+{
+  "lampd_native_subagent_run": [
+    {
+      "step": "harness-catalogue",
+      "at": "2026-11-11T19:48:54.975157+00:00",
+      "count": 12,
+      "harnesses": [
+        {
+          "id": "amp",
+          "catalogue_id": "amp",
+          "state": "disabled",
+          "auth_modes": [
+            "api_key"
+          ],
+          "binary_digest": "",
+          "continuation": "amp threads continue <thread_id> --execute"
+        },
+        {
+          "id": "claude_code",
+          "catalogue_id": "claude_code",
+          "state": "disabled",
+          "auth_modes": [
+            "subscription",
+            "api_key"
+          ],
+          "binary_digest": "",
+          "continuation": "claude -p --resume <session_id>; session_id from stream-json"
+        },
+        {
+          "id": "codex",
+          "catalogue_id": "codex",
+          "state": "disabled",
+          "auth_modes": [
+            "subscription",
+            "api_key"
+          ],
+          "binary_digest": "",
+          "continuation": "codex exec resume <thread_id>; thread_id from thread.started"
+        },
+        {
+          "id": "copilot_cli",
+          "catalogue_id": "copilot_cli",
+          "state": "disabled",
+          "auth_modes": [
+            "api_key",
+            "subscription"
+          ],
+          "binary_digest": "",
+          "continuation": "copilot -p --resume <sessionId>"
+        },
+        {
+          "id": "cursor_cli",
+          "catalogue_id": "cursor_cli",
+          "state": "disabled",
+          "auth_modes": [
+            "api_key",
+            "subscription"
+          ],
+          "binary_digest": "",
+          "continuation": "cursor-agent --print --resume <chatId>"
+        },
+        {
+          "id": "devin",
+          "catalogue_id": "devin",
+          "state": "disabled",
+          "auth_modes": [
+            "subscription",
+            "api_key"
+          ],
+          "binary_digest": "",
+          "continuation": "devin -p --resume <session_id>; ID read from 'devin list --format json'"
+        },
+        {
+          "id": "droid",
+          "catalogue_id": "droid",
+          "state": "disabled",
+          "auth_modes": [
+            "api_key",
+            "subscription"
+          ],
+          "binary_digest": "",
+          "continuation": "droid exec -s <session_id>"
+        },
+        {
+          "id": "gemini_cli",
+          "catalogue_id": "gemini_cli",
+          "state": "disabled",
+          "auth_modes": [
+            "api_key",
+            "subscription"
+          ],
+          "binary_digest": "",
+          "continuation": "gemini -p --resume <session_id>"
+        },
+        {
+          "id": "goose",
+          "catalogue_id": "goose",
+          "state": "disabled",
+          "auth_modes": [
+            "api_key",
+            "delegated"
+          ],
+          "binary_digest": "",
+          "continuation": "goose run --name <name> --resume"
+        },
+        {
+          "id": "hr_opencode",
+          "catalogue_id": "opencode",
+          "state": "active",
+          "auth_modes": [
+            "api_key"
+          ],
+          "binary_digest": "sha256:feaafead8cd563af0c2dcb386b0757e4355e327ebb6bd1aaad5440fe2f83596c",
+          "continuation": "opencode run -s <sessionID>"
+        },
+        {
+          "id": "hr_opencode_subagents",
+          "catalogue_id": "opencode",
+          "state": "active",
+          "auth_modes": [
+            "api_key"
+          ],
+          "binary_digest": "sha256:feaafead8cd563af0c2dcb386b0757e4355e327ebb6bd1aaad5440fe2f83596c",
+          "continuation": "opencode run -s <sessionID>"
+        },
+        {
+          "id": "pi",
+          "catalogue_id": "pi",
+          "state": "disabled",
+          "auth_modes": [
+            "api_key"
+          ],
+          "binary_digest": "",
+          "continuation": "pi -p --session-id <uuid> (Lamp chooses the ID before the first turn)"
+        }
+      ]
+    },
+    {
+      "step": "native-subagent-children",
+      "at": "2026-11-11T19:49:28.285072+00:00",
+      "kind": "opencode",
+      "harness_id": "hr_opencode_subagents",
+      "parent": "se_3d688f6a5a6ae6378db6c9a9bf19170c",
+      "parent_native_session": "ses_e33d7f977ffePTv5NHf9hYfKfg",
+      "parent_output": "LAMP_SUBAGENT_DONE",
+      "success": true,
+      "children": [
+        {
+          "id": "se_5969766a86322c7b7269af09f3e458e2",
+          "state": "ended",
+          "status": "idle",
+          "continuation_ref": "ses_e33d7d52effe6tBcNKzsrFye35",
+          "labels": {
+            "lamp.native_label": "Run sub-agent with specific prompt",
+            "lamp.native_subagent": "true"
+          },
+          "output": "<task id=\"ses_e33d7d52effe6tBcNKzsrFye35\" state=\"completed\">\n<task_result>\nLAMP_SUBAGENT_DONE\n</task_result>\n</task>"
+        }
+      ]
+    },
+    {
+      "step": "sessions-listed",
+      "at": "2026-11-11T19:49:28.298322+00:00",
+      "sessions": [
+        {
+          "id": "se_3d688f6a5a6ae6378db6c9a9bf19170c",
+          "harness_id": "hr_opencode_subagents",
+          "parent_session_id": null,
+          "state": "active",
+          "location": "hs_a"
+        },
+        {
+          "id": "se_5969766a86322c7b7269af09f3e458e2",
+          "harness_id": "hr_opencode_subagents",
+          "parent_session_id": "se_3d688f6a5a6ae6378db6c9a9bf19170c",
+          "state": "ended",
+          "location": "hs_a"
+        }
+      ]
+    }
+  ],
+  "broker_audit": [
+    {
+      "connection": "grant",
+      "outcome": "issued",
+      "sandbox": "sb_t25_live",
+      "time": "2026-11-11T19:48:53.257882Z"
+    },
+    {
+      "connection": "chat",
+      "outcome": "completed",
+      "sandbox": "sb_t25_live",
+      "time": "2026-11-11T19:49:02.248093Z"
+    },
+    {
+      "connection": "chat",
+      "outcome": "completed",
+      "sandbox": "sb_t25_live",
+      "time": "2026-11-11T19:49:06.836852Z"
+    },
+    {
+      "connection": "chat",
+      "outcome": "completed",
+      "sandbox": "sb_t25_live",
+      "time": "2026-11-11T19:49:09.167886Z"
+    },
+    {
+      "connection": "chat",
+      "outcome": "completed",
+      "sandbox": "sb_t25_live",
+      "time": "2026-11-11T19:49:24.960764Z"
+    }
+  ],
+  "child_native_export": {
+    "child": "ses_e33d7d52effe6tBcNKzsrFye35",
+    "parentID": "ses_e33d7f977ffePTv5NHf9hYfKfg",
+    "title": "Run sub-agent with specific prompt (@general subagent)",
+    "assistant_messages": [
+      {
+        "providerID": "lamp",
+        "modelID": "openrouter/free",
+        "tokens_total": 5293,
+        "cost": 0
+      }
+    ]
+  },
+  "wrapper_runs_copilot_goose_droid": [
+    {
+      "kind": "copilot",
+      "official_binary": "/var/tmp/l25/tools/node_modules/.bin/copilot",
+      "version": [
+        "GitHub Copilot CLI 1.0.109."
+      ],
+      "route": "official API route via Lamp broker (chat)",
+      "model": "openrouter/free",
+      "parent_native_session": "8ee7f85a-8d1f-457f-a72d-4f0a83edc989",
+      "turn_success": true,
+      "observed": "LAMP_SUBAGENT_DONE\nLAMP_SUBAGENT_DONE\n\n\nThe sub-agent replied:\n\nLAMP_SUBAGENT_DONE\n",
+      "native_subagent_events": [
+        {
+          "type": "native_subagent",
+          "native_id": "call_2a5b3ec3431448c98a38f905",
+          "status": "working",
+          "label": "one-word",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_2a5b3ec3431448c98a38f905",
+          "status": "completed",
+          "label": "",
+          "text": "sub-agent completed; total_tokens=14610"
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_2a5b3ec3431448c98a38f905",
+          "status": "working",
+          "label": "",
+          "text": "LAMP_SUBAGENT_DONE"
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call-bf49699b-a388-493b-9020-9b6809205758",
+          "status": "working",
+          "label": "one-word",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call-bf49699b-a388-493b-9020-9b6809205758",
+          "status": "completed",
+          "label": "",
+          "text": "sub-agent completed; total_tokens=12305"
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call-bf49699b-a388-493b-9020-9b6809205758",
+          "status": "working",
+          "label": "",
+          "text": "LAMP_SUBAGENT_DONE"
+        }
+      ],
+      "subagent_ids": [
+        "call-bf49699b-a388-493b-9020-9b6809205758",
+        "call_2a5b3ec3431448c98a38f905"
+      ]
+    },
+    {
+      "kind": "goose",
+      "official_binary": "/var/tmp/l25/tools/goose",
+      "version": [
+        "1.59.0"
+      ],
+      "route": "official API route via Lamp broker (chat)",
+      "model": "openrouter/free",
+      "parent_native_session": "lamp-se_t25_goose",
+      "turn_success": true,
+      "observed": "    __( O)>  \u25cf new session \u00b7 openai openrouter/free\n   \\____)    20261111_1 \u00b7 /private/var/tmp/l25/osub3/goose/work\n     L L     goose is ready\n\n\n\nThe sub-agent (ID `20261111_2`) has finished its task. It replied with the single word:\n\n**LAMP_SUBAGENT_DONE**\n",
+      "native_subagent_events": [
+        {
+          "type": "native_subagent",
+          "native_id": "20261111_2",
+          "status": "working",
+          "label": "delegate",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "20261111_2",
+          "status": "working",
+          "label": "",
+          "text": "Running subagent 20261111_2 (Reply with exactly the single word: LAMP_SUBAGENT_DONE)"
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "20261111_2",
+          "status": "completed",
+          "label": "",
+          "text": "Subagent 20261111_2 completed"
+        }
+      ],
+      "subagent_ids": [
+        "20261111_2"
+      ]
+    },
+    {
+      "kind": "droid",
+      "official_binary": "~/.local/bin/droid",
+      "version": [
+        "1.6.0"
+      ],
+      "route": "official API route via Lamp broker (chat)",
+      "model": "openrouter/free",
+      "parent_native_session": "9d53b3cf-cda8-4d70-8371-846158c38ec2",
+      "turn_success": true,
+      "observed": "\n\nThe subagent daemon isn't reachable in this environment. Let me make one more attempt with the worker subagent.\n\nThe sub-agent tool is currently unavailable due to a daemon startup issue. I cannot delegate the task to the sub-agent as requested.\n",
+      "native_subagent_events": [
+        {
+          "type": "native_subagent",
+          "native_id": "call_91c81c92e7c344fa96964396",
+          "status": "working",
+          "label": "Reply with the single word LAMP_SUBAGENT_DONE",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_91c81c92e7c344fa96964396",
+          "status": "completed",
+          "label": "",
+          "text": "error: Error: Droid configuration not found for subagent: light. Available subagents: worker, explorer"
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_9ede824ec1c046e1a890c978",
+          "status": "working",
+          "label": "Reply with the single word LAMP_SUBAGENT_DONE",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_9ede824ec1c046e1a890c978",
+          "status": "completed",
+          "label": "",
+          "text": "error: Error: Error running task subagent: Could not reach the daemon. It may still be starting."
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call-8127418f-6273-41da-a391-e77ddf966b37",
+          "status": "working",
+          "label": "Reply with the single word LAMP_SUBAGENT_DONE",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call-8127418f-6273-41da-a391-e77ddf966b37",
+          "status": "completed",
+          "label": "",
+          "text": "error: Error: Error running task subagent: Could not reach the daemon. It may still be starting."
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "Task_3rcpvy80emmk",
+          "status": "working",
+          "label": "Reply with the single word LAMP_SUBAGENT_DONE",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "Task_3rcpvy80emmk",
+          "status": "completed",
+          "label": "",
+          "text": "error: Error: Error running task subagent: Could not reach the daemon. It may still be starting."
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_3329ddf258a94afcab63f678",
+          "status": "working",
+          "label": "Reply with the single word LAMP_SUBAGENT_DONE",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_3329ddf258a94afcab63f678",
+          "status": "completed",
+          "label": "",
+          "text": "error: Error: Error running task subagent: Could not reach the daemon. It may still be starting."
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "Task_ntbm5zg18nxj",
+          "status": "working",
+          "label": "Reply with the single word LAMP_SUBAGENT_DONE",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "Task_ntbm5zg18nxj",
+          "status": "completed",
+          "label": "",
+          "text": "error: Error: Error running task subagent: Could not reach the daemon. It may still be starting."
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_e0655f684e7f4cd9abdf5d0f",
+          "status": "working",
+          "label": "Reply with the single word LAMP_SUBAGENT_DONE",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_e0655f684e7f4cd9abdf5d0f",
+          "status": "completed",
+          "label": "",
+          "text": "error: Error: Error running task subagent: Could not reach the daemon. It may still be starting."
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_eb504a79194d4037a423bf0e",
+          "status": "working",
+          "label": "Reply with the single word LAMP_SUBAGENT_DONE",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_eb504a79194d4037a423bf0e",
+          "status": "completed",
+          "label": "",
+          "text": "error: Error: Error running task subagent: Could not reach the daemon. It may still be starting."
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_d5a789aedf5b496fa0343c86",
+          "status": "working",
+          "label": "Reply with the single word LAMP_SUBAGENT_DONE",
+          "text": ""
+        },
+        {
+          "type": "native_subagent",
+          "native_id": "call_d5a789aedf5b496fa0343c86",
+          "status": "completed",
+          "label": "",
+          "text": "error: Error: Error running task subagent: Could not reach the daemon. It may still be starting."
+        }
+      ],
+      "subagent_ids": [
+        "Task_3rcpvy80emmk",
+        "Task_ntbm5zg18nxj",
+        "call-8127418f-6273-41da-a391-e77ddf966b37",
+        "call_3329ddf258a94afcab63f678",
+        "call_91c81c92e7c344fa96964396",
+        "call_9ede824ec1c046e1a890c978",
+        "call_d5a789aedf5b496fa0343c86",
+        "call_e0655f684e7f4cd9abdf5d0f",
+        "call_eb504a79194d4037a423bf0e"
+      ]
+    }
+  ]
+}

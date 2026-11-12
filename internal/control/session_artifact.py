@@ -10,6 +10,34 @@ import zipfile
 
 ARTIFACT_LIMIT = 16 << 20
 
+# Each harness's own native session store, relative to the session HOME.
+# Credentials and caches are never included. Stores keyed by working
+# directory are re-keyed to the target workspace on restore.
+NATIVE_STATE = {
+    "claude": ["claude/projects"],
+    "codex": ["codex/sessions", "codex/session_index.jsonl"],
+    "opencode": ["opencode-session.json"],
+    "pi": ["pi/sessions"],
+    "goose": ["data/goose/sessions"],
+    "copilot": ["copilot/session-state", "copilot/session-store.db", "copilot/session-store.db-wal", "copilot/session-store.db-shm"],
+    "droid": [".factory/sessions"],
+    "cursor": ["config/chats"],
+    "devin": ["devin-sessions"],
+    # Amp threads live on ampcode.com; only the thread ID (lamp-native.json) moves.
+    "amp": [],
+}
+CWD_KEYED = {
+    "claude/projects/": lambda cwd: "".join(c if c.isalnum() else "-" for c in cwd),
+    "pi/sessions/": lambda cwd: "--" + cwd.strip("/").replace("/", "-") + "--",
+    ".factory/sessions/": lambda cwd: cwd.replace("/", "-"),
+    "config/chats/": lambda cwd: hashlib.md5(cwd.encode()).hexdigest(),
+}
+NATIVE_FILES = {path for paths in NATIVE_STATE.values() for path in paths}
+
+
+def native_allowed(relative):
+    return relative == "lamp-native.json" or relative in NATIVE_FILES or any(relative.startswith(path + "/") for path in NATIVE_FILES)
+
 
 def session_git(cwd, *argv, input=None):
     process = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-c", "user.name=Lamp", "-c", "user.email=lamp@invalid", "-C", str(cwd), *argv], input=input, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -48,6 +76,10 @@ def artifact_snapshot(directory, request, native):
     patch = session_git(cwd, "diff", "--binary", base, head, "--", *paths)
     metadata = {"cwd": str(cwd), "base": base, "base_tree": session_git(cwd, "rev-parse", base + "^{tree}").decode().strip(), "head": head, "commits": session_git(cwd, "rev-list", "--reverse", base + ".." + head).decode().splitlines(), "selected_paths": paths}
     temporary = path.with_suffix(".next")
+    if request.get("include_native"):
+        metadata["native_kind"] = (launch.get("native") or {}).get("kind", "")
+        if metadata["native_kind"] not in NATIVE_STATE:
+            raise ValueError("this harness has no portable native continuation store")
     with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("manifest.json", json.dumps(metadata))
         archive.write(bundle, "work.bundle")
@@ -58,8 +90,11 @@ def artifact_snapshot(directory, request, native):
             home = Path(launch["env"]["HOME"]).resolve()
             if not home.is_relative_to(directory.resolve()):
                 raise ValueError("native state must be in the private session home")
-            for relative in ["lamp-native.json", "claude/projects", "codex/sessions", "codex/session_index.jsonl"]:
+            kind = metadata["native_kind"]
+            for relative in ["lamp-native.json", *NATIVE_STATE[kind]]:
                 source = home / relative
+                if not source.exists():
+                    continue
                 if source.is_symlink():
                     raise ValueError("native continuation cannot follow symlinks")
                 files = list(source.rglob("*")) if source.is_dir() else [source]
@@ -113,7 +148,7 @@ def artifact_open(directory, request):
         if total > ARTIFACT_LIMIT or entry.filename.startswith("/") or ".." in Path(entry.filename).parts or "\\" in entry.filename or entry.filename in seen:
             raise ValueError("invalid continuation archive")
         seen.add(entry.filename)
-        allowed = entry.filename in ["manifest.json", "work.bundle", "changes.patch", "home/lamp-native.json", "home/codex/session_index.jsonl"] or entry.filename.startswith(("home/claude/projects/", "home/codex/sessions/"))
+        allowed = entry.filename in ["manifest.json", "work.bundle", "changes.patch"] or entry.filename.startswith("home/") and native_allowed(entry.filename[5:])
         if not allowed or entry.is_dir() or (entry.external_attr >> 16) & 0o170000 == 0o120000:
             raise ValueError("continuation contains a forbidden native path")
     return archive
@@ -139,10 +174,11 @@ def artifact_restore(directory, request):
             if not entry.filename.startswith("home/"):
                 continue
             relative = entry.filename[5:]
-            if relative.startswith("claude/projects/"):
-                tail = Path(relative).parts[3:]
-                slug = "".join(c if c.isalnum() else "-" for c in str(cwd.resolve()))
-                relative = str(Path("claude/projects", slug, *tail))
+            for prefix, slug in CWD_KEYED.items():
+                if relative.startswith(prefix):
+                    depth = len(Path(prefix).parts)
+                    tail = Path(relative).parts[depth + 1:]
+                    relative = str(Path(prefix, slug(str(cwd.resolve())), *tail))
             target = home / relative
             target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             target.write_bytes(archive.read(entry))
