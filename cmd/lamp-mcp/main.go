@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/JohanSardar/lamp/internal/surface"
+	"lamp.eilmer.si/internal/surface"
 )
 
 func main() {

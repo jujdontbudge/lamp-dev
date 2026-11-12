@@ -15,7 +15,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/hostedissuer"
+	"lamp.eilmer.si/internal/hostedissuer"
 )
 
 func main() {

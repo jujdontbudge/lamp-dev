@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/JohanSardar/lamp/pkg/api"
+	"lamp.eilmer.si/pkg/api"
 )
 
 // BoundAction is independently constructed by an installed enforcing adapter.

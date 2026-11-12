@@ -27,9 +27,9 @@ OUT = Path(sys.argv[2]).resolve()
 HOME = os.path.expanduser('~')
 PROJECT = 'https://github.com/psf/requests/archive/refs/tags/v2.32.3.tar.gz'
 HOSTS = [
-    {'name': 'ubuntu', 'ssh': 'ubuntu-server', 'goos': 'linux', 'goarch': 'amd64', 'prefix': '/home/johan/lamp-t28/demo', 'service': 'systemd'},
+    {'name': 'ubuntu', 'ssh': 'ubuntu-server', 'goos': 'linux', 'goarch': 'amd64', 'prefix': '/home/owner/lamp-t28/demo', 'service': 'systemd'},
     {'name': 'm5', 'ssh': None, 'goos': 'darwin', 'goarch': 'arm64', 'prefix': HOME + '/lt28/m5', 'service': 'process'},
-    {'name': 'air', 'ssh': 'johansardars-macbook-air', 'goos': 'darwin', 'goarch': 'arm64', 'prefix': '/Users/johansardar/lt28/air', 'service': 'process'},
+    {'name': 'air', 'ssh': 'owner-air', 'goos': 'darwin', 'goarch': 'arm64', 'prefix': '/Users/owner/lt28/air', 'service': 'process'},
 ]
 log = open(OUT, 'w')
 
@@ -132,15 +132,11 @@ def main():
         files = [str(WORK / f'bin-{h["goos"]}-{h["goarch"]}' / 'lamp-installer'), str(WORK / 'keys' / 'release-trust.pub'),
                  str(WORK / 'keys' / 'owner-recovery.pub'), str(WORK / 'requests-2.32.3.tar.gz'), str(ROOT / 'tools' / 'install_demo_work.py')]
         rels = [str(releases[(v, h['goos'])]) for v in ['0.1.0', '0.2.0', '0.3.0']] + ([str(tampered)] if h['name'] == 'ubuntu' else [])
-        sdk = str(ROOT / 'sdk' / 'python')
         if h['ssh'] is None:
             for x in files + rels:
                 sh(['cp', '-R', x, h['remote_dir'] + '/'])
-            sh(['rm', '-rf', h['remote_dir'] + '/sdk-python']); sh(['cp', '-R', sdk, h['remote_dir'] + '/sdk-python'])
         else:
             sh(['scp', '-q', '-r'] + files + rels + [f'{h["ssh"]}:{h["remote_dir"]}/'])
-            on(h, f'rm -rf {h["remote_dir"]}/sdk-python')
-            sh(['scp', '-q', '-r', sdk, f'{h["ssh"]}:{h["remote_dir"]}/sdk-python'])
         h['rel'] = lambda v, h=h: f'{h["remote_dir"]}/release-{v}-{h["goos"]}-{h["goarch"]}'
 
     ubuntu, m5, air = HOSTS
@@ -152,10 +148,10 @@ def main():
         step('systemd unit active', ubuntu, 'systemctl is-active lamp-t28demo.service && systemctl is-enabled lamp-t28demo.service')
     step('automatic updates start disabled: timer run is a no-op', ubuntu, f'{tool(ubuntu)} auto --prefix {ubuntu["prefix"]} --release {ubuntu["rel"]("0.2.0")}')
 
-    # Owner work through the generated Python SDK on each host.
+    # Owner work through the public API on each host.
     work = {}
     for h in HOSTS:
-        out = step('save owner work via Python SDK', h, f'python3 {h["remote_dir"]}/install_demo_work.py save {h["prefix"]} {h["remote_dir"]}/requests-2.32.3.tar.gz job_t28_{h["name"]}')
+        out = step('save owner work via the public API', h, f'python3 {h["remote_dir"]}/install_demo_work.py save {h["prefix"]} {h["remote_dir"]}/requests-2.32.3.tar.gz job_t28_{h["name"]}')
         work[h['name']] = jline(out, 'artifact_id')
     # TypeScript SDK on the M5 against the same daemon.
     ts = ("node --input-type=module -e \"import {LampClient} from '" + str(ROOT / 'sdk/typescript/index.js') + "';"
@@ -207,7 +203,7 @@ def main():
     sh(['scp', '-q', '-r', f'{ubuntu["ssh"]}:{arch}', str(local_arch)])
     on(ubuntu, f'rm -rf {shlex.quote(ubuntu["remote_dir"])}')
     # Replacement: a fresh macOS install on the Air, separate prefix, no old state.
-    rep = dict(air, prefix='/Users/johansardar/lt28/replacement')
+    rep = dict(air, prefix='/Users/owner/lt28/replacement')
     sh(['scp', '-q', '-r', str(local_arch), f'{air["ssh"]}:{air["remote_dir"]}/offsite'])
     step('fresh install on replacement OS (macOS, Air)', rep, f'{tool(air)} install --release {air["rel"]("0.2.0")} --prefix {rep["prefix"]} --name t28replacement --trust {air["remote_dir"]}/release-trust.pub --service process --recovery-public-key {air["remote_dir"]}/owner-recovery.pub')
     # Wrong material is refused.
@@ -228,7 +224,7 @@ def main():
     step('uninstall replacement, delete', rep, f'{tool(air)} uninstall --prefix {rep["prefix"]} --data delete --confirm-delete t28replacement')
     # Disposable demo directories go away.
     on(m5, f'rm -rf {m5["prefix"]} {m5["remote_dir"]}')
-    on(air, f'rm -rf {air["prefix"]} {air["remote_dir"]} /Users/johansardar/lt28')
+    on(air, f'rm -rf {air["prefix"]} {air["remote_dir"]} /Users/owner/lt28')
     record('demo complete')
 
 

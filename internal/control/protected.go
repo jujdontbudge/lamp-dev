@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/JohanSardar/lamp/pkg/api"
+	"lamp.eilmer.si/pkg/api"
 )
 
 // invokeProtected is the connection adapter integration seam for T17. An absent

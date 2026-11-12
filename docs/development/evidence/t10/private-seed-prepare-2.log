@@ -4,17 +4,17 @@ Swap:           8191        4805        3386
 
 debugfs: rm /usr/sbin/lamp-init
 
-debugfs: write /home/johan/lamp-t10-control-core/src/target/x86_64-unknown-linux-musl/release/lamp-init /usr/sbin/lamp-init
+debugfs: write /home/owner/lamp-t10-control-core/src/target/x86_64-unknown-linux-musl/release/lamp-init /usr/sbin/lamp-init
 Allocated inode: 6672
 debugfs: set_inode_field /usr/sbin/lamp-init mode 0100755
 debugfs: rm /usr/sbin/lamp-guest-helper
 
-debugfs: write /home/johan/lamp-t10-control-core/src/target/x86_64-unknown-linux-musl/release/lamp-guest-helper /usr/sbin/lamp-guest-helper
+debugfs: write /home/owner/lamp-t10-control-core/src/target/x86_64-unknown-linux-musl/release/lamp-guest-helper /usr/sbin/lamp-guest-helper
 Allocated inode: 6671
 debugfs: set_inode_field /usr/sbin/lamp-guest-helper mode 0100755
 debugfs: rm /usr/sbin/lamp-guard
 
-debugfs: write /home/johan/lamp-t10-control-core/src/target/x86_64-unknown-linux-musl/release/lamp-guard /usr/sbin/lamp-guard
+debugfs: write /home/owner/lamp-t10-control-core/src/target/x86_64-unknown-linux-musl/release/lamp-guard /usr/sbin/lamp-guard
 Allocated inode: 6670
 debugfs: set_inode_field /usr/sbin/lamp-guard mode 0100755
  debugfs 1.47.2 (1-Jan-2025)

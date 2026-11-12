@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/network"
+	"lamp.eilmer.si/internal/network"
 )
 
 type config struct {

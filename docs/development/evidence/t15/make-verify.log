@@ -33,15 +33,15 @@ cargo build --workspace --locked
    Compiling prost v0.14.4
    Compiling serde v1.0.229
    Compiling prost-types v0.14.4
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-worker-protocol)
-   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-init)
-   Compiling lamp-vz v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-vz)
-   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-guard)
-   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-contracts)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
+   Compiling lamp-init v0.1.0 (<checkout>/crates/lamp-init)
+   Compiling lamp-vz v0.1.0 (<checkout>/crates/lamp-vz)
+   Compiling lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+   Compiling lamp-contracts v0.1.0 (<checkout>/crates/lamp-contracts)
    Compiling prost-build v0.14.4
-   Compiling lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/tools/protogen)
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-engine)
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-supervisor)
+   Compiling lamp-protogen v0.1.0 (<checkout>/tools/protogen)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.60s
 go test -count=1 ./cmd/lamp -run '^TestCLIUsesCanonicalMutationHeaders$'
 ok  	github.com/JohanSardar/lamp/cmd/lamp	0.236s
@@ -72,19 +72,19 @@ python3 tools/interop.py
    Compiling curve25519-dalek v5.0.0
    Compiling sha2 v0.11.1
    Compiling ed25519-dalek v3.0.0
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
    Compiling serde_json v1.0.154
    Compiling serde v1.0.229
-   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-contracts)
+   Compiling lamp-contracts v0.1.0 (<checkout>/crates/lamp-contracts)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.90s
 /opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/reflectlite/type.go:10:2: package internal/abi is not in std (/opt/homebrew/Cellar/go/1.26.2/libexec/src/internal/abi)
 Traceback (most recent call last):
-  File "/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/tools/interop.py", line 43, in <module>
+  File "<checkout>/tools/interop.py", line 43, in <module>
     if __name__=='__main__':main()
                             ^^^^^^
-  File "/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/tools/interop.py", line 16, in main
+  File "<checkout>/tools/interop.py", line 16, in main
     subprocess.run(['go','build','-o',go,'./tools/contractprobe'],cwd=ROOT,check=True)
-  File "/Users/johansardar/anaconda3/lib/python3.12/subprocess.py", line 571, in run
+  File "/Users/owner/anaconda3/lib/python3.12/subprocess.py", line 571, in run
     raise CalledProcessError(retcode, process.args,
 subprocess.CalledProcessError: Command '['go', 'build', '-o', '/var/folders/rx/w6wxv0p97bv7hpvzqlv9jy7r0000gn/T/tmp4__4hakx/probe', './tools/contractprobe']' returned non-zero exit status 1.
 make: *** [interop] Error 1

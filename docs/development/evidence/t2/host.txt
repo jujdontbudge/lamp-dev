@@ -17,7 +17,7 @@ TARGET        SOURCE      FSTYPE OPTIONS
 chrome: inactive
 t3: 5 t3 processes
 
-# Owner Chrome service (excerlock-dm-chrome.service) during the timing runs,
+# Owner Chrome service (owner-app-dm-chrome.service) during the timing runs,
 # from its user journal and systemctl (added after the run):
 # run 1: stopped 19:55:43-19:55:48, started again by something outside this run
 #   at 19:55:48 (the unit has Restart=on-failure only), before create-200 began.

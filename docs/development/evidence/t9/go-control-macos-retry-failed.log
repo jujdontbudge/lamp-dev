@@ -142,7 +142,7 @@ testing.runTests({0x102d8bd13, 0x1b}, {0x102d9850e, 0x2c}, 0x2e6420d362b8, {0x10
 testing.(*M).Run(0x2e6420d28320)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0x578
 github.com/JohanSardar/lamp/internal/control_test.TestMain(0x2e6420d28320)
-	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:45 +0x2f8
+	<checkout>/internal/control/e2e_test.go:45 +0x2f8
 main.main()
 	_testmain.go:132 +0x88
 
@@ -150,13 +150,13 @@ goroutine 311 [sleep]:
 time.Sleep(0x4c4b40)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/time.go:363 +0x150
 github.com/JohanSardar/lamp/internal/control_test.startDaemonFor(0x2e64210da6c8, {0x2e6420ecedc0, 0x44}, 0x2e64215a7500, {0x2e6420eceeb0, 0x50}, 0x1823b)
-	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:225 +0x4c4
+	<checkout>/internal/control/e2e_test.go:225 +0x4c4
 github.com/JohanSardar/lamp/internal/control_test.startDaemon(0x2e64210da6c8, {0x2e6420ecedc0, 0x44}, 0x2e64215a7500)
-	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:180 +0x78
+	<checkout>/internal/control/e2e_test.go:180 +0x78
 github.com/JohanSardar/lamp/internal/control_test.startDemo(0x2e64210da6c8)
-	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:176 +0xe0
+	<checkout>/internal/control/e2e_test.go:176 +0xe0
 github.com/JohanSardar/lamp/internal/control_test.TestInvalidUTF8IdempotencyKeyRejectedAcrossRestart(0x2e64210da6c8)
-	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/review_e2e_test.go:32 +0x24
+	<checkout>/internal/control/review_e2e_test.go:32 +0x24
 testing.tRunner(0x2e64210da6c8, 0x103276568)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
 created by testing.(*T).Run in goroutine 1
@@ -212,9 +212,9 @@ net.(*UnixListener).accept(0x2e6420cf9758?)
 net.(*UnixListener).Accept(0x2e6420fcba40)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/unixsock.go:267 +0x2c
 github.com/JohanSardar/lamp/internal/control_test.newWorker.func2()
-	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:73 +0x50
+	<checkout>/internal/control/e2e_test.go:73 +0x50
 created by github.com/JohanSardar/lamp/internal/control_test.newWorker in goroutine 311
-	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:71 +0x1c0
+	<checkout>/internal/control/e2e_test.go:71 +0x1c0
 
 goroutine 314 [syscall]:
 syscall.syscalln(0x1029fc920, {0x2e6420c6bdc8, 0x6, 0x6})
@@ -238,8 +238,8 @@ os.(*Process).Wait(...)
 os/exec.(*Cmd).Wait(0x2e6420fc91e0)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:930 +0x38
 github.com/JohanSardar/lamp/internal/control_test.startDaemonFor.func1()
-	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:194 +0x24
+	<checkout>/internal/control/e2e_test.go:194 +0x24
 created by github.com/JohanSardar/lamp/internal/control_test.startDaemonFor in goroutine 311
-	/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/internal/control/e2e_test.go:194 +0x2a4
+	<checkout>/internal/control/e2e_test.go:194 +0x2a4
 FAIL	github.com/JohanSardar/lamp/internal/control	601.030s
 FAIL

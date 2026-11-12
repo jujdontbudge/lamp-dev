@@ -1,9 +1,9 @@
 go build ./...
 cargo build --workspace --locked
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-engine)
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-worker-protocol)
-   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-guard)
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-supervisor)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
+   Compiling lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.80s
 go test ./...
 ok  	github.com/JohanSardar/lamp/cmd/lamp	(cached)
@@ -14,10 +14,10 @@ ok  	github.com/JohanSardar/lamp/internal/control	397.060s
 ok  	github.com/JohanSardar/lamp/pkg/workerpb	0.306s
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 cargo test --workspace --locked
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-supervisor)
-   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-guard)
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-engine)
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-worker-protocol)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
+   Compiling lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.65s
      Running unittests src/lib.rs (target/debug/deps/lamp_contracts-68a1f002ab3862b2)
 
@@ -279,7 +279,7 @@ Ran 6 tests in 0.047s
 
 OK
 python3 tools/interop.py
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.51s
 PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
 PASS: Go request → Unix socket → Rust typed Protobuf → Go response
@@ -288,8 +288,8 @@ public codegen: clean
 go vet ./...
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
-    Checking lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-worker-protocol)
-    Checking lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-engine)
-    Checking lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-guard)
-    Checking lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-supervisor)
+    Checking lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
+    Checking lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+    Checking lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+    Checking lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.16s

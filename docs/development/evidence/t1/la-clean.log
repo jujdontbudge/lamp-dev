@@ -96,7 +96,7 @@ cargo build --workspace --locked
    Compiling hashbrown v0.15.5
    Compiling indexmap v2.14.2
    Compiling regex-automata v0.4.18
-   Compiling lamp-worker-protocol v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-worker-protocol)
    Compiling syn v3.0.10
    Compiling fixedbitset v0.5.9
    Compiling serde_json v1.0.154
@@ -114,11 +114,11 @@ cargo build --workspace --locked
    Compiling memchr v2.8.3
    Compiling multimap v0.10.1
    Compiling prost-build v0.14.4
-   Compiling lamp-protogen v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/tools/protogen)
-   Compiling lamp-contracts v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-contracts)
-   Compiling lamp-supervisor v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-supervisor)
-   Compiling lamp-init v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-init)
-   Compiling lamp-engine v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-engine)
+   Compiling lamp-protogen v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/tools/protogen)
+   Compiling lamp-contracts v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-contracts)
+   Compiling lamp-supervisor v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-supervisor)
+   Compiling lamp-init v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-init)
+   Compiling lamp-engine v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-engine)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 22.23s
 go test ./...
 ?   	github.com/JohanSardar/lamp/cmd/lamp	[no test files]
@@ -129,12 +129,12 @@ go test ./...
 ok  	github.com/JohanSardar/lamp/pkg/workerpb	0.004s
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 cargo test --workspace --locked
-   Compiling lamp-protogen v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/tools/protogen)
-   Compiling lamp-contracts v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-contracts)
-   Compiling lamp-engine v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-engine)
-   Compiling lamp-init v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-init)
-   Compiling lamp-supervisor v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-supervisor)
-   Compiling lamp-worker-protocol v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-worker-protocol)
+   Compiling lamp-protogen v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/tools/protogen)
+   Compiling lamp-contracts v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-contracts)
+   Compiling lamp-engine v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-engine)
+   Compiling lamp-init v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-init)
+   Compiling lamp-supervisor v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-supervisor)
+   Compiling lamp-worker-protocol v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-worker-protocol)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 13.67s
      Running unittests src/lib.rs (target/debug/deps/lamp_contracts-6856d1b014bb320f)
 
@@ -230,9 +230,9 @@ python3 tools/interop.py
    Compiling serde_derive v1.0.229
    Compiling prost-derive v0.14.4
    Compiling prost v0.14.4
-   Compiling lamp-worker-protocol v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-worker-protocol)
    Compiling serde v1.0.229
-   Compiling lamp-contracts v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-contracts)
+   Compiling lamp-contracts v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-contracts)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.53s
 PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
 PASS: Go request → Unix socket → Rust typed Protobuf → Go response
@@ -247,7 +247,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
     Checking quote v1.0.47
     Checking prost v0.14.4
     Checking serde_core v1.0.229
-    Checking lamp-worker-protocol v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-worker-protocol)
+    Checking lamp-worker-protocol v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-worker-protocol)
     Checking regex-syntax v0.8.11
     Checking hashbrown v0.17.1
     Checking equivalent v1.0.3
@@ -277,11 +277,11 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
     Checking heck v0.5.0
     Checking multimap v0.10.1
     Checking log v0.4.35
-    Checking lamp-contracts v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-contracts)
+    Checking lamp-contracts v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-contracts)
     Checking prost-build v0.14.4
-    Checking lamp-protogen v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/tools/protogen)
-    Checking lamp-supervisor v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-supervisor)
-    Checking lamp-init v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-init)
-    Checking lamp-engine v0.1.0 (/home/johansardar.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-engine)
+    Checking lamp-protogen v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/tools/protogen)
+    Checking lamp-supervisor v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-supervisor)
+    Checking lamp-init v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-init)
+    Checking lamp-engine v0.1.0 (/home/owner.guest/lamp-t1-clean-7mSFe2G4/crates/lamp-engine)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 25.44s
 PASS: clean checkout build/test/contracts/interop/lint on Linux aarch64

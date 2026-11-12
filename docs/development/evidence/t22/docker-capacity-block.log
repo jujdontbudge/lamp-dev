@@ -1,10 +1,10 @@
 Traceback (most recent call last):
-  File "/home/johan/lamp-t22/tools/kits_docker_demo.py", line 123, in <module>
+  File "/home/owner/lamp-t22/tools/kits_docker_demo.py", line 123, in <module>
     main()
     ~~~~^^
-  File "/home/johan/lamp-t22/tools/kits_docker_demo.py", line 59, in main
+  File "/home/owner/lamp-t22/tools/kits_docker_demo.py", line 59, in main
     record('allocation admission', admission())
                                    ~~~~~~~~~^^
-  File "/home/johan/lamp-t22/kits/service.py", line 49, in admission
+  File "/home/owner/lamp-t22/kits/service.py", line 49, in admission
     raise KitError('OWNER_SANDBOX_CAPACITY')
 kits.control.KitError: OWNER_SANDBOX_CAPACITY

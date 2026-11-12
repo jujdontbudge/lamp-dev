@@ -1,5 +1,5 @@
 NEGATIVE CONTROL: killed_stopped_tracee_is_reaped_after_restart_esrch exit 101
-   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.37s
      Running unittests src/lib.rs (target/debug/deps/lamp_guard-ea091b1ee171ffb5)
 
@@ -20,7 +20,7 @@ test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 19 filtered out;
 error: test failed, to rerun pass `-p lamp-guard --lib`
 
 NEGATIVE CONTROL: task_report_wins_even_when_collector_exit_arrives_first exit 101
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.22s
      Running unittests src/lib.rs (target/debug/deps/lamp_init-25fc460f1c1a6f06)
 
@@ -49,8 +49,8 @@ test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; 
 error: test failed, to rerun pass `-p lamp-init --bin lamp-guest-helper`
 
 FIXED TESTS exit 0
-   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
      Running unittests src/lib.rs (target/debug/deps/lamp_guard-ea091b1ee171ffb5)
 

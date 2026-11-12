@@ -17,9 +17,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/surface"
-	"github.com/JohanSardar/lamp/pkg/api"
-	pb "github.com/JohanSardar/lamp/pkg/workerpb"
+	"lamp.eilmer.si/internal/surface"
+	"lamp.eilmer.si/pkg/api"
+	pb "lamp.eilmer.si/pkg/workerpb"
 )
 
 //go:embed session_runner.py

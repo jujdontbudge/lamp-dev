@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/surface"
+	"lamp.eilmer.si/internal/surface"
 )
 
 // Triggers and schedules start agent work: a fresh sandbox from the owner's

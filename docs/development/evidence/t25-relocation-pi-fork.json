@@ -1,7 +1,7 @@
 [
   {
     "kind": "pi",
-    "official_binary": "/Users/johansardar/.local/bin/pi",
+    "official_binary": "/Users/owner/.local/bin/pi",
     "version": [
       "1.5.0"
     ],

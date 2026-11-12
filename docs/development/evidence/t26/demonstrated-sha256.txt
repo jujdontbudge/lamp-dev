@@ -7,5 +7,5 @@ beb25b6fee6f0619b38f800b9557d050fad7955d4f68a03786d93cd52cae4d7c  internal/contr
 cb32bb4c61ad5b628063b8088c1b8c2445c889b201ff07198859d7f7df7116eb  internal/ci/github.go
 81c8bde570a5d2c3d7eca410a4c4590b73348bd9cd69fecbe24f8273e5df565a  internal/ci/oidc.go
 ea7fc6380fe55a150c6d88e2a1ff88659a46eb5195fb2a9ca737d6146890a2e5  internal/ci/outputs.go
-8446a9635ea8c434ead408990cd6abbf3eccf15b2332464458492fca9e80a278  /home/johan/lamp-t19/src/target/release/lamp-supervisor
+8446a9635ea8c434ead408990cd6abbf3eccf15b2332464458492fca9e80a278  /home/owner/lamp-t19/src/target/release/lamp-supervisor
 8f0280961e2e1cf824edeb173b5a559bad565430c46ecb720fef46ee2fe4617d  /var/lib/lamp/t19-private-bin/lamp-guard

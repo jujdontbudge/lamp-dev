@@ -1883,11 +1883,15 @@ impl Engine {
         // vCPUs resume here, but every task process was frozen before the
         // capture (and a template has none): only init and the helper run
         // until the barrier below thaws the tasks with the new identity.
+        // Firecracker refuses clock_realtime on aarch64 ("not supported");
+        // there the guest clock is set after the identity barrier instead.
+        let clock = if cfg!(target_arch = "x86_64") { r#","clock_realtime":true"# } else { "" };
         let body = format!(
-            r#"{{"snapshot_path":"/{}/{}","mem_backend":{{"backend_type":"File","backend_path":{}}},"track_dirty_pages":false,"resume_vm":true,"clock_realtime":true}}"#,
+            r#"{{"snapshot_path":"/{}/{}","mem_backend":{{"backend_type":"File","backend_path":{}}},"track_dirty_pages":false,"resume_vm":true{}}}"#,
             fc::MEMDIR,
             fc::VMSTATE,
-            fc::js(&mem_path)
+            fc::js(&mem_path),
+            clock
         );
         match &cold {
             None => {

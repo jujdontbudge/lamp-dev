@@ -18,7 +18,7 @@
     "audio_input": true,
     "audio_output": true,
     "guest_transport": {
-      "helper": "/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/target/t15-linux-guest-devices"
+      "helper": "<checkout>/target/t15-linux-guest-devices"
     }
   },
   "oversized": {
@@ -32,7 +32,7 @@
   "oversized_directory_created": false,
   "create": {
     "exit": 0,
-    "stdout": "{\"create_to_command_ms\":879.733792,\"detail\":{\"audit\":\"none\",\"barrier_us\":\"902\",\"confined\":\"true\",\"create_mode\":\"fresh_boot\",\"devices\":\"{\\\"display\\\":{\\\"width\\\":640,\\\"height\\\":480},\\\"keyboard\\\":true,\\\"mouse\\\":true,\\\"gpu\\\":false,\\\"audio_input\\\":true,\\\"audio_output\\\":true,\\\"guest_transport\\\":{\\\"helper\\\":\\\"/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/target/t15-linux-guest-devices\\\",\\\"input_endpoint\\\":null},\\\"extra_disks\\\":[{\\\"id\\\":\\\"demo\\\",\\\"size_mib\\\":64}]}\",\"guest_transport_binary\":\"/tmp/lamp-io-6b2a87fb215a5407/bridge\",\"guest_transport_directory\":\"/tmp/lamp-io-6b2a87fb215a5407/io\",\"guest_transport_status\":\"{\\\"channels\\\":1,\\\"devices\\\":{\\\"audio_input\\\":true,\\\"audio_output\\\":true,\\\"input_endpoint\\\":null,\\\"keyboard\\\":true,\\\"mouse\\\":true},\\\"format\\\":\\\"s16le\\\",\\\"sample_rate\\\":48000,\\\"transport\\\":\\\"guest-vsock-command\\\"}\",\"helper_ready_us\":\"348922\",\"machine_id\":\"37b7f38323794a4fb82ffb654d45d7bf\",\"prepare_us\":\"2079\",\"rng_sample\":\"0805894345c07766f19ab397e74a8375\",\"spawn_us\":\"415712\",\"total_us\":\"874643\",\"vz_start_us\":\"78329\",\"worker_identity\":\"_lampvm13\",\"worker_pid\":\"10685\"},\"probe_exit\":0,\"sandbox_id\":\"sb_t15_demo\",\"state\":\"restored\"}\n",
+    "stdout": "{\"create_to_command_ms\":879.733792,\"detail\":{\"audit\":\"none\",\"barrier_us\":\"902\",\"confined\":\"true\",\"create_mode\":\"fresh_boot\",\"devices\":\"{\\\"display\\\":{\\\"width\\\":640,\\\"height\\\":480},\\\"keyboard\\\":true,\\\"mouse\\\":true,\\\"gpu\\\":false,\\\"audio_input\\\":true,\\\"audio_output\\\":true,\\\"guest_transport\\\":{\\\"helper\\\":\\\"<checkout>/target/t15-linux-guest-devices\\\",\\\"input_endpoint\\\":null},\\\"extra_disks\\\":[{\\\"id\\\":\\\"demo\\\",\\\"size_mib\\\":64}]}\",\"guest_transport_binary\":\"/tmp/lamp-io-6b2a87fb215a5407/bridge\",\"guest_transport_directory\":\"/tmp/lamp-io-6b2a87fb215a5407/io\",\"guest_transport_status\":\"{\\\"channels\\\":1,\\\"devices\\\":{\\\"audio_input\\\":true,\\\"audio_output\\\":true,\\\"input_endpoint\\\":null,\\\"keyboard\\\":true,\\\"mouse\\\":true},\\\"format\\\":\\\"s16le\\\",\\\"sample_rate\\\":48000,\\\"transport\\\":\\\"guest-vsock-command\\\"}\",\"helper_ready_us\":\"348922\",\"machine_id\":\"37b7f38323794a4fb82ffb654d45d7bf\",\"prepare_us\":\"2079\",\"rng_sample\":\"0805894345c07766f19ab397e74a8375\",\"spawn_us\":\"415712\",\"total_us\":\"874643\",\"vz_start_us\":\"78329\",\"worker_identity\":\"_lampvm13\",\"worker_pid\":\"10685\"},\"probe_exit\":0,\"sandbox_id\":\"sb_t15_demo\",\"state\":\"restored\"}\n",
     "stderr": "",
     "host_started_unix": 1794368746.1696682,
     "host_finished_unix": 1794368747.0534241,
@@ -81,7 +81,7 @@
       "audio_input": false,
       "audio_output": false,
       "guest_transport": {
-        "helper": "/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/target/t15-linux-guest-devices",
+        "helper": "<checkout>/target/t15-linux-guest-devices",
         "input_endpoint": null
       },
       "extra_disks": [

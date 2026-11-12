@@ -37,7 +37,7 @@ cargo build --workspace --locked
    Compiling prost v0.14.4
    Compiling ed25519 v3.0.0
    Compiling sha2 v0.11.1
-   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/crates/lamp-init)
+   Compiling lamp-init v0.1.0 (<checkout>/crates/lamp-init)
    Compiling rustix v1.1.6
    Compiling winnow v1.0.5
    Compiling toml_parser v1.1.5+spec-1.1.0
@@ -61,18 +61,18 @@ cargo build --workspace --locked
    Compiling fastrand v2.5.0
    Compiling tempfile v3.27.0
    Compiling petgraph v0.8.3
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/crates/lamp-engine)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
    Compiling regex v1.13.1
-   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
    Compiling prost-types v0.14.4
    Compiling multimap v0.10.1
    Compiling log v0.4.35
    Compiling heck v0.5.0
    Compiling prost-build v0.14.4
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/crates/lamp-supervisor)
-   Compiling lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/crates/lamp-guard)
-   Compiling lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/tools/protogen)
-   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/crates/lamp-contracts)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
+   Compiling lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+   Compiling lamp-protogen v0.1.0 (<checkout>/tools/protogen)
+   Compiling lamp-contracts v0.1.0 (<checkout>/crates/lamp-contracts)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 40.72s
 go test ./...
 ok  	github.com/JohanSardar/lamp/cmd/lamp	0.235s
@@ -100,7 +100,7 @@ testing.runTests({0x104fabd13, 0x1b}, {0x104fb850e, 0x2c}, 0x51835292a2e8, {0x10
 testing.(*M).Run(0x51835291c3c0)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0x578
 github.com/JohanSardar/lamp/internal/control_test.TestMain(0x51835291c3c0)
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:45 +0x2f8
+	<checkout>/internal/control/e2e_test.go:45 +0x2f8
 main.main()
 	_testmain.go:132 +0x88
 
@@ -108,13 +108,13 @@ goroutine 269 [sleep]:
 time.Sleep(0x4c4b40)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/runtime/time.go:363 +0x150
 github.com/JohanSardar/lamp/internal/control_test.startDaemonFor(0x518353140488, {0x518353036aa0, 0x44}, 0x518353135d50, {0x518353036b90, 0x50}, 0x773d)
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:225 +0x4c4
+	<checkout>/internal/control/e2e_test.go:225 +0x4c4
 github.com/JohanSardar/lamp/internal/control_test.startDaemon(0x518353140488, {0x518353036aa0, 0x44}, 0x518353135d50)
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:180 +0x78
+	<checkout>/internal/control/e2e_test.go:180 +0x78
 github.com/JohanSardar/lamp/internal/control_test.startDemo(0x518353140488)
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:176 +0xe0
+	<checkout>/internal/control/e2e_test.go:176 +0xe0
 github.com/JohanSardar/lamp/internal/control_test.TestForkIfMatchHeader(0x518353140488)
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/review_e2e_test.go:98 +0x28
+	<checkout>/internal/control/review_e2e_test.go:98 +0x28
 testing.tRunner(0x518353140488, 0x105496558)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
 created by testing.(*T).Run in goroutine 1
@@ -170,9 +170,9 @@ net.(*UnixListener).accept(0x518352ca5f58?)
 net.(*UnixListener).Accept(0x51835315e1b0)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/net/unixsock.go:267 +0x2c
 github.com/JohanSardar/lamp/internal/control_test.newWorker.func2()
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:73 +0x50
+	<checkout>/internal/control/e2e_test.go:73 +0x50
 created by github.com/JohanSardar/lamp/internal/control_test.newWorker in goroutine 269
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:71 +0x1c0
+	<checkout>/internal/control/e2e_test.go:71 +0x1c0
 
 goroutine 275 [syscall]:
 syscall.syscalln(0x104c1c920, {0x518352ca15c8, 0x6, 0x6})
@@ -196,9 +196,9 @@ os.(*Process).Wait(...)
 os/exec.(*Cmd).Wait(0x518353076b60)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:930 +0x38
 github.com/JohanSardar/lamp/internal/control_test.startDaemonFor.func1()
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:194 +0x24
+	<checkout>/internal/control/e2e_test.go:194 +0x24
 created by github.com/JohanSardar/lamp/internal/control_test.startDaemonFor in goroutine 269
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:194 +0x2a4
+	<checkout>/internal/control/e2e_test.go:194 +0x2a4
 FAIL	github.com/JohanSardar/lamp/internal/control	601.088s
 ?   	github.com/JohanSardar/lamp/internal/guard	[no test files]
 ?   	github.com/JohanSardar/lamp/pkg/api	[no test files]

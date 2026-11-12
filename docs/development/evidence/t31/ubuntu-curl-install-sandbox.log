@@ -1,0 +1,30 @@
+
+=== 02:23:50Z capacity: live firecracker=0, MiB available=23135
+
+=== 02:23:50Z curl | sh from the public release into a fresh prefix
+{"at":"2026-11-12T02:23:53Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l31u","service":"process","version":"0.1.0"}
+Lamp 0.1.0 installed in /tmp/l31u. Engine setup: https://github.com/JohanSardar/lamp/releases/tag/v0.1.0
+{"current":"0.1.0","healthy":true,"highest_version":"0.1.0","name":"default","previous":"","saved_items":0,"service":"process","update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000}}
+lamp-guard
+lamp-supervisor
+
+=== 02:23:53Z disposable store from the release's own supervisor
+lamp-seed/ubuntu-26.04@sha256:9f2440dc6a5cc939d3c6ef4cf96a4bbc8a9312e28ca47d60eab7151fc45ddb83
+template tp_ac393f3adc9383fa4423339d1d
+supervisor pid 2164543: /tmp/l31u/releases/0.1.0/lib/lamp-supervisor
+
+=== 02:24:18Z the installed lampd attached to that supervisor
+
+=== 02:24:19Z one sandbox
+{"operation_id":"op_c9b4cee6b8fd7aa71cea2619fa896e86","resource_ids":[{"kind":"sandbox","id":"sb_b0330f1fd41bbdfac335d92c2316bab3"}],"request_id":"req_0eb4750f6d0f6b636e7650b22adcf98d","replayed":false,"operation":{"id":"op_c9b4cee6b8fd7aa71cea2619fa896e86","kind":"operation","fleet_id":"fl_local","
+sandbox sb_b0330f1fd41bbdfac335d92c2316bab3 ready; live firecracker=1
+exec ex_50fc70c90b8c768ab4fb75c9fd47015a: exited 0
+hello from a Lamp 0.1.0 sandbox
+Linux 6.18.62
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+2
+
+=== 02:24:21Z release the sandbox and clean up
+sandbox delete rc=0
+{"at":"2026-11-12T02:24:24Z","data":"deleted","event":"uninstalled","name":"default","owner_data":"delete"}
+left: live firecracker=0, MiB available=22978

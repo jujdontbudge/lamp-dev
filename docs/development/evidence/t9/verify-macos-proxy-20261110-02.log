@@ -310,13 +310,13 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
      Running `target/debug/lamp-protogen /var/folders/rx/w6wxv0p97bv7hpvzqlv9jy7r0000gn/T/tmpqxpme70o`
 worker codegen: clean
-    Checking lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-init)
-    Checking lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-worker-protocol)
-    Checking lamp-guard v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-guard)
-    Checking lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-contracts)
-    Checking lamp-protogen v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/tools/protogen)
-    Checking lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-engine)
-    Checking lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-01ca1039-91bc3eb69dc80efa/crates/lamp-supervisor)
+    Checking lamp-init v0.1.0 (<checkout>/crates/lamp-init)
+    Checking lamp-worker-protocol v0.1.0 (<checkout>/crates/lamp-worker-protocol)
+    Checking lamp-guard v0.1.0 (<checkout>/crates/lamp-guard)
+    Checking lamp-contracts v0.1.0 (<checkout>/crates/lamp-contracts)
+    Checking lamp-protogen v0.1.0 (<checkout>/tools/protogen)
+    Checking lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+    Checking lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.75s
 
 verification_exit_code=0

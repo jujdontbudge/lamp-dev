@@ -79,10 +79,10 @@ This correction therefore has **no successful live Docker/container result yet**
 | `make bootstrap` | PASS, exit 0 |
 | `make verify` | PASS, exit 0; run once during implementation, before the later narrow init/namespace changes; [saved output](evidence/t22/make-verify.log) |
 | `cargo fmt -p lamp-init -- --check` | PASS, exit 0 after the guest-init change |
-| LX: `cargo build --locked -p lamp-init --bin lamp-init` with `/home/johan/.cargo/bin` on PATH | PASS, exit 0; [build tail](evidence/t22/guest-init-build.log) |
+| LX: `cargo build --locked -p lamp-init --bin lamp-init` with `/home/owner/.cargo/bin` on PATH | PASS, exit 0; [build tail](evidence/t22/guest-init-build.log) |
 | `python3 -m py_compile kits/*.py tools/kits_*.py` and `python3 -m kits --help` | PASS, exit 0 on the final Python sources |
 | Compile generated Git and Git+Docker launcher/runner/installer layers with Python `compile` | PASS, exit 0; syntax proof only, not a fake runtime/provider test |
-| `PYTHONPATH=. python3 tools/kits_docker_demo.py --fixture /home/johan/lamp-t22/host-6 --root /home/johan/lamp-t22/docker-native-demo-1` | FAIL, exit 1; guest init/containerd work, Docker daemon exits; public release and fixture stop succeed; physical count 0 |
+| `PYTHONPATH=. python3 tools/kits_docker_demo.py --fixture /home/owner/lamp-t22/host-6 --root /home/owner/lamp-t22/docker-native-demo-1` | FAIL, exit 1; guest init/containerd work, Docker daemon exits; public release and fixture stop succeed; physical count 0 |
 | Same journey with fresh `host-7` / `docker-native-demo-2` | FAIL, exit 1; captures native Docker panic; releases VM; count returns to its pre-allocation value 1 |
 | Same journey with fresh `host-8` / `docker-native-demo-3` after namespace correction | BLOCKED, exit 1, `OWNER_SANDBOX_CAPACITY`; no VM created; fixture stopped; [log](evidence/t22/docker-capacity-block.log) |
 
@@ -163,7 +163,7 @@ Docker or vault-fill demonstration. No new tests or reruns of passed demos.
   demonstration; compilation is not that proof.
 - The fresh `host-20261111-integrated-docker-1` fixture reached
   `T22 isolated public API ready` with the bundled backend. Running
-  `PYTHONPATH=. python3 tools/kits_docker_demo.py --fixture /home/johan/lamp-t22/host-20261111-integrated-docker-1 --root /home/johan/lamp-t22/docker-integrated-1 --lamp /home/johan/lamp-t22/lamp-integrated`
+  `PYTHONPATH=. python3 tools/kits_docker_demo.py --fixture /home/owner/lamp-t22/host-20261111-integrated-docker-1 --root /home/owner/lamp-t22/docker-integrated-1 --lamp /home/owner/lamp-t22/lamp-integrated`
   exited **1**, `OWNER_SANDBOX_CAPACITY`, before VM allocation. Another ticket
   took the free slot between inspection and allocation. Its transcript confirms
   `controller_stopped: true`, count 2 at teardown. The subsequent inspection
@@ -204,7 +204,7 @@ for the pending provisioning work. Failed account/fixture directories are retain
 **PASS: native CLI login, item creation and native adapter read against
 Vaultwarden 1.37.5. Form fill is still pending, not claimed passing.**
 
-`tools/kits_vaultwarden_provision.py --root /home/johan/lamp-t22/vaultwarden-account-5 --binary /home/johan/lamp-t22/bitwarden-native-1/bw --ca-file /home/johan/lamp-t22/vaultwarden-tls-1/ca.pem`
+`tools/kits_vaultwarden_provision.py --root /home/owner/lamp-t22/vaultwarden-account-5 --binary /home/owner/lamp-t22/bitwarden-native-1/bw --ca-file /home/owner/lamp-t22/vaultwarden-tls-1/ca.pem`
 completed on LX with **exit 0**. The [redacted native result](evidence/t22/vaultwarden-native.json)
 records a fresh disposable registration, real Bitwarden CLI login, item creation
 and a real native reader result matching the public test site's advertised login.
@@ -272,7 +272,7 @@ rootless-only ticket requirement.
 ## Actual nested-namespace Docker run — 2026-11-11
 
 The coordinator requested one real run of the collector-contained correction.
-`PYTHONPATH=. python3 tools/kits_docker_demo.py --fixture /home/johan/lamp-t22/host-20261111-nested-docker-1 --root /home/johan/lamp-t22/nested-docker-1`
+`PYTHONPATH=. python3 tools/kits_docker_demo.py --fixture /home/owner/lamp-t22/host-20261111-nested-docker-1 --root /home/owner/lamp-t22/nested-docker-1`
 ran and exited **1**. It was **not** refused at capacity: admission observed
 **0 Firecrackers, 27,450 MiB available**, and allocated a fresh 4 GiB VM.
 

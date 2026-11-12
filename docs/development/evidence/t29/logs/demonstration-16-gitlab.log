@@ -58,7 +58,7 @@ gitlab: runner log tail:
     received shutdown signal; stopping provisioner      group=lamp/rc_f67b3e12200003e452a694006c851ef5 runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
     provisioner shutdown completed                      group=lamp/rc_f67b3e12200003e452a694006c851ef5 runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
     taskscaler's shutdown completed                     runner=DryxIKTlU runner_name=lamp-fleeting subsystem=taskscaler
-    plugin process exited                               id=1808135 plugin=/home/johan/lamp-t29/bin/lamp-fleeting runner=DryxIKTlU runner_name=lamp-fleeting subsystem=fleeting
+    plugin process exited                               id=1808135 plugin=/home/owner/lamp-t29/bin/lamp-fleeting runner=DryxIKTlU runner_name=lamp-fleeting subsystem=fleeting
     All executor providers shut down.                   builds=0 max_builds=1
     Can exit now!                                       builds=0 max_builds=1
     t29_demo_test.go:486: gitlab driver exit=<nil>; sandboxes not deleted at end: 0

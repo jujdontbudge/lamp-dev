@@ -1,6 +1,6 @@
 
 === 09:18:38Z install 6.0.0 (supervisor and lamp-vz from the release)
-{"at":"2026-11-11T09:18:41Z","automatic_updates":false,"event":"installed","prefix":"/Users/johansardar/lt28e/f","service":"process","version":"6.0.0"}
+{"at":"2026-11-11T09:18:41Z","automatic_updates":false,"event":"installed","prefix":"/Users/owner/lt28e/f","service":"process","version":"6.0.0"}
 sandbox sb_239bc4ee0bce7bc395d27365dfbbc3ff ready
 signed engine 6.0.0: {'lamp-vz_sha256': 'cc0d0222af9791ea7d14a0dec08d86255b4a811ee277f1832391af66144b4852', 'snapshot_format': '1'}
 signed engine 6.1.0: {'lamp-vz_sha256': '7e3e1128333ec695671f351df2915a82ff06c716a199c000c61594f0502eebc9', 'snapshot_format': '2'}

@@ -115,7 +115,7 @@ The [host transcript](evidence/t17/host-demo/transcript.jsonl) and
 
 All writable resources were T17-owned:
 
-- `/home/johan/lamp-t17/` — sources, binaries, fixture state and retained runs;
+- `/home/owner/lamp-t17/` — sources, binaries, fixture state and retained runs;
 - `/var/lib/lamp/t17-broker/` — engine store, producer key and root-owned binaries;
 - `/run/lamp-t17/` — private runtime memory and network namespaces;
 - `/var/lib/lamp-audit/t17-broker/` — guard audit;

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/JohanSardar/lamp/pkg/api"
+	"lamp.eilmer.si/pkg/api"
 	"net"
 	"net/http"
 	"net/url"

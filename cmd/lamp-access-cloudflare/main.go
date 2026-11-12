@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/JohanSardar/lamp/internal/access"
+	"lamp.eilmer.si/internal/access"
 	"os"
 )
 

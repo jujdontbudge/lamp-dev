@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/ci"
-	pb "github.com/JohanSardar/lamp/pkg/workerpb"
+	"lamp.eilmer.si/internal/ci"
+	pb "lamp.eilmer.si/pkg/workerpb"
 )
 
 type ciJob struct {

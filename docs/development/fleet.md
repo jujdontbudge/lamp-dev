@@ -22,12 +22,12 @@ An example two-host manifest (use the actual addresses and measured capacity):
   "cert_file": "/private/hs_lx.crt",
   "key_file": "/private/hs_lx.key",
   "guard_dir": "/private/lamp-recovery-guard",
-  "public_api_listen": "100.80.96.36:7443",
+  "public_api_listen": "100.64.10.6:7443",
   "hosts": [
     {
       "id": "hs_lx",
-      "api": "https://100.80.96.36:7444",
-      "raft": "100.80.96.36:7445",
+      "api": "https://100.64.10.6:7444",
+      "raft": "100.64.10.6:7445",
       "os": "linux",
       "arch": "x86_64",
       "engines": ["firecracker-1.17.0"],
@@ -35,8 +35,8 @@ An example two-host manifest (use the actual addresses and measured capacity):
     },
     {
       "id": "hs_m5",
-      "api": "https://100.127.45.76:7444",
-      "raft": "100.127.45.76:7445",
+      "api": "https://100.64.10.5:7444",
+      "raft": "100.64.10.5:7445",
       "os": "darwin",
       "arch": "arm64",
       "engines": [],
@@ -72,8 +72,8 @@ material only; it never contains a bearer or host private key:
 {
   "ca_file": "/private/ca.crt",
   "ingresses": [
-    {"url": "https://100.127.45.76:7443", "server_name": "hs_m5"},
-    {"url": "https://100.80.96.36:7443", "server_name": "hs_lx"}
+    {"url": "https://100.64.10.5:7443", "server_name": "hs_m5"},
+    {"url": "https://100.64.10.6:7443", "server_name": "hs_lx"}
   ]
 }
 ```

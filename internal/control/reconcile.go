@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	pb "github.com/JohanSardar/lamp/pkg/workerpb"
+	pb "lamp.eilmer.si/pkg/workerpb"
 )
 
 // reconcileSandbox performs only Inspect. It may restore readiness only for an

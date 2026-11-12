@@ -80,18 +80,18 @@ cargo build --workspace --locked
    Compiling multimap v0.10.1
    Compiling log v0.4.35
    Compiling prost v0.14.4
-   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-worker-protocol)
    Compiling prost-types v0.14.4
    Compiling toml_datetime v1.1.3+spec-1.1.0
    Compiling serde_spanned v1.1.3
    Compiling prost-build v0.14.4
-   Compiling lamp-protogen v0.1.0 (/home/johan/lamp-t10-control-core/src/tools/protogen)
+   Compiling lamp-protogen v0.1.0 (/home/owner/lamp-t10-control-core/src/tools/protogen)
    Compiling toml v1.2.1+spec-1.1.0
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
-   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
-   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-contracts)
-   Compiling lamp-engine v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-engine)
-   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-supervisor)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-contracts v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-contracts)
+   Compiling lamp-engine v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.59s
 go test ./...
 ok  	github.com/JohanSardar/lamp/cmd/lamp	0.026s
@@ -106,13 +106,13 @@ ok  	github.com/JohanSardar/lamp/internal/surface	0.019s
 ok  	github.com/JohanSardar/lamp/pkg/workerpb	0.007s
 ?   	github.com/JohanSardar/lamp/tools/contractprobe	[no test files]
 cargo test --workspace --locked
-   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-contracts)
-   Compiling lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
-   Compiling lamp-supervisor v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-supervisor)
-   Compiling lamp-protogen v0.1.0 (/home/johan/lamp-t10-control-core/src/tools/protogen)
-   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-worker-protocol)
-   Compiling lamp-engine v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-engine)
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
+   Compiling lamp-contracts v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-contracts)
+   Compiling lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard)
+   Compiling lamp-supervisor v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-supervisor)
+   Compiling lamp-protogen v0.1.0 (/home/owner/lamp-t10-control-core/src/tools/protogen)
+   Compiling lamp-worker-protocol v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-worker-protocol)
+   Compiling lamp-engine v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-engine)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 15.22s
 
 running 0 tests
@@ -380,10 +380,10 @@ OK
    Compiling curve25519-dalek v5.0.0
    Compiling ed25519-dalek v3.0.0
    Compiling prost v0.14.4
-   Compiling lamp-worker-protocol v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-worker-protocol)
+   Compiling lamp-worker-protocol v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-worker-protocol)
    Compiling serde_json v1.0.154
    Compiling serde v1.0.229
-   Compiling lamp-contracts v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-contracts)
+   Compiling lamp-contracts v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-contracts)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.45s
 PASS: Go → Rust → Go JSON retains uint64, Unicode/base64 and absent/empty scope selectors
 PASS: Go request → Unix socket → Rust typed Protobuf → Go response
@@ -445,16 +445,16 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
     Checking heck v0.5.0
     Checking ed25519-dalek v3.0.0
     Checking prost-build v0.14.4
-    Checking lamp-worker-protocol v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-worker-protocol)
-    Checking lamp-protogen v0.1.0 (/home/johan/lamp-t10-control-core/src/tools/protogen)
+    Checking lamp-worker-protocol v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-worker-protocol)
+    Checking lamp-protogen v0.1.0 (/home/owner/lamp-t10-control-core/src/tools/protogen)
     Checking serde v1.0.229
     Checking serde_json v1.0.154
     Checking serde_spanned v1.1.3
     Checking toml_datetime v1.1.3+spec-1.1.0
     Checking toml v1.2.1+spec-1.1.0
-    Checking lamp-init v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-init)
-    Checking lamp-guard v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-guard)
-    Checking lamp-contracts v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-contracts)
-    Checking lamp-engine v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-engine)
-    Checking lamp-supervisor v0.1.0 (/home/johan/lamp-t10-control-core/src/crates/lamp-supervisor)
+    Checking lamp-init v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-init)
+    Checking lamp-guard v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-guard)
+    Checking lamp-contracts v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-contracts)
+    Checking lamp-engine v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-engine)
+    Checking lamp-supervisor v0.1.0 (/home/owner/lamp-t10-control-core/src/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 22.80s

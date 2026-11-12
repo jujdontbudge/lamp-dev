@@ -16,12 +16,12 @@ soak run, attack suite or E-numbered qualification claim.
 Run from the M5 over `ssh ubuntu-server`:
 
 ```sh
-python3 /home/johan/lamp-t23/accountability_demo.py \
-  --root /home/johan/lamp-t23/demo-3 \
+python3 /home/owner/lamp-t23/accountability_demo.py \
+  --root /home/owner/lamp-t23/demo-3 \
   --store /var/lib/lamp/t23 \
-  --policy /home/johan/lamp-t23/policy.json \
+  --policy /home/owner/lamp-t23/policy.json \
   --template tp_8a6922170222418fabafdc0c95 \
-  --binary-dir /home/johan/lamp-t23
+  --binary-dir /home/owner/lamp-t23
 ```
 
 The prepared disposable template contains public Ubuntu/Python software. The
@@ -98,7 +98,7 @@ budget, audit and retained-byte ledger. A separate
 Ubuntu sandbox under the 20 GiB disk policy, rejected a private memory/disk
 snapshot before allocating retained storage, then successfully started admitted
 work in the existing sandbox. Cleanup released that sandbox. The run is retained
-at `/home/johan/lamp-t23/retained-quota-1`.
+at `/home/owner/lamp-t23/retained-quota-1`.
 
 ## Verification and boundaries
 
@@ -182,11 +182,11 @@ revision.
 The retained disposable run is `/tmp/t23-fix-4` on Ubuntu. Its invocation was:
 
 ```sh
-python3 /home/johan/lamp-t23/t23-fix-check.py \
+python3 /home/owner/lamp-t23/t23-fix-check.py \
   --root /tmp/t23-fix-4 --store /var/lib/lamp/t23 \
-  --policy /home/johan/lamp-t23/policy.json \
+  --policy /home/owner/lamp-t23/policy.json \
   --template tp_8a6922170222418fabafdc0c95 \
-  --binary-dir /home/johan/lamp-t23
+  --binary-dir /home/owner/lamp-t23
 ```
 
 Immediately before allocation the machine had zero Firecracker processes and

@@ -775,7 +775,7 @@
     "host_nested": "Y",
     "host_kvm_read_write": true,
     "space_allocated_bytes": {
-      "/home/johan/.lamp-lanes": 2565828608,
+      "/home/owner/.lamp-lanes": 2565828608,
       "/var/lib/libvirt/images/lamp-lanes": 7009894400
     },
     "windows_removed": true,

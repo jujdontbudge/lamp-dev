@@ -1,0 +1,11 @@
+files redacted: 0
+files with private details: 0
+files with private details: 0
+redacted export: 1400 files, commit fdbc5de
+remotes to rewrite:
+m5: /Users/owner/.t3/projects/lamp/.git/config remote.origin.url -> git@github.com:JohanSardar/lamp-dev.git
+m5: /Users/owner/.t3/projects/lamp/.git/config remote.origin.url -> git@github.com:JohanSardar/lamp-dev.git
+https://github.com/JohanSardar/lamp
+To https://github.com/JohanSardar/lamp.git
+ ! [remote rejected] main -> main (refusing to allow an OAuth App to create or update workflow `.github/workflows/check.yml` without `workflow` scope)
+error: failed to push some refs to 'https://github.com/JohanSardar/lamp.git'

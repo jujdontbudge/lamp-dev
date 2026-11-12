@@ -9,7 +9,7 @@ policy_mode=os.environ.get('LAMP_T29_POLICY','')  # trusted | public: one policy
 ports=list(range(3929,3936))+([3936] if policy_mode=='trusted' else [])
 from pathlib import Path
 base=Path.home()/'lamp-t29'
-sup='/home/johan/lamp-t19/src/target/release/lamp-supervisor'
+sup='/home/owner/lamp-t19/src/target/release/lamp-supervisor'
 store='/var/lib/lamp/t29-private';bindir='/var/lib/lamp/t29-private-bin';audit='/var/lib/lamp-audit/t29-private'
 forge='http://10.219.29.1:3929'
 def sh(*a,**kw):return subprocess.run(a,check=True,capture_output=True,text=True,**kw)
@@ -65,7 +65,7 @@ try:
   network_reader=['sudo','-n',bindir+'/ci-network-attestation',audit],state_admin=['sudo','-n',sup,'state','--admin-socket','/run/t29/admin.sock'],
   worker=dict(Socket='/run/t29/w.sock',WorkerID='lamp-supervisor@'+os.uname().nodename,BootID=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),UID=0,PID=pid,GrantID=grant['grant_id'],Timeout=60000000000))))
  conf.chmod(0o600)
- env=dict(os.environ,LAMP_T29_GITLAB_DRIVER=str(base/'src/docs/development/evidence/t29/gitlab_demo.py'),LAMP_T29_ONLY=os.environ.get('LAMP_T29_ONLY',''),LAMP_T29_LIVE_CONFIG=str(conf),PATH='/home/johan/go-sdk/bin:'+os.environ['PATH'])
+ env=dict(os.environ,LAMP_T29_GITLAB_DRIVER=str(base/'src/docs/development/evidence/t29/gitlab_demo.py'),LAMP_T29_ONLY=os.environ.get('LAMP_T29_ONLY',''),LAMP_T29_LIVE_CONFIG=str(conf),PATH='/home/owner/go-sdk/bin:'+os.environ['PATH'])
  p=subprocess.run(['go','test','-tags','t29demo','./internal/control','-run','^TestT29Demonstration$','-count=1','-v','-timeout','60m'],cwd=base/'src',env=env)
  print('demonstration_exit',p.returncode,flush=True)
  if broker:

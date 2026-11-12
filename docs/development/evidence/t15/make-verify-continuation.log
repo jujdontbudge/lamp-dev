@@ -2,10 +2,10 @@ mkdir -p bin
 cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
 go build ./...
 cargo build --workspace --locked
-   Compiling lamp-vz v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-vz)
-   Compiling lamp-init v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-init)
-   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-engine)
-   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-aeb43ba5-caa048f4c364bd31/crates/lamp-supervisor)
+   Compiling lamp-vz v0.1.0 (<checkout>/crates/lamp-vz)
+   Compiling lamp-init v0.1.0 (<checkout>/crates/lamp-init)
+   Compiling lamp-engine v0.1.0 (<checkout>/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (<checkout>/crates/lamp-supervisor)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.90s
 go test -count=1 ./cmd/lamp -run '^TestCLIUsesCanonicalMutationHeaders$'
 ok  	github.com/JohanSardar/lamp/cmd/lamp	0.381s

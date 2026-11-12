@@ -2,7 +2,7 @@
 === 09:17:21Z capacity before the sandbox: live firecracker=0, MiB available=27299
 
 === 09:17:21Z install 5.0.0 (systemd lampd, supervisor 5.0.0 from the release)
-{"at":"2026-11-11T09:17:22Z","automatic_updates":false,"event":"installed","prefix":"/home/johan/lamp-t28k/p","service":"systemd","version":"5.0.0"}
+{"at":"2026-11-11T09:17:22Z","automatic_updates":false,"event":"installed","prefix":"/home/owner/lamp-t28k/p","service":"systemd","version":"5.0.0"}
 {"current":"5.0.0","healthy":true,"highest_version":"5.0.0","name":"t28lx","previous":"","saved_items":0,"service":"systemd","supervisor":{"alive":true,"binary_sha256":"97e38663de2cc5de39b24b1dff243cbbe8804ff8f529b3062e2157f424653efa","from_release":true,"pid":4178704,"release":"5.0.0","sha256":{"firecracker":"99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5","jailer":"65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f","lamp-supervisor":"97e38663de2cc5de39b24b1dff243cbbe8804ff8f529b3062e2157f424653efa"}},"update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000}}
 
 === 09:17:22Z sandbox from tp_b116a7a5482b6d66a32bd9d892 with a live guest process (tmpfs heartbeat)

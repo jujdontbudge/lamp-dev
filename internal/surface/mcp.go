@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/JohanSardar/lamp/pkg/api"
+	"lamp.eilmer.si/pkg/api"
 )
 
 // ServeMCP uses MCP's newline-delimited JSON-RPC stdio transport. Concurrent

@@ -5,7 +5,7 @@ Two Apple Silicon Macs, both the owner's everyday machines:
 - **M5**: Mac17,2 (Apple M5), 24 GiB RAM, macOS 26.5.2 (Darwin 25.5.0),
   internal SSD, APFS.
 - **AIR**: Mac14,2 (Apple M2), 8 GiB RAM, no fan, macOS 26.7.1 (25G241),
-  internal SSD, APFS; reached as `ssh johansardars-macbook-air`.
+  internal SSD, APFS; reached as `ssh owner-air`.
 
 Everything below ran on the real engine on these machines:
 

@@ -1,7 +1,7 @@
-0eaf4fdf900e10f6ad1b3e7fa0e2ad48fdd31288dea7e7f3e48956efd4e32917  /home/johan/lamp-t23/lampd-linux
-bbc3693b54e27debc6e8051f6fe9e8df4985758a68b68b973e6d9efd41b05f16  /home/johan/lamp-t23/lamp-broker-linux
-bd1c5cab5f17811899ff0e013eb58cb3e4c280ab35209ac3cf1f3a847589ab28  /home/johan/lamp-t23/lamp-linux
-95ca761949f621ff6c1515a2bfee5228e1316af2302509ad5d42b9dadbb7424d  /home/johan/lamp-t23/accountability_demo.py
+0eaf4fdf900e10f6ad1b3e7fa0e2ad48fdd31288dea7e7f3e48956efd4e32917  /home/owner/lamp-t23/lampd-linux
+bbc3693b54e27debc6e8051f6fe9e8df4985758a68b68b973e6d9efd41b05f16  /home/owner/lamp-t23/lamp-broker-linux
+bd1c5cab5f17811899ff0e013eb58cb3e4c280ab35209ac3cf1f3a847589ab28  /home/owner/lamp-t23/lamp-linux
+95ca761949f621ff6c1515a2bfee5228e1316af2302509ad5d42b9dadbb7424d  /home/owner/lamp-t23/accountability_demo.py
 b3bad00faf02cb0ef60c48f3673dd168a82b1b6f5cac9ca383ab389e955995e5  /var/lib/lamp/t23/bin/lamp-supervisor
 f3a4e5520eb6445db042fd44ea66d7acd4f06631f95177e474cefce521cf14e2  /var/lib/lamp/t23/bin/lamp-guard
 Linux 7.0.0-42-generic x86_64

@@ -1,5 +1,5 @@
 lamp-supervisor: store open, 1 verified template(s) in 4191 ms
-lamp-supervisor: serving lamp.worker/1 on /home/johan/lamp-t17/sandbox-demo-3/private/worker.sock
+lamp-supervisor: serving lamp.worker/1 on /home/owner/lamp-t17/sandbox-demo-3/private/worker.sock
 lamp-supervisor: op op_bcaaf5f7422647784e35fdfb30eb9465.allocate sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=1356
 lamp-supervisor: op op_bcaaf5f7422647784e35fdfb30eb9465.restore sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=53386 attach_us=26099 barrier_us=5695 load_us=3729 net_build_us=31940 net_guard_us=12718 net_proxy_us=12724 net_tap_us=16263 net_total_us=31911 net_uplink_us=15464 prepare_us=2150 spawn_us=15651 total_us=53369
 lamp-supervisor: op op_bcaaf5f7422647784e35fdfb30eb9465.start sandbox sb_456e2f3ad448593aca47a76eb65b691c handle_us=16680

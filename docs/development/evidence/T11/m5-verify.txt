@@ -31,7 +31,7 @@ testing.runTests({0x10277bd13, 0x1b}, {0x10278850e, 0x2c}, 0xe08be6aa270, {0x102
 testing.(*M).Run(0xe08be69a320)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2443 +0x578
 github.com/JohanSardar/lamp/internal/control_test.TestMain(0xe08be69a320)
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:45 +0x2f8
+	<checkout>/internal/control/e2e_test.go:45 +0x2f8
 main.main()
 	_testmain.go:132 +0x88
 
@@ -61,7 +61,7 @@ os/exec.(*Cmd).Run(0xe08bf0b4680)
 os/exec.(*Cmd).CombinedOutput(0xe08bf0b4680)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:1047 +0x7c
 github.com/JohanSardar/lamp/internal/control_test.TestRustWorkerControlPath(0xe08bf084908)
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/rust_e2e_test.go:112 +0xb80
+	<checkout>/internal/control/rust_e2e_test.go:112 +0xb80
 testing.tRunner(0xe08bf084908, 0x102c66588)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/testing/testing.go:2036 +0xc4
 created by testing.(*T).Run in goroutine 1
@@ -147,9 +147,9 @@ os.(*Process).Wait(...)
 os/exec.(*Cmd).Wait(0xe08be63b380)
 	/opt/homebrew/Cellar/go/1.26.2/libexec/src/os/exec/exec.go:930 +0x38
 github.com/JohanSardar/lamp/internal/control_test.startDaemonFor.func1()
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:194 +0x24
+	<checkout>/internal/control/e2e_test.go:194 +0x24
 created by github.com/JohanSardar/lamp/internal/control_test.startDaemonFor in goroutine 366
-	/Users/johansardar/.t3/worktrees/lamp/t3-8218c2c9-a411d7986f88ef61/internal/control/e2e_test.go:194 +0x2a4
+	<checkout>/internal/control/e2e_test.go:194 +0x2a4
 
 goroutine 368 [IO wait]:
 internal/poll.runtime_pollWait(0x12bab5000, 0x72)

@@ -227,7 +227,7 @@ mediated proxy is single-threaded. Also:
 ## Host preparation and the owner's services
 
 `infra/linux/timing-run.sh` wraps each hard timing run: it stops only the
-owner's services that are running (`excerlock-dm-tt`, `-dm-ig`, `-dm-chrome`,
+owner's services that are running (`owner-app-dm-tt`, `-dm-ig`, `-dm-chrome`,
 `-beeper`), drops clean caches and compacts memory (a fragmented host failed
 KVM vCPU creation with an order-5 allocation failure during development), runs
 the suite, and restarts exactly what it stopped whatever the outcome. The T3

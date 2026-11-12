@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/release"
-	"github.com/JohanSardar/lamp/pkg/api"
 	"github.com/hashicorp/raft"
+	"lamp.eilmer.si/internal/release"
+	"lamp.eilmer.si/pkg/api"
 )
 
 // Rolling updates (HST-005). Update resources and the fleet update_policy

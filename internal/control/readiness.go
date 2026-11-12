@@ -1,6 +1,6 @@
 package control
 
-import "github.com/JohanSardar/lamp/pkg/api"
+import "lamp.eilmer.si/pkg/api"
 
 func coreReadiness(ready bool, at *string) *api.Readiness {
 	checks := []api.ReadinessCheck{}

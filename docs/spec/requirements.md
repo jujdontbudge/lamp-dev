@@ -4,7 +4,7 @@ Feature requirements · revised 2026-11-10 under the owner’s instruction to bu
 
 Lamp is open-source software that people install on their own machines. It creates isolated computers, called sandboxes, for AI agents, harnesses (the programs that run agents) and continuous integration (CI). One fleet can contain one host or many. Callers use one address and one set of keys. They can use an application programming interface (API), command-line interface (CLI) or Model Context Protocol (MCP) server, or watch and join sessions through a dashboard, T3 Code, Herdr or Secure Shell (SSH).
 
-Lamp serves four equal needs: parallel work without collisions, protection of the host and secrets, ready-to-use tools and sign-in, and ownership of the machines and data. The first release includes the entire owner brief under its accepted release timing: TypeScript/Python software development kits (SDKs) ship then, and Go/Rust follow immediately. Hosts are Linux x86_64 and arm64, and Apple Silicon Macs with macOS 26 or newer. Linux guests run on both host families. Native macOS guests use a clearly labeled slower full virtual machine (VM) class. Lamp uses its own template format. Docker is available inside a sandbox as a kit, never as Lamp's runtime or template format.
+Lamp serves four equal needs: parallel work without collisions, protection of the host and secrets, ready-to-use tools and sign-in, and ownership of the machines and data. The first release includes the entire owner brief under its accepted release timing: a TypeScript software development kit (SDK) ships then, and Go/Rust follow immediately (the Python SDK was dropped by the owner, 2026-11-12). Hosts are Linux x86_64 and arm64, and Apple Silicon Macs with macOS 26 or newer. Linux guests run on both host families. Native macOS guests use a clearly labeled slower full virtual machine (VM) class. Lamp uses its own template format. Docker is available inside a sandbox as a kit, never as Lamp's runtime or template format.
 
 The owner can run everything locally. Eilmer's optional relay only forwards end-to-end encrypted traffic. It never holds model credentials or sandbox data. All Eilmer-hosted addresses live under eilmer.si. API keys stay in host brokers. Subscription logins stay on the person's trusted hosts and own sandboxes. Their presence in a same-owner memory fork or suspend is an explicit exception to the zero-secret-leak target. Templates and anything shared or exported start the harness fresh.
 
@@ -207,7 +207,7 @@ Approve and deny are alternate runs, not sequential mutations of a consumed appr
 
 #### INT-002 — Generated SDKs and delivery order
 
-**Statement.** TypeScript and Python SDKs must ship in release one. Go and Rust SDKs must follow immediately afterward. All must derive from one API definition.
+**Statement.** A TypeScript SDK must ship in release one. Go and Rust SDKs must follow immediately afterward. There is no Python SDK [owner, amended 2026-11-12]. All must derive from one API definition.
 **Source.** Brief §3, O1; ADR 0008; architecture §§4, 12, 21.
 **Interfaces.** `lamp api describe --json`; `GET /v1/openapi.json`; `api_describe({})` return the canonical OpenAPI definition. SDKs perform `sandbox_create` semantics, wait for the Operation and read the returned sandbox. Unknown fields produce `INVALID_ARGUMENT`.
 **JSON observation.** OpenAPI excerpt: `{"openapi":"3.1.0","info":{"title":"Lamp","version":"v1"}}`; the complete document describes every canonical path.

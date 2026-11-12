@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/JohanSardar/lamp/internal/accountidentity"
+	"lamp.eilmer.si/internal/accountidentity"
 )
 
 type User struct {

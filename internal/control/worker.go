@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/JohanSardar/lamp/pkg/workerpb"
 	"google.golang.org/protobuf/proto"
+	pb "lamp.eilmer.si/pkg/workerpb"
 )
 
 // AuthenticateLocal admits the one OS owner of the private public API socket.

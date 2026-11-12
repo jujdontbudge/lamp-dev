@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/access"
+	"lamp.eilmer.si/internal/access"
 )
 
 func main() {

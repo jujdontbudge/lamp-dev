@@ -18,10 +18,10 @@ import (
 	"strings"
 	"time"
 
-	public "github.com/JohanSardar/lamp/contracts/public"
-	"github.com/JohanSardar/lamp/docs/spec"
-	"github.com/JohanSardar/lamp/internal/surface"
-	"github.com/JohanSardar/lamp/pkg/api"
+	public "lamp.eilmer.si/contracts/public"
+	"lamp.eilmer.si/docs/spec"
+	"lamp.eilmer.si/internal/surface"
+	"lamp.eilmer.si/pkg/api"
 )
 
 type coreError struct{ code, message string }

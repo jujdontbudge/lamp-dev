@@ -1,7 +1,7 @@
 package control
 
 import (
-	"github.com/JohanSardar/lamp/pkg/api"
+	"lamp.eilmer.si/pkg/api"
 	"sort"
 	"strings"
 )

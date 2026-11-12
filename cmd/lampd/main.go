@@ -20,9 +20,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/JohanSardar/lamp/internal/ci"
-	"github.com/JohanSardar/lamp/internal/control"
-	kitruntime "github.com/JohanSardar/lamp/kits"
+	"lamp.eilmer.si/internal/ci"
+	"lamp.eilmer.si/internal/control"
+	kitruntime "lamp.eilmer.si/kits"
 )
 
 func main() {

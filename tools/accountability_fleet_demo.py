@@ -23,9 +23,9 @@ EVIDENCE = Path(sys.argv[1])
 EVIDENCE.mkdir(parents=True, exist_ok=False)
 LOG = (EVIDENCE / 'transcript.jsonl').open('x')
 HOSTS = {
-    'hs_lx': ('ubuntu-server', '100.80.96.36', 'linux', 'x86_64'),
-    'hs_m5': (None, '100.127.45.76', 'darwin', 'arm64'),
-    'hs_air': ('johansardars-macbook-air', '100.78.200.121', 'darwin', 'arm64'),
+    'hs_lx': ('ubuntu-server', '100.64.10.6', 'linux', 'x86_64'),
+    'hs_m5': (None, '100.64.10.5', 'darwin', 'arm64'),
+    'hs_air': ('owner-air', '100.64.10.7', 'darwin', 'arm64'),
 }
 TOKEN = secrets.token_hex(32)
 MEMBER=secrets.token_hex(32)
@@ -219,7 +219,7 @@ try:
     (ROOT/'ca.key').chmod(0o600)
     for host in HOSTS:cert(host)
     python('hs_lx','import os,sys;os.makedirs(sys.argv[1],mode=0o700,exist_ok=False)',str(ROOT))
-    worker_args=['sudo','-n','sh','-c','echo "$$" > "$1"; shift; exec "$@"','sh',str(ROOT/'worker.pid'),STORE+'/bin/lamp-supervisor','serve','--store',STORE,'--socket',WORKER_SOCKET,'--network-policy','/home/johan/lamp-t23/policy.json','--mem-dir',str(ROOT/'mem'),'--netns-dir',str(ROOT/'netns'),'--uid-base','1850000000','--host-id','hs_t23','--allow-uid','1000']
+    worker_args=['sudo','-n','sh','-c','echo "$$" > "$1"; shift; exec "$@"','sh',str(ROOT/'worker.pid'),STORE+'/bin/lamp-supervisor','serve','--store',STORE,'--socket',WORKER_SOCKET,'--network-policy','/home/owner/lamp-t23/policy.json','--mem-dir',str(ROOT/'mem'),'--netns-dir',str(ROOT/'netns'),'--uid-base','1850000000','--host-id','hs_t23','--allow-uid','1000']
     python('hs_lx','import json,subprocess,sys;f=open(sys.argv[1],"wb");subprocess.Popen(json.loads(sys.argv[2]),stdout=f,stderr=f,start_new_session=True)',str(ROOT/'worker.log'),json.dumps(worker_args))
     until(lambda:python('hs_lx','import pathlib,sys;print(int(pathlib.Path(sys.argv[1]).exists()))',WORKER_SOCKET).strip()=='1','worker readiness')
     WORKER=int(run('hs_lx',['cat',str(ROOT/'worker.pid')],text=True))

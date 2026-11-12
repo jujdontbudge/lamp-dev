@@ -4,5 +4,5 @@
    Compiling memchr v2.8.3
    Compiling syn v3.0.10
    Compiling serde_derive v1.0.229
-   Compiling lamp-init v0.1.0 (/home/johan/lamp-t22/guest-init-source-1/crates/lamp-init)
+   Compiling lamp-init v0.1.0 (/home/owner/lamp-t22/guest-init-source-1/crates/lamp-init)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.04s

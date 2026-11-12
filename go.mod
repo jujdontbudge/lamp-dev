@@ -1,4 +1,4 @@
-module github.com/JohanSardar/lamp
+module lamp.eilmer.si
 
 go 1.26.1
 
