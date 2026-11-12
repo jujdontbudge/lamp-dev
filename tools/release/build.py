@@ -231,10 +231,15 @@ def main():
     script = (ROOT / 'tools/release/install.sh.in').read_text()
     script = script.replace('@VERSION@', a.version).replace('@BASE@', base)
     script = script.replace('@TRUST@', (out / 'release-trust.pub').read_text().strip())
+    missing = [p for p in ['linux-amd64', 'linux-arm64', 'darwin-arm64'] if not (out / f'lamp-{a.version}-{p}.tar.gz').exists()]
     for plat in ['linux-amd64', 'linux-arm64', 'darwin-arm64']:
-        digest = hashlib.sha256((out / f'lamp-{a.version}-{plat}.tar.gz').read_bytes()).hexdigest()
-        script = script.replace(f'@SHA_{plat}@', digest)
-    (out / 'install.sh').write_text(script)
+        if plat not in missing:
+            digest = hashlib.sha256((out / f'lamp-{a.version}-{plat}.tar.gz').read_bytes()).hexdigest()
+            script = script.replace(f'@SHA_{plat}@', digest)
+    if missing:  # a partial pass; a later --reuse pass completes the release
+        print(f'install.sh not written: {",".join(missing)} still to build')
+    else:
+        (out / 'install.sh').write_text(script)
 
     (out / 'release.json').write_text(json.dumps(record, indent=1) + '\n')
     shutil.rmtree(scratch)
