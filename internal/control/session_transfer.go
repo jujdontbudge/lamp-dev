@@ -208,7 +208,7 @@ func (s *Service) sessionTransferMutation(a caller, op api.OperationDescriptor, 
 		if err := s.transferLocation(a, location); err != nil {
 			return ref, nil, nil, nil, err
 		}
-		sbID, agentMode := textField(m, "sandbox_id"), "inside"
+		sbID, agentMode := "", "inside"
 		if textField(location, "kind") == "sandbox" {
 			sbID, agentMode = textField(location, "sandbox_id"), "inside"
 		}

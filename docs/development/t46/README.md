@@ -114,8 +114,11 @@ parity was measured. The 16 MiB continuation quota remains in force.
 - `go vet ./cmd/lamp ./internal/control ./internal/surface`: passed.
 - `python3 tools/generate.py --check`, Python AST parsing of changed adapters,
   and `git diff --check`: passed.
-- No new feature tests or benchmark runs were added. Demonstrations used the
-  actual CLI, HTTP API, MCP gateway, official model binary and bridge servers.
+- Demonstrations used the actual CLI, HTTP API, MCP gateway, official model
+  binary and bridge servers. No benchmark runs or feature test suite was
+  added. Sol later supplied one regression test for a demonstrated host-child
+  bug; it failed before the one-line fix and passed afterwards. See
+  [the review ledger](review.md).
 - Public cleanup reported zero live disposable sandboxes. The dedicated
   supervisor, VM store, runners, servers, credential copies, clones and large
   build caches were removed. The two disposable groups were deleted. macOS
