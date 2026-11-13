@@ -48,9 +48,45 @@ For a remote daemon, forward the callback port privately or use the owner-only
 bypass operation journaling. The callback expires after ten minutes. Daemon
 restart requires starting a new pending sign-in flow.
 
-This is OpenRouter sign-in. Claude subscription sign-in and subscription custody
-are still unavailable through this release enrollment path. Do not interpret an
-OpenRouter flow as evidence of Claude subscription parity.
+For an existing Codex ChatGPT subscription sign-in on the daemon host:
+
+```sh
+lamp auth-flow create --identity-provider-id codex --purpose provider_login \
+  --wait-ms 60000 --json
+lamp auth-flow get --auth-flow-id FLOW_ID --json
+# Use labels.lamp.credential_source_id from the completed flow:
+lamp harness enroll --input - --wait-ms 60000 <<'JSON'
+{"harness_id":"codex","credential_source_id":"SOURCE_ID","model":"gpt-6.1-sol","nested_create":true}
+JSON
+lamp session create --sandbox-id "$SB" --harness-id codex \
+  --prompt 'Write and run a Python program in this workspace.' --wait-ms 60000 --json
+```
+
+This explicit flow imports the host user's existing `~/.codex/auth.json` into
+Lamp's private custody store (0600), then completes with a source ID. It does
+not launch a browser, use a keychain, modify the original, or refresh/revoke its
+tokens. Sign in with the official Codex CLI on the host first. If the copied
+access token expires, sign in/refresh through the owner's CLI and start a new
+Lamp import; Lamp does not rotate the shared refresh token. The managed guest
+installs official `@openai/codex@0.168.0`; its custom Responses provider gets
+only a scoped Lamp transport token. Lamp attaches the access token and account
+header on the host to the pinned ChatGPT Codex endpoint. Subscription limits
+apply; an API billing credential is not substituted. Choose a model available
+to that subscription. The session reports `auth_mode:subscription`.
+
+Claude subscription enrollment remains unsupported. Lamp's existing Claude
+native adapter expects a setup token in the native custody process, and its
+Messages broker integration supports API authentication. This release has no
+Claude subscription import or subscription protocol adapter that keeps that
+token outside an in-guest Claude process. Reusing the native adapter in a guest
+would expose the subscription token there. Owner authorization resolves account
+permission; it does not supply the missing integration. The Ubuntu host had no `~/.claude/.credentials.json` sign-in file; accessing the
+Mac keychain was explicitly prohibited and was not attempted. We therefore had
+no authorized exported Claude credential with which to implement and verify the
+missing subscription adapter. [Anthropic's gateway documentation](https://code.claude.com/docs/en/llm-gateway)
+allows forwarding subscription OAuth with the appropriate `anthropic-beta`
+capability; this is not a claim that gateways are categorically forbidden. This is an implementation limitation, not a claim that the owner's
+subscription may not be used.
 
 ## Scoped guest CLI and MCP
 
@@ -80,8 +116,20 @@ host-entered `resource_policy.secret_name`. Enroll the connection ID into the
 harness. Its tools appear through the session's stdio MCP gateway. Guest
 `lamp connection invoke CONNECTION OPERATION --input -` reaches the same broker.
 Host CLI connections use the broker's existing pinned AWS, Stripe and GitHub
-adapters; they do not admit arbitrary guest-supplied host commands. This ticket's
-demonstration uses a public no-auth Cloudflare MCP server, not a real CLI account.
+adapters, plus `tea` for Forgejo/Gitea; they do not admit arbitrary guest-supplied
+host commands. The tea adapter offers only `repo_list` (no arguments), pins the
+service origin, and creates an isolated private host login config for each call.
+It never opens the owner's tea config. HTTPS is required except for an explicit
+host-loopback HTTP service. A CLI connection can use this owner-enrolled policy:
+
+```json
+{"type":"cli","adapter_id":"tea","endpoint":"http://127.0.0.1:31443","access":"read_only","allowed_operations":["repo_list"],"resource_policy":{"binary":"/absolute/path/to/tea","secret_name":"forgejo-demo","operations":{"repo_list":{"fields":{}}}}}
+```
+
+Enter the service token with `lamp secret set forgejo-demo`, create the connection,
+and enroll its ID. Guest `lamp connection invoke CONNECTION repo_list --input -`
+with `{}` invokes the actual host tea CLI. The service token stays in the host
+custody store and tea's temporary 0600 config, which is removed after the call.
 
 ## Settings and opaque secrets
 

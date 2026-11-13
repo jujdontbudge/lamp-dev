@@ -30,6 +30,9 @@ func (s *Service) planAgentAuth(a caller, in map[string]any) (lifePlan, error) {
 	if !s.agentOwner(a) {
 		return lifePlan{}, reject("SCOPE_DENIED", "provider sign-in requires owner credential")
 	}
+	if textField(in, "identity_provider_id") == "codex" && textField(in, "purpose") == "provider_login" {
+		return s.planCodexCustody(a)
+	}
 	if textField(in, "identity_provider_id") != "openrouter" || textField(in, "purpose") != "provider_login" {
 		return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "release sign-in supports OpenRouter PKCE for opencode; subscription custody still requires its vendor adapter")
 	}
@@ -178,4 +181,50 @@ func (s *Service) agentAuthCompleteHTTP(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	prepareJSON(w, 200, map[string]any{"result": map[string]any{"secret_available": false}, "request_id": id})()
+}
+
+// Import is explicit and host-only: the owner's original is never changed.
+func (s *Service) planCodexCustody(a caller) (lifePlan, error) {
+	n := s.addNetwork("af", "auth_flow", a.Principal)
+	n.R["state"], n.R["purpose"], n.R["identity_provider_id"] = "pending", "provider_login", "codex"
+	id := textField(n.R, "id")
+	return lifePlan{ref: lifeRef("auth_flow", id), run: func(ctx context.Context) (map[string]any, error) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		p := filepath.Join(home, ".codex", "auth.json")
+		info, err := os.Lstat(p)
+		if err != nil || !info.Mode().IsRegular() {
+			return nil, reject("CREDENTIAL_UNAVAILABLE", "sign in with Codex CLI on this host first")
+		}
+		raw, err := os.ReadFile(p)
+		if err != nil || len(raw) > 65536 {
+			return nil, reject("CREDENTIAL_UNAVAILABLE", "cannot read Codex host sign-in")
+		}
+		var auth struct {
+			Tokens struct {
+				Access  string `json:"access_token"`
+				Account string `json:"account_id"`
+			} `json:"tokens"`
+		}
+		if json.Unmarshal(raw, &auth) != nil || auth.Tokens.Access == "" || auth.Tokens.Account == "" {
+			return nil, reject("CREDENTIAL_UNAVAILABLE", "Codex ChatGPT sign-in required")
+		}
+		if err = os.WriteFile(filepath.Join(s.dir, "credentials", id), raw, 0600); err != nil {
+			return nil, err
+		}
+		return map[string]any{"auth_flow_id": id}, nil
+	}, finish: func(result map[string]any, err error) error {
+		if err != nil {
+			n.R["state"] = "failed"
+			return err
+		}
+		source := s.addNetwork("cr", "credential_source", a.Principal)
+		source.R["state"], source.R["provider"], source.R["account_ref"] = "ready", "codex", id
+		n.R["state"] = "completed"
+		n.R["labels"] = map[string]any{"lamp.credential_source_id": source.R["id"]}
+		result["credential_source_id"] = source.R["id"]
+		return nil
+	}}, nil
 }

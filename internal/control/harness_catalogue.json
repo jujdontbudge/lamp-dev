@@ -42,7 +42,7 @@
     ],
     "routes": {
       "api_key": "Official binary uses a custom model_provider (wire_api=responses) pointed at Lamp's broker; key stays in the broker.",
-      "subscription": "Native ChatGPT device sign-in into the session's own CODEX_HOME on the custody host; VM-owned refresh, never copied between hosts."
+      "subscription": "Release managed sessions explicitly import host ~/.codex/auth.json into Lamp custody; the guest uses a scoped transport token and host brokered Responses. Existing native custody-home route is also available."
     },
     "permission_sources": [
       "https://developers.openai.com/codex/auth",
@@ -62,7 +62,8 @@
       "linux-host"
     ],
     "limitations": [
-      "ChatGPT plan rate limits apply to subscription turns."
+      "ChatGPT plan rate limits apply to subscription turns.",
+      "Release custody import does not refresh the shared token; import again after owner CLI refresh."
     ]
   },
   {

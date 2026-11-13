@@ -1,12 +1,47 @@
 # T43 evidence and remaining scope
 
-This change makes release OpenCode sessions, host-held OpenRouter model keys,
-OpenRouter PKCE, scoped guest capabilities and the existing broker available
-through the daemon. It does **not** complete every T43 finding: Claude
-subscription sign-in/custody (F59) is still unsupported by the release path.
-Only OpenRouter PKCE initiation (`pending`) was observed; a completed real
-sign-in exchange is unproven. No real subscription login or signed-in
-third-party CLI account was used.
+The release now supports managed OpenCode and Codex, host-held model credentials,
+explicit Codex subscription sign-in import, scoped guest capabilities, settings,
+opaque secrets and signed-in CLI connections. The coordinator's follow-up closed
+the subscription-task, Linux-capabilities and authenticated-CLI evidence gaps.
+Claude subscription enrollment remains unsupported: the Ubuntu host had no
+exported Claude sign-in file, Mac keychain access was prohibited, and the release
+has no verified subscription import/protocol adapter for Claude. See
+`../../agents.md` for the exact limitation and vendor gateway documentation.
+OpenRouter's completed browser exchange is still unobserved; the demonstrated
+completed sign-in flow is the explicitly authorized Codex host import.
+
+Follow-up observations (2026-11-13):
+
+- `linux-subscription.json`: Lamp imported the Ubuntu owner's existing Codex
+  ChatGPT sign-in into its own 0600 custody store. Official Codex 0.168.0 ran in a
+  Firecracker guest, wrote `app.py`, and executed it. A separate guest execution
+  verified the artifact prints `385`. That run later failed at tea scope
+  validation; its task and artifact observations remain valid.
+- `linux-capabilities.json`: the final run listed a private repository through
+  real tea 0.11.0 against a disposable native Forgejo 13.0.2 account. The guest
+  received no service token. It created/executed/deleted a child, observed the
+  third-sandbox and parent-deletion refusals, approved settings, exercised opaque
+  secret substitution/redaction and refused origin, attached/disconnected,
+  restarted lampd, called public Cloudflare MCP afterward, and refused the next
+  request after source revocation. Admission observations were 0 VMs/15067 MiB
+  before the parent and 1 VM/14121 MiB immediately before the child.
+- Custody observation: 20 guest session/home files up to 2 MiB, accessible process
+  environment/command lines, and transcript were inspected for candidate strings
+  matching known subscription and service credential hashes. None matched; the
+  guest transport token differed. This is bounded plaintext observation, not a
+  claim about every disk block or arbitrary encoding. The code path retains the
+  upstream auth document exclusively on the host and sends only transport
+  capabilities into the guest.
+- `credential-preservation.json`: the owner's original still exactly matched the
+  task-run custody copy after all runs. Lamp neither refreshed nor revoked it.
+- `cleanup-followup.json`: all dedicated VMs, worker/store, native Forgejo process,
+  disposable account database, imported custody copies and grant were removed;
+  there were zero Firecracker processes afterward. Existing services and Docker
+  were untouched. No Mac keychain or owner screen was accessed.
+- `followup-failures.json` preserves intermediate failures and their fixes.
+
+Earlier observations, retained without relabeling:
 
 Actual observations, 2026-11-12/13:
 
@@ -36,8 +71,8 @@ Actual observations, 2026-11-12/13:
 `failed-observations.json` preserves earlier failed and unavailable observations.
 In particular, a later Linux extended run lost its managed network route during
 installation. The final Linux capability attempt did not allocate because other
-ticket work left less than 12 GiB available. These are not green Linux parity
-results, and this MR must not be presented as completing the entire ticket.
+ticket work left less than 12 GiB available. Those historical attempts remain failed/unavailable. The later follow-up
+capability observation above is separate real Linux evidence.
 
 The demos used dedicated supervisor stores, binaries, VMs and Mac worker
 identities. They did not change existing installs, Docker objects, owner projects,

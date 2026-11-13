@@ -33,3 +33,12 @@ Reviewed diff: 33 files, 4487 insertions, 144 deletions (before this ledger upda
 The review added one regression and the one-line drain fix. Two rounds with
 `gpt-6.1-sol` on verified medium effort. Final delivery pushes the approved
 behavior plus this documentation update; T43 remains explicitly incomplete.
+
+
+## Coordinator follow-up review
+
+New review scope begins at `0a1888fc66a758be15bd7a105d2e64bb97ab4f36` and
+covers only Codex custody/Responses, tea, and their release enrollment changes.
+Prior review findings remain resolved. Real follow-up evidence is in README.md.
+No new implementation tests added. `make build`, changed-package `go vet`,
+Python compilation and `git diff --check` passed. Follow-up review verdict pending.

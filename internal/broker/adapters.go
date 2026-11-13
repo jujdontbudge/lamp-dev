@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -87,7 +88,7 @@ func validateInvocation(c Connection, in Invocation) error {
 		}
 	case "cli":
 		switch c.Adapter + ":" + in.Operation {
-		case "gh:repo_view", "gh:issue_list", "stripe:balance_get", "stripe:customers_list", "aws:identity":
+		case "tea:repo_list", "gh:repo_view", "gh:issue_list", "stripe:balance_get", "stripe:customers_list", "aws:identity":
 			if len(in.Arguments) != 0 {
 				return invalid
 			}
@@ -234,7 +235,11 @@ func (b *Broker) execute(ctx context.Context, c Connection, in Invocation) (json
 			argv = []string{"s3api", "head-object", "--bucket", c.Resource, "--key", in.Arguments["key"].(string), "--output", "json", "--region", c.Region}
 		}
 		body, _ := json.Marshal(in.Arguments)
-		result, err = command(ctx, append([]string{c.Binary}, argv...), body)
+		if c.Adapter == "tea" {
+			result, err = teaRepos(ctx, c, secret)
+		} else {
+			result, err = command(ctx, append([]string{c.Binary}, argv...), body)
+		}
 	case "git_sign":
 		result, err = command(ctx, []string{c.Binary, "-Y", "sign", "-f", c.KeyFile, "-n", "git"}, []byte(in.Arguments["commit"].(string)))
 		if err == nil {
@@ -418,4 +423,33 @@ func RedactSecrets(data []byte, secrets [][]byte) []byte {
 		}
 	}
 	return data
+}
+
+// tea reads its own login config, isolated from the owner's CLI configuration.
+// The token is never argv, guest environment or broker output.
+func teaRepos(ctx context.Context, c Connection, secret []byte) ([]byte, error) {
+	dir, err := os.MkdirTemp("", "lamp-tea-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	config := filepath.Join(dir, "tea")
+	if err = os.Mkdir(config, 0700); err != nil {
+		return nil, err
+	}
+	raw, _ := json.Marshal(map[string]any{"logins": []any{map[string]any{"name": "lamp", "url": c.Endpoint, "token": string(secret), "default": true}}, "preferences": map[string]any{}})
+	if err = os.WriteFile(filepath.Join(config, "config.yml"), raw, 0600); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, c.Binary, "repos", "list", "--login", "lamp", "--limit", "5", "--fields", "name,owner,description", "--output", "json")
+	cmd.Env = []string{"HOME=" + dir, "XDG_CONFIG_HOME=" + dir, "PATH=/usr/bin:/bin"}
+	var out cappedBuffer
+	cmd.Stdout = &out
+	cmd.Stderr = io.Discard
+	if cmd.Run() != nil {
+		return nil, errors.New("UPSTREAM_UNAVAILABLE")
+	}
+	return out.Bytes(), nil
 }

@@ -1,0 +1,42 @@
+[
+  {
+    "run": 15,
+    "observation": "Codex import result omitted auth_flow_id; added the public result ID."
+  },
+  {
+    "run": 16,
+    "observation": "Disposable worker runtime directory inaccessible; fixed directory traversal permission."
+  },
+  {
+    "run": 17,
+    "observation": "Old disposable control grant omitted newer commands; regenerated with current supervisor."
+  },
+  {
+    "run": 18,
+    "observation": "Codex Responses path parsed as a different connection; used canonical broker Responses route."
+  },
+  {
+    "run": 19,
+    "observation": "Official Codex client_metadata absent from field schema; enrolled its object field."
+  },
+  {
+    "run": 20,
+    "observation": "gpt-5.4 unavailable to the subscription; selected advertised gpt-6.1-sol."
+  },
+  {
+    "run": 21,
+    "observation": "Pinned subscription endpoint returned SSE without Content-Type; normalize only for that endpoint."
+  },
+  {
+    "run": 22,
+    "observation": "Codex task and independent artifact verification passed; tea required read:user in addition to read:repository."
+  },
+  {
+    "run": 23,
+    "observation": "Signed-in tea passed; nested demo program had indentation error, corrected the demo."
+  },
+  {
+    "run": 24,
+    "observation": "Capabilities passed, but child output was read before completion; final run waited for exit and observed nested-t43-ok."
+  }
+]

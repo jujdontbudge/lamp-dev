@@ -1,0 +1,93 @@
+[
+  {
+    "step": "release harness",
+    "harnesses": [
+      {
+        "id": "opencode",
+        "state": "active",
+        "version": "enrolled"
+      }
+    ]
+  },
+  {
+    "step": "Codex host sign-in import",
+    "state": "completed",
+    "credential_mode": "0o600"
+  },
+  {
+    "step": "host-held model source",
+    "source": "cr_a0e4201d440816ca30c82c7a9559150a"
+  },
+  {
+    "step": "allocation admission",
+    "live_firecracker": 0,
+    "available_mib": 15123
+  },
+  {
+    "step": "sandbox ready",
+    "sandbox": "sb_dfc743d584b9a2da223dd602757ceb8b",
+    "state": "ready"
+  },
+  {
+    "step": "session created",
+    "session": "se_abd238eb61adf064c5dcbfbfbef5fe38"
+  },
+  {
+    "step": "subscription task reference",
+    "evidence": "run22: Codex wrote and executed app.py; independently verified output 385"
+  },
+  {
+    "step": "signed-in third-party CLI",
+    "output": "{\"data\": [{\"name\": \"custody-demo\", \"owner\": \"lamp-demo\", \"description\": \"T43 signed-in CLI connection\"}]}\n"
+  },
+  {
+    "step": "nested allocation admission",
+    "live_firecracker": 1,
+    "available_mib": 14121
+  },
+  {
+    "step": "nested guest CLI",
+    "output": "created child sb_73293de1187cfb37a263b5ab57dedd86\nthird refused NO_CAPACITY\nparent delete refused SCOPE_DENIED\nnested-t43-ok\n\nchild delete op_5953f99ce79078225500cbf65a89a301\n"
+  },
+  {
+    "step": "settings approval",
+    "host_file": "Approved disposable T43 update.\n"
+  },
+  {
+    "step": "opaque secrets",
+    "output": "{\"body\": \"{\\n  \\\"args\\\": {},\\n  \\\"headers\\\": {\\n    \\\"Accept-Encoding\\\": \\\"gzip\\\",\\n    \\\"Authorization\\\": \\\"Bearer [REDACTED]\\\",\\n    \\\"Host\\\": \\\"httpbin.org\\\",\\n    \\\"User-Agent\\\": \\\"Go-http-client/1.1\\\"\\n  },\\n  \\\"method\\\": \\\"GET\\\",\\n  \\\"origin\\\": \\\"130.126.255.19\\\",\\n  \\\"url\\\": \\\"https://httpbin.org/anything\\\",\\n  \\\"data\\\": \\\"\\\",\\n  \\\"files\\\": {},\\n  \\\"form\\\": {},\\n  \\\"json\\\": null\\n}\\n\", \"status\": 200}\nunapproved origin refused\n"
+  },
+  {
+    "step": "CLI session attach",
+    "retained_output_displayed": true,
+    "disconnect_exit": 0
+  },
+  {
+    "step": "guest credential custody",
+    "subscription_and_cli_credentials_absent_from_scanned_files_processes_and_transcript": true,
+    "files_scanned": 20,
+    "guest_transport_differs_from_real_credentials": true,
+    "host_custody_mode": "0600"
+  },
+  {
+    "step": "daemon restart",
+    "transcript_preserved": true,
+    "guest_gateway": "{\"data\": {\"content\": [{\"type\": \"text\", \"text\": \"<result>\\n<url>https://developers.cloudflare.com/changelog/post/2026-03-26-outbound-workers/</url>\\n<title>2026 03 26 Outbound Workers</title>\\n<text>\\n\n"
+  },
+  {
+    "step": "source revoked",
+    "guest_refusal": "{\"error\":{\"code\":\"SCOPE_DENIED\",\"message\":\"agent capability expired or revoked\",\"retryable\":false},\"request_id\":\"\"}\n\n"
+  },
+  {
+    "step": "original Codex credential",
+    "unchanged": true
+  },
+  {
+    "step": "complete",
+    "goal": "brokered agent, nested sandbox, settings approval, opaque secret, MCP gateway, restart and revocation"
+  },
+  {
+    "step": "sandbox deleted",
+    "sandbox": "sb_dfc743d584b9a2da223dd602757ceb8b"
+  }
+]

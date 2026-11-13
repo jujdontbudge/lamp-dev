@@ -37,6 +37,7 @@ var agentName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.-]{0,79}$`)
 type agentCallerKey struct{}
 
 type agentEnrollment struct {
+	Harness     string   `json:"harness,omitempty"`
 	Model       string   `json:"model"`
 	Source      string   `json:"source,omitempty"`
 	Nested      bool     `json:"nested,omitempty"`
@@ -88,7 +89,15 @@ func init() {
 }
 
 func releaseHarness(owner string, e agentEnrollment) SessionHarness {
-	return SessionHarness{OwnerID: owner, Argv: []string{"/usr/local/bin/opencode"}, Cwd: "{session_dir}/workspace", Env: map[string]string{"HOME": "{session_dir}/home", "PATH": "/usr/local/bin:/opt/venv/bin:/usr/bin:/bin"}, AuthModes: []string{"none", "api_key"}, Native: &NativeHarness{Kind: "opencode", Binary: "/usr/local/bin/opencode", Model: e.Model, Managed: true}}
+	kind := e.Harness
+	if kind == "" {
+		kind = "opencode"
+	}
+	modes := []string{"none", "api_key"}
+	if kind == "codex" {
+		modes = []string{"subscription"}
+	}
+	return SessionHarness{OwnerID: owner, Argv: []string{"/usr/local/bin/" + kind}, Cwd: "{session_dir}/workspace", Env: map[string]string{"HOME": "{session_dir}/home", "PATH": "/usr/local/bin:/opt/venv/bin:/usr/bin:/bin"}, AuthModes: modes, Native: &NativeHarness{Kind: kind, Binary: "/usr/local/bin/" + kind, Model: e.Model, Managed: true}}
 }
 func (s *Service) initAgents() error {
 	s.agentRuntimes = map[string]*agentRuntime{}
@@ -112,6 +121,10 @@ func (s *Service) initAgents() error {
 	n.R["issuer"] = "https://openrouter.ai"
 	n.R["enabled"] = true
 	s.life.Networks["openrouter"] = n
+	codex := s.addNetwork("ip", "identity_provider", s.journal.Control.OwnerID)
+	delete(s.life.Networks, textField(codex.R, "id"))
+	codex.R["id"], codex.R["type"], codex.R["issuer"], codex.R["enabled"] = "codex", "oidc", "https://auth.openai.com", true
+	s.life.Networks["codex"] = codex
 	return PrivateDir(filepath.Join(s.dir, "credentials"))
 }
 func (s *Service) agentOwner(a caller) bool {
@@ -122,10 +135,10 @@ func (s *Service) planHarnessEnroll(a caller, in map[string]any) (lifePlan, erro
 	if !s.agentOwner(a) {
 		return lifePlan{}, reject("SCOPE_DENIED", "harness enrollment requires the owner credential")
 	}
-	if textField(in, "harness_id") != "opencode" {
-		return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "release enrollment currently supports opencode; other harnesses require --sessions-config")
+	if textField(in, "harness_id") != "opencode" && textField(in, "harness_id") != "codex" {
+		return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "release enrollment supports opencode and codex; other harnesses require --sessions-config")
 	}
-	e := agentEnrollment{Model: textField(in, "model"), Source: textField(in, "credential_source_id")}
+	e := agentEnrollment{Harness: textField(in, "harness_id"), Model: textField(in, "model"), Source: textField(in, "credential_source_id")}
 	e.Nested, _ = in["nested_create"].(bool)
 	agentAssign(in["settings_source_ids"], &e.Settings)
 	agentAssign(in["connection_ids"], &e.Connections)
@@ -137,16 +150,23 @@ func (s *Service) planHarnessEnroll(a caller, in map[string]any) (lifePlan, erro
 	}
 	if e.Model == "" {
 		e.Model = "opencode/deepseek-v4.1-flash-free"
+		if e.Harness == "codex" {
+			e.Model = "gpt-6.1-sol"
+		}
 	}
 	if e.Source != "" {
 		n := s.life.Networks[e.Source]
 		if n == nil || textField(n.R, "kind") != "credential_source" || textField(n.R, "state") != "ready" {
 			return lifePlan{}, reject("NOT_FOUND", "ready credential source required")
 		}
-		if textField(n.R, "provider") != "openrouter" {
+		if e.Harness == "codex" {
+			if textField(n.R, "provider") != "codex" {
+				return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "Codex requires a Codex custody source")
+			}
+		} else if textField(n.R, "provider") != "openrouter" {
 			return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "opencode enrollment supports OpenRouter sources")
 		}
-		if !strings.HasSuffix(e.Model, ":free") {
+		if e.Harness != "codex" && !strings.HasSuffix(e.Model, ":free") {
 			return lifePlan{}, reject("SCOPE_DENIED", "OpenRouter enrollment requires an explicit :free model")
 		}
 	}
@@ -156,9 +176,12 @@ func (s *Service) planHarnessEnroll(a caller, in map[string]any) (lifePlan, erro
 			return lifePlan{}, reject("NOT_FOUND", "enrolled settings source or connection not found")
 		}
 	}
-	s.life.Agents["opencode"] = e
-	s.sessions.Harnesses["opencode"] = releaseHarness(a.Principal, e)
-	return lifePlan{ref: lifeRef("harness", "opencode"), result: map[string]any{"harness_id": "opencode"}}, nil
+	if e.Harness == "codex" && e.Source == "" {
+		return lifePlan{}, reject("INVALID_ARGUMENT", "Codex requires a host custody source")
+	}
+	s.life.Agents[e.Harness] = e
+	s.sessions.Harnesses[e.Harness] = releaseHarness(a.Principal, e)
+	return lifePlan{ref: lifeRef("harness", e.Harness), result: map[string]any{"harness_id": e.Harness}}, nil
 }
 
 func (s *Service) planAgentResource(a caller, kind, verb string, in map[string]any) (lifePlan, error) {
@@ -298,7 +321,7 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 		}
 	}
 	s.readLock()
-	e := s.life.Agents["opencode"]
+	e := s.life.Agents[textField(config, "kind")]
 	if saved.Token != "" {
 		e = saved.Enrollment
 	}
@@ -323,6 +346,11 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 		}
 		fields := map[string]string{"model": "string", "messages": "array", "stream": "boolean?", "stream_options": "object?", "tools": "array?", "tool_choice": "string_or_object?", "temperature": "number?", "top_p": "number?", "max_tokens": "number?", "max_completion_tokens": "number?", "presence_penalty": "number?", "frequency_penalty": "number?", "stop": "array?", "seed": "number?", "response_format": "object?", "reasoning": "object?", "provider": "object?", "parallel_tool_calls": "boolean?"}
 		cfg.Connections["model"] = broker.Connection{Kind: "model", Access: "full", Endpoint: "https://openrouter.ai/api/v1/chat/completions", CredentialCommand: []string{"/bin/cat", filepath.Join(s.dir, "credentials", textField(n.R, "account_ref"))}, Models: []string{e.Model}, FreeOnly: true, Operations: map[string]broker.Operation{"chat_completions": {Write: true, Fields: fields}}}
+		if textField(n.R, "provider") == "codex" {
+			fields = map[string]string{"model": "string", "input": "array", "instructions": "string?", "tools": "array?", "tool_choice": "string_or_object?", "parallel_tool_calls": "boolean?", "reasoning": "object?", "store": "boolean?", "stream": "boolean?", "include": "array?", "text": "object?", "prompt_cache_key": "string?", "previous_response_id": "string?", "service_tier": "string?", "max_output_tokens": "number?", "metadata": "object?", "client_metadata": "object?"}
+			cfg.Connections["model"] = broker.Connection{Kind: "model", Access: "full", Endpoint: "https://chatgpt.com/backend-api/codex/responses", CredentialCommand: []string{"/bin/cat", filepath.Join(s.dir, "credentials", textField(n.R, "account_ref"))}, CodexSubscription: true, Models: []string{e.Model}, Operations: map[string]broker.Operation{"responses": {Write: true, Fields: fields}}}
+		}
+
 	}
 	for _, sid := range e.Settings {
 		n := s.life.Networks[sid]
@@ -371,6 +399,9 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 	// this session only and the host service admits no other loopback port.
 	alias := "198.19.250.43"
 	rt.endpoint = fmt.Sprintf("http://%s:%d/v1/models/model/native", alias, port)
+	if e.Harness == "codex" {
+		rt.endpoint = fmt.Sprintf("http://%s:%d/v1/models/model", alias, port)
+	}
 	rt.operations = map[string][]string{}
 	for cid, c := range cfg.Connections {
 		for name := range c.Operations {
@@ -408,6 +439,9 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 	s.mu.Unlock()
 	config["endpoint"], config["credential_file"], config["transport_token"] = rt.endpoint, "{session_dir}/broker.token", rt.token
 	config["model"] = e.Model
+	if e.Harness == "codex" {
+		config["brokered_subscription"] = true
+	}
 	config["guest_cli_source"] = agentCLI
 	config["gateway"] = fmt.Sprintf("http://%s:%d", alias, port)
 	tools := []map[string]any{}
@@ -472,7 +506,7 @@ func (s *Service) agentProxy(rt *agentRuntime, w http.ResponseWriter, r *http.Re
 		s.secretRequestHTTP(w, r, "", rt)
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/v1/settings/") || r.URL.Path == "/v1/invoke" || r.URL.Path == "/v1/models/model/native/chat/completions" {
+	if strings.HasPrefix(r.URL.Path, "/v1/settings/") || r.URL.Path == "/v1/invoke" || r.URL.Path == "/v1/models/model/native/chat/completions" || r.URL.Path == "/v1/models/model/responses" {
 		connections := rt.operations
 		rt.mu.Lock()
 		var g map[string]any

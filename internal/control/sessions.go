@@ -267,6 +267,9 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 				auth = "none"
 				if harness.Native != nil && harness.Native.Managed && s.life.Agents[textField(in, "harness_id")].Source != "" {
 					auth = "api_key"
+					if harness.Native.Kind == "codex" {
+						auth = "subscription"
+					}
 				}
 			}
 			if auth != "none" && harness.Native == nil {
