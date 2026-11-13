@@ -1,0 +1,8 @@
+{
+  "stopped_disposable_processes": [
+    "hs_one/lampd-agent.pid",
+    "hs_one/lampd.pid",
+    "hs_two/lampd-agent.pid",
+    "hs_two/lampd.pid"
+  ]
+}

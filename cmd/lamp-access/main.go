@@ -87,7 +87,7 @@ func run() error {
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		defer cancel()
 		return access.RunCI(ctx, c, flags.Args(), os.Stdin, os.Stdout, os.Stderr)
-	case "tailnet-connect":
+	case "tailnet-connect", "tailnet-api":
 		var t access.Tailscale
 		dir := flags.String("state-dir", "", "private client state directory")
 		flags.StringVar(&t.Hostname, "hostname", "lamp-client", "client node name")
@@ -95,8 +95,12 @@ func run() error {
 		flags.StringVar(&t.AuthKeyFile, "auth-key-file", "", "optional private enrollment key file")
 		flags.StringVar(&t.AuthURLFile, "auth-url-file", "", "private interactive enrollment URL file")
 		target := flags.String("target", "", "tailnet host:port")
+		socket := flags.String("socket", "", "new private Unix socket for tailnet-api")
 		if e := flags.Parse(os.Args[2:]); e != nil {
 			return e
+		}
+		if os.Args[1] == "tailnet-api" {
+			return access.TailnetAPI(ctx, *dir, t, *target, *socket)
 		}
 		return access.TailnetConnect(ctx, *dir, t, *target, os.Stdin, os.Stdout)
 	case "cloudflare-manifest":

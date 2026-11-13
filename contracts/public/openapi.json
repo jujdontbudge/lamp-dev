@@ -36259,6 +36259,268 @@
         }
       }
     },
+    "/v1/relays/{relay_id}": {
+      "get": {
+        "operationId": "relay_get",
+        "x-lamp-scope": "relay.get",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "relay_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelayGetResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/relays": {
+      "get": {
+        "operationId": "relay_list",
+        "x-lamp-scope": "relay.list",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64",
+              "readOnly": true
+            }
+          },
+          {
+            "name": "wait_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 25000,
+              "format": "uint64",
+              "readOnly": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelayListResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sandboxes": {
       "post": {
         "operationId": "sandbox_create",
@@ -50189,6 +50451,10 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "version": {
+                    "type": "string",
+                    "description": "Signed release version in the enrolled installer mirror. Supply version or release_digest, not both."
                   }
                 },
                 "required": []
@@ -55193,6 +55459,20 @@
           },
           "update_policy": {
             "$ref": "#/components/schemas/UpdatePolicy"
+          },
+          "unavailable_host_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "readOnly": true
+          },
+          "stranded_sandbox_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "readOnly": true
           }
         },
         "required": [
@@ -55336,6 +55616,10 @@
             "type": "string",
             "format": "date-time",
             "pattern": "Z$",
+            "readOnly": true
+          },
+          "version": {
+            "type": "string",
             "readOnly": true
           }
         },
@@ -76223,6 +76507,10 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "version": {
+            "type": "string",
+            "description": "Signed release version in the enrolled installer mirror. Supply version or release_digest, not both."
           }
         },
         "required": [
@@ -85580,6 +85868,157 @@
         "required": [
           "request_id",
           "data"
+        ]
+      },
+      "Relay": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "kind": {
+            "type": "string",
+            "const": "relay",
+            "readOnly": true
+          },
+          "fleet_id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "owner_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$",
+            "readOnly": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$",
+            "readOnly": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "connected",
+              "disconnected"
+            ],
+            "readOnly": true
+          },
+          "labels": {
+            "$ref": "#/components/schemas/StringMap"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ],
+            "default": "private"
+          },
+          "host_id": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "fleet_id",
+          "owner_id",
+          "revision",
+          "created_at",
+          "updated_at",
+          "state",
+          "visibility",
+          "labels"
+        ]
+      },
+      "RelayGetInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "relay_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay_id"
+        ]
+      },
+      "RelayGetResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Relay"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ]
+      },
+      "RelayListInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 25000,
+            "format": "uint64",
+            "readOnly": true
+          }
+        }
+      },
+      "RelayListResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Relay"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "request_id"
         ]
       }
     }

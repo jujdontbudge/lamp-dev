@@ -148,7 +148,7 @@ func (c *Client) CreateRetryKey(ctx context.Context, input map[string]any, nonce
 		return number(total) >= number(used) && want <= number(total)-number(used)
 	}
 	for _, host := range hosts.Items {
-		if host.State != "active" || pin != "" && pin != host.Id || host.Capacity == nil || host.EngineIds == nil || len(*host.EngineIds) == 0 {
+		if host.State != "ready" || pin != "" && pin != host.Id || host.Capacity == nil || host.EngineIds == nil || len(*host.EngineIds) == 0 {
 			continue
 		}
 		compatible := engine == ""

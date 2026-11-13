@@ -1,0 +1,17 @@
+[
+  {
+    "platform": "linux-amd64",
+    "binary": "lamp-relay/lamp-relay",
+    "archive_verified": true
+  },
+  {
+    "platform": "linux-arm64",
+    "binary": "lamp-relay/lamp-relay",
+    "archive_verified": true
+  },
+  {
+    "platform": "darwin-arm64",
+    "binary": "lamp-relay/lamp-relay",
+    "archive_verified": true
+  }
+]

@@ -13,7 +13,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -242,5 +244,74 @@ func runTailnetSSH(ctx context.Context, node *tsnet.Server, c CIConfig, command 
 		return e
 	case <-ctx.Done():
 		return fmt.Errorf("CI console cancelled: %w", ctx.Err())
+	}
+}
+
+// TailnetAPI exposes a private local Unix socket backed exclusively by this
+// userspace WireGuard node. CLI and MCP retain their original API bearers.
+func TailnetAPI(ctx context.Context, dir string, t Tailscale, target, socket string) error {
+	if !filepath.IsAbs(socket) {
+		return errors.New("absolute private Unix socket required")
+	}
+	if _, _, err := net.SplitHostPort(target); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(socket), 0700); err != nil {
+		return err
+	}
+	info, err := os.Lstat(filepath.Dir(socket))
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode().Perm()&0077 != 0 {
+		return errors.New("socket parent must be a private directory")
+	}
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	if err = os.Chmod(socket, 0600); err != nil {
+		return err
+	}
+	node, err := NewTailnet(dir, t)
+	if err != nil {
+		return err
+	}
+	defer node.Close()
+	if _, err = node.Up(ctx); err != nil {
+		return errors.New("client tailnet enrollment failed")
+	}
+	stop := context.AfterFunc(ctx, func() { listener.Close() })
+	defer stop()
+	slots := make(chan struct{}, 32)
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	for {
+		local, e := listener.Accept()
+		if e != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
+			return e
+		}
+		select {
+		case slots <- struct{}{}:
+		default:
+			local.Close()
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-slots }()
+			defer local.Close()
+			remote, e := node.Dial(ctx, "tcp", target)
+			if e != nil {
+				return
+			}
+			defer remote.Close()
+			_ = copyStream(ctx, remote, local, local)
+		}()
 	}
 }

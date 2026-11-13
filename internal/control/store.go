@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"lamp.eilmer.si/internal/relayclient"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -53,6 +55,7 @@ type journal struct {
 	Templates     map[string]cleanExport   `json:"templates,omitempty"`
 }
 type Config struct {
+	Relay *relayclient.Config
 	// Trusted upper bound for one namespace's retained network/process audit
 	// spools. Match the enrolled supervisor policy; zero keeps the 24 MiB default.
 	AuditReservationBytes uint64
@@ -92,6 +95,8 @@ type Config struct {
 	InstallDir string
 }
 type Service struct {
+	relayConfig           *relayclient.Config
+	relayConnected        atomic.Bool
 	notifyConfig          *NotificationConfig
 	notifyKick            chan struct{}
 	notifyInflight        map[string]bool
@@ -251,7 +256,7 @@ func Open(config Config) (*Service, error) {
 	if reservation == 0 {
 		reservation = 24 << 20
 	}
-	s := &Service{auditReservationBytes: reservation, fleetEnabled: config.Fleet != nil, quotas: defaultQuotas(config.Quotas), auditReader: config.AuditReader, auditRelease: config.AuditRelease, dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
+	s := &Service{relayConfig: config.Relay, auditReservationBytes: reservation, fleetEnabled: config.Fleet != nil, quotas: defaultQuotas(config.Quotas), auditReader: config.AuditReader, auditRelease: config.AuditRelease, dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
 	s.journal = journal{Version: 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
 	path := filepath.Join(s.dir, "journal.json")
 	data, err := os.ReadFile(path)

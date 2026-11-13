@@ -120,17 +120,17 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		writeError(w, id, "UNAUTHENTICATED", "valid fleet credential required", nil)
 		return
 	}
-	if !allowed {
-		writeError(w, id, "SCOPE_DENIED", "action not permitted", nil)
-		return
-	}
 	// Frozen offline authority is useful only during its declared permit horizon.
 	if !f.leaseValid() {
 		writeError(w, id, "QUORUM_REQUIRED", "local authority requires a quorum activation or has expired", nil)
 		return
 	}
-	if op.Name == "host_get" || op.Name == "host_list" {
-		f.hostsHTTP(w, r, id, a, selectors)
+	if !allowed {
+		writeError(w, id, "SCOPE_DENIED", "action not permitted", nil)
+		return
+	}
+	if op.Name == "host_get" || op.Name == "host_list" || op.Name == "engine_get" || op.Name == "engine_list" {
+		f.hostsHTTP(w, r, id, a, op, selectors)
 		return
 	}
 	if op.Name == "sandbox_list" || op.Name == "exec_list" {
@@ -142,6 +142,7 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		return
 	}
 	if op.Name == "fleet_get" || op.Name == "fleet_list" {
+		f.collect()
 		s.readLock()
 		fleet := s.journal.Control.Fleet
 		policy := s.journal.Control.updatePolicy()
@@ -150,6 +151,39 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		fleet.CoordinationState = pointer(api.FleetCoordinationStateDegraded)
 		if f.raft.State().String() == "Leader" {
 			fleet.CoordinationState = pointer(api.FleetCoordinationStateHealthy)
+		}
+		unavailable, stranded := []string{}, []string{}
+		offline := map[string]fleetObservation{}
+		f.mu.Lock()
+		for _, host := range f.config.Hosts {
+			if host.ID == f.config.HostID || f.online[host.ID] {
+				continue
+			}
+			offline[host.ID] = f.observations[host.ID]
+		}
+		f.mu.Unlock()
+		// Authorization checks the authority lease and takes f.mu itself.
+		// Observations are immutable snapshots, so inspect them after unlocking.
+		for _, host := range f.config.Hosts {
+			observation, missing := offline[host.ID]
+			if !missing {
+				continue
+			}
+			if !s.hostAllowed(a, host.ID) {
+				continue
+			}
+			unavailable = append(unavailable, host.ID)
+			for _, sb := range observation.Sandboxes {
+				if sb.State != "deleted" && s.sandboxAllowed(a, sb) {
+					stranded = append(stranded, sb.Id)
+				}
+			}
+		}
+		sort.Strings(stranded)
+		fleet.UnavailableHostIds = &unavailable
+		fleet.StrandedSandboxIds = &stranded
+		if len(unavailable) > 0 {
+			fleet.CoordinationState = pointer(api.FleetCoordinationStateDegraded)
 		}
 		s.mu.Unlock()
 		if op.Name == "fleet_get" {
@@ -362,7 +396,7 @@ func (f *Fleet) choose(a caller, input map[string]any) string {
 	f.mu.Unlock()
 	candidates := []string{}
 	for id, peer := range f.peers {
-		if pin != "" && id != pin || id != f.config.HostID && !online[id] {
+		if pin != "" && id != pin || id != f.config.HostID && (!online[id] || !observations[id].Admitting) {
 			continue
 		}
 		engine := textField(input, "engine_id")
@@ -483,7 +517,13 @@ func (f *Fleet) admit(a caller, name string, sb api.Sandbox) error {
 	}
 	return nil
 }
-func (f *Fleet) hostsHTTP(w http.ResponseWriter, r *http.Request, id string, a caller, in map[string]any) {
+func (f *Fleet) hostsHTTP(w http.ResponseWriter, r *http.Request, id string, a caller, op api.OperationDescriptor, in map[string]any) {
+	query, err := parseQuery(r)
+	if err != nil || surface.Query(op, query, in) != nil {
+		writeError(w, id, "INVALID_ARGUMENT", "invalid query", nil)
+		return
+	}
+	f.collect()
 	items := []map[string]any{}
 	f.mu.Lock()
 	observations := map[string]fleetObservation{}
@@ -496,10 +536,7 @@ func (f *Fleet) hostsHTTP(w http.ResponseWriter, r *http.Request, id string, a c
 	for _, host := range f.config.Hosts {
 		s := f.service
 		s.readLock()
-		allowed := s.resourceAllowed(a, api.ResourceRef{Kind: "host", Id: host.ID})
-		for _, scope := range s.scopes(a) {
-			allowed = allowed && has(scope.HostIds, host.ID)
-		}
+		allowed := s.hostAllowed(a, host.ID)
 		owner := s.journal.Control.OwnerID
 		s.mu.Unlock()
 		if !allowed {
@@ -507,7 +544,10 @@ func (f *Fleet) hostsHTTP(w http.ResponseWriter, r *http.Request, id string, a c
 		}
 		state := "unavailable"
 		if host.ID == f.config.HostID || online[host.ID] {
-			state = "active"
+			state = "enrolling"
+			if observations[host.ID].Admitting {
+				state = "ready"
+			}
 		}
 		capacity := object(host.Capacity)
 		used := api.Resources{}
@@ -520,9 +560,33 @@ func (f *Fleet) hostsHTTP(w http.ResponseWriter, r *http.Request, id string, a c
 			}
 		}
 		reserved := object(used)
-		m := map[string]any{"id": host.ID, "kind": "host", "fleet_id": "fl_local", "owner_id": owner, "revision": 1, "created_at": f.fsm.snapshot().Control.Fleet.CreatedAt, "updated_at": observations[host.ID].At, "state": state, "labels": map[string]string{"permit_expires_at": f.fsm.snapshot().ExpiresAt, "allocation": "fixed local slice"}, "visibility": "private", "os": host.OS, "arch": host.Arch, "roles": []string{"control"}, "engine_ids": host.Engines, "capacity": capacity, "reserved": reserved, "heartbeat_at": observations[host.ID].At}
+		observedAt := observations[host.ID].At
+		if observedAt == "" {
+			observedAt = f.fsm.snapshot().Control.Fleet.CreatedAt
+		}
+		m := map[string]any{"id": host.ID, "kind": "host", "fleet_id": "fl_local", "owner_id": owner, "revision": 1, "created_at": f.fsm.snapshot().Control.Fleet.CreatedAt, "updated_at": observedAt, "state": state, "labels": map[string]string{"permit_expires_at": f.fsm.snapshot().ExpiresAt, "allocation": "fixed local slice"}, "visibility": "private", "os": host.OS, "arch": host.Arch, "roles": []string{"control"}, "engine_ids": host.Engines, "capacity": capacity, "reserved": reserved, "heartbeat_at": observations[host.ID].At, "version": observations[host.ID].Version}
+		if observations[host.ID].At == "" {
+			delete(m, "heartbeat_at")
+		}
 		if len(host.Engines) > 0 {
 			m["roles"] = []string{"control", "compute"}
+		}
+		if strings.HasPrefix(op.Name, "engine_") {
+			for _, engine := range host.Engines {
+				if !s.resourceAllowedForEngine(a, engine) {
+					continue
+				}
+				item := map[string]any{"id": engine, "kind": "engine", "fleet_id": "fl_local", "owner_id": owner, "revision": 1, "created_at": m["created_at"], "updated_at": m["updated_at"], "state": "active", "labels": map[string]string{}, "visibility": "private", "host_id": host.ID, "arch": host.Arch, "guest_os": "linux", "boundary": "vm"}
+				if state == "unavailable" {
+					item["state"] = "disabled"
+				}
+				if textField(in, "engine_id") == engine {
+					prepareJSON(w, 200, map[string]any{"data": item, "request_id": id})()
+					return
+				}
+				items = append(items, item)
+			}
+			continue
 		}
 		if r.URL.Path == "/v1/hosts/"+host.ID {
 			prepareJSON(w, 200, map[string]any{"data": m, "request_id": id})()
@@ -530,7 +594,7 @@ func (f *Fleet) hostsHTTP(w http.ResponseWriter, r *http.Request, id string, a c
 		}
 		items = append(items, m)
 	}
-	if textField(in, "host_id") != "" {
+	if textField(in, "host_id") != "" || textField(in, "engine_id") != "" {
 		writeError(w, id, "NOT_FOUND", "host not found", nil)
 		return
 	}

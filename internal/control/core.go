@@ -518,6 +518,10 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 				items = append(items, object(v.Operation))
 			}
 		}
+	case "host":
+		return s.localHosts(a)
+	case "relay":
+		return s.relays(a)
 	case "fleet":
 		f := c.Fleet
 		p := c.updatePolicy()

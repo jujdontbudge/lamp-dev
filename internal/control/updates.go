@@ -209,14 +209,31 @@ func (s *Service) updateMutation(a caller, verb string, in map[string]any) (api.
 	var u api.Update
 	switch verb {
 	case "create":
-		if err := acceptFields(in, "release_digest host_ids labels"); err != nil {
+		if err := acceptFields(in, "release_digest version host_ids labels"); err != nil {
 			return fail(err)
 		}
-		if textField(in, "release_digest") == "" {
-			return fail(reject("INVALID_ARGUMENT", "release_digest required"))
+		digest, version := textField(in, "release_digest"), textField(in, "version")
+		if (digest == "") == (version == "") {
+			return fail(reject("INVALID_ARGUMENT", "supply exactly one of version or release_digest"))
+		}
+		if version != "" {
+			if _, err := release.ParseVersion(version); err != nil {
+				return fail(reject("INVALID_ARGUMENT", err.Error()))
+			}
+			if s.installDir == "" {
+				return fail(reject("NOT_FOUND", "this host was not installed by lamp-installer; no release mirror"))
+			}
+			trust, err := release.ReadTrust(filepath.Join(s.installDir, "config", "release-trust.pub"))
+			if err != nil {
+				return fail(reject("INVALID_ARGUMENT", "no pinned release key"))
+			}
+			_, digest, err = release.FindByVersion(filepath.Join(s.installDir, "mirror"), trust, version)
+			if err != nil {
+				return fail(reject("INVALID_ARGUMENT", err.Error()))
+			}
 		}
 		var err error
-		if u, err = s.newUpdate(c.OwnerID, textField(in, "release_digest"), stringsField(in, "host_ids")); err != nil {
+		if u, err = s.newUpdate(c.OwnerID, digest, stringsField(in, "host_ids")); err != nil {
 			return fail(err)
 		}
 	case "delete":
@@ -488,3 +505,11 @@ func truncate(s string, n int) string {
 
 var _ = errors.New
 var _ = strconv.Itoa
+
+func (s *Service) installedVersion() string {
+	in, err := s.installed()
+	if err != nil {
+		return ""
+	}
+	return in.Current
+}

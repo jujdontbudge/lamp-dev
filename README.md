@@ -54,3 +54,5 @@ Lamp's host code, CLI, SDKs and first-party plugins are licensed under
 [Apache-2.0](LICENSE). The optional relay server (`internal/relay`,
 `cmd/lamp-relay`) is [AGPL-3.0-only](internal/relay/LICENSE). Dependencies keep
 their own licences; see [THIRD_PARTY.md](THIRD_PARTY.md).
+
+Hosts, rolling updates and remote access: [release setup guide](docs/release/fleets-and-access.md).

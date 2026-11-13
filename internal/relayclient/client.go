@@ -251,6 +251,11 @@ func Host(ctx context.Context, base, credentialFile, target string) error {
 	return HostHTTPS(ctx, base, credentialFile, target, "", "")
 }
 func HostHTTPS(ctx context.Context, base, credentialFile, target, httpsTarget, dialAddress string) error {
+	return HostHTTPSStatus(ctx, base, credentialFile, target, httpsTarget, dialAddress, func(bool) {})
+}
+
+// HostHTTPSStatus reports each authenticated carrier connection and disconnection.
+func HostHTTPSStatus(ctx context.Context, base, credentialFile, target, httpsTarget, dialAddress string, status func(bool)) error {
 	raw, e := privateRead(credentialFile)
 	if e != nil {
 		return e
@@ -276,7 +281,7 @@ func HostHTTPS(ctx context.Context, base, credentialFile, target, httpsTarget, d
 		if ctx.Err() != nil {
 			return nil
 		}
-		_ = hostSession(ctx, base, credential, target, httpsTarget, dialAddress)
+		_ = hostSession(ctx, base, credential, target, httpsTarget, dialAddress, status)
 		select {
 		case <-ctx.Done():
 			return nil
@@ -284,7 +289,7 @@ func HostHTTPS(ctx context.Context, base, credentialFile, target, httpsTarget, d
 		}
 	}
 }
-func hostSession(ctx context.Context, base string, credential Credential, target, httpsTarget, dialAddress string) error {
+func hostSession(ctx context.Context, base string, credential Credential, target, httpsTarget, dialAddress string, status func(bool)) error {
 	setup, cancel := context.WithTimeout(ctx, 15*time.Second)
 	c, e := dialAt(setup, base, "/v1/carrier/"+credential.Fleet, credential.Secret, "", dialAddress)
 	cancel()
@@ -292,6 +297,8 @@ func hostSession(ctx context.Context, base string, credential Credential, target
 		return e
 	}
 	defer c.CloseNow()
+	status(true)
+	defer status(false)
 	session, stop := context.WithCancel(ctx)
 	defer stop()
 	var wg sync.WaitGroup

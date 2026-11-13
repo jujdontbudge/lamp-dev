@@ -29,7 +29,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 GO_BINS = ['lampd', 'lamp', 'lamp-installer', 'lamp-access', 'lamp-mcp', 'lamp-broker',
-           'lamp-network', 'lamp-relay-client', 'lamp-gitlab-executor', 'lamp-fleeting']
+           'lamp-network', 'lamp-access-cloudflare', 'lamp-fleet', 'lamp-relay-client',
+           'lamp-ingress', 'lamp-account', 'lamp-issuer', 'lamp-dns-cloudflare',
+           'lamp-gitlab-executor', 'lamp-fleeting']
 SITE = 'https://lamp.eilmer.si'  # a Cloudflare Worker in front of the public project (tools/release/worker.js)
 RCODESIGN = os.environ.get('RCODESIGN', str(Path.home() / '.local/rcodesign/bin/rcodesign'))
 
@@ -53,6 +55,8 @@ def linux_engine(host, commit, out, ssh_opts=()):
     sh(ssh + [f'rm -rf {work} && mkdir {work} && tar -x -C {work}'], input=archive)
     sh(ssh + [f'cd {work} && . "$HOME/.cargo/env" 2>/dev/null; CARGO_TARGET_DIR=target RUSTFLAGS="--remap-path-prefix=$HOME=/build" cargo build --release --locked -p lamp-supervisor -p lamp-guard'])
     out.mkdir(parents=True, exist_ok=True)
+    sh(ssh + [f'cd {work} && cc -O2 -Wall -Wextra -Werror -o lamp-plugin-launcher tools/plugin-launcher.c'])
+    sh(['scp', *ssh_opts, f'{host}:{work}/lamp-plugin-launcher', out / 'lamp-plugin-launcher'])
     for b in ['lamp-supervisor', 'lamp-guard']:
         sh(['scp', *ssh_opts, f'{host}:{work}/target/release/{b}', out / b])
     sh(ssh + [f'rm -rf {work}'])
@@ -108,7 +112,11 @@ def mac_notarize(binaries, apple, scratch):
 
 def common_files():
     return [('LICENSE', ROOT / 'LICENSE'), ('THIRD_PARTY.md', ROOT / 'THIRD_PARTY.md'),
-            ('licenses/relay-AGPL-3.0.txt', ROOT / 'internal/relay/LICENSE')]
+            ('licenses/relay-AGPL-3.0.txt', ROOT / 'internal/relay/LICENSE'),
+            ('docs/release/fleets-and-access.md', ROOT / 'docs/release/fleets-and-access.md'),
+            ('docs/development/access.md', ROOT / 'docs/development/access.md'),
+            ('docs/development/hosted.md', ROOT / 'docs/development/hosted.md'),
+            ('tools/plugin-launcher.c', ROOT / 'tools/plugin-launcher.c')]
 
 
 def installer_release(inst, version, goos, goarch, key, out, files, snapshot_format=None):
@@ -194,7 +202,8 @@ def main():
             ('infra/linux/var-lib-lamp.mount', ROOT / 'infra/linux/var-lib-lamp.mount')]
         if host:
             linux_engine(host, commit, lb, ssh_opts)
-            files += [('lib/lamp-supervisor', lb / 'lamp-supervisor'), ('lib/lamp-guard', lb / 'lamp-guard')]
+            files += [('lib/lamp-supervisor', lb / 'lamp-supervisor'), ('lib/lamp-guard', lb / 'lamp-guard'),
+                      ('bin/lamp-plugin-launcher', lb / 'lamp-plugin-launcher')]
         package(plat, files)
         record['platforms'][plat] = {'engine': bool(host), 'commit': commit}
 
@@ -203,7 +212,8 @@ def main():
         mb = scratch / 'darwin-arm64'
         go_build('darwin', 'arm64', mb, GO_BINS)
         mac_engine(mb)
-        mac_bins = [mb / n for n in GO_BINS + ['lamp-vz', 'lamp-supervisor']]
+        sh(['cc', '-O2', '-Wall', '-Wextra', '-Werror', '-o', mb / 'lamp-plugin-launcher', ROOT / 'tools/plugin-launcher.c'])
+        mac_bins = [mb / n for n in GO_BINS + ['lamp-vz', 'lamp-supervisor', 'lamp-plugin-launcher']]
         if a.apple_dir:
             apple = apple_files(a.apple_dir)
             mac_sign(mac_bins, apple)
@@ -211,11 +221,11 @@ def main():
         else:
             sh(['codesign', '--force', '--sign', '-', '--entitlements', ROOT / 'crates/lamp-vz/lamp-vz.entitlements', mb / 'lamp-vz'])
             record['platforms']['darwin-arm64'] = {'notarization': None}
-        package('darwin-arm64', [(f'bin/{n}', mb / n) for n in GO_BINS + ['lamp-vz', 'lamp-supervisor']] + common_files(),
+        package('darwin-arm64', [(f'bin/{n}', mb / n) for n in GO_BINS + ['lamp-vz', 'lamp-supervisor', 'lamp-plugin-launcher']] + common_files(),
                 a.snapshot_format)
 
     # The relay: AGPL-3.0-only, its own archive with the full licence and source pointer.
-    for goos, goarch in [('linux', 'amd64'), ('linux', 'arm64')]:
+    for goos, goarch in [('linux', 'amd64'), ('linux', 'arm64'), ('darwin', 'arm64')]:
         if (out / f'lamp-relay-{a.version}-{goos}-{goarch}.tar.gz').exists():
             continue
         rb = scratch / f'relay-{goos}-{goarch}'
