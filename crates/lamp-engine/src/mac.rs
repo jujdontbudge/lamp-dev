@@ -312,14 +312,16 @@ impl Worker {
     }
 
     fn kill(&mut self) {
-        if self.alive() {
+        // Network health is part of readiness, but teardown must still reap
+        // a live VMM when its helper has already failed.
+        if matches!(self.child.try_wait(), Ok(None)) {
             let _ = self.call(&Api::Exit {}, Duration::from_secs(10));
         }
         let deadline = Instant::now() + Duration::from_secs(10);
-        while self.alive() && Instant::now() < deadline {
+        while matches!(self.child.try_wait(), Ok(None)) && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(20));
         }
-        if self.alive() {
+        if matches!(self.child.try_wait(), Ok(None)) {
             let _ = self.child.kill();
         }
         let _ = self.child.wait();
@@ -2871,6 +2873,7 @@ impl Engine {
                 w.kill();
                 n += 1;
             }
+            sb.pending_network.take();
         }
         n
     }
