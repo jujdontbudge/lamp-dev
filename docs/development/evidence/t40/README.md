@@ -39,7 +39,7 @@ as documented in `docs/templates-and-storage.md`. Linux guests on Apple Silicon
 have implementation/build coverage here, not a claimed runtime demonstration.
 No SDK work or benchmark suite was added.
 
-## Sol round 1 ledger
+## Sol review ledger
 
 | ID | Severity | Outcome | Proof |
 | --- | --- | --- | --- |
@@ -48,7 +48,7 @@ No SDK work or benchmark suite was added.
 | S3 | should | Fixed: restored trees populate a confined backing directory before mount, including read-only mounts. | Real backup/delete/restore/read-only attachment in recovery transcript. |
 | S4 | should | Fixed: pool refill retains the recipe's saved-template reference so archive restoration runs. | Two real warm claims retain the selected module. |
 
-Two reviewer-supplied regression tests were retained. `sol-before.log` records
+The two round-1 reviewer-supplied regression tests were retained. `sol-before.log` records
 their failures; `sol-after.log` records their passing run. Review used
 Codex `gpt-6.1-sol`, medium effort; token usage was not supplied.
 
@@ -64,3 +64,26 @@ restoration. Recovery coalesces startup and reconnect probes before remounting.
 After integration: `make build`, `go vet ./cmd/lamp ./internal/control` and the
 two reviewer regression tests passed. The complete demonstration above predates
 the rebase; `rebased-recovery.log` records the focused integrated runtime check.
+
+## Sol round 2 and final delivery
+
+Round 2 reviewed `a00305c6139d9178e5d5fc229317e3e3666868ab` and confirmed
+S1–S4 resolved. It returned CHANGES for S5 (should): reattaching after a guest
+emptied a backing directory restored stale snapshot files and replaced the
+open root held by the first attachment. The reviewer supplied one focused
+filesystem reproduction; it failed locally before the fix with all three
+reported failures, then passed after the fix. Population now treats an existing
+backing directory as initialized, preserving empty contents and its inode.
+This proof used actual filesystem root handles without creating more VMs.
+
+Three reviewer tests total were retained. No findings were declined. The review
+budget ended after two rounds with Codex `gpt-6.1-sol` on medium; usage was not
+exposed. **Final Sol verdict remains CHANGES; all five findings are fixed, but
+the S5 fix has not been re-reviewed.** This is not reviewer approval.
+
+After S5: `go test ./internal/control -run
+'^TestT40SecondAttachmentPreservesEmptiedBackingRoot$' -count=1 -v` passed;
+`go vet ./cmd/lamp ./internal/control` and `make build` passed. A final fetch
+confirmed main remained at `03944fbdc30e28f1062700af7ceca4d736258a89`.
+The runtime demonstration result remains the successful runs documented above;
+no fresh VM demonstration is claimed for the final S5 change.

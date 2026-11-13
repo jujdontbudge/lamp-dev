@@ -732,12 +732,14 @@ func (s *Service) populateStorage(resource string, t tree, quota uint64) error {
 	g := group.(*p9group)
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	entries, err := os.ReadDir(dest)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	if len(entries) > 0 {
+	// An existing root is initialized even when guests deleted every file.
+	// Preserve its inode: attached servers may still hold an open root handle.
+	_, err := os.Stat(dest)
+	if err == nil {
 		return nil
+	}
+	if !os.IsNotExist(err) {
+		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
 		return err
@@ -814,9 +816,6 @@ func (s *Service) populateStorage(resource string, t tree, quota uint64) error {
 	err = d.Sync()
 	d.Close()
 	if err != nil {
-		return err
-	}
-	if err := os.Remove(dest); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return os.Rename(staging, dest)
