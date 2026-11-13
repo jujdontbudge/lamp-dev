@@ -125,6 +125,7 @@ pub fn config(
             console_log: console,
             machine_identifier: Some(b64_decode(machine_identifier_b64)?),
             nat_network: spec.nat_network,
+            ethernet_fd: spec.ethernet_fd,
             devices: spec.devices.clone(),
         }),
         Machine::Macos {
@@ -140,6 +141,7 @@ pub fn config(
             disks: disks(spec),
             console_log: console,
             nat_network: spec.nat_network,
+            ethernet_fd: spec.ethernet_fd,
             display: (1024, 768),
             devices: spec.devices.clone(),
         }),

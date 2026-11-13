@@ -497,6 +497,10 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	items := []map[string]any{}
 	c := s.journal.Control
 	switch kind {
+	case "engine":
+		if engine, _, err := s.localEngine(); err == nil {
+			items = append(items, engine)
+		}
 	case "change_set":
 		for _, change := range c.ChangeSets {
 			if textField(change.Resource, "owner_id") == a.Principal {

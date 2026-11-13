@@ -353,6 +353,7 @@ pub fn run_with_control(mut config: Config, mut control: Option<Control>) -> io:
         config.spool_bytes,
         config.attribution.clone(),
     )?;
+    let mut dns = crate::dns::Resolver::bind(&config)?;
     let mut queue = Queue::bind(config.queue)?;
     // Atomic nft transaction. An existing table causes admission failure, never a flush.
     let mut child = Command::new("nft")
@@ -369,6 +370,9 @@ pub fn run_with_control(mut config: Config, mut control: Option<Control>) -> io:
     }
     use std::os::fd::AsRawFd;
     let mut keep = vec![spool.as_raw_fd(), queue.as_raw_fd()];
+    if let Some(dns) = &dns {
+        keep.extend(dns.fds());
+    }
     if let Some(control) = &control {
         keep.push(control.as_raw_fd());
     }
@@ -386,6 +390,9 @@ pub fn run_with_control(mut config: Config, mut control: Option<Control>) -> io:
             connections.control(control, &mut config, &mut spool)?;
         }
         connections.tick(&mut spool)?;
+        if let Some(dns) = &mut dns {
+            dns.tick(&config, &mut spool)?;
+        }
         for p in queue.packets()? {
             if let Some(control) = &mut control {
                 connections.control(control, &mut config, &mut spool)?;

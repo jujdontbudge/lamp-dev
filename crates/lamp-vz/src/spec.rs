@@ -157,6 +157,9 @@ pub struct WorkerSpec {
     /// A data NIC only when networking was requested.
     #[serde(default)]
     pub nat_network: bool,
+    /// Engine-assigned, connected datagram descriptor for guarded Ethernet.
+    #[serde(default)]
+    pub ethernet_fd: Option<i32>,
     /// Extra read-only files (kernel, template objects) and read/write
     /// files (state destinations) beyond `dir` and the disks.
     #[serde(default)]

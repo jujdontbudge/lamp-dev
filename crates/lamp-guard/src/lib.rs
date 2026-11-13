@@ -12,11 +12,15 @@ pub mod audit;
 #[cfg(target_os = "linux")]
 pub mod confinement;
 #[cfg(target_os = "linux")]
+pub mod dns;
+#[cfg(target_os = "linux")]
 pub mod netlink;
 #[cfg(target_os = "linux")]
 pub mod process;
 #[cfg(target_os = "linux")]
 pub mod proxy;
+#[cfg(target_os = "linux")]
+pub mod rootfs;
 #[cfg(target_os = "linux")]
 pub mod runtime;
 #[cfg(unix)]
@@ -223,10 +227,10 @@ impl Config {
     /// Guest-to-proxy direction of a mediated proxy flow.
     pub fn to_proxy(&self, t: &Tuple) -> bool {
         self.proxy.is_some_and(|p| {
-            t.protocol == 6
+            (t.protocol == 6 || t.protocol == 17 && t.destination_port == 53)
                 && t.source == self.guest_ip
                 && t.destination == p.address
-                && t.destination_port == p.port
+                && (t.destination_port == p.port || t.protocol == 17 && t.destination_port == 53)
         })
     }
     pub fn revision_requires_allowlist(&self) -> bool {
@@ -299,7 +303,7 @@ impl Config {
         // and those are queued like every other packet; the rest is dropped.
         let proxy_out = match self.proxy {
             Some(p) => format!(
-                "oifname \"{i}\" ip saddr {a} tcp sport {port} queue num {q}; ",
+                "oifname \"{i}\" ip saddr {a} tcp sport {port} queue num {q}; oifname \"{i}\" ip saddr {a} udp sport 53 queue num {q}; ",
                 i = self.interface,
                 a = p.address,
                 port = p.port,

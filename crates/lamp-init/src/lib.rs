@@ -123,7 +123,7 @@ pub struct Audit {
 }
 
 /// Guest path of the protected collector (installed by the seed).
-pub const GUARD_BIN: &str = "/sbin/lamp-guard";
+pub const GUARD_BIN: &str = "/run/lamp/lamp-guard";
 /// Guest side of the private sandbox link (a /30 shared with the guard).
 pub const GUEST_ADDR: &str = "198.18.240.2";
 pub const GUEST_ADDR_CIDR: &str = "198.18.240.2/30";

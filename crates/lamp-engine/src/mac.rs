@@ -49,13 +49,14 @@ use std::time::{Duration, Instant};
 
 #[path = "mac_build.rs"]
 pub mod build;
+#[path = "mac_network.rs"]
+mod network;
 
 pub const ENGINE_NAME: &str = "vz-macos26";
 pub const STATE_ABI: &str = "vz/saved-machine-state";
-pub const DEVICE_GRAPH_LINUX: &str =
-    "vz-generic:virtio-blk:vda,virtio-vsock,virtio-console:hvc0,virtio-entropy";
+pub const DEVICE_GRAPH_LINUX: &str = "vz-generic:virtio-blk:vda,virtio-vsock,virtio-console:hvc0,virtio-entropy,virtio-net:guarded-v1";
 pub const DEVICE_GRAPH_MACOS: &str =
-    "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy";
+    "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy,virtio-net:guarded-v1";
 const LEGACY_DEVICE_GRAPH_MACOS: &str = "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy,mac-graphics:1024x768,mac-keyboard,mac-trackpad";
 /// The certified Linux-on-Mac row (fits both lanes, including the 8 GB AIR
 /// with a source and a fork running at once).
@@ -282,11 +283,12 @@ struct Worker {
     child: Child,
     api: PathBuf,
     vsock: PathBuf,
+    network: Option<network::Attachment>,
 }
 
 impl Worker {
     fn alive(&mut self) -> bool {
-        matches!(self.child.try_wait(), Ok(None))
+        matches!(self.child.try_wait(), Ok(None)) && self.network.as_mut().is_none_or(|n| n.alive())
     }
 
     fn call(&self, req: &Api, timeout: Duration) -> Result<ApiReply> {
@@ -321,6 +323,7 @@ impl Worker {
             let _ = self.child.kill();
         }
         let _ = self.child.wait();
+        self.network.take();
     }
 
     fn liveness(&self) -> impl Fn() -> bool + Send + 'static {
@@ -1427,6 +1430,7 @@ impl Engine {
         sb: &mut Sandbox,
         mut spec: WorkerSpec,
         restore: Option<&Path>,
+        allow_egress: bool,
         detail: &mut BTreeMap<String, String>,
     ) -> Result<()> {
         let identity = sb
@@ -1443,6 +1447,16 @@ impl Engine {
             fsutil::chown(&ram, identity.uid, identity.gid)?;
             spec.write_dirs.push(ram);
         }
+        let network = network::Attachment::start(
+            &self.cfg.worker,
+            &sb.dir,
+            &sb.id,
+            sb.generation,
+            identity.uid,
+            identity.gid,
+            allow_egress,
+        )?;
+        spec.ethernet_fd = Some(3);
         std::fs::write(
             sb.dir.join("spec.json"),
             serde_json::to_vec_pretty(&spec).unwrap(),
@@ -1474,10 +1488,14 @@ impl Engine {
                     .map(Stdio::from)
                     .unwrap_or(Stdio::null()),
             );
+        use std::os::fd::AsRawFd;
+        let ethernet = network.ethernet.as_raw_fd();
         // SAFETY: only async-signal-safe calls between fork and exec.
         unsafe {
             cmd.pre_exec(move || {
-                if libc::setgroups(0, std::ptr::null()) != 0
+                if libc::dup2(ethernet, 3) < 0
+                    || libc::fcntl(3, libc::F_SETFD, 0) < 0
+                    || libc::setgroups(0, std::ptr::null()) != 0
                     || libc::setgid(gid) != 0
                     || libc::setuid(uid) != 0
                 {
@@ -1527,6 +1545,7 @@ impl Engine {
             child,
             api: sb.dir.join("api.sock"),
             vsock: sb.dir.join("vsock.sock"),
+            network: Some(network),
         });
         sb.machine = Some(spec);
         Ok(())
@@ -1631,6 +1650,7 @@ impl Engine {
                 }],
                 dir: sb.dir.clone(),
                 nat_network: false,
+                ethernet_fd: None,
                 read_paths: vec![],
                 write_paths: vec![],
                 write_dirs: vec![],
@@ -1660,6 +1680,7 @@ impl Engine {
                     }],
                     dir: sb.dir.clone(),
                     nat_network: false,
+                    ethernet_fd: None,
                     read_paths: vec![],
                     write_paths: vec![],
                     write_dirs: vec![],
@@ -1682,7 +1703,7 @@ impl Engine {
             serde_json::to_string(&spec.devices).unwrap(),
         );
         spec.read_paths.extend(state.clone());
-        self.spawn(sb, spec, state.as_deref(), &mut detail)?;
+        self.spawn(sb, spec, state.as_deref(), true, &mut detail)?;
         detail.insert(
             "create_mode".into(),
             match (&state, locked) {
@@ -1783,7 +1804,7 @@ impl Engine {
         if let (Some(s), Some(id)) = (&state, &sb.identity) {
             fsutil::chown(s, id.uid, id.gid)?;
         }
-        self.spawn(sb, spec, state.as_deref(), &mut detail)?;
+        self.spawn(sb, spec, state.as_deref(), true, &mut detail)?;
         detail.insert(
             "fork_mode".into(),
             if c.preserves_memory {
@@ -1857,7 +1878,7 @@ impl Engine {
         sb.policy_revision = auth.policy_revision;
         detail.insert("prepare_us".into(), us(t0.elapsed()));
         let r = self
-            .spawn(sb, spec, Some(&state), &mut detail)
+            .spawn(sb, spec, Some(&state), true, &mut detail)
             .and_then(|_| self.finish_start(sb, true, &mut detail));
         match r {
             Ok(()) => {

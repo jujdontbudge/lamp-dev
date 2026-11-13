@@ -123,6 +123,9 @@ pub fn validate_layers(layers: &[Layer], require_allowlist: bool) -> io::Result<
 /// An exception only lifts the baseline private-range/inventory default, never
 /// an immutable safety deny, a rule deny, or a default-deny parent ceiling.
 pub fn decision(config: &Config, tuple: &Tuple) -> Result<&'static str, &'static str> {
+    if [53, 853].contains(&tuple.destination_port) && !config.excepted(tuple) {
+        return Err("external_dns_denied");
+    }
     if config
         .safety_denies
         .iter()

@@ -40,7 +40,7 @@ case "$DIST" in
   *) echo "unknown LAMP_SEED_DIST $DIST" >&2; exit 2 ;;
 esac
 # gcc/libc6-dev: the benchmark compile workload; python3: the frozen workload.
-PACKAGES=python3,git,ca-certificates,procps,iproute2,coreutils,gcc,libc6-dev
+PACKAGES=python3,python3-pip,python3-venv,git,curl,wget,ca-certificates,nodejs,npm,openssh-client,openssh-server,sudo,procps,iproute2,coreutils,gcc,libc6-dev
 DISK_GIB=20
 
 mkdir -p "$WORK" "$OUT"
@@ -67,22 +67,29 @@ BIN="${CARGO_TARGET_DIR:-$ROOT/target}/x86_64-unknown-linux-musl/release"
 #    distribution keyring.
 #    The tar is cached only once complete (a killed run must not leave an
 #    empty cache entry). LAMP_SEED_IPV4=1 keeps apt off an unreachable IPv6.
-if [ ! -s "root-$DIST.tar" ]; then
+if [ ! -s "root-$DIST-usable-v1.tar" ]; then
   APTOPTS=(--aptopt='Acquire::Retries "5"')
   [ "${LAMP_SEED_IPV4:-0}" = 1 ] && APTOPTS+=(--aptopt='Acquire::ForceIPv4 "true"')
-  sudo -n rm -f "root-$DIST.tar.partial"
+  sudo -n rm -f "root-$DIST-usable-v1.tar.partial"
   sudo -n mmdebstrap --variant=minbase --keyring="$KEYRING" --include="$PACKAGES" "${APTOPTS[@]}" \
-    --format=tar "$SUITE" "root-$DIST.tar.partial" "${SOURCES[@]}"
-  sudo -n mv "root-$DIST.tar.partial" "root-$DIST.tar"
+    --format=tar "$SUITE" "root-$DIST-usable-v1.tar.partial" "${SOURCES[@]}"
+  sudo -n mv "root-$DIST-usable-v1.tar.partial" "root-$DIST-usable-v1.tar"
 fi
 sudo -n rm -rf rootdir && mkdir rootdir
-sudo -n tar -C rootdir -xf "root-$DIST.tar"
+sudo -n tar -C rootdir -xf "root-$DIST-usable-v1.tar"
 sudo -n install -m 0755 "$BIN/lamp-init" rootdir/sbin/lamp-init
 sudo -n install -m 0755 "$BIN/lamp-guest-helper" rootdir/sbin/lamp-guest-helper
 sudo -n install -m 0755 "$BIN/lamp-guard" rootdir/sbin/lamp-guard
 sudo -n chmod 1777 rootdir/var/tmp
 echo lamp | sudo -n tee rootdir/etc/hostname >/dev/null
 printf '127.0.0.1 localhost lamp\n::1 localhost\n' | sudo -n tee rootdir/etc/hosts >/dev/null
+# Never ship mmdebstrap's copied host resolver, search domains or SSH identity.
+sudo -n rm -f rootdir/etc/resolv.conf rootdir/etc/ssh/ssh_host_* rootdir/etc/apt/apt.conf.d/99mmdebstrap
+printf 'nameserver 198.18.240.1\noptions timeout:2 attempts:2\n' | sudo -n tee rootdir/etc/resolv.conf >/dev/null
+# Keep ordinary pip installs away from the distribution's managed Python.
+sudo -n chroot rootdir python3 -m venv --system-site-packages /opt/venv
+sudo -n ln -sf /opt/venv/bin/pip rootdir/usr/local/bin/pip
+sudo -n ln -sf /opt/venv/bin/pip3 rootdir/usr/local/bin/pip3
 sudo -n rm -f rootdir/etc/machine-id && sudo -n touch rootdir/etc/machine-id
 sudo -n chroot rootdir dpkg-query -W -f '${Package} ${Version}\n' >packages.txt
 
@@ -127,7 +134,7 @@ seed = {
     "guest_os": "linux",
     "arch": "x86_64",
     "kernel": {**obj(os.path.join(out, "vmlinux")), "source": f"linux-{kver}.tar.xz", "source_sha256": ksha,
-               "cmdline": "console=ttyS0 reboot=k panic=1 pci=off i8042.noaux i8042.nomux i8042.dumbkbd root=/dev/vda rw init=/sbin/lamp-init quiet"},
+               "cmdline": "console=ttyS0 reboot=k panic=1 pci=off i8042.noaux i8042.nomux i8042.dumbkbd root=/dev/vda rw init=/usr/sbin/lamp-init quiet"},
     "rootfs": {**obj(os.path.join(out, "rootfs.ext4")), "filesystem": "ext4", "distribution": distribution},
     "init": {"lamp-init": digest(init), "lamp-guest-helper": digest(helper), "lamp-guard": digest(guard)},
     "packages": obj(os.path.join(out, "packages.txt")),

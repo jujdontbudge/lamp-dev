@@ -746,7 +746,7 @@ mod linux {
             command
                 .env(
                     "PATH",
-                    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                    "/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                 )
                 .env("HOME", "/root")
                 .env("LANG", "C.UTF-8")

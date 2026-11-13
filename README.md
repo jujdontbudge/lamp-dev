@@ -46,6 +46,8 @@ You need Go, Rust (see `rust-toolchain.toml`), a C compiler and Python 3.
 
 ## Documentation
 
+- [Linux guest tools, networking and device support](docs/guest-linux.md)
+
 - [Release notes](docs/release/0.1.1.md) and [release measurements](docs/release/measurements.md)
 - [Specification](docs/spec/brief.md), [requirements](docs/spec/requirements.md) and [architecture](docs/spec/architecture.md)
 - [Public API schema](contracts/public/schema.json) and [OpenAPI](contracts/public/openapi.json)

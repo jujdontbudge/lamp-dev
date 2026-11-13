@@ -765,6 +765,7 @@ type idleCandidate struct {
 }
 
 func (s *Service) lifeTickOnce() {
+	s.observeVMFailures()
 	ctx, cancel := context.WithTimeout(s.context(), 2*time.Minute)
 	defer cancel()
 	var candidates []idleCandidate

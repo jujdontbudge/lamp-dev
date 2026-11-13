@@ -49,7 +49,7 @@ use std::time::{Duration, Instant};
 
 pub const ENGINE_NAME: &str = "firecracker-1.17.0";
 pub const STATE_ABI: &str = "firecracker-1.17.0/snapshot";
-pub const DEVICE_GRAPH: &str = "virtio-blk:rootfs,vsock:cid3,serial,virtio-net:eth0-lamp0";
+pub const DEVICE_GRAPH: &str = "virtio-blk:rootfs:async-v1,vsock:cid3,serial,virtio-net:eth0-lamp0";
 pub const STANDARD: Resources = Resources {
     vcpus: 2,
     memory_mib: 4096,
@@ -2029,14 +2029,14 @@ impl Engine {
         jail.api(
             "PUT",
             "/drives/rootfs",
-            &format!(r#"{{"drive_id":"rootfs","path_on_host":"/{}","is_root_device":true,"is_read_only":false}}"#, fc::ROOTFS),
+            &format!(r#"{{"drive_id":"rootfs","path_on_host":"/{}","is_root_device":true,"is_read_only":false,"io_engine":"Async"}}"#, fc::ROOTFS),
         )?;
         for d in disks {
             jail.api(
                 "PUT",
                 &format!("/drives/x_{}", d.id),
                 &format!(
-                    r#"{{"drive_id":"x_{}","path_on_host":"/disk-{}.img","is_root_device":false,"is_read_only":false}}"#,
+                    r#"{{"drive_id":"x_{}","path_on_host":"/disk-{}.img","is_root_device":false,"is_read_only":false,"io_engine":"Async"}}"#,
                     d.id, d.id
                 ),
             )?;
@@ -3224,7 +3224,20 @@ impl Engine {
         let sb = self.sandbox(sandbox_id)?;
         let mut sb = sb.lock().unwrap();
         if sb.state == State::Running && !sb.jail.as_ref().is_some_and(Jail::alive) {
-            sb.state = State::Failed("VMM exited".into());
+            let reason = sb
+                .jail
+                .as_ref()
+                .and_then(|jail| {
+                    std::fs::read_to_string(fc::cgroup_dir(&jail.id).join("memory.events")).ok()
+                })
+                .is_some_and(|events| {
+                    events.lines().any(|line| {
+                        line.strip_prefix("oom_kill ")
+                            .and_then(|n| n.parse::<u64>().ok())
+                            .is_some_and(|n| n > 0)
+                    })
+                });
+            sb.state = State::Failed(if reason { "oom_killed" } else { "VMM exited" }.into());
         }
         let mut detail = BTreeMap::new();
         detail.insert("generation".into(), sb.generation.to_string());

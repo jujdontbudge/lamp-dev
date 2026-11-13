@@ -2,7 +2,9 @@ package network
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"net/netip"
@@ -105,6 +107,9 @@ func (b *FrameBridge) dnsAnswer(query []byte) []byte {
 		return nil
 	}
 	question := message.Questions[0]
+	if b.director.record(Event{Kind: "dns_query", Reason: fmt.Sprintf("sha256:%x", sha256.Sum256(query[12:])), Decision: "received"}) != nil {
+		return nil
+	}
 	response := dnsmessage.Message{Header: dnsmessage.Header{ID: message.Header.ID, Response: true, RecursionDesired: message.Header.RecursionDesired, RecursionAvailable: true}, Questions: message.Questions}
 	if question.Class != dnsmessage.ClassINET || (question.Type != dnsmessage.TypeA && question.Type != dnsmessage.TypeAAAA) {
 		response.Header.RCode = dnsmessage.RCodeRefused

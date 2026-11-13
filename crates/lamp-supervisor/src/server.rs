@@ -639,6 +639,11 @@ impl Server {
                 .insert(format!("template.{}", t.id), t.manifest.name.clone());
         }
         o.detail.insert("engine".into(), ENGINE_NAME.into());
+        #[cfg(target_os = "linux")]
+        o.detail
+            .insert("request_devices".into(), "[\"disk\"]".into());
+        #[cfg(target_os = "macos")]
+        o.detail.insert("request_devices".into(), "[]".into());
         // The Lamp release this supervisor binary was built for.
         o.detail.insert(
             "supervisor_release".into(),

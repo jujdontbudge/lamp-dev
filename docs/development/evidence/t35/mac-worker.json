@@ -1,0 +1,23 @@
+[
+  {
+    "command": "set -eu; ip addr show eth0; cat /etc/resolv.conf; getent hosts example.com; curl -sI https://example.com | head -1; for t in curl wget python3 git node npm ssh; do command -v \"$t\"; done",
+    "exit_code": 0,
+    "timed_out": false,
+    "stdout": "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000\n    link/ether 02:4c:41:4d:50:01 brd ff:ff:ff:ff:ff:ff\n    inet 198.18.240.2/30 scope global eth0\n       valid_lft forever preferred_lft forever\n    inet6 fe80::4c:41ff:fe4d:5001/64 scope link tentative proto kernel_ll \n       valid_lft forever preferred_lft forever\nnameserver 198.18.240.1\noptions timeout:2 attempts:2\n2606:4700:10::6814:179a example.com\n2606:4700:10::ac42:93f3 example.com\nHTTP/2 200 \r\n/usr/bin/curl\n/usr/bin/wget\n/opt/venv/bin/python3\n/usr/bin/git\n/usr/bin/node\n/usr/bin/npm\n/usr/bin/ssh\n",
+    "stderr": ""
+  },
+  {
+    "command": "set -eu; touch /etc/t35 /root/t35 /usr/local/t35; apt-get update -qq; apt-get install -y -qq jq; jq --version; pip install -q humanize; python3 -c \"import humanize; print(humanize.intcomma(12345))\"; mkdir -p /opt/t35; cd /opt/t35; npm install --fetch-retries=0 --fetch-timeout=20000 --no-audit --no-fund tsx; ./node_modules/.bin/tsx -e \"console.log(42)\"",
+    "exit_code": 0,
+    "timed_out": false,
+    "stdout": "jq-1.8.1\n12,345\n\nadded 3 packages in 1s\n42\n",
+    "stderr": ""
+  },
+  {
+    "command": "curl --noproxy \"*\" -m 3 -sS http://169.254.169.254:80; test $? -ne 0 && echo private-destination-blocked",
+    "exit_code": 0,
+    "timed_out": false,
+    "stdout": "private-destination-blocked\n",
+    "stderr": "curl: (7) Failed to connect to 169.254.169.254 port 80 after 5 ms: Could not connect to server\n"
+  }
+]

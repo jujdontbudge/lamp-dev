@@ -194,6 +194,9 @@ func (p Policy) digest() string {
 }
 func (p Policy) allows(d Destination) bool {
 	d = d.canonical()
+	if (d.Port == 53 || d.Port == 853) && !slices.Contains(p.PrivateServices, d) {
+		return false
+	}
 	if !d.valid() || slices.Contains(p.HostAddresses, d.Address) || contains(p.SafetyDenies, d.Address) {
 		return false
 	}

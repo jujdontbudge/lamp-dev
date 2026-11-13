@@ -280,6 +280,15 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
 			return
 		}
+		if err := s.admitDevices(in.Devices); err != nil {
+			code := "HOST_UNAVAILABLE"
+			var failure *coreError
+			if errors.As(err, &failure) {
+				code = failure.code
+			}
+			writeError(w, requestID, code, err.Error(), nil)
+			return
+		}
 		if in.Durability == nil {
 			in.Durability = pointer(api.SandboxCreateInputDurabilityVolatile)
 		}

@@ -1,0 +1,151 @@
+[
+  {
+    "step": "engines",
+    "result": {
+      "items": [
+        {
+          "boundary": "vm",
+          "created_at": "2026-11-13T02:21:01.465129965Z",
+          "devices": [
+            {
+              "id": "disk",
+              "type": "disk"
+            }
+          ],
+          "digest": "876a1f9ba3ccb9cb2fdc47135ac6929909f023051e3c5913975d62321d22e9da",
+          "fleet_id": "fl_local",
+          "host_id": "hs_local",
+          "id": "firecracker-1.17.0",
+          "kind": "engine",
+          "labels": {
+            "device_requests": "only listed devices are accepted; Mac optional devices come from template configuration"
+          },
+          "owner_id": "pr_local",
+          "revision": 1,
+          "state": "active",
+          "updated_at": "2026-11-13T02:21:01.465129965Z",
+          "visibility": "private"
+        }
+      ],
+      "next_cursor": null,
+      "request_id": "req_a97c83cccaf4e5c6930c99f665374cb4"
+    }
+  },
+  {
+    "step": "device_refused",
+    "result": "422: {'error': {'code': 'DEVICE_UNAVAILABLE', 'message': 'the enrolled engine cannot attach requested device display; see lamp engine list', 'retryable': False}, 'request_id': 'req_0cad06e83d4a9993e0e61c225631d1c3'}"
+  },
+  {
+    "step": "created",
+    "result": {
+      "id": "sb_006ee740ef0685ebd8f14ab94dd948da"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "set -eu; stat -c \"%u:%g %n\" / /etc /usr/local /root; cat /proc/self/uid_map; touch /etc/t35 /root/t35 /usr/local/t35; echo writable; cat /etc/resolv.conf; getent hosts example.com registry.npmjs.org; curl -sI https://example.com | head -1; for t in curl wget python3 git node npm ssh sshd; do command -v \"$t\"; done",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "0:0 /\n0:0 /etc\n0:0 /usr/local\n0:0 /root\n         0      65537      65536\nwritable\nnameserver 198.18.240.1\noptions timeout:2 attempts:2\n104.20.23.154   example.com\n172.66.147.243  example.com\n104.16.11.34    registry.npmjs.org\n104.16.8.34     registry.npmjs.org\n104.16.0.34     registry.npmjs.org\n104.16.5.34     registry.npmjs.org\n104.16.9.34     registry.npmjs.org\n104.16.4.34     registry.npmjs.org\n104.16.2.34     registry.npmjs.org\n104.16.10.34    registry.npmjs.org\n104.16.6.34     registry.npmjs.org\n104.16.3.34     registry.npmjs.org\n104.16.1.34     registry.npmjs.org\n104.16.7.34     registry.npmjs.org\nHTTP/2 200 \r\n/usr/bin/curl\n/usr/bin/wget\n/opt/venv/bin/python3\n/usr/bin/git\n/usr/bin/node\n/usr/bin/npm\n/usr/bin/ssh\n/usr/sbin/sshd\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "set -eu; apt-get update -qq && apt-get install -y -qq jq; jq --version; pip install -q humanize; python3 -c \"import humanize;print(humanize.intcomma(12345))\"; mkdir -p /opt/t35; cd /opt/t35; npm install --fetch-retries=0 --fetch-timeout=20000 --no-audit --no-fund typescript tsx @types/node; ./node_modules/.bin/tsx -e \"console.log(42)\"; echo persisted >/opt/t35/marker",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "Selecting previously unselected package libonig5:amd64.\r\n(Reading database ... \r(Reading database ... 5%\r(Reading database ... 10%\r(Reading database ... 15%\r(Reading database ... 20%\r(Reading database ... 25%\r(Reading database ... 30%\r(Reading database ... 35%\r(Reading database ... 40%\r(Reading database ... 45%\r(Reading database ... 50%\r(Reading database ... 55%\r(Reading database ... 60%\r(Reading database ... 65%\r(Reading database ... 70%\r(Reading database ... 75%\r(Reading database ... 80%\r(Reading database ... 85%\r(Reading database ... 90%\r(Reading database ... 95%\r(Reading database ... 100%\r(Reading database ... 49233 files and directories currently installed.)\r\nPreparing to unpack .../libonig5_6.9.10-1build1_amd64.deb ...\r\nUnpacking libonig5:amd64 (6.9.10-1build1) ...\r\nSelecting previously unselected package libjq1:amd64.\r\nPreparing to unpack .../libjq1_1.8.1-4ubuntu2_amd64.deb ...\r\nUnpacking libjq1:amd64 (1.8.1-4ubuntu2) ...\r\nSelecting previously unselected package jq.\r\nPreparing to unpack .../jq_1.8.1-4ubuntu2_amd64.deb ...\r\nUnpacking jq (1.8.1-4ubuntu2) ...\r\nSetting up libonig5:amd64 (6.9.10-1build1) ...\r\nSetting up libjq1:amd64 (1.8.1-4ubuntu2) ...\r\nSetting up jq (1.8.1-4ubuntu2) ...\r\nProcessing triggers for libc-bin (2.43-2ubuntu2.7) ...\r\njq-1.8.1\n12,345\n\nadded 7 packages in 2s\n42\ndebconf: unable to initialize frontend: Dialog\ndebconf: (TERM is not set, so the dialog frontend is not usable.)\ndebconf: falling back to frontend: Readline\ndebconf: unable to initialize frontend: Readline\ndebconf: (This frontend requires a controlling tty.)\ndebconf: falling back to frontend: Teletype\ndebconf: unable to initialize frontend: Teletype\ndebconf: (This frontend requires a controlling tty.)\ndebconf: falling back to frontend: Noninteractive\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "python3 - <<'PY2'\nimport socket\ns=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(3)\ns.sendto(bytes.fromhex('abcd01000001000000000000076578616d706c6503636f6d0000010001'),('8.8.8.8',53))\ntry:s.recv(512);raise RuntimeError('unmediated DNS allowed')\nexcept TimeoutError:print('external DNS blocked')\nPY2",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "external DNS blocked\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "python3 -c \"b=bytearray(1500*1024*1024)\"; status=$?; echo allocation_exit=$status; test $status -ne 0",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "allocation_exit=1\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    b=bytearray(1500*1024*1024)\nMemoryError\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "(dd if=/dev/zero of=/var/tmp/t35-big bs=1M count=3000 status=none && sync && rm /var/tmp/t35-big && echo disk-write-done >/var/tmp/t35-status) >/var/tmp/t35-write.log 2>&1 </dev/null & echo disk-write-started",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "disk-write-started\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "if test -f /var/tmp/t35-status; then cat /var/tmp/t35-status; else echo disk-write-running; fi",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "disk-write-running\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "if test -f /var/tmp/t35-status; then cat /var/tmp/t35-status; else echo disk-write-running; fi",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "disk-write-running\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "if test -f /var/tmp/t35-status; then cat /var/tmp/t35-status; else echo disk-write-running; fi",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "disk-write-running\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "if test -f /var/tmp/t35-status; then cat /var/tmp/t35-status; else echo disk-write-running; fi",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "disk-write-running\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "if test -f /var/tmp/t35-status; then cat /var/tmp/t35-status; else echo disk-write-running; fi",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "disk-write-running\n"
+    }
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "if test -f /var/tmp/t35-status; then cat /var/tmp/t35-status; else echo disk-write-running; fi",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "disk-write-done\n"
+    }
+  },
+  {
+    "step": "after_pressure",
+    "result": "ready"
+  },
+  {
+    "step": "deleted",
+    "result": "sb_006ee740ef0685ebd8f14ab94dd948da"
+  }
+]
