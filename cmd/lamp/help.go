@@ -11,6 +11,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"lamp.eilmer.si/internal/localconfig"
 	"lamp.eilmer.si/internal/surface"
 	"lamp.eilmer.si/pkg/api"
 )
@@ -22,12 +23,12 @@ func help(out io.Writer, words []string, asJSON bool, globals []string) int {
 	if asJSON {
 		flags := flag.NewFlagSet("help", flag.ContinueOnError)
 		flags.SetOutput(io.Discard)
-		socket := flags.String("socket", surface.DefaultSocket(), "")
+		socket := flags.String("socket", localconfig.Socket(), "")
 		url := flags.String("api-url", os.Getenv("LAMP_API_URL"), "")
 		file := flags.String("token-file", "", "")
 		flags.Bool("json", false, "")
 		if flags.Parse(globals) == nil {
-			token, err := surface.Credential(*file)
+			token, err := localconfig.Token(*file, *socket, *url)
 			if err == nil {
 				client := &surface.Client{Socket: *socket, URL: *url, Token: token}
 				ops = client.Operations(context.Background())
@@ -60,14 +61,14 @@ func help(out io.Writer, words []string, asJSON bool, globals []string) int {
 		}
 		sort.Strings(names)
 		fmt.Fprintln(out, "  "+strings.Join(names, ", "))
-		fmt.Fprintln(out, "\nStart: lamp template list\n       lamp sandbox create --template-id <id> --wait-ms 60000\n       lamp exec create --sandbox-id <id> --argv '[\"uname\"]' --wait-ms 60000\nExample: lamp sandbox create --help")
+		fmt.Fprintln(out, "\nStart: lamp sandbox run -- python3 -c 'print(6 * 7)'\n       lamp sandbox create\n       lamp sandbox exec <id> -- uname -a\nExample: lamp sandbox create --help")
 	} else if len(words) == 1 {
 		fmt.Fprintf(out, "Usage: lamp %s <action> [id] [flags]\nCommands:\n", words[0])
 		for _, op := range selected {
 			fmt.Fprintf(out, "  %-24s %s\n", strings.TrimPrefix(op.CLI, "lamp "+words[0]+" "), describe(op))
 		}
 		if words[0] == "sandbox" {
-			fmt.Fprintln(out, "  wait                     Wait for a sandbox state (default ready)")
+			fmt.Fprintln(out, "  run                      Create a default VM, run COMMAND, then delete it\n  exec                     Run COMMAND in an existing sandbox\n  wait                     Wait for a sandbox state (default ready)")
 		}
 		fmt.Fprintf(out, "Example: lamp %s list --json\n", words[0])
 	} else if prefix == "sandbox_wait" {
@@ -101,19 +102,19 @@ func help(out io.Writer, words []string, asJSON bool, globals []string) int {
 				detail = "revision; fetched automatically if omitted"
 			}
 			if field == "wait_ms" {
-				detail = "milliseconds to wait (0–60000; default 0)"
+				detail = "milliseconds to wait (0–60000; create default 60000, otherwise 0)"
 			}
 			if field == "timeout_ms" {
 				detail = "milliseconds to wait (0–60000)"
 			}
-			if required[field] && field != "idempotency_key" && field != "expected_revision" {
+			if required[field] && field != "idempotency_key" && field != "expected_revision" && !(prefix == "sandbox_create" && field == "template_id") {
 				detail += "; required"
 			}
 			fmt.Fprintf(w, "  --%s\t%s\n", strings.ReplaceAll(field, "_", "-"), detail)
 		}
 		w.Flush()
 		if prefix == "sandbox_create" {
-			fmt.Fprintln(out, "Resource defaults: 2 CPUs, 4096 MiB memory, 20 GiB disk, 4096 PIDs.\nShorthands: --vcpus, --memory-mib, --disk-gib, --pids-max; --resources takes JSON.")
+			fmt.Fprintln(out, "Installed defaults: 2 CPUs, up to 2048 MiB memory sized for the host, 20 GiB disk, 4096 PIDs.\nUse lamp template list for the installed resources. Create waits up to 60 s for readiness.\nShorthands: --vcpus, --memory-mib, --disk-gib, --pids-max; --resources takes JSON.")
 		}
 		fmt.Fprintf(out, "Example: %s", op.CLI)
 		if prefix == "key_create" {

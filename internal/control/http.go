@@ -232,12 +232,15 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		var in api.SandboxCreateInput
 		fields, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms network_policy_id")
 		in.IdempotencyKey = key
-		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
-			message := "template_id: required; choose a template with lamp template list"
-			if err != nil {
-				message = err.Error()
-			}
-			writeError(w, requestID, "INVALID_ARGUMENT", message, nil)
+		if err != nil {
+			writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
+			return
+		}
+		if in.TemplateId == nil && s.installedTemplate != nil {
+			in.TemplateId = pointer(s.installedTemplate.Id)
+		}
+		if err != nil || in.TemplateId == nil || *in.TemplateId == "" {
+			writeError(w, requestID, "INVALID_ARGUMENT", "template_id required; run lamp template list (or reinstall with the default engine and seed)", nil)
 			return
 		}
 		if in.Resources != nil && in.Resources.PidsMax == 0 {
@@ -251,6 +254,9 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if in.Resources == nil {
 			in.Resources = &api.Resources{Vcpus: 2, MemoryMib: 4096, DiskGib: 20, PidsMax: 4096}
+			if s.installedTemplate != nil && *in.TemplateId == s.installedTemplate.Id {
+				in.Resources = s.installedTemplate.DefaultResources
+			}
 		}
 
 		res := in.Resources

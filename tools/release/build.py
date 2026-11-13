@@ -19,6 +19,7 @@ by --linux-host (ssh), which needs Go, Rust and this commit.
       --apple-dir ~/.config/lamp/apple --linux-host ubuntu-server
 """
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -134,19 +135,48 @@ def tar_dir(src, dst, arcname):
         t.add(src, arcname=arcname)
 
 
+def seed_files(seed, scratch, platform):
+    if seed is None:
+        raise SystemExit(f'{platform} needs --seed-{platform}: a prepared seed directory, never a tester-side kernel build')
+    seed = seed.expanduser()
+    meta = json.loads((seed / 'seed.json').read_text())
+    want = 'x86_64' if platform == 'linux-amd64' else 'arm64'
+    if meta['arch'] != want or meta['guest_os'] != 'linux':
+        raise SystemExit(f'{seed} must be a Linux {want} seed')
+    kernel = 'Image' if platform == 'darwin-arm64' else 'vmlinux'
+    if platform.startswith('linux-') and meta.get('digest_alg') != 'sha256-c4m':
+        raise SystemExit(f'{platform} needs a Firecracker seed (sha256-c4m), not a VZ seed')
+    # Compressed seed disks keep the signed payload small. Installation expands
+    # with bounded memory and restores sparse zero extents, including on the Air.
+    packed = scratch / f'{platform}-rootfs.ext4.gz'
+    with (seed / 'rootfs.ext4').open('rb') as src, packed.open('wb') as dst:
+        with gzip.GzipFile(filename='', mode='wb', fileobj=dst, mtime=0, compresslevel=1) as gz:
+            shutil.copyfileobj(src, gz, 1 << 20)
+    return [(f'seed/{n}', seed / n) for n in ['seed.json', kernel, 'packages.txt']] + [('seed/rootfs.ext4.gz', packed)]
+
+
+def digest_file(path):
+    with path.open('rb') as f:
+        return hashlib.file_digest(f, 'sha256').hexdigest()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--version', required=True)
     ap.add_argument('--out', required=True, type=Path)
     ap.add_argument('--release-key', required=True, type=Path)
     ap.add_argument('--apple-dir', type=Path, help='Developer ID + notary key files; omit for an unsigned local build')
-    ap.add_argument('--linux-host', help='ssh host that builds the Linux engine; omit to ship Linux control binaries only (install.sh says so)')
-    ap.add_argument('--linux-arm64-host', help='ssh host (Linux arm64) that builds the arm64 engine; omit to ship arm64 control binaries only (install.sh says so)')
+    ap.add_argument('--linux-host', help='ssh host that builds the required amd64 Linux engine')
+    ap.add_argument('--linux-arm64-host', help='ssh host (Linux arm64) that builds the required arm64 engine')
     ap.add_argument('--ssh-config', help='ssh -F file for the engine hosts (for example a Lima VM)')
     ap.add_argument('--platforms', default='linux-amd64,linux-arm64,darwin-arm64')
     ap.add_argument('--reuse', type=Path, help='an earlier output of this version: keep its files byte for byte, '
                     'build only --platforms, and regenerate install.sh, release.json and SHA256SUMS')
     ap.add_argument('--snapshot-format', default='1')
+    for plat in ['linux-amd64', 'linux-arm64', 'darwin-arm64']:
+        ap.add_argument('--seed-' + plat, type=Path, help='verified prepared Linux seed for this platform')
+    ap.add_argument('--firecracker-amd64', type=Path, help='directory containing firecracker and jailer to sign into the amd64 release')
+    ap.add_argument('--firecracker-arm64', type=Path, help='directory containing firecracker and jailer to sign into the arm64 release')
     a = ap.parse_args()
     if subprocess.run(['git', 'status', '--porcelain'], cwd=ROOT, capture_output=True, text=True).stdout.strip():
         raise SystemExit('refusing to build a release from a dirty checkout')
@@ -202,9 +232,16 @@ def main():
             ('infra/linux/var-lib-lamp.mount', ROOT / 'infra/linux/var-lib-lamp.mount')]
         if host:
             linux_engine(host, commit, lb, ssh_opts)
-            files += [('lib/lamp-supervisor', lb / 'lamp-supervisor'), ('lib/lamp-guard', lb / 'lamp-guard'),
+            files += [('bin/lamp-supervisor', lb / 'lamp-supervisor'), ('bin/lamp-guard', lb / 'lamp-guard'),
                       ('bin/lamp-plugin-launcher', lb / 'lamp-plugin-launcher')]
-        package(plat, files)
+            fc = getattr(a, 'firecracker_' + arch)
+            if fc is None:
+                raise SystemExit(f'{plat} needs --firecracker-{arch}; downloads never run on the installing host')
+            files += [(f'bin/{n}', fc / n) for n in ['firecracker', 'jailer']]
+            files += seed_files(getattr(a, 'seed_' + plat.replace('-', '_')), scratch, plat)
+        else:
+            raise SystemExit(f'{plat} needs a Linux engine builder; a control-only archive is not a sandbox release')
+        package(plat, files, a.snapshot_format)
         record['platforms'][plat] = {'engine': bool(host), 'commit': commit}
 
     # macOS arm64: control binaries, the VZ engine and supervisor, Developer ID signed.
@@ -221,7 +258,7 @@ def main():
         else:
             sh(['codesign', '--force', '--sign', '-', '--entitlements', ROOT / 'crates/lamp-vz/lamp-vz.entitlements', mb / 'lamp-vz'])
             record['platforms']['darwin-arm64'] = {'notarization': None}
-        package('darwin-arm64', [(f'bin/{n}', mb / n) for n in GO_BINS + ['lamp-vz', 'lamp-supervisor', 'lamp-plugin-launcher']] + common_files(),
+        package('darwin-arm64', [(f'bin/{n}', mb / n) for n in GO_BINS + ['lamp-vz', 'lamp-supervisor', 'lamp-plugin-launcher']] + common_files() + [('infra/mac/install-engine.sh', ROOT / 'infra/mac/install-engine.sh')] + seed_files(a.seed_darwin_arm64, scratch, 'darwin-arm64'),
                 a.snapshot_format)
 
     # The relay: AGPL-3.0-only, its own archive with the full licence and source pointer.
@@ -246,7 +283,7 @@ def main():
     missing = [p for p in ['linux-amd64', 'linux-arm64', 'darwin-arm64'] if not (out / f'lamp-{a.version}-{p}.tar.gz').exists()]
     for plat in ['linux-amd64', 'linux-arm64', 'darwin-arm64']:
         if plat not in missing:
-            digest = hashlib.sha256((out / f'lamp-{a.version}-{plat}.tar.gz').read_bytes()).hexdigest()
+            digest = digest_file(out / f'lamp-{a.version}-{plat}.tar.gz')
             script = script.replace(f'@SHA_{plat}@', digest)
         engine = plat == 'darwin-arm64' or record['platforms'].get(plat, {}).get('engine', False)
         script = script.replace(f'@ENGINE_{plat}@', 'yes' if engine else 'no')
@@ -260,7 +297,7 @@ def main():
     sums = []
     for f in sorted(out.iterdir()):
         if f.is_file() and f.name != 'SHA256SUMS':
-            sums.append(f'{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.name}')
+            sums.append(f'{digest_file(f)}  {f.name}')
     (out / 'SHA256SUMS').write_text('\n'.join(sums) + '\n')
     print('\n'.join(sums))
 

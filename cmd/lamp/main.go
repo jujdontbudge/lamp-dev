@@ -19,12 +19,17 @@ import (
 	"syscall"
 	"time"
 
+	"lamp.eilmer.si/internal/localconfig"
 	"lamp.eilmer.si/internal/surface"
 	"lamp.eilmer.si/pkg/api"
 )
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 func run(args []string, stdout, stderr io.Writer) int {
+	args = globalArgs(args)
+	if len(args) >= 2 && args[0] == "sandbox" && (args[1] == "exec" || args[1] == "run") {
+		return quickstart(args, stdout, stderr)
+	}
 	preview := len(args) >= 2 && ((args[0] == "sandbox" && args[1] == "preview") || (args[0] == "port" && args[1] == "expose"))
 	if preview {
 		if args[0] == "sandbox" {
@@ -131,7 +136,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	var parseLog bytes.Buffer
 	flags.SetOutput(&parseLog)
 	flags.Usage = func() {}
-	socket := surface.DefaultSocket()
+	socket := localconfig.Socket()
 	flags.StringVar(&socket, "socket", socket, "lampd Unix socket")
 	apiURL := flags.String("api-url", os.Getenv("LAMP_API_URL"), "HTTP API origin or lamp+fleet:///absolute/discovery.json")
 	tokenFile := flags.String("token-file", "", "private bearer file (or LAMP_TOKEN)")
@@ -291,13 +296,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if _, supplied := in["resources"]; supplied && shorthand {
 			return usage("--resources cannot be combined with --vcpus, --memory-mib, --disk-gib or --pids-max")
 		}
-		if _, ok := in["resources"]; !ok && (shorthand || in["recipe_id"] == nil) {
-			r := map[string]any{}
-			for k, v := range dimensions {
-				r[strings.ReplaceAll(k, "-", "_")] = *v
-			}
-			in["resources"] = r
-		}
 	}
 	if preview {
 		if _, ok := in["wait_ms"]; !ok {
@@ -315,9 +313,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 			in["idempotency_key"] = "cli-" + hex.EncodeToString(b)
 		}
 	}
-	token, credentialErr := surface.Credential(*tokenFile)
-	if credentialErr != nil {
-		return usage(credentialErr.Error())
+	token, tokenErr := localconfig.Token(*tokenFile, socket, *apiURL)
+	if tokenErr != nil {
+		return usage(tokenErr.Error())
 	}
 	client := &surface.Client{Socket: socket, URL: *apiURL, Token: token}
 	defer client.Close()
@@ -372,6 +370,33 @@ func run(args []string, stdout, stderr io.Writer) int {
 				}
 				in["expected_revision"] = revision
 			}
+		}
+	}
+	if name == "sandbox_create" {
+		if err := client.CreateDefaults(ctx, in); err != nil {
+			cliError(stderr, "INVALID_ARGUMENT", err.Error(), asJSON)
+			return 2
+		}
+		if in["wait_ms"] == nil {
+			in["wait_ms"] = uint64(60000)
+		}
+		shorthand := false
+		flags.Visit(func(f *flag.Flag) {
+			if _, ok := dimensions[f.Name]; ok {
+				shorthand = true
+			}
+		})
+		r, _ := in["resources"].(map[string]any)
+		if r == nil && shorthand {
+			r = map[string]any{"vcpus": uint64(2), "memory_mib": uint64(4096), "disk_gib": uint64(20), "pids_max": uint64(4096)}
+		}
+		flags.Visit(func(f *flag.Flag) {
+			if v, ok := dimensions[f.Name]; ok {
+				r[strings.ReplaceAll(f.Name, "-", "_")] = *v
+			}
+		})
+		if r != nil {
+			in["resources"] = r
 		}
 	}
 	// Validate before transport so malformed local requests always exit 2.

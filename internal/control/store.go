@@ -120,6 +120,7 @@ type Service struct {
 	commitChanged         chan struct{}
 	identity              IdentityConfig
 	recoveryPublic        *ecdh.PublicKey
+	installedTemplate     *api.Template
 	installDir            string
 	wantFleet             bool
 	protected             map[string]ProtectedAction
@@ -497,6 +498,10 @@ func Open(config Config) (*Service, error) {
 		return nil, err
 	}
 	s.installDir = config.InstallDir
+	if err := s.loadInstalledTemplate(); err != nil {
+		s.Close()
+		return nil, err
+	}
 	s.wantFleet = config.Fleet != nil
 	s.wg.Add(1)
 	go s.driveSessions()

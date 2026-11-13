@@ -280,12 +280,11 @@ func verifyManifestAt(dir, payload string, trust ed25519.PublicKey, want string)
 		if !ok || !d.Type().IsRegular() {
 			return fmt.Errorf("payload file %s is not in the signed manifest", rel)
 		}
-		data, err := os.ReadFile(p)
+		sum, err := FileDigest(p)
 		if err != nil {
 			return err
 		}
-		sum := sha256.Sum256(data)
-		if hex.EncodeToString(sum[:]) != e.SHA256 {
+		if sum != e.SHA256 {
 			return fmt.Errorf("payload file %s does not match its signed digest", rel)
 		}
 		seen++

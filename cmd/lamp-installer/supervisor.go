@@ -34,11 +34,12 @@ import (
 )
 
 type supervisorState struct {
-	Dir    string   `json:"dir"`     // root-owned directory for release copies
-	System string   `json:"system"`  // supervisor set installed outside releases
-	Args   []string `json:"args"`    // serve arguments
-	Socket string   `json:"socket"`  // its lamp.worker socket
-	HostID string   `json:"host_id"` // this host, whose sandboxes it runs
+	GrantID string   `json:"grant_id,omitempty"`
+	Dir     string   `json:"dir"`     // root-owned directory for release copies
+	System  string   `json:"system"`  // supervisor set installed outside releases
+	Args    []string `json:"args"`    // serve arguments
+	Socket  string   `json:"socket"`  // its lamp.worker socket
+	HostID  string   `json:"host_id"` // this host, whose sandboxes it runs
 	// Version is the release whose supervisor is running; empty while the
 	// supervisor is stopped (a swap in progress or a failed start).
 	Version string `json:"version"`
@@ -57,6 +58,9 @@ func engineFiles() []engineFile {
 
 func componentNames() []string {
 	out := []string{"lamp-supervisor"}
+	if runtime.GOOS == "linux" {
+		out = append(out, "lamp-guard")
+	}
 	for _, f := range engineFiles() {
 		out = append(out, f.name)
 	}
@@ -283,6 +287,9 @@ func startSupervisor(p string, st *installState, ver string) error {
 	}
 	defer logf.Close()
 	argv := []string{"-n", "sh", "-c", `echo "$$" > "$1"; shift; exec "$@"`, "sh", supPidFile(p), paths["lamp-supervisor"], "serve"}
+	if runtime.GOOS == "darwin" {
+		argv = append([]string{"-n", "/bin/launchctl", "asuser", strconv.Itoa(os.Getuid())}, argv[1:]...)
+	}
 	for _, f := range engineFiles() {
 		argv = append(argv, f.flag, paths[f.name])
 	}

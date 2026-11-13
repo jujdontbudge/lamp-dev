@@ -76,6 +76,12 @@ func ServeMCP(ctx context.Context, input io.Reader, output io.Writer, client *Cl
 					rpcError(-32602, "arguments object required")
 					break
 				}
+				if op.Name == "sandbox_create" {
+					if err := client.CreateDefaults(ctx, args); err != nil {
+						response["result"] = toolError("INVALID_ARGUMENT", err.Error())
+						break
+					}
+				}
 				if _, _, _, err := Request(op, args); err != nil {
 					response["result"] = toolError("INVALID_ARGUMENT", err.Error())
 					break

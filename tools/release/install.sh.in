@@ -1,10 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
-# Lamp @VERSION@ installer:  curl -fsSL @BASE@/install.sh | sh
-# Downloads this release from lamp.eilmer.si, checks the archive digest built into this
-# script, then lamp-installer checks the Ed25519 release signature against the
-# release key below and pins it for updates. Options (env): LAMP_PREFIX
-# (default ~/.local/lamp), LAMP_SERVICE (systemd|launchd|process).
+# Lamp @VERSION@: curl -fsSL @BASE@/install.sh | sh
+# Signature + built-in archive digest. No interactive privilege prompts.
+# LAMP_PREFIX (default ~/.local/lamp), LAMP_SERVICE, LAMP_STORE_GIB (default 80).
 set -eu
 VERSION=@VERSION@
 BASE=@BASE@
@@ -16,15 +14,23 @@ case "$(uname -s)/$(uname -m)" in
   *) echo "lamp: no $VERSION build for $(uname -s)/$(uname -m)" >&2; exit 1 ;;
 esac
 PREFIX=${LAMP_PREFIX:-$HOME/.local/lamp}
+[ "$ENGINE" = yes ] || { echo 'lamp: this archive has no sandbox engine; refusing a control-only install' >&2; exit 1; }
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 cd "$work"
+echo "Downloading Lamp $VERSION and its default Linux seed…"
 curl -fsSL -o lamp.tar.gz "$BASE/lamp-$VERSION-$PLAT.tar.gz"
 if command -v sha256sum >/dev/null; then got=$(sha256sum lamp.tar.gz | cut -d' ' -f1); else got=$(shasum -a 256 lamp.tar.gz | cut -d' ' -f1); fi
-[ "$got" = "$SHA" ] || { echo "lamp: archive digest mismatch; refusing to install" >&2; exit 1; }
+[ "$got" = "$SHA" ] || { echo 'lamp: archive digest mismatch; refusing to install' >&2; exit 1; }
 tar -xzf lamp.tar.gz
 printf '%s\n' "$TRUST" > release-trust.pub
-"lamp-$VERSION/$PLAT/payload/bin/lamp-installer" install --release "lamp-$VERSION" \
-  --trust release-trust.pub --prefix "$PREFIX" --service "${LAMP_SERVICE:-$SVC}"
-echo "Lamp $VERSION installed in $PREFIX. Engine setup: https://gitlab.com/johansardar/lamp/-/releases/v$VERSION"
-[ "$ENGINE" = yes ] || echo "lamp: this $VERSION build has no sandbox engine for $PLAT; only the control binaries are installed" >&2
+if ! "lamp-$VERSION/$PLAT/payload/bin/lamp-installer" install --release "lamp-$VERSION" \
+  --trust release-trust.pub --prefix "$PREFIX" --service "${LAMP_SERVICE:-$SVC}" \
+  --engine --store-gib "${LAMP_STORE_GIB:-80}"; then
+  echo 'lamp: installation failed; see the error above. No sandbox is ready.' >&2
+  exit 1
+fi
+echo "Lamp $VERSION ready. Binaries: $PREFIX/current/bin"
+echo "Owner credential (private; clients load it automatically): $PREFIX/config/owner.token"
+printf 'For this shell and your shell profile: export PATH="%s/current/bin:$PATH"\n' "$PREFIX"
+printf 'Run code: %s/current/bin/lamp sandbox run -- uname -a\n' "$PREFIX"

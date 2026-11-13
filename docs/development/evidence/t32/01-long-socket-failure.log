@@ -1,0 +1,27 @@
+capacity live Firecracker: 0 available MiB: 15216
++ bash -o pipefail -c curl -fsSL http://127.0.0.1:18432/install.sh | LAMP_PREFIX=/tmp/l32fresh LAMP_SERVICE=process sh
+Downloading Lamp 0.1.2 and its default Linux seed…
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-installs/66e6eeb47bfa/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its 2 GiB template…
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 52 ms
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 209 ms
+definition: default (0 steps), seed lamp-seed/ubuntu-26.04@sha256:9f2440dc6a5cc939d3c6ef4cf96a4bbc8a9312e28ca47d60eab7151fc45ddb83
+build sandbox booted in 217 ms
+template VM booted in 211 ms
+full capture written in 24190 ms
+memory image: 1964 MiB of zero pages left as holes
+published tp_d633e47702c2e6f2b4d57eed47 as default in 27494 ms
+{"at":"2026-11-13T00:47:38Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l32fresh","service":"process","version":"0.1.2"}
+Lamp 0.1.2 ready. Binaries: /tmp/l32fresh/current/bin
+Owner credential (private; clients load it automatically): /tmp/l32fresh/config/owner.token
+For this shell and your shell profile: export PATH="/tmp/l32fresh/current/bin:$PATH"
+Run code: /tmp/l32fresh/current/bin/lamp sandbox run -- uname -a
++ /tmp/l32fresh/current/bin/lamp sandbox run -- sh -c echo hello from the signed Lamp candidate; uname -m; python3 -c "print(6*7)"
+lamp: {"error":{"code":"HOST_UNAVAILABLE","message":"bind audit listener: path must be shorter than SUN_LEN","retryable":true,"operation_id":"op_1b43d150300b85501897105d628a4f90"},"request_id":"req_cfc259bc40cdea4d7c68172020f801fb"}
+Traceback (most recent call last):
+  File "<stdin>", line 19, in <module>
+  File "<stdin>", line 11, in call
+  File "/usr/lib/python3.14/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['/tmp/l32fresh/current/bin/lamp', 'sandbox', 'run', '--', 'sh', '-c', 'echo hello from the signed Lamp candidate; uname -m; python3 -c "print(6*7)"']' returned non-zero exit status 1.

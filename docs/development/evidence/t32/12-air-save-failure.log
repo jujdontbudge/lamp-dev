@@ -1,0 +1,20 @@
+host Darwin arm64
++ bash -o pipefail -c curl -fsSL http://127.0.0.1:18433/install.sh | LAMP_PREFIX=/tmp/l32air LAMP_SERVICE=process sh
+127.0.0.1 - - [12/Nov/2026 20:14:41] "GET /install.sh HTTP/1.1" 200 -
+Downloading Lamp 0.1.2 and its default Linux seed…
+127.0.0.1 - - [12/Nov/2026 20:14:41] "GET /lamp-0.1.2-darwin-arm64.tar.gz HTTP/1.1" 200 -
+Host memory: physical=8192 MiB, available=1302 MiB, physical reserve=2048 MiB; default guest=512 MiB plus 256 MiB VMM allowance
+Importing the signed default Linux seed and preparing its template…
+Host memory: physical=8192 MiB, available=1288 MiB, physical reserve=2048 MiB; default guest=512 MiB plus 256 MiB VMM allowance
+lamp-supervisor: store open, 0 verified template(s) in 98 ms
+lamp-supervisor: HOST_UNAVAILABLE: worker: save: VZErrorDomain 1: Internal Virtualization error. The virtual machine stopped unexpectedly. (The virtual machine stopped unexpectedly.)
+lamp-installer: default template preparation failed: exit status 1
+lamp: installation failed; see the error above. No sandbox is ready.
+Traceback (most recent call last):
+  File "/tmp/t32p-demo.py", line 11, in <module>
+    call(['bash','-o','pipefail','-c',f'curl -fsSL http://127.0.0.1:{port}/install.sh | LAMP_PREFIX={p} LAMP_SERVICE=process sh'])
+  File "/tmp/t32p-demo.py", line 5, in call
+    print('+',*args,flush=True);return subprocess.run(args,env=env,check=True,**kw)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 528, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['bash', '-o', 'pipefail', '-c', 'curl -fsSL http://127.0.0.1:18433/install.sh | LAMP_PREFIX=/tmp/l32air LAMP_SERVICE=process sh']' returned non-zero exit status 1.

@@ -1,0 +1,32 @@
+host Darwin arm64
++ bash -o pipefail -c curl -fsSL http://127.0.0.1:18433/install.sh | LAMP_PREFIX=/tmp/l32air LAMP_SERVICE=process sh
+127.0.0.1 - - [12/Nov/2026 20:30:47] "GET /install.sh HTTP/1.1" 200 -
+Downloading Lamp 0.1.2 and its default Linux seed…
+127.0.0.1 - - [12/Nov/2026 20:30:47] "GET /lamp-0.1.2-darwin-arm64.tar.gz HTTP/1.1" 200 -
+Host memory: physical=8192 MiB, available=1218 MiB, physical reserve=2048 MiB, available headroom=304 MiB; default guest=512 MiB plus 256 MiB VMM allowance
+Importing the signed default Linux seed and preparing its template…
+Host memory: physical=8192 MiB, available=1390 MiB, physical reserve=2048 MiB, available headroom=347 MiB; default guest=512 MiB plus 256 MiB VMM allowance
+lamp-supervisor: store open, 0 verified template(s) in 150 ms
+booted in 1333 ms: {"audit": "none", "barrier_us": "5960", "confined": "true", "devices": "{\"display\":null,\"keyboard\":false,\"mouse\":false,\"gpu\":false,\"audio_input\":false,\"audio_output\":false,\"guest_transport\":null,\"extra_disks\":[]}", "helper_ready_us": "629560", "machine_id": "c726faea63565dfcf96fbc3abfd64503", "rng_sample": "b417801afbbda4d765776e7ed5fc5df8", "spawn_us": "691783", "vz_start_us": "510807", "worker_identity": "_lampvm95552", "worker_pid": "28501"}
+$ sh -c uname -m && python3 --version && cc --version | head -1 && getconf PAGESIZE
+aarch64
+Python 3.14.4
+cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+4096
+{"at":"2026-11-13T02:32:52Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l32air","service":"process","version":"0.1.2"}
+Lamp 0.1.2 ready. Binaries: /tmp/l32air/current/bin
+Owner credential (private; clients load it automatically): /tmp/l32air/config/owner.token
+For this shell and your shell profile: export PATH="/tmp/l32air/current/bin:$PATH"
+Run code: /tmp/l32air/current/bin/lamp sandbox run -- uname -a
++ /tmp/l32air/current/bin/lamp sandbox run -- sh -c echo hello from the signed T32 platform candidate; uname -sm; python3 -c "print(6*7)"
+hello from the signed T32 platform candidate
+Linux aarch64
+42
+install to code and cleanup seconds 127.209
++ /tmp/l32air/current/bin/lamp template list --json
+{"items":[{"arch":"arm64","created_at":"2026-11-13T02:32:50.650501Z","default_resources":{"disk_gib":20,"memory_mib":512,"pids_max":4096,"vcpus":2},"fleet_id":"fl_local","guest_os":"linux","id":"tp_6d972bb18d86a428739cfbd400","kind":"template","labels":{"lamp.default":"true"},"name":"default","owner_id":"pr_owner","revision":1,"state":"ready","updated_at":"2026-11-13T02:32:50.650501Z","visibility":"private"}],"next_cursor":null,"request_id":"req_36e4fb1c6a0e4c0c464fddbcfc3faacf"}
++ /tmp/l32air/current/bin/lamp sandbox list --json
+{"items":[],"next_cursor":null,"request_id":"req_8dab307cae87eb3ba3ab1e9cf4f2b673"}
++ /tmp/l32air/current/bin/lamp-installer uninstall --prefix /tmp/l32air --data delete --confirm-delete local-5b3740cd338f
+{"at":"2026-11-13T02:32:56Z","data":"deleted","event":"uninstalled","name":"local-5b3740cd338f","owner_data":"delete"}
+disposable engine and installation removed

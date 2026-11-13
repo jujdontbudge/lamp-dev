@@ -191,10 +191,12 @@ fn grant_command(cmd: &str, store: &std::path::Path, mut args: Vec<String>) {
     let now = lamp_engine::fsutil::now_ms();
     let grant = ControlGrant {
         format: FORMAT.into(),
-        grant_id: format!(
-            "gr_{}",
-            lamp_init::hex_encode(&lamp_engine::fsutil::random_bytes::<16>())
-        ),
+        grant_id: take_flag(&mut args, "--grant-id").unwrap_or_else(|| {
+            format!(
+                "gr_{}",
+                lamp_init::hex_encode(&lamp_engine::fsutil::random_bytes::<16>())
+            )
+        }),
         caller_uid: caller_uid as u32,
         sandbox_prefix: prefix,
         generation,

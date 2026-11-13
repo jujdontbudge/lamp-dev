@@ -1,0 +1,32 @@
+host Linux aarch64
++ bash -o pipefail -c curl -fsSL http://127.0.0.1:18433/install.sh | LAMP_PREFIX=/tmp/l32la LAMP_SERVICE=process sh
+127.0.0.1 - - [12/Nov/2026 20:05:52] "GET /install.sh HTTP/1.1" 200 -
+Downloading Lamp 0.1.2 and its default Linux seed…
+127.0.0.1 - - [12/Nov/2026 20:05:52] "GET /lamp-0.1.2-linux-arm64.tar.gz HTTP/1.1" 200 -
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-i/0bea9b24/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its 2 GiB template…
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 203 ms
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 737 ms
+definition: default (0 steps), seed lamp-seed/ubuntu-26.04-arm64@sha256:1ad625c4fbad70fc2f7105263019ad0c9c138529a0ab6d92fea8bccd0738937b
+build sandbox booted in 3292 ms
+template VM booted in 3858 ms
+full capture written in 8518 ms
+memory image: 1970 MiB of zero pages left as holes
+published tp_2815e66ad0ef0ff55c13ca3382 as default in 22515 ms
+{"at":"2026-11-13T02:06:36Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l32la","service":"process","version":"0.1.2"}
+Lamp 0.1.2 ready. Binaries: /tmp/l32la/current/bin
+Owner credential (private; clients load it automatically): /tmp/l32la/config/owner.token
+For this shell and your shell profile: export PATH="/tmp/l32la/current/bin:$PATH"
+Run code: /tmp/l32la/current/bin/lamp sandbox run -- uname -a
++ /tmp/l32la/current/bin/lamp sandbox run -- sh -c echo hello from the signed T32 platform candidate; uname -sm; python3 -c "print(6*7)"
+hello from the signed T32 platform candidate
+Linux aarch64
+42
+install to code and cleanup seconds 46.805
++ /tmp/l32la/current/bin/lamp template list --json
+{"items":[{"arch":"arm64","created_at":"2026-11-13T02:06:36.624131303Z","default_resources":{"disk_gib":20,"memory_mib":2048,"pids_max":4096,"vcpus":2},"fleet_id":"fl_local","guest_os":"linux","id":"tp_2815e66ad0ef0ff55c13ca3382","kind":"template","labels":{"lamp.default":"true"},"name":"default","owner_id":"pr_owner","revision":1,"state":"ready","updated_at":"2026-11-13T02:06:36.624131303Z","visibility":"private"}],"next_cursor":null,"request_id":"req_c3d9950d6995327faf33b946873e36e0"}
++ /tmp/l32la/current/bin/lamp sandbox list --json
+{"items":[{"boundary":"vm","capture_trust":"clean","created_at":"2026-11-13T02:06:36.996603442Z","custody_host_ids":["hs_local"],"durability":"volatile","effective_policy_revision":1,"fleet_id":"fl_local","generation":1,"host_id":"hs_local","id":"sb_9f4910731f590fdeeff83ab558ed333b","idle_countdown":{"action":"suspend","grace_seconds":300},"kind":"sandbox","labels":{},"owner_id":"pr_owner","resources":{"disk_gib":20,"memory_mib":2048,"pids_max":4096,"vcpus":2},"revision":6,"state":"deleted","task_id":"tk_26ac9356560ff819dd36f66f02ec4c0d","template_id":"tp_2815e66ad0ef0ff55c13ca3382","updated_at":"2026-11-13T02:06:39.249581265Z","visibility":"private"}],"next_cursor":null,"request_id":"req_7c8969345d54f936dd06f79de93c86c3"}
++ /tmp/l32la/current/bin/lamp-installer uninstall --prefix /tmp/l32la --data delete --confirm-delete local-0bea9b242afa
+{"at":"2026-11-13T02:06:39Z","data":"deleted","event":"uninstalled","name":"local-0bea9b242afa","owner_data":"delete"}
+disposable engine and installation removed
