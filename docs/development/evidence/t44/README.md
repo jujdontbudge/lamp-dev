@@ -8,6 +8,9 @@ the public Ubuntu seed used by T35, with the T36 guest helper; the final Docker
 run also uses the guest init built from this change. This is not a fresh
 release-installer test on every host. Apple Silicon execution was not run.
 
+Completion arrays in the saved JSON are summarized as `returned_items` and
+`items_sample`; counts and the server's own truncation fields are preserved.
+
 ## Observations
 
 - The built-in catalogue works without an owner kits configuration.
