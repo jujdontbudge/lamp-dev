@@ -178,3 +178,17 @@ and `make build` passed. One 46-line reviewer regression was retained; no
 other expansion tests were added. Prior S1 remains resolved, and no findings
 were declined. Token usage was not returned. Before the completion review,
 the expansion diff was 18 files, 814 additions and 77 deletions.
+
+### T39 integration
+
+Main advanced to `f9a3989` while completion review ran. Rebased again and
+retained T39's lifecycle network configuration and preview grant operations
+alongside T37's CI configurations and host control grants. Initial rerun caught
+the network handler intercepting CI configuration creation (400); dispatch now
+selects by adapter or resource, and shared reads combine both inventories.
+The real daemon rerun created/read both network and CI configurations, passed
+all eleven local completion operations and observed **244 identical CLI, HTTP
+and MCP names**. The ownership audit now lists **88** remaining operations;
+T39 also supplies five connection operations originally assigned to T43.
+Both T37 focused regressions and T39's interrupted-preview recovery regression
+passed together (2.788s). `make build` passed after this integration.

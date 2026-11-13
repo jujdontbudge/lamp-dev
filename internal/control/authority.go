@@ -503,7 +503,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.fileReadHTTP(w, r, id, op, selectors)
 		return
 	}
-	if lifeOperation(op.Name) {
+	sharedControl := strings.HasPrefix(op.Name, "configuration_") || strings.HasPrefix(op.Name, "grant_")
+	if lifeOperation(op.Name) && !sharedControl {
 		s.lifeHTTP(w, r, id, op, selectors)
 		return
 	}

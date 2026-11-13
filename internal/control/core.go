@@ -128,6 +128,23 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			writeError(w, id, "INVALID_ARGUMENT", "wait_ms limit is 60000", nil)
 			return
 		}
+		// Network and CI/control adapters share canonical configuration and grant
+		// operations. Preserve the lifecycle handler for network-owned resources.
+		s.readLock()
+		networkControl := op.Name == "configuration_create" && textField(in, "adapter_id") == "lamp.network/1"
+		if op.Name == "grant_delete" || op.Name == "grant_revoke" {
+			_, networkControl = s.life.Networks[textField(in, "grant_id")]
+		}
+		s.mu.Unlock()
+		if networkControl {
+			selectors := map[string]any{}
+			if grant := textField(in, "grant_id"); grant != "" {
+				selectors["grant_id"] = grant
+			}
+			r.Body = io.NopCloser(bytes.NewReader(data))
+			s.lifeHTTP(w, r, id, op, selectors)
+			return
+		}
 		if strings.HasPrefix(op.Scope, "change_set.") {
 			s.readLock()
 			legacy := strings.HasPrefix(textField(in, "source_session_id"), "sb_") || s.life.ChangeSets[textField(in, "change_set_id")] != nil
@@ -531,6 +548,7 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 			items = append(items, engine)
 		}
 	case "configuration":
+		items = append(items, s.lifeItems(a, kind)...)
 		if s.role(a) == "owner" {
 			for _, config := range c.Configurations {
 				items = append(items, object(config))
@@ -539,6 +557,7 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	case "plugin", "adapter":
 		items = append(items, s.pluginResources(kind)...)
 	case "grant":
+		items = append(items, s.lifeItems(a, kind)...)
 		if s.role(a) == "owner" {
 			for _, g := range c.Grants {
 				items = append(items, object(g))
