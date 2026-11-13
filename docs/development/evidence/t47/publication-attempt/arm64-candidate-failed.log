@@ -14,4 +14,3 @@ published tp_3100219745649320bbdb40dd57 as default in 31919 ms
 lamp-installer: engine returned no default template: lamproot: recovering journal
 lamproot: 53602/1310720 files (0.1% non-contiguous), 337865/5242880 blocks
 {"manifest_digest":"3100219745649320bbdb40dd5755f5b7f40a599d695f792432ac624685aace04","template_id":"tp_3100219745649320bbdb40dd57"}
-

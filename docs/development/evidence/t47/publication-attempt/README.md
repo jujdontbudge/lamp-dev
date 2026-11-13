@@ -105,3 +105,17 @@ installation stores and remote staging directories were removed after retaining
 these logs. Host free-space accounting settled above 20 GiB after trimming.
 Public CI/shared runners remain disabled as authorized. The next publication
 must budget for the full nested-install peak, not only archive/build storage.
+
+## Follow-up Sol review
+
+Codex GPT-6.1 Sol on medium effort approved behavior head
+`6270a4bb49df1dc4a1f713d8e5a9c3a66a56042a` in one round. No blocker or should
+findings; no code fixes or tests requested. Sol reproduced the recorded JSON
+parsing failure and checked the separate successful install/code/uninstall
+transcript. See [review ledger](sol-review.md).
+
+Sol found one evidence whitespace discrepancy: the full base-to-head
+`git diff --check` flagged a trailing blank line in the original failure log.
+That blank line was removed without changing the failure's output. The full
+range check passes after this correction. Earlier working-tree diff checks
+alone did not cover that committed log; they were insufficient for this check.
