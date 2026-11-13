@@ -572,7 +572,12 @@
               "sandbox.file_stat",
               "sandbox.file_search",
               "sandbox.file_watch",
-              "sandbox.file_rename"
+              "sandbox.file_rename",
+              "sandbox.kit",
+              "sandbox.run_code",
+              "sandbox.lsp",
+              "sandbox.browser",
+              "sandbox.desktop"
             ]
           }
         },
@@ -13597,8 +13602,16 @@
         {
           "not": {
             "anyOf": [
-              { "required": ["recipe_id"] },
-              { "required": ["template_id"] }
+              {
+                "required": [
+                  "recipe_id"
+                ]
+              },
+              {
+                "required": [
+                  "template_id"
+                ]
+              }
             ]
           }
         }
@@ -33307,6 +33320,417 @@
     },
     "VersionGetResult": {
       "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxKitInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "kit": {
+          "type": "string",
+          "enum": [
+            "browser",
+            "desktop",
+            "docker",
+            "python",
+            "node",
+            "go",
+            "rust",
+            "c",
+            "lsp"
+          ]
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "kit"
+      ]
+    },
+    "SandboxKitResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxKitCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxKitCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxRunCodeInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "lang": {
+          "type": "string",
+          "enum": [
+            "python"
+          ]
+        },
+        "context": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "code"
+      ]
+    },
+    "SandboxRunCodeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxRunCodeCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxRunCodeCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxLspInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "start",
+            "open",
+            "symbols",
+            "completions",
+            "diagnostics",
+            "close",
+            "stop"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "character": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "action"
+      ]
+    },
+    "SandboxLspResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxLspCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxLspCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxBrowserInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "navigate",
+            "evaluate",
+            "screenshot",
+            "close"
+          ]
+        },
+        "url": {
+          "type": "string"
+        },
+        "expression": {
+          "type": "string",
+          "maxLength": 16384
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "action"
+      ]
+    },
+    "SandboxBrowserResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxBrowserCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxBrowserCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxDesktopInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "info",
+            "move",
+            "click",
+            "type",
+            "key",
+            "screenshot",
+            "record_start",
+            "record_stop"
+          ]
+        },
+        "x": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8192
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8192
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "key": {
+          "type": "string"
+        },
+        "button": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "action"
+      ]
+    },
+    "SandboxDesktopResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxDesktopCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxDesktopCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
     }
   },
   "x-lamp-resources": {
@@ -38636,6 +39060,76 @@
       "scope": "api.describe",
       "cli": "lamp version",
       "mcp": "version_get",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_kit": {
+      "kind": "sandbox",
+      "action": "kit",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:kit",
+      "mutation": true,
+      "input_schema": "SandboxKitInput",
+      "result_schema": "SandboxKitResult",
+      "completion_schema": "SandboxKitCompletion",
+      "scope": "sandbox.kit",
+      "cli": "lamp sandbox kit",
+      "mcp": "sandbox_kit",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_run_code": {
+      "kind": "sandbox",
+      "action": "run_code",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:run-code",
+      "mutation": true,
+      "input_schema": "SandboxRunCodeInput",
+      "result_schema": "SandboxRunCodeResult",
+      "completion_schema": "SandboxRunCodeCompletion",
+      "scope": "sandbox.run_code",
+      "cli": "lamp sandbox run-code",
+      "mcp": "sandbox_run_code",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_lsp": {
+      "kind": "sandbox",
+      "action": "lsp",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:lsp",
+      "mutation": true,
+      "input_schema": "SandboxLspInput",
+      "result_schema": "SandboxLspResult",
+      "completion_schema": "SandboxLspCompletion",
+      "scope": "sandbox.lsp",
+      "cli": "lamp sandbox lsp",
+      "mcp": "sandbox_lsp",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_browser": {
+      "kind": "sandbox",
+      "action": "browser",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:browser",
+      "mutation": true,
+      "input_schema": "SandboxBrowserInput",
+      "result_schema": "SandboxBrowserResult",
+      "completion_schema": "SandboxBrowserCompletion",
+      "scope": "sandbox.browser",
+      "cli": "lamp sandbox browser",
+      "mcp": "sandbox_browser",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_desktop": {
+      "kind": "sandbox",
+      "action": "desktop",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:desktop",
+      "mutation": true,
+      "input_schema": "SandboxDesktopInput",
+      "result_schema": "SandboxDesktopResult",
+      "completion_schema": "SandboxDesktopCompletion",
+      "scope": "sandbox.desktop",
+      "cli": "lamp sandbox desktop",
+      "mcp": "sandbox_desktop",
       "authorization": "authenticated_scope"
     }
   },

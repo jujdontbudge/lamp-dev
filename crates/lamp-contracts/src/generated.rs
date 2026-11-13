@@ -15868,6 +15868,54 @@ pub enum SandboxBoundary {
     #[serde(rename = "process")]
     Process,
 }
+pub type SandboxBrowserCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxBrowserInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "action")]
+    pub action: SandboxBrowserInputAction,
+    #[serde(rename = "url", default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(
+        rename = "expression",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub expression: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxBrowserInputAction {
+    #[serde(rename = "navigate")]
+    Navigate,
+    #[serde(rename = "evaluate")]
+    Evaluate,
+    #[serde(rename = "screenshot")]
+    Screenshot,
+    #[serde(rename = "close")]
+    Close,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxBrowserResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxBrowserCompletion>,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxCaptureTrust {
     #[serde(rename = "clean")]
@@ -16025,6 +16073,64 @@ pub struct SandboxDeleteResult {
     pub operation: Option<Operation>,
     #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
     pub result: Option<SandboxDeleteCompletion>,
+}
+pub type SandboxDesktopCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxDesktopInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "action")]
+    pub action: SandboxDesktopInputAction,
+    #[serde(rename = "x", default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<u64>,
+    #[serde(rename = "y", default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<u64>,
+    #[serde(rename = "text", default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(rename = "key", default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(rename = "button", default, skip_serializing_if = "Option::is_none")]
+    pub button: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxDesktopInputAction {
+    #[serde(rename = "info")]
+    Info,
+    #[serde(rename = "move")]
+    Move,
+    #[serde(rename = "click")]
+    Click,
+    #[serde(rename = "type")]
+    Type,
+    #[serde(rename = "key")]
+    Key,
+    #[serde(rename = "screenshot")]
+    Screenshot,
+    #[serde(rename = "record_start")]
+    RecordStart,
+    #[serde(rename = "record_stop")]
+    RecordStop,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxDesktopResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxDesktopCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16495,6 +16601,56 @@ pub enum SandboxKind {
     #[serde(rename = "sandbox")]
     Sandbox,
 }
+pub type SandboxKitCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxKitInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "kit")]
+    pub kit: SandboxKitInputKit,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxKitInputKit {
+    #[serde(rename = "browser")]
+    Browser,
+    #[serde(rename = "desktop")]
+    Desktop,
+    #[serde(rename = "docker")]
+    Docker,
+    #[serde(rename = "python")]
+    Python,
+    #[serde(rename = "node")]
+    Node,
+    #[serde(rename = "go")]
+    Go,
+    #[serde(rename = "rust")]
+    Rust,
+    #[serde(rename = "c")]
+    C,
+    #[serde(rename = "lsp")]
+    Lsp,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxKitResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxKitCompletion>,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SandboxListInput {
@@ -16524,6 +16680,60 @@ pub struct SandboxListResult {
     pub next_cursor: Option<String>,
     #[serde(rename = "request_id")]
     pub request_id: String,
+}
+pub type SandboxLspCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxLspInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "action")]
+    pub action: SandboxLspInputAction,
+    #[serde(rename = "path", default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(rename = "text", default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(rename = "line", default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<u64>,
+    #[serde(rename = "character", default, skip_serializing_if = "Option::is_none")]
+    pub character: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxLspInputAction {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "open")]
+    Open,
+    #[serde(rename = "symbols")]
+    Symbols,
+    #[serde(rename = "completions")]
+    Completions,
+    #[serde(rename = "diagnostics")]
+    Diagnostics,
+    #[serde(rename = "close")]
+    Close,
+    #[serde(rename = "stop")]
+    Stop,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxLspResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxLspCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16690,6 +16900,44 @@ pub struct SandboxResumeResult {
     pub operation: Option<Operation>,
     #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
     pub result: Option<SandboxResumeCompletion>,
+}
+pub type SandboxRunCodeCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxRunCodeInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "code")]
+    pub code: String,
+    #[serde(rename = "lang", default, skip_serializing_if = "Option::is_none")]
+    pub lang: Option<SandboxRunCodeInputLang>,
+    #[serde(rename = "context", default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxRunCodeInputLang {
+    #[serde(rename = "python")]
+    Python,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxRunCodeResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxRunCodeCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -18156,6 +18404,16 @@ pub enum ScopeActionsItem {
     SandboxFileWatch,
     #[serde(rename = "sandbox.file_rename")]
     SandboxFileRename,
+    #[serde(rename = "sandbox.kit")]
+    SandboxKit,
+    #[serde(rename = "sandbox.run_code")]
+    SandboxRunCode,
+    #[serde(rename = "sandbox.lsp")]
+    SandboxLsp,
+    #[serde(rename = "sandbox.browser")]
+    SandboxBrowser,
+    #[serde(rename = "sandbox.desktop")]
+    SandboxDesktop,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -25550,6 +25808,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "sandbox_browser",
+        scope: "sandbox.browser",
+        cli: "lamp sandbox browser",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:browser",
+        input_schema: "SandboxBrowserInput",
+        result_schema: "SandboxBrowserResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "sandbox_create",
         scope: "sandbox.create",
         cli: "lamp sandbox create",
@@ -25568,6 +25837,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/sandboxes/{sandbox_id}",
         input_schema: "SandboxDeleteInput",
         result_schema: "SandboxDeleteResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_desktop",
+        scope: "sandbox.desktop",
+        cli: "lamp sandbox desktop",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:desktop",
+        input_schema: "SandboxDesktopInput",
+        result_schema: "SandboxDesktopResult",
         authorization: "authenticated_scope",
         mutation: true,
     },
@@ -25715,6 +25995,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "sandbox_kit",
+        scope: "sandbox.kit",
+        cli: "lamp sandbox kit",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:kit",
+        input_schema: "SandboxKitInput",
+        result_schema: "SandboxKitResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "sandbox_list",
         scope: "sandbox.list",
         cli: "lamp sandbox list",
@@ -25724,6 +26015,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "SandboxListResult",
         authorization: "authenticated_scope",
         mutation: false,
+    },
+    OperationDescriptor {
+        name: "sandbox_lsp",
+        scope: "sandbox.lsp",
+        cli: "lamp sandbox lsp",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:lsp",
+        input_schema: "SandboxLspInput",
+        result_schema: "SandboxLspResult",
+        authorization: "authenticated_scope",
+        mutation: true,
     },
     OperationDescriptor {
         name: "sandbox_prepare_fork",
@@ -25755,6 +26057,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/sandboxes/{sandbox_id}:resume",
         input_schema: "SandboxResumeInput",
         result_schema: "SandboxResumeResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_run_code",
+        scope: "sandbox.run_code",
+        cli: "lamp sandbox run-code",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:run-code",
+        input_schema: "SandboxRunCodeInput",
+        result_schema: "SandboxRunCodeResult",
         authorization: "authenticated_scope",
         mutation: true,
     },

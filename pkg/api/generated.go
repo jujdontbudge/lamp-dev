@@ -7580,6 +7580,32 @@ const (
 	SandboxBoundaryProcess SandboxBoundary = "process"
 )
 
+type SandboxBrowserCompletion = AdapterDocument
+type SandboxBrowserInput struct {
+	SandboxId      string                    `json:"sandbox_id"`
+	IdempotencyKey string                    `json:"idempotency_key"`
+	WaitMs         *uint64                   `json:"wait_ms,omitempty"`
+	Action         SandboxBrowserInputAction `json:"action"`
+	Url            *string                   `json:"url,omitempty"`
+	Expression     *string                   `json:"expression,omitempty"`
+}
+type SandboxBrowserInputAction string
+
+const (
+	SandboxBrowserInputActionNavigate   SandboxBrowserInputAction = "navigate"
+	SandboxBrowserInputActionEvaluate   SandboxBrowserInputAction = "evaluate"
+	SandboxBrowserInputActionScreenshot SandboxBrowserInputAction = "screenshot"
+	SandboxBrowserInputActionClose      SandboxBrowserInputAction = "close"
+)
+
+type SandboxBrowserResult struct {
+	OperationId string                    `json:"operation_id"`
+	ResourceIds []ResourceRef             `json:"resource_ids"`
+	RequestId   string                    `json:"request_id"`
+	Replayed    bool                      `json:"replayed"`
+	Operation   *Operation                `json:"operation,omitempty"`
+	Result      *SandboxBrowserCompletion `json:"result,omitempty"`
+}
 type SandboxCaptureTrust string
 
 const (
@@ -7655,6 +7681,39 @@ type SandboxDeleteResult struct {
 	Replayed    bool                     `json:"replayed"`
 	Operation   *Operation               `json:"operation,omitempty"`
 	Result      *SandboxDeleteCompletion `json:"result,omitempty"`
+}
+type SandboxDesktopCompletion = AdapterDocument
+type SandboxDesktopInput struct {
+	SandboxId      string                    `json:"sandbox_id"`
+	IdempotencyKey string                    `json:"idempotency_key"`
+	WaitMs         *uint64                   `json:"wait_ms,omitempty"`
+	Action         SandboxDesktopInputAction `json:"action"`
+	X              *uint64                   `json:"x,omitempty"`
+	Y              *uint64                   `json:"y,omitempty"`
+	Text           *string                   `json:"text,omitempty"`
+	Key            *string                   `json:"key,omitempty"`
+	Button         *uint64                   `json:"button,omitempty"`
+}
+type SandboxDesktopInputAction string
+
+const (
+	SandboxDesktopInputActionInfo        SandboxDesktopInputAction = "info"
+	SandboxDesktopInputActionMove        SandboxDesktopInputAction = "move"
+	SandboxDesktopInputActionClick       SandboxDesktopInputAction = "click"
+	SandboxDesktopInputActionType        SandboxDesktopInputAction = "type"
+	SandboxDesktopInputActionKey         SandboxDesktopInputAction = "key"
+	SandboxDesktopInputActionScreenshot  SandboxDesktopInputAction = "screenshot"
+	SandboxDesktopInputActionRecordStart SandboxDesktopInputAction = "record_start"
+	SandboxDesktopInputActionRecordStop  SandboxDesktopInputAction = "record_stop"
+)
+
+type SandboxDesktopResult struct {
+	OperationId string                    `json:"operation_id"`
+	ResourceIds []ResourceRef             `json:"resource_ids"`
+	RequestId   string                    `json:"request_id"`
+	Replayed    bool                      `json:"replayed"`
+	Operation   *Operation                `json:"operation,omitempty"`
+	Result      *SandboxDesktopCompletion `json:"result,omitempty"`
 }
 type SandboxDeviceInputCompletion struct {
 	DeviceRef   DeviceRef `json:"device_ref"`
@@ -7886,6 +7945,35 @@ const (
 	SandboxKindSandbox SandboxKind = "sandbox"
 )
 
+type SandboxKitCompletion = AdapterDocument
+type SandboxKitInput struct {
+	SandboxId      string             `json:"sandbox_id"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	WaitMs         *uint64            `json:"wait_ms,omitempty"`
+	Kit            SandboxKitInputKit `json:"kit"`
+}
+type SandboxKitInputKit string
+
+const (
+	SandboxKitInputKitBrowser SandboxKitInputKit = "browser"
+	SandboxKitInputKitDesktop SandboxKitInputKit = "desktop"
+	SandboxKitInputKitDocker  SandboxKitInputKit = "docker"
+	SandboxKitInputKitPython  SandboxKitInputKit = "python"
+	SandboxKitInputKitNode    SandboxKitInputKit = "node"
+	SandboxKitInputKitGo      SandboxKitInputKit = "go"
+	SandboxKitInputKitRust    SandboxKitInputKit = "rust"
+	SandboxKitInputKitC       SandboxKitInputKit = "c"
+	SandboxKitInputKitLsp     SandboxKitInputKit = "lsp"
+)
+
+type SandboxKitResult struct {
+	OperationId string                `json:"operation_id"`
+	ResourceIds []ResourceRef         `json:"resource_ids"`
+	RequestId   string                `json:"request_id"`
+	Replayed    bool                  `json:"replayed"`
+	Operation   *Operation            `json:"operation,omitempty"`
+	Result      *SandboxKitCompletion `json:"result,omitempty"`
+}
 type SandboxListInput struct {
 	Cursor         *string `json:"cursor,omitempty"`
 	Limit          *uint64 `json:"limit,omitempty"`
@@ -7896,6 +7984,37 @@ type SandboxListResult struct {
 	Items      []Sandbox `json:"items"`
 	NextCursor *string   `json:"next_cursor,omitempty"`
 	RequestId  string    `json:"request_id"`
+}
+type SandboxLspCompletion = AdapterDocument
+type SandboxLspInput struct {
+	SandboxId      string                `json:"sandbox_id"`
+	IdempotencyKey string                `json:"idempotency_key"`
+	WaitMs         *uint64               `json:"wait_ms,omitempty"`
+	Action         SandboxLspInputAction `json:"action"`
+	Path           *string               `json:"path,omitempty"`
+	Text           *string               `json:"text,omitempty"`
+	Line           *uint64               `json:"line,omitempty"`
+	Character      *uint64               `json:"character,omitempty"`
+}
+type SandboxLspInputAction string
+
+const (
+	SandboxLspInputActionStart       SandboxLspInputAction = "start"
+	SandboxLspInputActionOpen        SandboxLspInputAction = "open"
+	SandboxLspInputActionSymbols     SandboxLspInputAction = "symbols"
+	SandboxLspInputActionCompletions SandboxLspInputAction = "completions"
+	SandboxLspInputActionDiagnostics SandboxLspInputAction = "diagnostics"
+	SandboxLspInputActionClose       SandboxLspInputAction = "close"
+	SandboxLspInputActionStop        SandboxLspInputAction = "stop"
+)
+
+type SandboxLspResult struct {
+	OperationId string                `json:"operation_id"`
+	ResourceIds []ResourceRef         `json:"resource_ids"`
+	RequestId   string                `json:"request_id"`
+	Replayed    bool                  `json:"replayed"`
+	Operation   *Operation            `json:"operation,omitempty"`
+	Result      *SandboxLspCompletion `json:"result,omitempty"`
 }
 type SandboxPrepareForkCompletion struct {
 	SandboxId       string          `json:"sandbox_id"`
@@ -7973,6 +8092,29 @@ type SandboxResumeResult struct {
 	Replayed    bool                     `json:"replayed"`
 	Operation   *Operation               `json:"operation,omitempty"`
 	Result      *SandboxResumeCompletion `json:"result,omitempty"`
+}
+type SandboxRunCodeCompletion = AdapterDocument
+type SandboxRunCodeInput struct {
+	SandboxId      string                   `json:"sandbox_id"`
+	IdempotencyKey string                   `json:"idempotency_key"`
+	WaitMs         *uint64                  `json:"wait_ms,omitempty"`
+	Code           string                   `json:"code"`
+	Lang           *SandboxRunCodeInputLang `json:"lang,omitempty"`
+	Context        *string                  `json:"context,omitempty"`
+}
+type SandboxRunCodeInputLang string
+
+const (
+	SandboxRunCodeInputLangPython SandboxRunCodeInputLang = "python"
+)
+
+type SandboxRunCodeResult struct {
+	OperationId string                    `json:"operation_id"`
+	ResourceIds []ResourceRef             `json:"resource_ids"`
+	RequestId   string                    `json:"request_id"`
+	Replayed    bool                      `json:"replayed"`
+	Operation   *Operation                `json:"operation,omitempty"`
+	Result      *SandboxRunCodeCompletion `json:"result,omitempty"`
 }
 type SandboxSaveTemplateCompletion struct {
 }
@@ -8670,6 +8812,11 @@ const (
 	ScopeActionsItemSandboxFileSearch          ScopeActionsItem = "sandbox.file_search"
 	ScopeActionsItemSandboxFileWatch           ScopeActionsItem = "sandbox.file_watch"
 	ScopeActionsItemSandboxFileRename          ScopeActionsItem = "sandbox.file_rename"
+	ScopeActionsItemSandboxKit                 ScopeActionsItem = "sandbox.kit"
+	ScopeActionsItemSandboxRunCode             ScopeActionsItem = "sandbox.run_code"
+	ScopeActionsItemSandboxLsp                 ScopeActionsItem = "sandbox.lsp"
+	ScopeActionsItemSandboxBrowser             ScopeActionsItem = "sandbox.browser"
+	ScopeActionsItemSandboxDesktop             ScopeActionsItem = "sandbox.desktop"
 )
 
 type SecurityRevocation struct {
@@ -11160,8 +11307,10 @@ var Operations = []OperationDescriptor{
 	{"recipe_update", "recipe.update", "lamp recipe update", "patch", "/v1/recipes/{recipe_id}", "RecipeUpdateInput", "RecipeUpdateResult", "authenticated_scope", true},
 	{"relay_get", "relay.get", "lamp relay get", "get", "/v1/relays/{relay_id}", "RelayGetInput", "RelayGetResult", "authenticated_scope", false},
 	{"relay_list", "relay.list", "lamp relay list", "get", "/v1/relays", "RelayListInput", "RelayListResult", "authenticated_scope", false},
+	{"sandbox_browser", "sandbox.browser", "lamp sandbox browser", "post", "/v1/sandboxes/{sandbox_id}:browser", "SandboxBrowserInput", "SandboxBrowserResult", "authenticated_scope", true},
 	{"sandbox_create", "sandbox.create", "lamp sandbox create", "post", "/v1/sandboxes", "SandboxCreateInput", "SandboxCreateResult", "authenticated_scope", true},
 	{"sandbox_delete", "sandbox.delete", "lamp sandbox delete", "delete", "/v1/sandboxes/{sandbox_id}", "SandboxDeleteInput", "SandboxDeleteResult", "authenticated_scope", true},
+	{"sandbox_desktop", "sandbox.desktop", "lamp sandbox desktop", "post", "/v1/sandboxes/{sandbox_id}:desktop", "SandboxDesktopInput", "SandboxDesktopResult", "authenticated_scope", true},
 	{"sandbox_device_input", "sandbox.device_input", "lamp sandbox device-input", "post", "/v1/sandboxes/{sandbox_id}:device-input", "SandboxDeviceInputInput", "SandboxDeviceInputResult", "authenticated_scope", true},
 	{"sandbox_device_watch", "sandbox.device_watch", "lamp sandbox device-watch", "get", "/v1/sandboxes/{sandbox_id}/device-stream", "SandboxDeviceWatchInput", "SandboxDeviceWatchResult", "authenticated_scope", false},
 	{"sandbox_file_delete", "sandbox.file_delete", "lamp sandbox file-delete", "post", "/v1/sandboxes/{sandbox_id}:file-delete", "SandboxFileDeleteInput", "SandboxFileDeleteResult", "authenticated_scope", true},
@@ -11175,10 +11324,13 @@ var Operations = []OperationDescriptor{
 	{"sandbox_file_write", "sandbox.file_write", "lamp sandbox file-write", "post", "/v1/sandboxes/{sandbox_id}:file-write", "SandboxFileWriteInput", "SandboxFileWriteResult", "authenticated_scope", true},
 	{"sandbox_fork", "sandbox.fork", "lamp sandbox fork", "post", "/v1/sandboxes/{sandbox_id}:fork", "SandboxForkInput", "SandboxForkResult", "authenticated_scope", true},
 	{"sandbox_get", "sandbox.get", "lamp sandbox get", "get", "/v1/sandboxes/{sandbox_id}", "SandboxGetInput", "SandboxGetResult", "authenticated_scope", false},
+	{"sandbox_kit", "sandbox.kit", "lamp sandbox kit", "post", "/v1/sandboxes/{sandbox_id}:kit", "SandboxKitInput", "SandboxKitResult", "authenticated_scope", true},
 	{"sandbox_list", "sandbox.list", "lamp sandbox list", "get", "/v1/sandboxes", "SandboxListInput", "SandboxListResult", "authenticated_scope", false},
+	{"sandbox_lsp", "sandbox.lsp", "lamp sandbox lsp", "post", "/v1/sandboxes/{sandbox_id}:lsp", "SandboxLspInput", "SandboxLspResult", "authenticated_scope", true},
 	{"sandbox_prepare_fork", "sandbox.prepare_fork", "lamp sandbox prepare-fork", "post", "/v1/sandboxes/{sandbox_id}:prepare-fork", "SandboxPrepareForkInput", "SandboxPrepareForkResult", "authenticated_scope", true},
 	{"sandbox_restore", "sandbox.restore", "lamp sandbox restore", "post", "/v1/sandboxes/{sandbox_id}:restore", "SandboxRestoreInput", "SandboxRestoreResult", "authenticated_scope", true},
 	{"sandbox_resume", "sandbox.resume", "lamp sandbox resume", "post", "/v1/sandboxes/{sandbox_id}:resume", "SandboxResumeInput", "SandboxResumeResult", "authenticated_scope", true},
+	{"sandbox_run_code", "sandbox.run_code", "lamp sandbox run-code", "post", "/v1/sandboxes/{sandbox_id}:run-code", "SandboxRunCodeInput", "SandboxRunCodeResult", "authenticated_scope", true},
 	{"sandbox_save_template", "sandbox.save_template", "lamp sandbox save-template", "post", "/v1/sandboxes/{sandbox_id}:save-template", "SandboxSaveTemplateInput", "SandboxSaveTemplateResult", "authenticated_scope", true},
 	{"sandbox_suspend", "sandbox.suspend", "lamp sandbox suspend", "post", "/v1/sandboxes/{sandbox_id}:suspend", "SandboxSuspendInput", "SandboxSuspendResult", "authenticated_scope", true},
 	{"sandbox_update", "sandbox.update", "lamp sandbox update", "patch", "/v1/sandboxes/{sandbox_id}", "SandboxUpdateInput", "SandboxUpdateResult", "authenticated_scope", true},

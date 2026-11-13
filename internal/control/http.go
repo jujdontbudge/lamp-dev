@@ -231,7 +231,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		input = in
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		fields, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms network_policy_id")
+		fields, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms network_policy_id kit_ids")
 		in.IdempotencyKey = key
 		if err != nil {
 			writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
@@ -306,6 +306,13 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			sb.Labels = *in.Labels
+		}
+		if in.KitIds != nil {
+			if err := kitNames(*in.KitIds); err != nil {
+				writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
+				return
+			}
+			sb.KitIds = in.KitIds
 		}
 		sb.TaskId = in.TaskId
 		sb.Id = s.resourceID("sb")
@@ -646,6 +653,9 @@ func (s *Service) execute(id, source string) {
 	timeout := s.worker.config.Timeout
 	if value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork" {
 		timeout = max(timeout, 3*time.Minute)
+		if kits := s.journal.Sandboxes[rec.Resource.Id].KitIds; kits != nil && len(*kits) > 0 {
+			timeout = max(timeout, 20*time.Minute)
+		}
 	}
 	ctx, deadlineCancel := context.WithTimeout(ctx, timeout)
 	defer deadlineCancel()
@@ -910,6 +920,15 @@ func (s *Service) execute(id, source string) {
 				err = &workerFailure{code: "OUTCOME_UNKNOWN", message: "readiness deadline", unknown: true}
 			case <-timer.C:
 			}
+			if err != nil {
+				break
+			}
+		}
+	}
+	if err == nil && name == "sandbox_create" && sb.KitIds != nil {
+		stage("kits")
+		for _, kit := range *sb.KitIds {
+			_, err = s.sandboxKitCall(ctx, sb.Id, map[string]any{"component": "kit", "kit": kit})
 			if err != nil {
 				break
 			}
