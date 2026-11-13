@@ -14,8 +14,16 @@ bcd54f76f9827aa5707716b4ef79fa7e1bf86198. Verdict: CHANGES.
 Both reviewer regression tests use a disposable real control service. They were
 applied and reproduced locally. No other new tests were added. The existing CLI
 mutation-header smoke, scoped Go vet and make build passed with the fixes.
-No findings declined. Round 2 checks these fixes only.
+No findings declined.
+
+Round 2 reviewed the fixes at a54d36dfdb128cb90dc2e4ad22dcbbb340cd9367.
+Verdict: APPROVE. S1 and S2 resolved, no new blockers or shoulds. The reviewer
+reran both regression tests successfully and made no changes. Two rounds total.
+The approved behavior is pushed to GitLab MR !3; the final ledger update is
+documentation only.
 
 Diff before review: 34 files, 1378 insertions, 184 deletions. The round 1 fixes
 add 11 product lines and the reviewer's 86-line regression file; this ledger is
 the remaining review evidence.
+
+Final diff: 36 files; see the MR for the complete source, two reviewer tests and evidence.
