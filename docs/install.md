@@ -1,8 +1,7 @@
 # Install and run code
 
-The next release installer includes the engine and a signed Linux seed. The
-published 0.1.1 installer predates this path and installs control binaries only;
-these instructions require a release built with the new installer.
+The 0.1.2 installer includes the engine and a signed Linux seed. The older
+0.1.1 installer installs control binaries only and cannot run this quick start.
 
 On Ubuntu/Linux amd64 or arm64 with KVM, or Apple Silicon macOS 26+:
 
@@ -39,7 +38,10 @@ lamp sandbox get <id-from-create>
 Delete using `lamp sandbox delete ID --expected-revision N`, where N is the
 revision from `sandbox get`. `sandbox run` does this cleanup automatically.
 
-## Host requirements
+## Engine setup
+
+Engine setup is part of the installer above; there is no separate engine
+command or source build. These are its host requirements.
 
 Linux requires `/dev/kvm`, administrator access available through `sudo -n`
 (or running as root), and host dependencies. On Ubuntu/Debian the installer installs missing
@@ -60,7 +62,9 @@ It uses the release's signed/notarized engine without building from source or
 accessing the Keychain. The 8 GB Air uses a smaller default when its everyday
 apps leave less memory available, and no RAM-backed capture disk. The reserve
 limits total physical VM allocations; it is not added to the available-page
-requirement. Mac networking still needs separate release validation.
+requirement. Current Linux seeds support guarded networking on Mac hosts. Rebuild older
+templates to receive the guarded NIC and current guest helper; see
+[guest networking](guest-linux.md) and [previews and policy](networking.md).
 
 The default store on Linux is an **80 GiB sparse XFS image**, with reflinks.
 It occupies physical space as data is written. Allow at least 20 GiB of logical
@@ -114,7 +118,7 @@ including its compressed disk. Installing verifies the release signature and
 the engine verifies the expanded seed before probing the default template.
 A missing engine or seed prevents building an installable sandbox release.
 
-### Update, rollback and remove an install
+## Update, rollback and remove an install
 
 `lamp-installer update --prefix "$LAMP_PREFIX"` checks
 `https://lamp.eilmer.si/releases/latest.json`, downloads the selected platform

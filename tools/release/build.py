@@ -6,7 +6,6 @@ Produces, under --out:
   lamp-<v>-<os>-<arch>.tar.gz   signed installer release (manifest.json, manifest.sig,
                                 payload/, index.json) for lamp-installer install/update
   lamp-relay-<v>-<os>-<arch>.tar.gz  the AGPL-3.0 relay, built and shipped separately
-  the TypeScript SDK (npm .tgz)
   release-trust.pub, SHA256SUMS
 
 Mac binaries are signed with the Developer ID Application certificate and
@@ -14,7 +13,7 @@ notarized with an App Store Connect API key, all read from files by rcodesign;
 no keychain is touched. Linux engine binaries are built on a Linux host given
 by --linux-host (ssh), which needs Go, Rust and this commit.
 
-    python3 tools/release/build.py --version 0.1.1 --out /tmp/lamp-release \
+    python3 tools/release/build.py --version 0.1.2 --out /tmp/lamp-release \
       --release-key ~/.config/lamp/release/release.key \
       --apple-dir ~/.config/lamp/apple --linux-host ubuntu-server
 """
@@ -115,12 +114,21 @@ def mac_notarize(binaries, apple, scratch):
 def common_files():
     return [('LICENSE', ROOT / 'LICENSE'), ('THIRD_PARTY.md', ROOT / 'THIRD_PARTY.md'),
             ('licenses/relay-AGPL-3.0.txt', ROOT / 'internal/relay/LICENSE'),
+            ('assets/icon.svg', ROOT / 'assets/icon.svg'),
+            ('contracts/public/schema.json', ROOT / 'contracts/public/schema.json'),
+            ('GLOSSARY.md', ROOT / 'GLOSSARY.md'),
             ('docs/agent-workflow.md', ROOT / 'docs/agent-workflow.md'),
             ('docs/agents.md', ROOT / 'docs/agents.md'),
-            ('docs/release/fleets-and-access.md', ROOT / 'docs/release/fleets-and-access.md'),
-            ('docs/development/access.md', ROOT / 'docs/development/access.md'),
-            ('docs/development/hosted.md', ROOT / 'docs/development/hosted.md'),
-            ('tools/plugin-launcher.c', ROOT / 'tools/plugin-launcher.c')] + [(f'tools/{name}.py', ROOT / f'tools/{name}.py') for name in ['session_acp', 'session_herdr', 'session_public', 'session_ssh', 'session_mcp']]
+            ('docs/access.md', ROOT / 'docs/access.md'),
+            ('docs/hosted.md', ROOT / 'docs/hosted.md'),
+            ('tools/plugin-launcher.c', ROOT / 'tools/plugin-launcher.c')] + [
+                (str(p.relative_to(ROOT)), p) for p in [
+                    ROOT / 'README.md', ROOT / 'docs/install.md', ROOT / 'docs/guest-linux.md',
+                    ROOT / 'docs/lifecycle-and-recovery.md', ROOT / 'docs/networking.md',
+                    ROOT / 'docs/templates-and-storage.md', ROOT / 'docs/guides/kits.md',
+                    ROOT / 'docs/dashboard.md', ROOT / 'docs/control-operations.md', ROOT / 'docs/ci.md',
+                ] + sorted((ROOT / 'docs/release').glob('*.md'))
+            ] + [(f'tools/{name}.py', ROOT / f'tools/{name}.py') for name in ['session_acp', 'session_herdr', 'session_public', 'session_ssh', 'session_mcp']]
 
 
 def installer_release(inst, version, goos, goarch, key, out, files, snapshot_format=None):
@@ -276,9 +284,6 @@ def main():
         (rb / 'SOURCE').write_text(f'Corresponding source: https://gitlab.com/johansardar/lamp (built from development commit {commit})\n'
                                    'internal/relay and cmd/lamp-relay are AGPL-3.0-only.\n')
         tar_dir(rb, out / f'lamp-relay-{a.version}-{goos}-{goarch}.tar.gz', f'lamp-relay-{a.version}')
-
-    if not list(out.glob('*-lamp-sdk-*.tgz')):
-        sh(['npm', 'pack', '--pack-destination', out], cwd=ROOT / 'sdk/typescript')
 
     # curl | sh installer: archive digests and the release key are built in.
     base = f'{SITE}/releases/v{a.version}'

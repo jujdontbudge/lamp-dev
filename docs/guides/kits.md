@@ -36,6 +36,15 @@ returns `outcome_unknown`: the guest job may still run, so inspect before
 submitting a new execution. CLI keys are generated automatically. Scope actions use the same
 names with a dot after `sandbox`, for example `sandbox.run_code`.
 
+## Observed host coverage
+
+Python, Chromium, Docker, LSP and desktop were demonstrated on Ubuntu amd64
+and the M5 Mac engine running an aarch64 Linux guest. On a Linux arm64 host
+(nested KVM), Python and Chromium have observations; **Docker, LSP and desktop
+remain unverified** after interrupted runs and an unresolved guest-channel
+failure. A Mac aarch64 guest is not proof of Linux arm64 host coverage. No
+five-kit Air demonstration is claimed.
+
 ## Stateful Python
 
 ```sh

@@ -1,0 +1,5 @@
+{"url":"https://lamp.eilmer.si/","status":200,"location":null,"body":"index contains versioned engine setup link: true"}
+{"url":"https://lamp.eilmer.si/releases/latest.json","status":200,"location":null,"body":"{\"version\":\"0.1.2\"}"}
+{"url":"https://lamp.eilmer.si/releases/v0.1.2/SHA256SUMS","status":302,"location":"https://gitlab.com/api/v4/projects/88830487/packages/generic/lamp/0.1.2/SHA256SUMS","body":""}
+{"url":"https://account.eilmer.si/","status":200,"location":null,"body":"<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Lamp accounts</title><h1>Lamp accounts</h1><p>Hosted sign-ups are unavailable. Accounts are invite-only.</p><p><a href=\"https://lamp.eilmer.si\">Install Lamp on your own machines</a>.</p></html>"}
+{"url":"https://lamp.eilmer.si/missing","status":404,"location":null,"body":"not found\n"}
