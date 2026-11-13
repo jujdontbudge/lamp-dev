@@ -33,4 +33,15 @@ targeted Go vet and `git diff --check` passed. A follow-up local change makes
 VMM teardown independent of helper health, so a failed helper cannot leave
 `Child::wait` blocked on a still-running VMM. Targeted Rust build passed.
 
-Follow-up Sol review: pending, new integration behavior only.
+Follow-up Sol verdict: APPROVE at `2cdf624ca15cc4b84077c65f61bf750094c706ea`
+(Codex / GPT-6.1 Sol, medium). No new blocker or should-fix finding. The
+reviewer checked T39 lifecycle callers and T32 release packaging; initial
+policy, pending helper/identity reuse and VMM teardown were accepted. S1/S2
+protections remain intact. `git diff --check 9e67a02..HEAD` passed. No new test
+was added; no VM or privileged path was rerun. Usage was not exposed.
+
+Review totals: original implementation 2 rounds, requested T39/T32 follow-up
+1 round. One reviewer-supplied regression test retained. Before the follow-up,
+the diff was 46 files, 1418 insertions and 54 deletions; after integration and
+rebase it is 47 files, 1787 insertions and 65 deletions (before this ledger
+update). No findings were declined.
