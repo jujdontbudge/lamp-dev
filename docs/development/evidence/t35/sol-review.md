@@ -45,3 +45,7 @@ Review totals: original implementation 2 rounds, requested T39/T32 follow-up
 the diff was 46 files, 1418 insertions and 54 deletions; after integration and
 rebase it is 47 files, 1787 insertions and 65 deletions (before this ledger
 update). No findings were declined.
+
+T36 rebase: retained its cross-platform `lamp-exec-io/1` dispatch and session
+relay while removing only the obsolete Mac managed-network refusal. All other
+T35 patches are unchanged (`git range-diff`). No new behavior change to review.
