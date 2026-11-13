@@ -13,7 +13,7 @@ Token usage was not returned.
 The reviewer's two focused regressions are retained in
 `internal/control/t32_review_test.go`. They were each reproduced failing, then
 passed together after the six-line product fix. Targeted Go vet and `make build`
-passed. No findings were declined. Round 2 pending.
+passed. No findings were declined.
 
 Before round 2, requested platform demonstrations exposed two additional
 implementation bugs: failed Mac setup left accounts/files behind, and SSH
@@ -39,3 +39,17 @@ physical reserve and reservation accounting, but sets additional available
 headroom to one quarter of available memory, at least 256 MiB and capped at
 the physical reserve. The installer uses that exact reported budget. This
 policy change and the combined-platform demonstrations are included in round 2.
+
+Round 2 reviewed `2bed08f407d2425e231f88a599da44f5912add6c` against
+`03944fbdc30e28f1062700af7ceca4d736258a89`. Verdict: APPROVE. S1 and S2
+resolved; no new blocker or should findings. The reviewer ran only the two
+retained HTTP regressions; both passed. It reviewed cleanup, login-context
+adoption and adaptive memory, and found no admission bypass. No privileged
+actions, VMs or checkout edits. Token usage was not returned.
+
+Two rounds with GPT-6.1 Sol on medium effort. Two bugs fixed, two reviewer
+regressions retained, no findings declined. Initial diff: 34 files, 1472
+insertions and 290 deletions; reviewed final diff: 50 files, 2118 insertions
+and 295 deletions. Growth includes the requested platform fixes and preserved
+demonstration evidence. Approval covers the current behavior; the final
+ledger update changes documentation only. Branch pushed; coordinator merges.
