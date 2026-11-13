@@ -25,6 +25,17 @@ import (
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 func run(args []string, stdout, stderr io.Writer) int {
+	preview := len(args) >= 2 && ((args[0] == "sandbox" && args[1] == "preview") || (args[0] == "port" && args[1] == "expose"))
+	if preview {
+		if args[0] == "sandbox" {
+			if len(args) < 4 {
+				return 2
+			}
+			args = append([]string{"port", "create", "--sandbox-id", args[2], "--port", args[3]}, args[4:]...)
+		} else {
+			args[1] = "create"
+		}
+	}
 	asJSON := false
 	for _, s := range args {
 		if s == "--" {
@@ -288,6 +299,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 			in["resources"] = r
 		}
 	}
+	if preview {
+		if _, ok := in["wait_ms"]; !ok {
+			in["wait_ms"] = json.Number("60000")
+		}
+	}
 	automaticKey := false
 	if op.Mutation {
 		if _, ok := in["idempotency_key"]; !ok {
@@ -379,6 +395,30 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		cliError(stderr, "OUTCOME_UNKNOWN", message, asJSON)
 		return 6
+	}
+	if preview && err == nil && status < 400 {
+		var reply map[string]any
+		if json.Unmarshal(data, &reply) == nil {
+			refs, _ := reply["resource_ids"].([]any)
+			if len(refs) > 0 {
+				ref, _ := refs[0].(map[string]any)
+				id, _ := ref["id"].(string)
+				if id != "" {
+					data, status, err = client.Call(ctx, surface.ByName["port_get"], map[string]any{"port_id": id})
+					if err != nil {
+						cliError(stderr, "DATA_UNAVAILABLE", err.Error(), asJSON)
+						return 6
+					}
+					var out map[string]any
+					if json.Unmarshal(data, &out) == nil {
+						if port, ok := out["data"].(map[string]any); ok {
+							port["url"] = port["origin"]
+						}
+						data, _ = json.Marshal(out)
+					}
+				}
+			}
+		}
 	}
 	if !json.Valid(data) {
 		cliError(stderr, "DATA_UNAVAILABLE", "invalid API JSON", asJSON)

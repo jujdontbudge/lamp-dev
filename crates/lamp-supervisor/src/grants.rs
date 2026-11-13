@@ -23,6 +23,7 @@ pub const COMMANDS: &[&str] = &[
     "cancel",
     "rebuild",
     "session_call",
+    "network_call",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

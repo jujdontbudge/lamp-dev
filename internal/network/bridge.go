@@ -34,6 +34,7 @@ type BridgeConfig struct {
 	ServiceSources []netip.Addr `json:"service_sources"`
 	NextHop4       netip.Addr   `json:"next_hop4"`
 	NextHop6       netip.Addr   `json:"next_hop6"`
+	ManagedDNS     bool         `json:"managed_dns,omitempty"`
 	MTU            uint32       `json:"mtu"`
 }
 

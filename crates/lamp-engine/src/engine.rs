@@ -1889,43 +1889,45 @@ impl Engine {
         sb.parent = parent;
         detail.insert("prepare_us".into(), us(t0.elapsed()));
         let t = Instant::now();
-        match &sb.network_policy {
-            Some(policy) => {
-                let (guard_uid, attached) = match sb.pending_net.take() {
-                    Some(pending) => pending
-                        .join()
-                        .map_err(|_| EngineError::host("network attachment thread panicked"))?,
-                    None => {
-                        let guard_uid = self.alloc_uid()?;
-                        let attached = crate::net::Attachment::attach(
-                            policy,
-                            &self.inventory,
-                            &crate::net::Target::of(jail),
-                            guard_uid,
-                            crate::net::Identity {
-                                host_id: &self.cfg.host_id,
-                                sandbox_id: &sb.id,
-                                generation: sb.generation,
-                                operation_id: "op_restore",
-                            },
-                        );
-                        (guard_uid, attached)
-                    }
-                };
-                match attached {
-                    Ok(a) => {
-                        for (k, v) in &a.timings {
-                            detail.insert(k.clone(), v.to_string());
+        if sb.net.is_none() {
+            match &sb.network_policy {
+                Some(policy) => {
+                    let (guard_uid, attached) = match sb.pending_net.take() {
+                        Some(pending) => pending
+                            .join()
+                            .map_err(|_| EngineError::host("network attachment thread panicked"))?,
+                        None => {
+                            let guard_uid = self.alloc_uid()?;
+                            let attached = crate::net::Attachment::attach(
+                                policy,
+                                &self.inventory,
+                                &crate::net::Target::of(jail),
+                                guard_uid,
+                                crate::net::Identity {
+                                    host_id: &self.cfg.host_id,
+                                    sandbox_id: &sb.id,
+                                    generation: sb.generation,
+                                    operation_id: "op_restore",
+                                },
+                            );
+                            (guard_uid, attached)
                         }
-                        sb.net = Some(a);
-                    }
-                    Err(e) => {
-                        self.free_uid(guard_uid);
-                        return Err(e);
+                    };
+                    match attached {
+                        Ok(a) => {
+                            for (k, v) in &a.timings {
+                                detail.insert(k.clone(), v.to_string());
+                            }
+                            sb.net = Some(a);
+                        }
+                        Err(e) => {
+                            self.free_uid(guard_uid);
+                            return Err(e);
+                        }
                     }
                 }
+                None => crate::net::tap_only(jail)?,
             }
-            None => crate::net::tap_only(jail)?,
         }
         detail.insert("attach_us".into(), us(t.elapsed()));
         let jail = sb.jail.as_mut().unwrap();
@@ -2098,6 +2100,41 @@ impl Engine {
                 "identity barrier: unexpected reply {other:?}"
             ))),
         }
+    }
+
+    pub fn network_call(&self, auth: Authority<'_>, request: Vec<u8>) -> Result<Outcome> {
+        let sandbox = self.sandbox(auth.sandbox_id)?;
+        let mut sb = sandbox.lock().unwrap();
+        Self::check(&sb, auth)?;
+        if sb.state == State::Allocated && sb.net.is_none() {
+            if let Some(pending) = sb.pending_net.take() {
+                let (uid, attached) = pending
+                    .join()
+                    .map_err(|_| EngineError::host("network attachment thread panicked"))?;
+                match attached {
+                    Ok(a) => sb.net = Some(a),
+                    Err(e) => {
+                        self.free_uid(uid);
+                        return Err(e);
+                    }
+                }
+            }
+        }
+        if sb.state != State::Running && sb.state != State::Allocated {
+            return Err(EngineError::in_use(
+                "sandbox has no active network generation",
+            ));
+        }
+        let net = sb.net.as_mut().ok_or_else(|| {
+            EngineError::new("ENGINE_UNQUALIFIED", "sandbox has no managed network")
+        })?;
+        let data = net.call(&request)?;
+        Ok(Outcome {
+            state: "network_reply".into(),
+            handles: vec![],
+            command: None,
+            detail: BTreeMap::from([("response_json".into(), data.to_string())]),
+        })
     }
 
     pub fn session_call(

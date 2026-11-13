@@ -21,10 +21,10 @@
 use crate::error::{EngineError, IoContext, Result};
 use crate::fc::Jail;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::UnixListener;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -204,6 +204,7 @@ pub fn tap_only(jail: &Jail) -> Result<()> {
 
 pub struct Attachment {
     guard: Option<Child>,
+    control: Option<UnixStream>,
     proxy: Option<Child>,
     pasta: Option<Child>,
     holder: Option<Child>,
@@ -302,6 +303,7 @@ impl Attachment {
         .ctx("write guard config")?;
         let mut a = Attachment {
             guard: None,
+            control: None,
             proxy: None,
             pasta: None,
             holder: None,
@@ -311,203 +313,281 @@ impl Attachment {
             dir: dir.clone(),
             timings: Vec::new(),
         };
-        // 1. TAP, gateway address and forwarding inside the private namespace.
-        in_netns(
-            &jail.netns,
-            &format!(
-                "ip link set lo up\n\
+        if policy.subscription_domains.is_none() {
+            // A private L2 bridge connects two TAP descriptors. The namespace
+            // has no address or route: the userspace director is the only exit.
+            in_netns(
+                &jail.netns,
+                &format!(
+                    "ip link set lo up\nip tuntap add dev {TAP} mode tap user {u} group {u}\nip tuntap add dev lampnet mode tap\nip link add lampbr type bridge\nip link set {TAP} master lampbr\nip link set lampnet master lampbr\nip link set {TAP} up\nip link set lampnet up\nip link set lampbr up",
+                    u = jail.uid
+                ),
+            )?;
+            let (controller, child_control) = UnixStream::pair().ctx("network control pair")?;
+            controller
+                .set_read_timeout(Some(Duration::from_secs(10)))
+                .ctx("network control timeout")?;
+            controller
+                .set_write_timeout(Some(Duration::from_secs(10)))
+                .ctx("network control timeout")?;
+            let managed_config = dir.join("managed.json");
+            let mut layers = serde_json::to_value(&policy.policy_layers).unwrap();
+            let ceiling = serde_json::to_value(&policy.policy_ceiling).unwrap();
+            if layers.is_null() {
+                layers = serde_json::json!([]);
+            }
+            let plan = serde_json::json!({
+                "control_fd":3,"guard_uid":guard_uid,"state_dir":dir,
+                "sandbox":{
+                    "subject":{"sandbox_id":who.sandbox_id,"generation":who.generation},
+                    "revision":1,
+                    "policy":{"policy_ceiling":ceiling,"policy_layers":layers,
+                        "host_addresses":["127.0.0.1"],"lan_prefixes":denies,
+                        "safety_denies":policy.safety_denies,"private_services":[],
+                        "require_allowlist":policy.require_allowlist,"public_pr":policy.require_allowlist},
+                    "provider":{"type":"direct","endpoint":"127.0.0.1:1"},
+                    "audit":dir.join("managed.ndjson"),"audit_bytes":NET_SPOOL_BYTES,
+                    "bridge":{"namespace":jail.netns,"interface":"lampnet","frame_fd":0,"guard_uid":guard_uid,
+                        "transport":{"subject":{"sandbox_id":who.sandbox_id,"generation":who.generation},
+                            "guest_addresses":[lamp_init::GUEST_ADDR],"gateway_addresses":[lamp_init::GUEST_GATEWAY],"managed_dns":true,"mtu":1500}}
+                }
+            });
+            std::fs::write(&managed_config, plan.to_string()).ctx("write managed network plan")?;
+            std::fs::set_permissions(&managed_config, std::fs::Permissions::from_mode(0o600))
+                .ctx("private network plan")?;
+            let fd = child_control.as_raw_fd();
+            let mut command = Command::new(policy.guard.with_file_name("lamp-network"));
+            command
+                .arg("managed")
+                .arg(&managed_config)
+                .env_clear()
+                .env("PATH", "/usr/bin:/bin")
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::from(
+                    std::fs::File::create(dir.join("managed.log")).ctx("network log")?,
+                ));
+            unsafe {
+                command.pre_exec(move || {
+                    if libc::dup2(fd, 3) < 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    Ok(())
+                });
+            }
+            let mut child = command.spawn().ctx("start managed network")?;
+            let mut line = String::new();
+            BufReader::new(child.stdout.take().unwrap())
+                .read_line(&mut line)
+                .ctx("managed network ready")?;
+            a.guard = Some(child);
+            if !line.contains("\"state\":\"ready\"") {
+                let log = std::fs::read_to_string(dir.join("managed.log")).unwrap_or_default();
+                return Err(EngineError::host(format!(
+                    "managed network failed: {}",
+                    log.trim()
+                )));
+            }
+            a.control = Some(controller);
+        } else {
+            // 1. TAP, gateway address and forwarding inside the private namespace.
+            in_netns(
+                &jail.netns,
+                &format!(
+                    "ip link set lo up\n\
                  ip tuntap add dev {TAP} mode tap user {u} group {u}\n\
                  ip addr add {GATEWAY_CIDR} dev {TAP}\n\
                  ip link set {TAP} up\n\
                  echo 1 > /proc/sys/net/ipv4/ip_forward\n\
                  echo 0 > /proc/sys/net/ipv6/conf/all/forwarding 2>/dev/null || true\n\
                  printf 'table ip lamp_uplink {{\\n chain post {{ type nat hook postrouting priority srcnat; policy accept; oifname \"{UPLINK}\" masquerade; }}\\n}}\\n' | nft -f -",
-                u = jail.uid
-            ),
-        )?;
-        timings.push(("net_tap_us".into(), t0.elapsed().as_micros() as u64));
-        // 2. Guard and uplink start concurrently; both must be ready first.
-        let t = Instant::now();
-        let mut guard = Command::new("nsenter")
-            .arg(format!("--net={}", jail.netns.display()))
-            .arg(&policy.guard)
-            .arg("run")
-            .arg(&net_config)
-            .env_clear()
-            .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::from(
-                std::fs::File::create(dir.join("guard.log")).ctx("guard log")?,
-            ))
-            .spawn()
-            .ctx("start lamp-guard")?;
-        let guard_out = guard.stdout.take().unwrap();
-        a.guard = Some(guard);
-        let mut proxy_command = if policy.subscription_domains.is_some() {
-            Command::new(&policy.guard)
-        } else {
-            let mut command = Command::new("nsenter");
-            command
+                    u = jail.uid
+                ),
+            )?;
+            timings.push(("net_tap_us".into(), t0.elapsed().as_micros() as u64));
+            // 2. Guard and uplink start concurrently; both must be ready first.
+            let t = Instant::now();
+            let mut guard = Command::new("nsenter")
                 .arg(format!("--net={}", jail.netns.display()))
-                .arg(&policy.guard);
-            command
-        };
-        proxy_command
-            .arg("proxy")
-            .arg(&net_config)
-            .arg(dir.join("proxy.ndjson"));
-        if policy.subscription_domains.is_some() {
-            proxy_command.arg(&jail.netns);
-        }
-        let mut proxy = proxy_command
-            .env_clear()
-            .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::from(
-                std::fs::File::create(dir.join("proxy.log")).ctx("proxy log")?,
-            ))
-            .spawn()
-            .ctx("start lamp-guard proxy")?;
-        let proxy_out = proxy.stdout.take().unwrap();
-        a.proxy = Some(proxy);
-        // A capability-less process pinned in the namespace, whose /proc
-        // entry pasta joins (the guard is non-dumpable under its own UID).
-        let holder = Command::new("nsenter")
-            .arg(format!("--net={}", jail.netns.display()))
-            // No capabilities: pasta (which keeps only a few) may only open
-            // the /proc entry of a process whose capabilities it covers.
-            .args([
-                "setpriv",
-                "--inh-caps=-all",
-                "--bounding-set=-all",
-                "sleep",
-                "infinity",
-            ])
-            .env_clear()
-            .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .ctx("start namespace holder")?;
-        let holder_pid = holder.id();
-        a.holder = Some(holder);
-        // nsenter execs sleep only after setns; wait until it is inside.
-        let want = std::fs::metadata(&jail.netns).map(|m| {
-            use std::os::unix::fs::MetadataExt;
-            m.ino()
-        });
-        let deadline = Instant::now() + Duration::from_secs(2);
-        loop {
-            let now = std::fs::metadata(format!("/proc/{holder_pid}/ns/net")).map(|m| {
+                .arg(&policy.guard)
+                .arg("run")
+                .arg(&net_config)
+                .env_clear()
+                .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::from(
+                    std::fs::File::create(dir.join("guard.log")).ctx("guard log")?,
+                ))
+                .spawn()
+                .ctx("start lamp-guard")?;
+            let guard_out = guard.stdout.take().unwrap();
+            a.guard = Some(guard);
+            let mut proxy_command = if policy.subscription_domains.is_some() {
+                Command::new(&policy.guard)
+            } else {
+                let mut command = Command::new("nsenter");
+                command
+                    .arg(format!("--net={}", jail.netns.display()))
+                    .arg(&policy.guard);
+                command
+            };
+            proxy_command
+                .arg("proxy")
+                .arg(&net_config)
+                .arg(dir.join("proxy.ndjson"));
+            if policy.subscription_domains.is_some() {
+                proxy_command.arg(&jail.netns);
+            }
+            let mut proxy = proxy_command
+                .env_clear()
+                .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::from(
+                    std::fs::File::create(dir.join("proxy.log")).ctx("proxy log")?,
+                ))
+                .spawn()
+                .ctx("start lamp-guard proxy")?;
+            let proxy_out = proxy.stdout.take().unwrap();
+            a.proxy = Some(proxy);
+            // A capability-less process pinned in the namespace, whose /proc
+            // entry pasta joins (the guard is non-dumpable under its own UID).
+            let holder = Command::new("nsenter")
+                .arg(format!("--net={}", jail.netns.display()))
+                // No capabilities: pasta (which keeps only a few) may only open
+                // the /proc entry of a process whose capabilities it covers.
+                .args([
+                    "setpriv",
+                    "--inh-caps=-all",
+                    "--bounding-set=-all",
+                    "sleep",
+                    "infinity",
+                ])
+                .env_clear()
+                .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .ctx("start namespace holder")?;
+            let holder_pid = holder.id();
+            a.holder = Some(holder);
+            // nsenter execs sleep only after setns; wait until it is inside.
+            let want = std::fs::metadata(&jail.netns).map(|m| {
                 use std::os::unix::fs::MetadataExt;
                 m.ino()
             });
-            if now.is_ok() && now.as_ref().ok() == want.as_ref().ok() {
-                break;
+            let deadline = Instant::now() + Duration::from_secs(2);
+            loop {
+                let now = std::fs::metadata(format!("/proc/{holder_pid}/ns/net")).map(|m| {
+                    use std::os::unix::fs::MetadataExt;
+                    m.ino()
+                });
+                if now.is_ok() && now.as_ref().ok() == want.as_ref().ok() {
+                    break;
+                }
+                if Instant::now() > deadline {
+                    a.detach();
+                    return Err(EngineError::host("namespace holder did not enter netns"));
+                }
+                std::thread::sleep(Duration::from_micros(200));
             }
-            if Instant::now() > deadline {
-                a.detach();
-                return Err(EngineError::host("namespace holder did not enter netns"));
-            }
-            std::thread::sleep(Duration::from_micros(200));
-        }
-        let pasta = Command::new(&policy.pasta)
-            .args(["--foreground", "--quiet", "-4", "--config-net"])
-            .args([
-                "--ns-ifname",
-                UPLINK,
-                "--no-map-gw",
-                "--no-dhcp",
-                "--no-ndp",
-            ])
-            .args([
-                "--no-dhcpv6",
-                "--no-ra",
-                "-t",
-                "none",
-                "-u",
-                "none",
-                "-T",
-                "none",
-                "-U",
-                "none",
-            ])
-            // Ubuntu's AppArmor profile for pasta allows only /proc/PID/ns/*
-            // and setns needs CAP_SYS_ADMIN, so it starts as root and joins
-            // through the guard's namespace; after setup pasta isolates
-            // itself (detached user namespace, no capabilities, seccomp).
-            .args(["--runas", "0", "--netns-only", "--no-netns-quit", "--netns"])
-            .arg(format!("/proc/{holder_pid}/ns/net"))
-            .env_clear()
-            .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::from(
-                std::fs::File::create(dir.join("pasta.log")).ctx("pasta log")?,
-            ))
-            .spawn()
-            .ctx("start pasta")?;
-        a.pasta = Some(pasta);
-        let mut line = String::new();
-        BufReader::new(guard_out)
-            .read_line(&mut line)
-            .ctx("guard ready line")?;
-        if !line.contains("\"state\":\"ready\"") {
-            let log = std::fs::read_to_string(dir.join("guard.log")).unwrap_or_default();
-            a.detach();
-            return Err(EngineError::host(format!(
-                "lamp-guard did not become ready: {}",
-                log.trim()
-            )));
-        }
-        timings.push(("net_guard_us".into(), t.elapsed().as_micros() as u64));
-        let mut line = String::new();
-        BufReader::new(proxy_out)
-            .read_line(&mut line)
-            .ctx("proxy ready line")?;
-        if !line.contains("\"state\":\"ready\"") {
-            let log = std::fs::read_to_string(dir.join("proxy.log")).unwrap_or_default();
-            a.detach();
-            return Err(EngineError::host(format!(
-                "lamp-guard proxy did not become ready: {}",
-                log.trim()
-            )));
-        }
-        timings.push(("net_proxy_us".into(), t.elapsed().as_micros() as u64));
-        // The uplink is ready once its interface carries a default route,
-        // read from the namespace's own routing table through the holder.
-        let deadline = Instant::now() + Duration::from_secs(5);
-        let routes = format!("/proc/{holder_pid}/net/route");
-        loop {
-            let table = std::fs::read_to_string(&routes).unwrap_or_default();
-            if table.lines().skip(1).any(|l| {
-                let mut f = l.split_whitespace();
-                f.next() == Some(UPLINK) && f.next() == Some("00000000")
-            }) {
-                break;
-            }
-            if Instant::now() > deadline
-                || a.pasta
-                    .as_mut()
-                    .unwrap()
-                    .try_wait()
-                    .ok()
-                    .flatten()
-                    .is_some()
-            {
-                let log = std::fs::read_to_string(dir.join("pasta.log")).unwrap_or_default();
+            let pasta = Command::new(&policy.pasta)
+                .args(["--foreground", "--quiet", "-4", "--config-net"])
+                .args([
+                    "--ns-ifname",
+                    UPLINK,
+                    "--no-map-gw",
+                    "--no-dhcp",
+                    "--no-ndp",
+                ])
+                .args([
+                    "--no-dhcpv6",
+                    "--no-ra",
+                    "-t",
+                    "none",
+                    "-u",
+                    "none",
+                    "-T",
+                    "none",
+                    "-U",
+                    "none",
+                ])
+                // Ubuntu's AppArmor profile for pasta allows only /proc/PID/ns/*
+                // and setns needs CAP_SYS_ADMIN, so it starts as root and joins
+                // through the guard's namespace; after setup pasta isolates
+                // itself (detached user namespace, no capabilities, seccomp).
+                .args(["--runas", "0", "--netns-only", "--no-netns-quit", "--netns"])
+                .arg(format!("/proc/{holder_pid}/ns/net"))
+                .env_clear()
+                .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::from(
+                    std::fs::File::create(dir.join("pasta.log")).ctx("pasta log")?,
+                ))
+                .spawn()
+                .ctx("start pasta")?;
+            a.pasta = Some(pasta);
+            let mut line = String::new();
+            BufReader::new(guard_out)
+                .read_line(&mut line)
+                .ctx("guard ready line")?;
+            if !line.contains("\"state\":\"ready\"") {
+                let log = std::fs::read_to_string(dir.join("guard.log")).unwrap_or_default();
                 a.detach();
                 return Err(EngineError::host(format!(
-                    "uplink did not come up: {}",
+                    "lamp-guard did not become ready: {}",
                     log.trim()
                 )));
             }
-            std::thread::sleep(Duration::from_micros(200));
+            timings.push(("net_guard_us".into(), t.elapsed().as_micros() as u64));
+            let mut line = String::new();
+            BufReader::new(proxy_out)
+                .read_line(&mut line)
+                .ctx("proxy ready line")?;
+            if !line.contains("\"state\":\"ready\"") {
+                let log = std::fs::read_to_string(dir.join("proxy.log")).unwrap_or_default();
+                a.detach();
+                return Err(EngineError::host(format!(
+                    "lamp-guard proxy did not become ready: {}",
+                    log.trim()
+                )));
+            }
+            timings.push(("net_proxy_us".into(), t.elapsed().as_micros() as u64));
+            // The uplink is ready once its interface carries a default route,
+            // read from the namespace's own routing table through the holder.
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let routes = format!("/proc/{holder_pid}/net/route");
+            loop {
+                let table = std::fs::read_to_string(&routes).unwrap_or_default();
+                if table.lines().skip(1).any(|l| {
+                    let mut f = l.split_whitespace();
+                    f.next() == Some(UPLINK) && f.next() == Some("00000000")
+                }) {
+                    break;
+                }
+                if Instant::now() > deadline
+                    || a.pasta
+                        .as_mut()
+                        .unwrap()
+                        .try_wait()
+                        .ok()
+                        .flatten()
+                        .is_some()
+                {
+                    let log = std::fs::read_to_string(dir.join("pasta.log")).unwrap_or_default();
+                    a.detach();
+                    return Err(EngineError::host(format!(
+                        "uplink did not come up: {}",
+                        log.trim()
+                    )));
+                }
+                std::thread::sleep(Duration::from_micros(200));
+            }
+            timings.push(("net_uplink_us".into(), t.elapsed().as_micros() as u64));
         }
-        timings.push(("net_uplink_us".into(), t.elapsed().as_micros() as u64));
         // 3. Audit listener on the jail's vsock UDS for guest port 5000.
         let path = jail.audit_socket.clone();
         let _ = std::fs::remove_file(&path);
@@ -566,8 +646,47 @@ impl Attachment {
         Ok(a)
     }
 
+    pub fn call(&mut self, request: &[u8]) -> Result<serde_json::Value> {
+        if request.len() > 60 * 1024 {
+            return Err(EngineError::invalid("network control request too large"));
+        }
+        let stream = self.control.as_mut().ok_or_else(|| {
+            EngineError::new(
+                "ENGINE_UNQUALIFIED",
+                "managed networking unavailable for this sandbox",
+            )
+        })?;
+        stream.write_all(request).ctx("network request")?;
+        stream.write_all(b"\n").ctx("network request")?;
+        // Read exactly one response without consuming a later reply.
+        let mut reply = Vec::new();
+        use std::io::Read;
+        loop {
+            let mut byte = [0u8];
+            stream.read_exact(&mut byte).ctx("network reply")?;
+            if byte[0] == b'\n' {
+                break;
+            }
+            if reply.len() >= 128 * 1024 {
+                return Err(EngineError::host("network reply too large"));
+            }
+            reply.push(byte[0]);
+        }
+        let reply: serde_json::Value = serde_json::from_slice(&reply)
+            .map_err(|_| EngineError::host("invalid network reply"))?;
+        if reply["state"] != "applied" {
+            return Err(EngineError::invalid(
+                reply["error"]
+                    .as_str()
+                    .unwrap_or("network request rejected"),
+            ));
+        }
+        Ok(reply["data"].clone())
+    }
+
     /// Stops receivers, uplink and guard. Call only after the VMM is gone.
     pub fn detach(&mut self) {
+        self.control.take();
         self.stop.store(true, Ordering::SeqCst);
         if let Some(l) = self.listener.take() {
             let _ = l.join();

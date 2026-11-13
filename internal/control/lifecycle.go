@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"lamp.eilmer.si/internal/network"
 	"lamp.eilmer.si/pkg/api"
 	pb "lamp.eilmer.si/pkg/workerpb"
 )
@@ -249,6 +250,24 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 			if err := s.worker.perform(ctx, r, "allocated"); err != nil {
 				return nil, err
 			}
+			if sb.NetworkPolicyId != nil {
+				s.readLock()
+				n := s.life.Networks[*sb.NetworkPolicyId]
+				var layers []network.Layer
+				if n != nil {
+					layer, e := policyLayer(n.R)
+					if e == nil {
+						layers = []network.Layer{layer}
+					}
+				}
+				s.mu.Unlock()
+				if len(layers) == 0 {
+					return nil, reject("DATA_UNAVAILABLE", "saved network policy unavailable")
+				}
+				if _, e := s.networkCall(ctx, id, gen, map[string]any{"operation": "policy_update", "expected_revision": 1, "revision": 2, "policy_layers": layers}); e != nil {
+					return nil, e
+				}
+			}
 			r = s.workerRequest(ctx, "restore", id, gen)
 			r.Command = &pb.Request_Restore{Restore: &pb.Restore{CaptureId: capture}}
 			err := s.worker.perform(ctx, r, "restored")
@@ -281,6 +300,11 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 			l := s.lifeSB(id)
 			if err == nil {
 				sb.State = "ready"
+				if sb.NetworkPolicyId != nil {
+					sb.EffectivePolicyRevision = pointer(uint64(2))
+				} else {
+					sb.EffectivePolicyRevision = pointer(uint64(1))
+				}
 				s.retireSnapshot(sb.SnapshotId)
 				sb.SnapshotId = nil
 				s.life.Discards[capture] = "resumed"
@@ -480,6 +504,9 @@ func (s *Service) taintOf(id string) []string {
 // --- per-sandbox overrides (LIF-003) ---------------------------------------
 
 func (s *Service) planSandboxUpdate(a caller, in map[string]any) (lifePlan, error) {
+	if _, ok := in["network_policy_id"]; ok {
+		return s.planSandboxPolicy(a, in)
+	}
 	id := textField(in, "sandbox_id")
 	sb, err := s.lifeSandboxFor(a, id)
 	if err != nil {

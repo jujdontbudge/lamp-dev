@@ -57,6 +57,7 @@ message Compatibility {
 message DeviceRequest { string id = 1; string type = 2; uint64 size_mib = 3; }
 message Allocate { Resources resources = 1; string engine_id = 2; repeated HandleGrant handles = 3; repeated DeviceRequest devices = 4; bool validate_only = 5; string template_id = 6; bool shared_disk = 7; }
 message Start { repeated string argv = 1; string cwd = 2; map<string,string> env = 3; }
+message NetworkCall { bytes request_json = 1; }
 message SessionCall { bytes request_json = 1; string bridge_source = 2; }
 message Stop { bool force = 1; }
 // Artifacts are opaque handle references. Their on-disk format remains unfrozen.
@@ -87,6 +88,7 @@ message Request {
     Release release = 17;
     Rebuild rebuild = 18;
     SessionCall session_call = 19;
+    NetworkCall network_call = 20;
   }
 }
 message WorkerError { string code = 1; string message = 2; bool retryable = 3; }

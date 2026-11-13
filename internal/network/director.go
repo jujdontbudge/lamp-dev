@@ -126,12 +126,13 @@ func (d *Director) Resolve(ctx context.Context, subject Subject, name, protocol 
 		d.mu.Unlock()
 		return nil, ErrDenied
 	}
+	provider, revision := d.provider, d.revision
 	d.mu.Unlock()
 	ctx, cancel := context.WithTimeout(ctx, DialTimeout)
 	defer cancel()
 	stop := context.AfterFunc(d.root, cancel)
 	defer stop()
-	ips, err := d.provider.Resolve(ctx, name)
+	ips, err := provider.Resolve(ctx, name)
 	if err != nil {
 		return nil, ErrUnavailable
 	}
@@ -140,6 +141,12 @@ func (d *Director) Resolve(ctx context.Context, subject Subject, name, protocol 
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if d.provider != provider || d.revision != revision {
+		return nil, ErrRevision
+	}
+	if err := d.bindDNSLocked(name, ips); err != nil {
+		return nil, err
+	}
 	permits := make([]Permit, 0, len(ips))
 	for _, ip := range ips {
 		target := Destination{Address: ip, Protocol: protocol, Port: port}.canonical()

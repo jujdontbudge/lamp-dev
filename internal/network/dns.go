@@ -19,13 +19,16 @@ func (d *Director) dnsIPs(ctx context.Context, name string, kind dnsmessage.Type
 	defer cancel()
 	stop := context.AfterFunc(d.root, cancel)
 	defer stop()
-	ips, err := d.provider.Resolve(ctx, strings.TrimSuffix(name, "."))
+	d.mu.Lock()
+	provider, revision := d.provider, d.revision
+	d.mu.Unlock()
+	ips, err := provider.Resolve(ctx, strings.TrimSuffix(name, "."))
 	if err != nil || len(ips) > 64 {
 		return nil, ErrUnavailable
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if d.closed {
+	if d.closed || d.provider != provider || d.revision != revision || d.bindDNSLocked(name, ips) != nil {
 		return nil, ErrUnavailable
 	}
 	ports := map[uint16]bool{1: true, 53: true, 80: true, 443: true}
@@ -85,6 +88,9 @@ func (d *Director) dnsIPs(ctx context.Context, name string, kind dnsmessage.Type
 func (b *FrameBridge) isDNS(idAddress netip.Addr, port uint16) bool {
 	if port != 53 {
 		return false
+	}
+	if b.config.ManagedDNS {
+		return true
 	}
 	for _, a := range b.config.GatewayAddresses {
 		if a == idAddress {

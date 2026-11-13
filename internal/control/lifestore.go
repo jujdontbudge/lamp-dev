@@ -30,6 +30,7 @@ const lifeStateFile = "lifecycle.json"
 // objects (map form) so reads return exactly what was committed; private
 // fields sit beside them and are never serialized to callers.
 type lifeState struct {
+	Networks  map[string]*lifeNetwork  `json:"networks,omitempty"`
 	Jobs      map[string]*ciJob        `json:"jobs,omitempty"`
 	AuthFlows map[string]*ciAuthFlow   `json:"auth_flows,omitempty"`
 	Triggers  map[string]*lifeTrigger  `json:"triggers,omitempty"`
@@ -184,6 +185,12 @@ func (s *Service) loadLife() error {
 		if err := os.MkdirAll(filepath.Join(s.dir, d), 0700); err != nil {
 			return err
 		}
+	}
+	// Admission locks belong to the previous daemon. Its interrupted
+	// operations are outcome_unknown, and no network effects are replayed.
+	// Fresh owner requests must still be able to revoke surviving access.
+	for _, n := range st.Networks {
+		n.Pending = false
 	}
 	s.life = st
 	return nil

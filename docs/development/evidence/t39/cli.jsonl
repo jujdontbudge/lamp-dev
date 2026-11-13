@@ -1,0 +1,9 @@
+{"at": "2026-11-13T02:19:58Z", "step": "lampd started", "value": {"lampd_sha256": "8f91ddf0bf410feb49e6d70d7d08e36d26d2fce1aa56fa56f5426b46afe1c73f", "pid": 1228644}}
+{"at": "2026-11-13T02:19:58Z", "step": "before sandbox create", "value": {"available_mib": 12597, "firecracker": 1}}
+{"at": "2026-11-13T02:19:58Z", "step": "sandbox ready", "value": {"sandbox_id": "sb_f5744badb9159fbb7a7b82457c094a2f", "state": "ready"}}
+{"at": "2026-11-13T02:19:59Z", "step": "CLI preview and transient share", "value": {"URL_returned": true, "body": "cli-preview", "share_replay_has_bearer": false, "status": 200}}
+{"at": "2026-11-13T02:19:59Z", "step": "result", "value": {"status": "passed"}}
+{"at": "2026-11-13T02:19:59Z", "step": "lampd stopped", "value": {"pid": 1228644}}
+{"at": "2026-11-13T02:19:59Z", "step": "captures left after lampd stopped", "value": []}
+{"at": "2026-11-13T02:19:59Z", "step": "worker stopped", "value": {"pid": 1228317}}
+{"at": "2026-11-13T02:19:59Z", "step": "final budget", "value": {"available_mib": 12621, "firecracker": 1}}

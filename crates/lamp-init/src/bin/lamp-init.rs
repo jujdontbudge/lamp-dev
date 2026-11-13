@@ -62,6 +62,29 @@ mod linux {
                 other => eprintln!("lamp-init: ip {args:?}: {other:?}"),
             }
         }
+        // A seed may contain the build host's systemd-resolved stub. This
+        // guest runs Lamp as PID 1, so no local DNS daemon serves that address.
+        // Managed links intercept DNS to this numeric resolver and use the
+        // sandbox's selected exit; the legacy adapter can also route it.
+        let resolver = std::fs::read_to_string("/etc/resolv.conf").unwrap_or_default();
+        let usable = resolver.lines().any(|line| {
+            let mut words = line.split_whitespace();
+            words.next() == Some("nameserver")
+                && words
+                    .next()
+                    .and_then(|s| s.parse::<std::net::IpAddr>().ok())
+                    .is_some_and(|ip| !ip.is_loopback() && !ip.is_unspecified())
+        });
+        if !usable {
+            if let Err(e) = std::fs::write(
+                "/etc/resolv.conf.lamp",
+                "nameserver 1.1.1.1\noptions timeout:2 attempts:2\n",
+            )
+            .and_then(|()| std::fs::rename("/etc/resolv.conf.lamp", "/etc/resolv.conf"))
+            {
+                eprintln!("lamp-init: configure DNS: {e}");
+            }
+        }
     }
 
     fn start_subscription_relay() {

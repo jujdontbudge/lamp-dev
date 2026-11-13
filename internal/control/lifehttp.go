@@ -119,6 +119,11 @@ func (s *Service) lifeHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		return
 	}
 	wait := uintField(in, "wait_ms")
+	// Share URLs are transient: operation reads cannot recover a bearer.
+	// Give the initial response time to carry its one permitted disclosure.
+	if op.Name == "port_share_link" && wait == 0 {
+		wait = 60000
+	}
 	if wait > 60000 {
 		writeError(w, id, "INVALID_ARGUMENT", "wait_ms limit is 60000", nil)
 		return
@@ -429,6 +434,18 @@ func (s *Service) lifeRespond(w http.ResponseWriter, r *http.Request, requestID,
 	}
 	if op.State == "succeeded" && op.Outcome != nil {
 		result.Result = op.Outcome.Result
+		if value(op.OperationName) == "port_share_link" && op.Outcome != nil && op.Outcome.Result != nil && !replayed {
+			var out map[string]any
+			json.Unmarshal(*op.Outcome.Result, &out)
+			grant := textField(out, "grant_id")
+			if url := s.previewSecrets[grant]; url != "" {
+				out["url"], out["secret_available"] = url, true
+				delete(s.previewSecrets, grant)
+				raw, _ := json.Marshal(out)
+				transient := api.AdapterDocument(raw)
+				result.Result = &transient
+			}
+		}
 	}
 	send = prepareJSON(w, status, result)
 }
@@ -474,6 +491,12 @@ func (s *Service) lifeItems(a caller, kind string) []map[string]any {
 		}
 	}
 	switch kind {
+	case "port", "network_policy", "network_attachment", "grant", "configuration", "connection":
+		for _, n := range s.life.Networks {
+			if textField(n.R, "kind") == kind {
+				add(n.R)
+			}
+		}
 	case "job":
 		for _, v := range s.life.Jobs {
 			add(v.R)
