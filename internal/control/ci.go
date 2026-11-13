@@ -42,6 +42,7 @@ type ciJob struct {
 func init() {
 	lifeKinds["job"] = true
 	lifeHandlers["job_create"] = (*Service).planJobCreate
+	lifeHandlers["job_delete"] = (*Service).planJobDelete
 	lifeHandlers["job_cancel"] = (*Service).planJobCancel
 	lifeHandlers["job_reconcile"] = (*Service).planJobReconcile
 }
@@ -136,7 +137,7 @@ func (s *Service) planJobCreate(a caller, in map[string]any) (lifePlan, error) {
 	if err != nil || id <= 0 {
 		return lifePlan{}, reject("INVALID_ARGUMENT", "invalid forge job id")
 	}
-	if _, ok := s.ciRepo(plugin, name); !ok {
+	if _, ok := s.ciRepo(plugin, name); !ok || !s.ciConfiguredRepository(plugin, name) {
 		return lifePlan{}, reject("SCOPE_DENIED", "repository is not enrolled")
 	}
 	for _, j := range s.life.Jobs {
@@ -266,6 +267,12 @@ func (s *Service) ciController(pending []string) {
 					continue
 				}
 				for _, r := range f.Repos() {
+					s.readLock()
+					selected := s.ciConfiguredRepository(plugin, r.Name)
+					s.mu.Unlock()
+					if !selected {
+						continue
+					}
 					ctx, cancel := context.WithTimeout(s.context(), time.Minute)
 					jobs, e := f.Queued(ctx, r)
 					cancel()

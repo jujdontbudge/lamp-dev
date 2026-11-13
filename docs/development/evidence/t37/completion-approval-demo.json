@@ -1,0 +1,1 @@
+{"operation": "approval_delete", "sandbox_state_before": "ready", "approved_action_deleted": true, "deleted_after_restart": true, "invocation_error": "APPROVAL_REQUIRED", "effects_observed": 0, "capacity_before": {"firecracker": 1, "available_mib": 17703}, "sandbox_deleted": true}

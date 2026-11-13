@@ -127,3 +127,33 @@ passed. See [rebase-discovery-demo.json](evidence/t37/rebase-discovery-demo.json
 The earlier 203-operation observations and native CI run remain historical
 evidence. Sol's two-round approval covers the T37 behavior before this rebase;
 no additional review round was run for the integration.
+
+## Exhaustive ownership audit and completion
+
+The coordinator requested an exhaustive audit of all uninstalled schema
+operations. The schema now has 332 names, including T38's two relay operations.
+T37 installed the 12 otherwise unowned operations; all remaining 110 belong to
+other tickets. The full list and ownership rationale are in
+[T37-operation-ownership.md](T37-operation-ownership.md).
+
+A disposable daemon and native public-source session demonstrated eleven new
+operations, configuration pin persistence and rejection of a different enrolled
+repository. CLI, HTTP and MCP each exposed the same 222 names. The job deletion
+proof deliberately used an offline local provider and a terminal failed job;
+it does not claim another successful CI run. The successful native Forgejo
+fresh-VM CI demonstration above remains the provider execution evidence.
+See [completion-demo.json](evidence/t37/completion-demo.json).
+
+A separate real Ubuntu VM demonstrated approval deletion after approval,
+persistence across daemon restart, and rejection of the deleted approval before
+any webhook effect. The VM reached ready and was deleted. Admission observed
+one existing Firecracker and 17703 MiB available. The ticket daemon and worker
+stopped; its tmpfs, store, audit directory and temporary source directory were
+removed. See [completion-approval-demo.json](evidence/t37/completion-approval-demo.json).
+Setup first required T33's trusted audit-release helper and a private socket
+parent directory; neither failed setup admitted a VM. An earlier local approval
+attempt without a worker returned 503 and is not successful approval evidence.
+
+`make build`, targeted Go vet and the existing scoped MCP discovery regression
+passed for the expansion. No tests were added for these twelve operations;
+they were demonstrated using the actual binaries.

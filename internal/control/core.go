@@ -530,6 +530,12 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 		if engine, _, err := s.localEngine(); err == nil {
 			items = append(items, engine)
 		}
+	case "configuration":
+		if s.role(a) == "owner" {
+			for _, config := range c.Configurations {
+				items = append(items, object(config))
+			}
+		}
 	case "plugin", "adapter":
 		items = append(items, s.pluginResources(kind)...)
 	case "grant":
@@ -665,6 +671,12 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 		return ref, nil, nil, nil, reject(code, message)
 	}
 	kind, verb, _ := strings.Cut(op.Scope, ".")
+	if kind == "configuration" {
+		return s.configurationMutation(a, op, in)
+	}
+	if op.Name == "share_update" {
+		return s.updateControlShare(a, in)
+	}
 	if kind == "plugin" {
 		return s.pluginMutation(a, op, in)
 	}

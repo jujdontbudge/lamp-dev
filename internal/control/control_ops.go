@@ -28,15 +28,17 @@ func (s *Service) ciPlugin(system string) map[string]any {
 	m["adapter_ids"] = []string{strings.ReplaceAll(system, "-", "_")}
 	m["labels"] = map[string]string{"runner_mode": ciRunnerMode[system], "system": system}
 	if saved := s.journal.Control.Plugins[id]; saved != nil {
-		for _, key := range []string{"revision", "updated_at", "state", "labels"} {
-			m[key] = saved[key]
+		for _, key := range []string{"revision", "updated_at", "state", "labels", "trust_class", "config_ref"} {
+			if value, ok := saved[key]; ok {
+				m[key] = value
+			}
 		}
 	}
 	return m
 }
 func (s *Service) ciEnabled(id string) bool {
 	saved := s.journal.Control.Plugins[id]
-	return s.forges[id] != nil && (saved == nil || textField(saved, "state") == "enabled")
+	return s.forges[id] != nil && (saved == nil || textField(saved, "state") == "enabled") && s.ciConfigurationValid(id)
 }
 func (s *Service) pluginResources(kind string) []map[string]any {
 	out := []map[string]any{}
@@ -48,6 +50,7 @@ func (s *Service) pluginResources(kind string) []map[string]any {
 			m["id"], m["plugin_id"], m["digest"] = strings.ReplaceAll(system, "-", "_"), p["id"], p["digest"]
 			m["created_at"], m["updated_at"] = p["created_at"], p["updated_at"]
 			m["certification"] = "unqualified"
+			m["config_schema"], m["schema_digest"] = ciConfigurationSchema(), digest(ciConfigurationSchema())
 		}
 		out = append(out, m)
 	}
@@ -66,9 +69,11 @@ func (s *Service) pluginMutation(a caller, op api.OperationDescriptor, in map[st
 	if verb == "create" {
 		fields = "package_blob_id digest type labels"
 	} else if verb == "update" {
-		fields += " labels"
+		fields += " labels config_ref"
 	} else if verb == "test" {
 		fields += " suite_digest"
+	} else if verb == "trust" {
+		fields += " digest warning_acknowledged"
 	}
 	if err := acceptFields(in, fields); err != nil {
 		return ref, nil, nil, nil, err
@@ -93,17 +98,33 @@ func (s *Service) pluginMutation(a caller, op api.OperationDescriptor, in map[st
 		return fail("REVISION_CONFLICT", fmt.Sprintf("current revision is %d", uintField(m, "revision")))
 	}
 	switch verb {
-	case "create":
-		if textField(in, "package_blob_id") != textField(m, "package_blob_id") || textField(in, "digest") != textField(m, "digest") || textField(in, "type") != "" && textField(in, "type") != "ci" {
+	case "create", "enable":
+		if verb == "create" && (textField(in, "package_blob_id") != textField(m, "package_blob_id") || textField(in, "digest") != textField(m, "digest") || textField(in, "type") != "" && textField(in, "type") != "ci") {
 			return fail("INVALID_ARGUMENT", "built-in package identity or digest mismatch")
 		}
 		if s.forges[ref.Id] == nil {
 			return fail("AUTH_TRANSPORT_UNSUPPORTED", "enroll this CI system with lampd --ci-config before enabling its plugin")
 		}
 		m["state"] = "enabled"
+	case "disable":
+		m["state"] = "disabled"
+	case "trust":
+		if textField(in, "digest") != textField(m, "digest") || in["warning_acknowledged"] != true {
+			return fail("INVALID_ARGUMENT", "trust requires the exact shipped digest and explicit warning acknowledgment")
+		}
+		m["trust_class"] = "owner_approved"
 	case "delete":
 		m["state"] = "revoked"
+		delete(m, "config_ref")
 	case "update":
+		if raw, ok := in["config_ref"]; ok {
+			var configRef api.ConfigRef
+			assign(object(raw), &configRef)
+			if !s.validCIConfiguration(ref.Id, configRef) {
+				return fail("INVALID_ARGUMENT", "configuration is not a ready immutable configuration for this plugin")
+			}
+			m["config_ref"] = raw
+		}
 	case "test":
 		if textField(in, "suite_digest") != "" {
 			return fail("INVALID_ARGUMENT", "external test suites are not installed")

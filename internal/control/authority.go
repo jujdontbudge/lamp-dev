@@ -36,6 +36,7 @@ type storedKey struct {
 	SHA256 string  `json:"sha256"`
 }
 type controlState struct {
+	Configurations   map[string]api.Configuration `json:"configurations,omitempty"`
 	Plugins          map[string]map[string]any    `json:"plugins,omitempty"`
 	Grants           map[string]api.Grant         `json:"grants,omitempty"`
 	OwnerID          string                       `json:"owner_id"`

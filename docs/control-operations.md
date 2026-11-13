@@ -194,3 +194,35 @@ grant stays revoked across restart; the custodian must enroll a **new** supervis
 grant to restore execution. Receipts distinguish host cleanup acknowledgment
 from admission. These are daemon control grants, not broker credentials or
 plugin worker handle grants.
+
+## Additional control maintenance
+
+`plugin enable` and `plugin disable` control new CI intake. `plugin trust` records
+owner consent for the exact shipped package `digest` and requires
+`warning_acknowledged: true`. These operations do not upload executable code or
+credentials. Existing jobs retain cleanup authority when a plugin is disabled.
+
+Built-in CI adapters expose an immutable `config_schema` and `schema_digest`.
+`configuration create` accepts that exact digest and a document containing only
+`{"repository":"disposable-account/public-source"}`. The repository must already
+be enrolled by the host owner. Credential-source references are refused here;
+CI credentials stay in the private host enrollment. Get/list return immutable
+configuration records. Pin one through `plugin update --config-ref-json` using
+its `configuration_id` and `digest`; this restricts explicit and polled intake
+to that enrolled repository. It grants no additional network or runner rights.
+Deleting a pinned configuration is refused. Revoke the plugin with `plugin delete`
+to remove its pin before `configuration delete`. Configuration admission and
+pins survive daemon restart.
+
+`approval delete` removes an approval, including an approved one, so it cannot
+subsequently authorize an effect. `job delete` removes a terminal job record;
+active jobs and jobs with retained sandboxes must be canceled/reconciled and
+have their sandbox deleted first. Artifacts remain separately managed.
+`artifact update` changes labels and future retention expiry, never captured
+bytes, provenance or collection completeness.
+
+`share update` changes labels and can shorten expiry. Changing its recipient,
+resource or permissions requires explicit revoke and reissue. `task update`
+changes labels and can shorten a running task's deadline. It cannot reset a
+budget, extend authority, change ancestry or reassign resources. Other fields
+return an explicit unsupported-field error.

@@ -269,7 +269,23 @@ func (s *Service) accountMutation(a caller, op api.OperationDescriptor, in map[s
 		assign(m, &b)
 		c.Budgets[ref.Id] = b
 	} else if kind == "task" {
-		if verb == "create" {
+		if verb == "update" {
+			if err := acceptFields(in, "task_id deadline_at labels"); err != nil {
+				return ref, nil, nil, nil, err
+			}
+			if textField(m, "state") != "running" {
+				return fail("RESOURCE_IN_USE", "only running tasks may be updated")
+			}
+			if raw, ok := in["deadline_at"]; ok {
+				deadline := fmt.Sprint(raw)
+				when, err := time.Parse(time.RFC3339Nano, deadline)
+				if err != nil || !s.enforcementNow().Before(when) || earlier(textField(m, "deadline_at"), deadline) {
+					return fail("INVALID_ARGUMENT", "task deadline may only be shortened into the future")
+				}
+				m["deadline_at"] = deadline
+			}
+			applyLabels(m, in)
+		} else if verb == "create" {
 			for _, k := range []string{"parent_task_id", "budget_id", "deadline_at", "labels", "visibility"} {
 				if v, ok := in[k]; ok {
 					m[k] = v

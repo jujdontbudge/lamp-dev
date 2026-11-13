@@ -43,6 +43,7 @@ func init() {
 	lifeHandlers["volume_delete"] = (*Service).planVolumeDelete
 	lifeHandlers["attachment_create"] = (*Service).planAttachmentCreate
 	lifeHandlers["attachment_delete"] = (*Service).planAttachmentDelete
+	lifeHandlers["artifact_update"] = (*Service).planArtifactUpdate
 	lifeHandlers["artifact_create"] = (*Service).planArtifactCreate
 	lifeHandlers["artifact_finalize"] = (*Service).planArtifactFinalize
 	lifeHandlers["artifact_delete"] = (*Service).planArtifactDelete
