@@ -82,3 +82,5 @@ failures; the final run is separate evidence.
 - `git diff --check`: passed.
 
 No new automated tests or benchmark runs were added for implementation.
+Sol review subsequently supplied one targeted confinement regression test;
+[review ledger](sol-review.md) records its failure and the fixes.

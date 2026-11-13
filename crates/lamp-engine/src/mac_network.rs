@@ -21,7 +21,7 @@ impl Attachment {
     }
     pub fn start(
         worker: &Path,
-        dir: &Path,
+        network_root: &Path,
         id: &str,
         generation: u64,
         uid: u32,
@@ -29,8 +29,10 @@ impl Attachment {
         allow_egress: bool,
     ) -> Result<Self> {
         let helper = worker.with_file_name("lamp-network");
-        let root = dir.join(format!(
-            "network-{}",
+        // This root is traversable before sb.dir is handed to the VMM UID,
+        // and is never among the VMM's recursive filesystem grants.
+        let root = network_root.join(format!(
+            "{id}-g{generation}-{}",
             lamp_init::hex_encode(&random_bytes::<8>())
         ));
         std::fs::create_dir(&root).ctx("network directory")?;

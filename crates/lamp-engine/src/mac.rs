@@ -650,6 +650,7 @@ impl Engine {
                 "captures",
                 "sb",
                 "staging",
+                "network",
                 "grants",
                 "keys",
             ] {
@@ -663,6 +664,7 @@ impl Engine {
             fsutil::chmod(&cfg.store, 0o755)?;
             fsutil::chmod(&cfg.store.join("sb"), 0o711)?;
             fsutil::chmod(&cfg.store.join("staging"), 0o711)?;
+            fsutil::chmod(&cfg.store.join("network"), 0o711)?;
             fsutil::chmod(&cfg.store.join("templates"), 0o755)?;
             if let Some(ram) = &cfg.ram_dir {
                 std::fs::create_dir_all(ram).ctx("create RAM capture dir")?;
@@ -1449,7 +1451,7 @@ impl Engine {
         }
         let network = network::Attachment::start(
             &self.cfg.worker,
-            &sb.dir,
+            &self.cfg.store.join("network"),
             &sb.id,
             sb.generation,
             identity.uid,

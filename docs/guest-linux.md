@@ -24,8 +24,8 @@ an empty answer. DNS over HTTPS is ordinary HTTPS under the transport policy.
 
 Mac VMM workers receive a private Ethernet descriptor. A separate helper under
 the assigned worker account mediates TCP/UDP and DNS, excludes host/LAN/tailnet
-and metadata destinations, and writes its audit in the sandbox's private
-`network-*` directory. The VMM retains its no-network confinement. Install
+and metadata destinations, and writes its audit under the store's private
+`network/<sandbox>-g<generation>-*` directory, outside VMM filesystem grants. The VMM retains its no-network confinement. Install
 `lamp-network` beside `lamp-vz` and rebuild old templates for the guarded NIC
 device graph. Template builds retain default-deny egress.
 
