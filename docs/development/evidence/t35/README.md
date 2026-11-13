@@ -84,3 +84,23 @@ failures; the final run is separate evidence.
 No new automated tests or benchmark runs were added for implementation.
 Sol review subsequently supplied one targeted confinement regression test;
 [review ledger](sol-review.md) records its failure and the fixes.
+
+## T39 integration on M5
+
+[mac-managed-network.json](mac-managed-network.json) records the real confined
+Linux VZ worker and Seatbelt-managed helper on the M5 after rebasing onto T39.
+An initial deny policy was installed before boot. A Python HTTP server inside
+the guest returned `T35 preview on M5` with HTTP 200 at
+`http://p-a6ae509f4e10d1f736bd81a23eeccee5.localhost:59556`.
+In that same guest, `curl https://example.com` was denied, succeeded with
+HTTP/2 200 after a live host allow rule, and was denied again after removing
+that rule (policy revisions 2, 3 and 4). The preview still returned HTTP 200
+after both edits. It was unpublished and the disposable VM/helper stopped;
+that URL is historical evidence, not a running service.
+
+This uses T39's actual managed helper control protocol and private VZ Ethernet
+transport. No privileged Mac supervisor or public HTTP API was run; the worker
+and helper were launched directly under the current account with their real
+confinement. Native macOS guests and the Air remain unexercised. The existing
+Mac guest-helper configures its interface/gateway/DNS; both guest classes use
+the same engine attachment and management calls.

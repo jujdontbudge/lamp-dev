@@ -31,6 +31,7 @@ fn staging_sandbox(engine: &Engine, tag: &str, resources: Resources, guest_os: &
         guest_os: guest_os.into(),
         identity: None,
         worker: None,
+        pending_network: None,
         machine: None,
         source: String::new(),
         captures: Vec::new(),

@@ -15,19 +15,22 @@ The protected helper and collector remain outside task authority under
 
 The seed resolver is `198.18.240.1`, Lamp's private guest gateway. Images do not
 copy the builder's resolver, search domains, machine identity or SSH host keys.
-Linux Firecracker guests use an audited IPv4 resolver in the host guard;
-Virtualization.framework guests use the guarded Ethernet bridge's resolver.
-DNS answers and each connection are checked against the guard policy. Direct
-DNS (port 53) and DNS over TLS (port 853) to other destinations are denied by
-default. The Linux resolver currently serves A lookups over UDP; AAAA receives
-an empty answer. DNS over HTTPS is ordinary HTTPS under the transport policy.
+Managed Firecracker and Virtualization.framework guests use the same guarded
+Ethernet resolver and connection policy. DNS follows the selected exit; policy
+answers never grant unchecked dial authority. The legacy Linux subscription
+adapter retains its IPv4 UDP A resolver (empty AAAA replies). DNS over HTTPS is
+ordinary HTTPS under the transport policy.
 
 Mac VMM workers receive a private Ethernet descriptor. A separate helper under
 the assigned worker account mediates TCP/UDP and DNS, excludes host/LAN/tailnet
 and metadata destinations, and writes its audit under the store's private
 `network/<sandbox>-g<generation>-*` directory, outside VMM filesystem grants. The VMM retains its no-network confinement. Install
 `lamp-network` beside `lamp-vz` and rebuild old templates for the guarded NIC
-device graph. Template builds retain default-deny egress.
+device graph. Template builds retain default-deny egress. The Mac supervisor
+accepts the same generation-bound managed calls as Linux: preview ports, shares,
+live allow/deny policy, selected exits and explicit service links. A create-time
+policy is installed before boot; later edits use the same helper without
+restarting the guest. Closing the generation tears down its previews and flows.
 
 `lamp engine list --json` reports devices accepted by the enrolled worker.
 Firecracker accepts extra disks, with no display, audio, keyboard, mouse or GPU.

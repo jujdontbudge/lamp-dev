@@ -343,6 +343,7 @@ pub struct Sandbox {
     pub dir: PathBuf,
     pub identity: Option<Identity>,
     worker: Option<Worker>,
+    pending_network: Option<network::Attachment>,
     pub machine: Option<WorkerSpec>,
     pub source: String,
     pub captures: Vec<String>,
@@ -875,6 +876,7 @@ impl Engine {
             dir: dir.to_path_buf(),
             identity: None,
             worker: None,
+            pending_network: None,
             machine: Some(spec),
             source: meta["source"].as_str().unwrap_or("").into(),
             captures: Vec::new(),
@@ -1264,6 +1266,7 @@ impl Engine {
                 dir: self.cfg.store.join("sb").join(auth.sandbox_id),
                 identity: None,
                 worker: None,
+                pending_network: None,
                 machine: None,
                 source: String::new(),
                 captures: Vec::new(),
@@ -1391,6 +1394,7 @@ impl Engine {
                 if let Some(mut w) = sb.worker.take() {
                     w.kill();
                 }
+                sb.pending_network.take();
                 if let Some(id) = sb.identity.take() {
                     self.free_identity(&id);
                 }
@@ -1412,8 +1416,56 @@ impl Engine {
         }
     }
 
+    /// The same generation-bound control channel used by Linux. An initial
+    /// policy can be applied to the private NIC before any guest is booted.
+    pub fn network_call(&self, auth: Authority<'_>, request: Vec<u8>) -> Result<Outcome> {
+        let sandbox = self.sandbox(auth.sandbox_id)?;
+        let mut sb = sandbox.lock().unwrap();
+        Self::check(&sb, auth)?;
+        let data = match sb.state {
+            State::Allocated => {
+                if sb.pending_network.is_none() {
+                    let identity = match &sb.identity {
+                        Some(identity) => identity.clone(),
+                        None => self.alloc_identity()?,
+                    };
+                    sb.identity = Some(identity.clone());
+                    sb.pending_network = Some(network::Attachment::start(
+                        &self.cfg.worker,
+                        &self.cfg.store.join("network"),
+                        &sb.id,
+                        sb.generation,
+                        identity.uid,
+                        identity.gid,
+                        true,
+                    )?);
+                }
+                sb.pending_network.as_mut().unwrap().call(&request)?
+            }
+            State::Running => sb
+                .worker
+                .as_mut()
+                .and_then(|worker| worker.network.as_mut())
+                .ok_or_else(|| EngineError::in_use("sandbox has no active network generation"))?
+                .call(&request)?,
+            _ => {
+                return Err(EngineError::in_use(
+                    "sandbox has no active network generation",
+                ));
+            }
+        };
+        Ok(Outcome {
+            state: "network_reply".into(),
+            detail: BTreeMap::from([("response_json".into(), data.to_string())]),
+            ..Default::default()
+        })
+    }
+
     fn new_dir(&self, sb: &mut Sandbox) -> Result<Identity> {
-        let identity = self.alloc_identity()?;
+        let identity = match &sb.identity {
+            Some(identity) => identity.clone(),
+            None => self.alloc_identity()?,
+        };
         let _ = std::fs::remove_dir_all(&sb.dir);
         std::fs::create_dir(&sb.dir).ctx("create sandbox dir")?;
         fsutil::chmod(&sb.dir, 0o700)?;
@@ -1449,15 +1501,18 @@ impl Engine {
             fsutil::chown(&ram, identity.uid, identity.gid)?;
             spec.write_dirs.push(ram);
         }
-        let network = network::Attachment::start(
-            &self.cfg.worker,
-            &self.cfg.store.join("network"),
-            &sb.id,
-            sb.generation,
-            identity.uid,
-            identity.gid,
-            allow_egress,
-        )?;
+        let network = match sb.pending_network.take() {
+            Some(network) => network,
+            None => network::Attachment::start(
+                &self.cfg.worker,
+                &self.cfg.store.join("network"),
+                &sb.id,
+                sb.generation,
+                identity.uid,
+                identity.gid,
+                allow_egress,
+            )?,
+        };
         spec.ethernet_fd = Some(3);
         std::fs::write(
             sb.dir.join("spec.json"),
@@ -1870,6 +1925,7 @@ impl Engine {
         let state = sb.dir.join(SUSPEND_FILE);
         spec.read_paths = vec![state.clone()];
         if let Err(e) = pin_suspended_disks(&sb.dir) {
+            sb.pending_network.take();
             if let Some(id) = sb.identity.take() {
                 self.free_identity(&id);
             }
@@ -1913,11 +1969,13 @@ impl Engine {
                 if let Err(u) = unpin_suspended_disks(&sb.dir) {
                     sb.state =
                         State::Failed(format!("suspended disks not restored: {}", u.message));
+                    sb.pending_network.take();
                     if let Some(id) = sb.identity.take() {
                         self.free_identity(&id);
                     }
                     return Err(e.context("resume").context(&u.message));
                 }
+                sb.pending_network.take();
                 if let Some(id) = sb.identity.take() {
                     self.free_identity(&id);
                 }
@@ -2658,6 +2716,7 @@ impl Engine {
         if let Some(mut w) = sb.worker.take() {
             w.kill();
         }
+        sb.pending_network.take();
         if let Some(id) = sb.identity.take() {
             self.free_identity(&id);
         }
@@ -2701,6 +2760,7 @@ impl Engine {
         if let Some(mut w) = sb.worker.take() {
             w.kill();
         }
+        sb.pending_network.take();
         if let Some(id) = sb.identity.take() {
             self.free_identity(&id);
         }
@@ -2722,6 +2782,7 @@ impl Engine {
             if let Some(mut w) = sb.worker.take() {
                 w.kill();
             }
+            sb.pending_network.take();
             if let Some(id) = sb.identity.take() {
                 self.free_identity(&id);
             }

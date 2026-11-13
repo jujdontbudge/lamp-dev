@@ -8,6 +8,7 @@ use std::os::unix::{net::UnixDatagram, process::CommandExt};
 pub struct Attachment {
     child: Child,
     pub ethernet: OwnedFd,
+    control: UnixStream,
 }
 impl Drop for Attachment {
     fn drop(&mut self) {
@@ -56,12 +57,17 @@ impl Attachment {
             }
         }
         let subject = serde_json::json!({"sandbox_id":id,"generation":generation});
-        let config = serde_json::json!({
+        let sandbox = serde_json::json!({
             "subject":subject,"revision":1,
             "policy": if allow_egress {serde_json::json!({})} else {serde_json::json!({"policy_ceiling":[{"filter_mode":"transport","default_egress":"deny","allow":[],"deny":[]}]})},"provider":{"type":"direct","endpoint":"0.0.0.0:0"},
             "audit":root.join("audit.ndjson"),"audit_bytes":8<<20,
-            "bridge":{"transport":{"subject":subject,"guest_addresses":[lamp_init::GUEST_ADDR],"gateway_addresses":[lamp_init::GUEST_GATEWAY],"mtu":1500},"frame_fd":3,"guard_uid":uid}
+            "bridge":{"transport":{"subject":subject,"guest_addresses":[lamp_init::GUEST_ADDR],"gateway_addresses":[lamp_init::GUEST_GATEWAY],"mtu":1500,"managed_dns":true},"frame_fd":3,"guard_uid":uid}
         });
+        let (control, child_control) = UnixStream::pair().ctx("network control pair")?;
+        control.set_read_timeout(Some(Duration::from_secs(10)))?;
+        control.set_write_timeout(Some(Duration::from_secs(10)))?;
+        let config =
+            serde_json::json!({"control_fd":4,"guard_uid":uid,"state_dir":root,"sandbox":sandbox});
         let path = root.join("config.json");
         std::fs::write(&path, serde_json::to_vec(&config).unwrap()).ctx("network configuration")?;
         fsutil::chmod(&path, 0o600)?;
@@ -78,7 +84,7 @@ impl Attachment {
             .arg("-p")
             .arg(profile)
             .arg(&helper)
-            .arg("bridge")
+            .arg("managed")
             .arg(&path)
             .env_clear()
             .env("PATH", "/usr/bin:/bin")
@@ -88,11 +94,25 @@ impl Attachment {
             .stderr(Stdio::from(
                 std::fs::File::create(root.join("helper.log")).ctx("network log")?,
             ));
-        let fd = net.as_raw_fd();
+        // Keep source descriptors above both fixed child descriptors, so
+        // neither dup2 can overwrite the other source.
+        let duplicate = |fd| -> Result<OwnedFd> {
+            let fd = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 10) };
+            if fd < 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+            Ok(unsafe { OwnedFd::from_raw_fd(fd) })
+        };
+        let frames = duplicate(net.as_raw_fd())?;
+        let management = duplicate(child_control.as_raw_fd())?;
+        let fd = frames.as_raw_fd();
+        let control_fd = management.as_raw_fd();
         unsafe {
             command.pre_exec(move || {
                 if libc::dup2(fd, 3) < 0
                     || libc::fcntl(3, libc::F_SETFD, 0) < 0
+                    || libc::dup2(control_fd, 4) < 0
+                    || libc::fcntl(4, libc::F_SETFD, 0) < 0
                     || libc::setgroups(0, std::ptr::null()) != 0
                     || libc::setgid(gid) != 0
                     || libc::setuid(uid) != 0
@@ -104,6 +124,9 @@ impl Attachment {
         }
         let mut child = command.spawn().ctx("start guarded network helper")?;
         drop(net);
+        drop(child_control);
+        drop(frames);
+        drop(management);
         let output = child.stdout.take().unwrap();
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -122,7 +145,40 @@ impl Attachment {
         use std::os::fd::IntoRawFd;
         Ok(Self {
             child,
+            control,
             ethernet: unsafe { OwnedFd::from_raw_fd(vm.into_raw_fd()) },
         })
+    }
+    pub fn call(&mut self, request: &[u8]) -> Result<serde_json::Value> {
+        if request.len() > 60 * 1024 {
+            return Err(EngineError::invalid("network control request too large"));
+        }
+        let stream = &mut self.control;
+        stream.write_all(request).ctx("network request")?;
+        stream.write_all(b"\n").ctx("network request")?;
+        // Read exactly one response without consuming a later reply.
+        let mut reply = Vec::new();
+        use std::io::Read;
+        loop {
+            let mut byte = [0u8];
+            stream.read_exact(&mut byte).ctx("network reply")?;
+            if byte[0] == b'\n' {
+                break;
+            }
+            if reply.len() >= 128 * 1024 {
+                return Err(EngineError::host("network reply too large"));
+            }
+            reply.push(byte[0]);
+        }
+        let reply: serde_json::Value = serde_json::from_slice(&reply)
+            .map_err(|_| EngineError::host("invalid network reply"))?;
+        if reply["state"] != "applied" {
+            return Err(EngineError::invalid(
+                reply["error"]
+                    .as_str()
+                    .unwrap_or("network request rejected"),
+            ));
+        }
+        Ok(reply["data"].clone())
     }
 }
