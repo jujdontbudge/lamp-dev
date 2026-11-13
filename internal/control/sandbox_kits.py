@@ -142,7 +142,7 @@ class Runtime:
             venv=ROOT/'playwright'
             if not (venv/'bin/python').exists():run(['python3','-m','venv',str(venv)])
             run([str(venv/'bin/pip'),'install','playwright'])
-            run([str(venv/'bin/python'),'-m','playwright','install','chromium'])
+            run([str(venv/'bin/python'),'-m','playwright','install','--only-shell','chromium'])
         elif kit=='lsp':run(['npm','install','-g','typescript@5.9.3','typescript-language-server'])
         elif kit=='docker':
             if self.docker is None or self.docker.poll() is not None:
