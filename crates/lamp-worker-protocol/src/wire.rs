@@ -69,27 +69,39 @@ fn fields(buf: &[u8]) -> Option<Vec<Field<'_>>> {
     Some(out)
 }
 
-fn same_value(a: &[u8], b: &[u8], wire_type: u64, depth: usize) -> bool {
+fn same_value(a: &[u8], b: &[u8], wire_type: u64, depth: usize, path: &[u64]) -> bool {
     if a == b {
         return true;
     }
     // Only a nested message may differ byte-wise yet be equal.
-    wire_type == 2 && depth < MAX_DEPTH && same_message(a, b, depth + 1)
+    wire_type == 2 && depth < MAX_DEPTH && same_message(a, b, depth + 1, path)
 }
 
-fn same_message(a: &[u8], b: &[u8], depth: usize) -> bool {
-    let (Some(mut fa), Some(fb)) = (fields(a), fields(b)) else {
+fn same_message(a: &[u8], b: &[u8], depth: usize, path: &[u64]) -> bool {
+    let (Some(mut fa), Some(mut fb)) = (fields(a), fields(b)) else {
         return false;
     };
+    if path == [2, 11, 3] || path == [3, 10, 5] {
+        // Go writes empty string map values; prost omits them. Both are
+        // valid Protobuf. Preserve unknown fields and duplicate detection.
+        for fields in [&mut fa, &mut fb] {
+            for key in [10, 18] {
+                if fields.iter().filter(|f| f.key == key).count() == 1 {
+                    fields.retain(|f| f.key != key || !f.value.is_empty());
+                }
+            }
+        }
+    }
     if fa.len() != fb.len() {
         return false;
     }
     // Multiset match: every field of `b` consumes one equal field of `a`.
     for f in &fb {
-        let Some(i) = fa
-            .iter()
-            .position(|g| g.key == f.key && same_value(g.value, f.value, f.key & 7, depth))
-        else {
+        let mut nested = path.to_vec();
+        nested.push(f.key >> 3);
+        let Some(i) = fa.iter().position(|g| {
+            g.key == f.key && same_value(g.value, f.value, f.key & 7, depth, &nested)
+        }) else {
             return false;
         };
         fa.swap_remove(i);
@@ -100,5 +112,5 @@ fn same_message(a: &[u8], b: &[u8], depth: usize) -> bool {
 /// True when `a` and `b` encode the same fields, ignoring the order of
 /// fields within each (nested) message.
 pub fn equivalent(a: &[u8], b: &[u8]) -> bool {
-    a == b || same_message(a, b, 0)
+    a == b || same_message(a, b, 0, &[])
 }

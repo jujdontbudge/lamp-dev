@@ -366,6 +366,10 @@ func (s *Service) sendCoreMutation(w http.ResponseWriter, id string, rec *record
 	prepareJSON(w, status, api.MutationEnvelope{OperationId: op.Id, Operation: &op, ResourceIds: []api.ResourceRef{rec.Resource}, RequestId: id, Replayed: replay, Result: result})()
 }
 func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.OperationDescriptor, in map[string]any) {
+	if op.Name == "metric_list" {
+		s.capacityMetrics(w, id, a)
+		return
+	}
 	if op.Name == "telemetry_get" {
 		prepareJSON(w, 200, map[string]any{"data": s.telemetry(a), "request_id": id})()
 		return
@@ -415,6 +419,15 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 		}
 		writeError(w, id, "NOT_FOUND", "resource not found", nil)
 		return
+	}
+	if kind == "sandbox" && in["include_deleted"] != true {
+		visible := items[:0]
+		for _, item := range items {
+			if textField(item, "state") != "deleted" {
+				visible = append(visible, item)
+			}
+		}
+		items = visible
 	}
 	if action != "list" {
 		writeError(w, id, "NOT_FOUND", "operation not installed", nil)

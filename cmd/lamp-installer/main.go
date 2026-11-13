@@ -1128,6 +1128,12 @@ func status(args []string) error {
 	}
 	inv, ierr := inventory(p)
 	out := map[string]any{"name": st.Name, "service": st.Service, "current": st.Current, "previous": st.Previous, "highest_version": st.HighestVersion, "update_policy": loadPolicy(p), "healthy": ierr == nil, "saved_items": len(inv)}
+	if ierr != nil {
+		out["recovery"] = "run lamp-installer restart --prefix " + p
+	}
+	if st.Service == "process" {
+		out["supervision"] = "unsupervised; run lamp-installer restart if the daemon exits"
+	}
 	if st.Supervisor != nil {
 		paths, fromRelease := componentPaths(p, st.Supervisor, st.Supervisor.Version)
 		sums := map[string]string{}
@@ -1521,9 +1527,7 @@ func restartCmd(args []string) error {
 		return err
 	}
 	before, err := inventory(p)
-	if err != nil {
-		return err
-	}
+	hadInventory := err == nil
 	if err := restartService(p, st, lampdJob(p, st)); err != nil {
 		return err
 	}
@@ -1532,7 +1536,7 @@ func restartCmd(args []string) error {
 	if err != nil {
 		return err
 	}
-	if strings.Join(before, "\n") != strings.Join(after, "\n") {
+	if hadInventory && strings.Join(before, "\n") != strings.Join(after, "\n") {
 		return errors.New("saved work differs after restart")
 	}
 	event(p, map[string]any{"event": "restarted", "service": st.Service, "saved_items_preserved": len(after)})

@@ -85,10 +85,10 @@ func (HandleKind) EnumDescriptor() ([]byte, []int) {
 	return file_worker_proto_rawDescGZIP(), []int{0}
 }
 
-// lamp.worker/1 control only. Bulk content never appears in these messages.
+// lamp.worker/2 control only. Bulk content never appears in these messages.
 type Hello struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
-	Protocol        string                 `protobuf:"bytes,1,opt,name=protocol,proto3" json:"protocol,omitempty"` // exactly lamp.worker/1
+	Protocol        string                 `protobuf:"bytes,1,opt,name=protocol,proto3" json:"protocol,omitempty"` // exactly lamp.worker/2
 	WorkerId        string                 `protobuf:"bytes,2,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
 	BootId          string                 `protobuf:"bytes,3,opt,name=boot_id,json=bootId,proto3" json:"boot_id,omitempty"`
 	MaxControlBytes uint32                 `protobuf:"varint,4,opt,name=max_control_bytes,json=maxControlBytes,proto3" json:"max_control_bytes,omitempty"` // <= 1048576
@@ -606,6 +606,9 @@ type Allocate struct {
 	EngineId      string                 `protobuf:"bytes,2,opt,name=engine_id,json=engineId,proto3" json:"engine_id,omitempty"`
 	Handles       []*HandleGrant         `protobuf:"bytes,3,rep,name=handles,proto3" json:"handles,omitempty"`
 	Devices       []*DeviceRequest       `protobuf:"bytes,4,rep,name=devices,proto3" json:"devices,omitempty"`
+	ValidateOnly  bool                   `protobuf:"varint,5,opt,name=validate_only,json=validateOnly,proto3" json:"validate_only,omitempty"`
+	TemplateId    string                 `protobuf:"bytes,6,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	SharedDisk    bool                   `protobuf:"varint,7,opt,name=shared_disk,json=sharedDisk,proto3" json:"shared_disk,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -666,6 +669,27 @@ func (x *Allocate) GetDevices() []*DeviceRequest {
 		return x.Devices
 	}
 	return nil
+}
+
+func (x *Allocate) GetValidateOnly() bool {
+	if x != nil {
+		return x.ValidateOnly
+	}
+	return false
+}
+
+func (x *Allocate) GetTemplateId() string {
+	if x != nil {
+		return x.TemplateId
+	}
+	return ""
+}
+
+func (x *Allocate) GetSharedDisk() bool {
+	if x != nil {
+		return x.SharedDisk
+	}
+	return false
 }
 
 type Start struct {
@@ -1850,12 +1874,17 @@ const file_worker_proto_rawDesc = "" +
 	"\rDeviceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x19\n" +
-	"\bsize_mib\x18\x03 \x01(\x04R\asizeMib\"\xd0\x01\n" +
+	"\bsize_mib\x18\x03 \x01(\x04R\asizeMib\"\xb7\x02\n" +
 	"\bAllocate\x127\n" +
 	"\tresources\x18\x01 \x01(\v2\x19.lamp.worker.v1.ResourcesR\tresources\x12\x1b\n" +
 	"\tengine_id\x18\x02 \x01(\tR\bengineId\x125\n" +
 	"\ahandles\x18\x03 \x03(\v2\x1b.lamp.worker.v1.HandleGrantR\ahandles\x127\n" +
-	"\adevices\x18\x04 \x03(\v2\x1d.lamp.worker.v1.DeviceRequestR\adevices\"\x97\x01\n" +
+	"\adevices\x18\x04 \x03(\v2\x1d.lamp.worker.v1.DeviceRequestR\adevices\x12#\n" +
+	"\rvalidate_only\x18\x05 \x01(\bR\fvalidateOnly\x12\x1f\n" +
+	"\vtemplate_id\x18\x06 \x01(\tR\n" +
+	"templateId\x12\x1f\n" +
+	"\vshared_disk\x18\a \x01(\bR\n" +
+	"sharedDisk\"\x97\x01\n" +
 	"\x05Start\x12\x12\n" +
 	"\x04argv\x18\x01 \x03(\tR\x04argv\x12\x10\n" +
 	"\x03cwd\x18\x02 \x01(\tR\x03cwd\x120\n" +

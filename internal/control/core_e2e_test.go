@@ -267,11 +267,12 @@ func TestMain(m *testing.M) {
 }
 
 type workerFixture struct {
-	listener net.Listener
-	mu       sync.Mutex
-	requests []*pb.Request
-	states   map[string]string
-	ready    chan struct{}
+	listener       net.Listener
+	mu             sync.Mutex
+	requests       []*pb.Request
+	states         map[string]string
+	ready          chan struct{}
+	inspectMissing bool
 }
 
 func newWorker(t *testing.T, dir string) *workerFixture {
@@ -322,6 +323,9 @@ func (w *workerFixture) serve(c net.Conn) {
 		switch r.Command.(type) {
 		case *pb.Request_Allocate:
 			state = "allocated"
+			if r.GetAllocate().ValidateOnly {
+				state = "validated"
+			}
 		case *pb.Request_Restore:
 			state = "restored"
 		case *pb.Request_Capture:
@@ -342,11 +346,17 @@ func (w *workerFixture) serve(c net.Conn) {
 		case *pb.Request_Release:
 			state = "released"
 		}
-		w.states[r.Context.SandboxId] = state
+		if r.GetAllocate() == nil || !r.GetAllocate().ValidateOnly {
+			w.states[r.Context.SandboxId] = state
+		}
+		missing := w.inspectMissing && r.GetInspect() != nil
 		w.mu.Unlock()
 		response := &pb.Response{Context: r.Context, Result: &pb.Response_Receipt{Receipt: &pb.Receipt{State: state}}}
 		if inspect := r.GetInspect(); inspect != nil && inspect.CommandOperationId != "" {
 			response.Result = &pb.Response_Receipt{Receipt: &pb.Receipt{State: "inspected", Detail: map[string]string{"command_state": "exited"}, Command: &pb.CommandResult{FinishedAtUnixNs: 1}}}
+		}
+		if missing {
+			response.Result = &pb.Response_Error{Error: &pb.WorkerError{Code: "NOT_FOUND", Message: "sandbox reaped on supervisor restart"}}
 		}
 		if pb.WriteFrame(c, &pb.Frame{Payload: &pb.Frame_Response{Response: response}}) != nil {
 			return

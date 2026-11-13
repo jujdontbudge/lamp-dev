@@ -4914,7 +4914,7 @@ export interface Resources {
   "vcpus": number;
   "memory_mib": number;
   "disk_gib": number;
-  "pids_max": number;
+  "pids_max"?: number;
 }
 export interface RevocationStatus {
   "enforcers"?: Array<EnforcerStatus>;
@@ -5163,6 +5163,7 @@ export interface SandboxListInput {
   "cursor"?: string;
   readonly "limit"?: number;
   readonly "wait_ms"?: number;
+  "include_deleted"?: boolean;
 }
 export interface SandboxListResult {
   "items": Array<Sandbox>;

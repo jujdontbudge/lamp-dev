@@ -61,7 +61,11 @@ impl Memory {
                 .physical_mib
                 .saturating_sub(self.host_reserve_mib)
                 .saturating_sub(reserved_mib)
-            || charge > self.available_mib.saturating_sub(pending_mib)
+            || charge
+                > self
+                    .available_mib
+                    .saturating_sub(self.host_reserve_mib)
+                    .saturating_sub(pending_mib)
         {
             return Err(format!(
                 "NO_CAPACITY: requested {requested_mib} MiB plus 256 MiB VMM allowance; physical={} MiB, available={} MiB, host reserve={} MiB, reservations={reserved_mib} MiB, pending={pending_mib} MiB",

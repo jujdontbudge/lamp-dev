@@ -650,6 +650,7 @@ impl Ctl {
                 engine_id: String::new(),
                 handles: vec![],
                 devices: vec![],
+                ..Default::default()
             }),
         )?;
         self.try_restore(sandbox, template)

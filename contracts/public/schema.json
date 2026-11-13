@@ -123,14 +123,15 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 18446744073709551615,
-          "format": "uint64"
+          "format": "uint64",
+          "default": 4096,
+          "x-lamp-concrete-default": true
         }
       },
       "required": [
         "vcpus",
         "memory_mib",
-        "disk_gib",
-        "pids_max"
+        "disk_gib"
       ]
     },
     "Capacity": {
@@ -13399,6 +13400,10 @@
           "maximum": 25000,
           "format": "uint64",
           "readOnly": true
+        },
+        "include_deleted": {
+          "type": "boolean",
+          "description": "Include deleted records retained for 24 hours after confirmed audit release."
         }
       }
     },

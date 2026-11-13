@@ -152,7 +152,9 @@ impl GrantStore {
             return denied("sandbox outside its scope");
         }
         let last = g.max_generation.unwrap_or(g.generation);
-        if p.generation < g.generation || p.generation > last {
+        // Release is owner cleanup authority for the named sandbox scope, not
+        // execution authority. A failed resume must remain deletable.
+        if p.command != "release" && (p.generation < g.generation || p.generation > last) {
             return denied("generation outside its scope");
         }
         if g.policy_revision != p.policy_revision {

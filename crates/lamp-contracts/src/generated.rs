@@ -15593,8 +15593,11 @@ pub struct Resources {
     pub memory_mib: u64,
     #[serde(rename = "disk_gib")]
     pub disk_gib: u64,
-    #[serde(rename = "pids_max")]
+    #[serde(rename = "pids_max", default = "default_resources_pids_max")]
     pub pids_max: u64,
+}
+fn default_resources_pids_max() -> u64 {
+    4096
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16322,6 +16325,12 @@ pub struct SandboxListInput {
     pub limit: Option<u64>,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(
+        rename = "include_deleted",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub include_deleted: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

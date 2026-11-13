@@ -7489,7 +7489,7 @@ type Resources struct {
 	Vcpus     uint64 `json:"vcpus"`
 	MemoryMib uint64 `json:"memory_mib"`
 	DiskGib   uint64 `json:"disk_gib"`
-	PidsMax   uint64 `json:"pids_max"`
+	PidsMax   uint64 `json:"pids_max,omitempty"`
 }
 type RevocationStatus struct {
 	Enforcers *[]EnforcerStatus `json:"enforcers,omitempty"`
@@ -7823,9 +7823,10 @@ const (
 )
 
 type SandboxListInput struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *uint64 `json:"limit,omitempty"`
-	WaitMs *uint64 `json:"wait_ms,omitempty"`
+	Cursor         *string `json:"cursor,omitempty"`
+	Limit          *uint64 `json:"limit,omitempty"`
+	WaitMs         *uint64 `json:"wait_ms,omitempty"`
+	IncludeDeleted *bool   `json:"include_deleted,omitempty"`
 }
 type SandboxListResult struct {
 	Items      []Sandbox `json:"items"`

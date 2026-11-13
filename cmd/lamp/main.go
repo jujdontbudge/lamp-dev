@@ -40,8 +40,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if len(args) > 2 || len(args) == 2 && args[1] != "--json" {
 			return usage("usage: lamp version [--json]")
 		}
-		json.NewEncoder(stdout).Encode(map[string]string{"version": "0.1.0-dev", "protocol": "lamp.worker/1"})
+		json.NewEncoder(stdout).Encode(map[string]string{"version": "0.1.0-dev", "protocol": "lamp.worker/2"})
 		return 0
+	}
+	if len(args) > 0 && args[0] == "quota" {
+		args = append([]string{"metric", "list"}, args[1:]...)
 	}
 	if len(args) < 2 {
 		return usage("usage: lamp <resource> <action> [flags]")
@@ -287,6 +290,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if status >= 400 {
 		return statusExitCode(status)
+	}
+	if surface.MutationFailed(data) {
+		return 1
 	}
 	return 0
 }

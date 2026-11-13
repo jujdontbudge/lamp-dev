@@ -94,7 +94,7 @@ func ServeMCP(ctx context.Context, input io.Reader, output io.Writer, client *Cl
 					break
 				}
 				structured, _ := Decode(data)
-				response["result"] = map[string]any{"isError": status >= 400, "structuredContent": structured, "content": []any{map[string]any{"type": "text", "text": string(data)}}}
+				response["result"] = map[string]any{"isError": status >= 400 || MutationFailed(data), "structuredContent": structured, "content": []any{map[string]any{"type": "text", "text": string(data)}}}
 			default:
 				rpcError(-32601, "method not found")
 			}

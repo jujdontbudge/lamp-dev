@@ -193,14 +193,38 @@ impl Server {
                     && fds.is_empty() => {}
             _ => {
                 return Err(std::io::Error::other(
-                    "peer did not send a valid lamp.worker/1 Hello",
+                    "peer did not send a valid lamp.worker/2 Hello",
                 ));
             }
         }
         stream.set_read_timeout(None)?;
         let writer = Arc::new(Mutex::new(stream.try_clone()?));
         loop {
-            let (frame, fds) = recv_frame_with_fds(&stream)?;
+            let (frame, fds) = match recv_frame_with_fds(&stream) {
+                Ok(value) => value,
+                Err(err) => {
+                    if let Some(rejected) = err
+                        .get_ref()
+                        .and_then(|e| e.downcast_ref::<lamp_worker_protocol::unix::RejectedFrame>())
+                        && let Some(frame::Payload::Request(request)) = &rejected.0.payload
+                        && request.context.is_some()
+                    {
+                        let reply = Frame {
+                            payload: Some(frame::Payload::Response(Response {
+                                context: request.context.clone(),
+                                result: Some(error(
+                                    "INVALID_ARGUMENT",
+                                    "unknown or non-canonical request fields",
+                                    false,
+                                )),
+                            })),
+                        };
+                        send_frame_with_fds(&*writer.lock().unwrap(), &reply, &[])?;
+                        continue;
+                    }
+                    return Err(err);
+                }
+            };
             let Some(frame::Payload::Request(request)) = frame.payload else {
                 return Err(std::io::Error::other("expected Request"));
             };
@@ -296,7 +320,8 @@ impl Server {
             return error(code, message, false);
         }
         let print = fingerprint(&command);
-        let read_only = matches!(command, request::Command::Inspect(_));
+        let read_only = matches!(&command, request::Command::Inspect(_))
+            || matches!(&command, request::Command::Allocate(a) if a.validate_only);
         if !read_only {
             let mut ops = self.ops.lock().unwrap();
             match ops.0.get(&ctx.operation_id) {
@@ -374,14 +399,26 @@ impl Server {
                                 size_mib: d.size_mib,
                             })
                             .collect();
-                        self.engine
-                            .allocate_with(auth, resources, pids_max, &devices)
+                        self.engine.allocate_plan(
+                            auth,
+                            resources,
+                            pids_max,
+                            &devices,
+                            a.validate_only,
+                            &a.template_id,
+                            a.shared_disk,
+                        )
                     }
                     #[cfg(not(target_os = "linux"))]
                     {
                         let _ = pids_max;
                         if a.devices.is_empty() {
-                            self.engine.allocate(auth, resources)
+                            self.engine.allocate_plan(
+                                auth,
+                                resources,
+                                a.validate_only,
+                                &a.template_id,
+                            )
                         } else {
                             Err(EngineError::new(
                                 "DEVICE_UNAVAILABLE",
