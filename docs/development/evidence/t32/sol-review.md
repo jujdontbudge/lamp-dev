@@ -51,5 +51,23 @@ Two rounds with GPT-6.1 Sol on medium effort. Two bugs fixed, two reviewer
 regressions retained, no findings declined. Initial diff: 34 files, 1472
 insertions and 290 deletions; reviewed final diff: 50 files, 2118 insertions
 and 295 deletions. Growth includes the requested platform fixes and preserved
-demonstration evidence. Approval covers the current behavior; the final
-ledger update changes documentation only. Branch pushed; coordinator merges.
+demonstration evidence. Approval covers the reviewed behavior at the recorded head. Coordinator merges.
+
+
+Final integration after round 2: rebased onto T41 (`c34fabd`) and then the
+latest main containing T39 (`f9a3989`). Kept T41 human help, connection flags,
+wait commands and revision fetching, and T39 preview aliases and networking.
+CLI/MCP credential discovery still uses the owning install and does not send
+its implicit bearer to an explicit remote endpoint. Resource shorthand overlays
+only supplied dimensions onto the installed default, preserving the Air's
+512 MiB selection. Human create help describes adaptive memory.
+
+After this final rebase, `make build` passed (C launcher, all Go packages,
+332-operation generator check, locked Rust workspace). Targeted `go vet`
+passed. Existing CLI header and T41 review regressions plus both retained T32
+HTTP regressions passed. `git diff --check` passed. Built CLI/MCP help was
+inspected; a disposable HTTP transport fixture verified omitted-template
+create and `--vcpus 1` both preserve the discovered 512 MiB memory and 60000 ms
+wait. This fixture is not VM evidence. The prior signed install demonstrations
+remain the platform evidence; no repeat VM installs or privileged actions were
+needed for this rebase. No third Sol review was run.
