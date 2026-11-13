@@ -1,13 +1,13 @@
 # T35 follow-up review
 
-Scope: only `docs/development/evidence/t35-followup/`. No product edits or new
+Original round 1 scope: only `docs/development/evidence/t35-followup/`. No product edits or new
 tests. The requested outcomes are Air DNS/package/HTTPS evidence and native
 macOS networking or an honest refusal. The actual native attempt was refused
 for current host memory before boot; native DNS remains explicitly unverified.
 
 Checks: `make build` and `git diff --check` passed. The real Air guest completed
 DNS, HTTPS and apt install with Chrome open, then all disposable resources were
-removed. Provider/model: Codex / GPT-6.1 Sol, medium; usage not yet returned.
+removed. Provider/model: Codex / GPT-6.1 Sol, medium; usage was not exposed.
 
 Round 1: APPROVE at `404c6694029fbef8dd6774b3e45e7096292346ce`. No findings;
 usage was not exposed. It covered only the original evidence/documents.

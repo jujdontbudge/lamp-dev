@@ -95,5 +95,5 @@ directory was also removed. No host account or system service was created.
 `make build` passed (Go build, generated SDK consistency, Rust workspace).
 `cargo clippy --locked -p lamp-init --bin lamp-mac-guest-helper -- -D warnings`
 and `git diff --check` passed.
-Sol review is limited to this follow-up's evidence and documentation; see
+Sol review covers the native helper change and this follow-up's evidence; see
 [`sol-review.md`](sol-review.md).
