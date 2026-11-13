@@ -15,9 +15,11 @@ curl -fsSL https://lamp.eilmer.si/install.sh | sh
 and stderr and its real exit code, then deletes the sandbox. It uses the
 installed default template: 2 vCPUs, up to 2048 MiB RAM, 20 GiB disk, 4096 PIDs.
 On Macs the installer selects 2048, 1024, 512 or 256 MiB from current available
-memory, leaving a quarter of those pages for host activity after accounting
+memory, leaving a quarter of those pages (at least 256 MiB) for host activity after accounting
 for the 256 MiB VMM allowance. It retains the engine's physical host reserve
-and capacity checks. `lamp template list` shows the selected default resources.
+and capacity checks. The physical reserve stays at one quarter of host RAM,
+capped at 2048 MiB; available-memory headroom is capped at that reserve.
+`lamp template list` shows the selected default resources.
 If even the smallest guest cannot fit, installation refuses with observed
 memory, the required headroom and a next step before creating engine files.
 The default template is private. Persistent sandboxes suspend after 300 seconds

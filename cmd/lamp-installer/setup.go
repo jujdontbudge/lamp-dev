@@ -124,6 +124,7 @@ func defaultMacMemory(worker string) (uint64, error) {
 		Physical  uint64 `json:"physical_mib"`
 		Available uint64 `json:"available_mib"`
 		Reserve   uint64 `json:"host_reserve_mib"`
+		Headroom  uint64 `json:"available_reserve_mib"`
 	}
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return 0, err
@@ -132,13 +133,17 @@ func defaultMacMemory(worker string) (uint64, error) {
 	if m.Physical > m.Reserve {
 		physicalBudget = m.Physical - m.Reserve
 	}
+	availableBudget := uint64(0)
+	if m.Available > m.Headroom {
+		availableBudget = m.Available - m.Headroom
+	}
 	for _, guest := range []uint64{2048, 1024, 512, 256} {
-		if guest+256 <= m.Available*3/4 && guest+256 <= physicalBudget {
-			say("Host memory: physical=%d MiB, available=%d MiB, physical reserve=%d MiB; default guest=%d MiB plus 256 MiB VMM allowance", m.Physical, m.Available, m.Reserve, guest)
+		if guest+256 <= availableBudget && guest+256 <= physicalBudget {
+			say("Host memory: physical=%d MiB, available=%d MiB, physical reserve=%d MiB, available headroom=%d MiB; default guest=%d MiB plus 256 MiB VMM allowance", m.Physical, m.Available, m.Reserve, m.Headroom, guest)
 			return guest, nil
 		}
 	}
-	return 0, fmt.Errorf("NO_CAPACITY: smallest first-run guest is 256 MiB plus 256 MiB VMM allowance; physical=%d MiB, available=%d MiB, physical reserve=%d MiB; need at least 683 MiB available to retain host headroom; retry when memory is available or use another host", m.Physical, m.Available, m.Reserve)
+	return 0, fmt.Errorf("NO_CAPACITY: smallest first-run guest is 256 MiB plus 256 MiB VMM allowance; physical=%d MiB, available=%d MiB, physical reserve=%d MiB, available headroom=%d MiB; need at least 768 MiB available to retain host headroom; retry when memory is available or use another host", m.Physical, m.Available, m.Reserve, m.Headroom)
 }
 
 func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
