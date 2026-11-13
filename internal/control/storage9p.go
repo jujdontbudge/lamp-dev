@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -360,7 +361,13 @@ func (s *p9server) handle(kind uint8, b *p9buf) ([]byte, error) {
 		}
 		p9put(&out, uint64(0x7ff))
 		p9qid(&out, i)
-		p9put(&out, p9mode(i), uint32(65537), uint32(65537), uint64(1), uint64(0), uint64(i.Size()), uint64(4096), uint64((i.Size()+511)/512))
+		// Ownership is in the guest's task identity, never the host daemon's.
+		// Linux's collector uses 65537; VZ guest commands run as root.
+		uid := uint32(65537)
+		if runtime.GOOS == "darwin" {
+			uid = 0
+		}
+		p9put(&out, p9mode(i), uid, uid, uint64(1), uint64(0), uint64(i.Size()), uint64(4096), uint64((i.Size()+511)/512))
 		for range 3 {
 			p9put(&out, uint64(i.ModTime().Unix()), uint64(i.ModTime().Nanosecond()))
 		}

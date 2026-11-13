@@ -1,0 +1,10 @@
+M5 public build exit 1
+validating definition; preparing confined build VMworker did not start: lamp-vz: start: VZErrorDomain 2: Invalid virtual machine configuration. The boot loader is invalid. (The boot loader is invalid.)
+{"error":{"code":"TEMPLATE_BUILD_FAILED","message":"template tp_722a2dfe781da957cf3ac49a277b4458 failed; see template get for retained build log","retryable":false},"request_id":"cli"}
+
+
+Traceback (most recent call last):
+  File "/tmp/t40-mac-build-public.py", line 21, in <module>
+    (b/'public-build.json').write_text(r.stdout);print('M5 public build exit',r.returncode);print(r.stderr);print(r.stdout);assert r.returncode==0
+                                                                                                                                   ^^^^^^^^^^^^^^^
+AssertionError

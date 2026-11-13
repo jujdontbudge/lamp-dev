@@ -35,8 +35,8 @@ The seed preparation initially targeted `/sbin`, a symlink that debugfs does not
 follow; preparation was corrected to `/usr/sbin` before any successful VM run.
 
 Native macOS mounts and online template-build networking remain unsupported,
-as documented in `docs/templates-and-storage.md`. Linux guests on Apple Silicon
-have implementation/build coverage here, not a claimed runtime demonstration.
+as documented in `docs/templates-and-storage.md`. The initial run had only implementation/build coverage for Linux guests on
+Apple Silicon; the M5 follow-up below adds the real runtime demonstration.
 No SDK work or benchmark suite was added.
 
 ## Sol review ledger
@@ -101,3 +101,67 @@ HTTP retains T41 field-specific validation and T40 engine-template checks.
 passed after this integration. No tests were added for the rebase. The runtime
 demonstration above was not repeated after T41; Sol's recorded verdict remains
 CHANGES with all findings fixed and the final storage fix not re-reviewed.
+
+## M5 completion and final Linux rerun
+
+Rebased onto main `43a941e` (T32/T39, plus T41/T33/T38). Conflicts preserve
+T32 installed/adaptive defaults and T39 network policy behavior. The combined
+worker schema keeps network_call at field 20 and assigns template/storage_mount
+fields 21/22; both bindings were regenerated. T32's explicit template/recipe
+selections keep their own defaults.
+
+`final-build-demo.log`, `final-one.log`, `final-two.log`, `final-three.log`,
+and `final-pool.log` are a fresh Ubuntu x86_64 runtime demonstration on that
+rebased source. They repeat public six template build, 100 GiB guest root,
+recipe defaults, concurrent volumes/caches, held-directory rename, selected
+save/source deletion/reuse, restart recovery, MCP attachment, backup/delete/
+restore/read-only mount, and two warm claims with refill. All phases completed;
+all demonstration VMs were deleted and the own supervisor/daemon stopped.
+
+The M5 run uses Linux arm64 guests in confined VZ workers, an entirely separate
+engine/control store, and a disposable seed with 9p fd transport. Public six
+1.17.0, pip 25.3, setuptools 80.9.0 and wheel 0.45.1 artifacts were verified
+against PyPI SHA-256 metadata and provisioned before boot. No guest networking
+was enabled. These are local observations, not release benchmark results.
+
+| Observation | Evidence |
+| --- | --- |
+| Public Mac template build with visible logs and flexible API metadata | `mac-public-build.log`: public CLI creates a ready arm64 template; minimum 1 CPU/256 MiB/20 GiB. Creates below use this API template ID, not an engine-only reference. |
+| Requested Mac resources apply | `mac-runtime.log`: request 4/1536/24, guest 4 CPUs and 24G root; request 1/512/21, guest 1 CPU, 484 MiB visible and 21G root. A subsequent omitted-resources create uses the template's 2/1024/20 defaults. |
+| ST02: volume really shared and persistent | `mac-runtime.log`: real 9p entries for `/mnt/mvol` and `/mnt/mcache`; B reads A's write, A reads B's append. Both producers are deleted; a new guest reads both lines. Daemon restart reconnects before ready and the same lines remain. |
+| ST01: real package cache reuse | `mac-runtime.log`: pip builds six from the provisioned source archive on A and stores its wheel in the shared cache; B reports `Using cached six-1.17.0-py2.py3-none-any.whl`. Observed installation calls: 6.718 s then 1.771 s. The package imports successfully, and the wheel remains after producer deletion. |
+
+Mac runtime exposed and corrected three bugs after the first code review:
+recovery reset the staging parent to 0700, blocking build-worker kernel access;
+resize2fs tried a writable open forbidden by CONFIG_BLK_DEV_WRITE_MOUNTED=n;
+and 9p reported Linux task UID 65537 while VZ commands run as root, disabling
+pip's cache. Recovery now preserves 0711 traversal (without directory listing),
+growth uses the ext4 resize ioctl on the mounted root with a read-only device
+size query, and Mac guest-visible ownership is root without changing host
+ownership. The Linux task ownership remains 65537.
+
+Historical failures remain in `mac-staging-failure.log`,
+`mac-resize2fs-failure.log`, and `mac-runtime.log`. The latter also retains the
+initial disabled-cache result and an incorrect direct-archive pip invocation
+that rebuilt instead of consulting its cache; the final run resolves six by
+package name from a local source directory, allowing pip to use its wheel
+cache. None of the failed attempts is relabeled as passing.
+
+All M5 demonstration sandboxes were deleted, the own daemon and supervisor
+stopped, and the disposable Mac store/seed and Lima build directory removed.
+Existing _lampvm15/16 accounts were reused; no accounts were created or deleted.
+The existing Lamp installation, Docker resources and desktop were untouched.
+The owner explicitly authorized scoped noninteractive sudo for this work.
+
+Mac-only Sol review with Codex gpt-6.1-sol on medium: round 1 found S1 blocker,
+API build receipts still fixed resource shapes; changed fixed_resources to
+false. Round 2 approved that fix. The public build and alternate-shape creates
+above prove the corrected caller path. No tests were supplied or added for that
+review; usage was not exposed. A narrowly scoped additional review covers the
+three real runtime fixes above because intended Mac behavior was still broken.
+
+Final local checks: `make build`, `go vet ./cmd/lamp ./internal/control`, the
+three retained T40 reviewer tests and three existing CLI/T41 tests pass. No new
+implementation tests were added for the Mac changes; the proof is the real
+M5 run. Native macOS guest filesystem mounts and online build networking remain
+outside this Linux-on-Mac demonstration.

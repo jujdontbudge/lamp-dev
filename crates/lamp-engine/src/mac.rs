@@ -782,7 +782,9 @@ impl Engine {
         let staging = self.cfg.store.join("staging");
         let _ = std::fs::remove_dir_all(&staging);
         let _ = std::fs::create_dir_all(&staging);
-        let _ = fsutil::chmod(&staging, 0o700);
+        // Build workers traverse this parent to their granted kernel file.
+        // Keep the same traversal permission established at store creation.
+        let _ = fsutil::chmod(&staging, 0o711);
         if let Some(ram) = &self.cfg.ram_dir {
             for e in std::fs::read_dir(ram).into_iter().flatten().flatten() {
                 let _ = std::fs::remove_dir_all(e.path());
@@ -1787,7 +1789,27 @@ impl Engine {
         if grow_linux_root {
             // The seed uses a whole-device ext4 root. Grow it online only
             // after a cold boot; never pair changed geometry with saved RAM.
-            let done = self.guest_command(sb, &["/usr/sbin/resize2fs", "/dev/vda"])?;
+            // BLKGETSIZE64 needs only a read-only device descriptor. Resize
+            // through EXT4_IOC_RESIZE_FS on the mounted root, so kernels with
+            // CONFIG_BLK_DEV_WRITE_MOUNTED=n need no writable raw-device open.
+            let done = self.guest_command(
+                sb,
+                &[
+                    "python3",
+                    "-c",
+                    r#"
+import fcntl, os, struct
+with open('/dev/vda', 'rb', buffering=0) as disk:
+    size = struct.unpack('Q', fcntl.ioctl(disk, 0x80081272, bytes(8)))[0]
+root = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
+try:
+    blocks = size // os.fstatvfs(root).f_frsize
+    fcntl.ioctl(root, 0x40086610, struct.pack('Q', blocks))
+finally:
+    os.close(root)
+"#,
+                ],
+            )?;
             if done.exit_code != 0 {
                 return Err(EngineError::host(format!(
                     "grow Linux root filesystem: {}",
