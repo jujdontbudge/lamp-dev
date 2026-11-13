@@ -577,7 +577,9 @@
               "sandbox.run_code",
               "sandbox.lsp",
               "sandbox.browser",
-              "sandbox.desktop"
+              "sandbox.desktop",
+              "sandbox.metrics",
+              "sandbox.logs"
             ]
           }
         },
@@ -34212,6 +34214,80 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {}
+    },
+    "SandboxMetricsInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 720
+        }
+      },
+      "required": [
+        "sandbox_id"
+      ]
+    },
+    "SandboxMetricsResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SandboxLogsInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 720
+        }
+      },
+      "required": [
+        "sandbox_id"
+      ]
+    },
+    "SandboxLogsResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
     }
   },
   "x-lamp-resources": {
@@ -39683,6 +39759,32 @@
       "mcp": "credential_source_revoke",
       "authorization": "authenticated_scope",
       "completion_schema": "CredentialSourceRevokeCompletion"
+    },
+    "sandbox_metrics": {
+      "kind": "sandbox",
+      "action": "metrics",
+      "method": "get",
+      "path": "/v1/sandboxes/{sandbox_id}/metrics",
+      "mutation": false,
+      "input_schema": "SandboxMetricsInput",
+      "result_schema": "SandboxMetricsResult",
+      "scope": "sandbox.metrics",
+      "cli": "lamp sandbox metrics",
+      "mcp": "sandbox_metrics",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_logs": {
+      "kind": "sandbox",
+      "action": "logs",
+      "method": "get",
+      "path": "/v1/sandboxes/{sandbox_id}/logs",
+      "mutation": false,
+      "input_schema": "SandboxLogsInput",
+      "result_schema": "SandboxLogsResult",
+      "scope": "sandbox.logs",
+      "cli": "lamp sandbox logs",
+      "mcp": "sandbox_logs",
+      "authorization": "authenticated_scope"
     }
   },
   "x-lamp-errors": {
@@ -39719,7 +39821,7 @@
     "AUDIT_UNAVAILABLE": 503,
     "FAILED_PRECONDITION": 409
   },
-  "x-lamp-spec-sha256": "69475703f0dc0b1cd1c8395519e8fef79874a710e6c78352687d64fd45970a2a",
+  "x-lamp-spec-sha256": "13522204aab647683b00ee6151a2a603a6e0e411683f1f4323587d87d95ea919",
   "x-lamp-limits": {
     "worker_control_bytes": 1048576,
     "stream_payload_bytes": 65536,

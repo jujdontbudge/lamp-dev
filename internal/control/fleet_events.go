@@ -262,7 +262,7 @@ func (f *Fleet) eventsHTTP(w http.ResponseWriter, r *http.Request, id string, a 
 			}
 			_ = controller.SetWriteDeadline(time.Time{})
 			limit -= uint64(len(items))
-			if limit == 0 || !time.Now().Before(until) {
+			if limit == 0 || wait > 0 && !time.Now().Before(until) {
 				return
 			}
 			if len(items) > 0 {
@@ -270,7 +270,7 @@ func (f *Fleet) eventsHTTP(w http.ResponseWriter, r *http.Request, id string, a 
 			}
 		}
 		delay := time.Until(until)
-		if delay > time.Second {
+		if streaming && wait == 0 || delay > time.Second {
 			delay = time.Second
 		}
 		if delay <= 0 {

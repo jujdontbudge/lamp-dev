@@ -8035,6 +8035,14 @@ type SandboxListResult struct {
 	NextCursor *string   `json:"next_cursor,omitempty"`
 	RequestId  string    `json:"request_id"`
 }
+type SandboxLogsInput struct {
+	SandboxId string  `json:"sandbox_id"`
+	Limit     *uint64 `json:"limit,omitempty"`
+}
+type SandboxLogsResult struct {
+	Items     []json.RawMessage `json:"items"`
+	RequestId string            `json:"request_id"`
+}
 type SandboxLspCompletion = AdapterDocument
 type SandboxLspInput struct {
 	SandboxId      string                `json:"sandbox_id"`
@@ -8065,6 +8073,14 @@ type SandboxLspResult struct {
 	Replayed    bool                  `json:"replayed"`
 	Operation   *Operation            `json:"operation,omitempty"`
 	Result      *SandboxLspCompletion `json:"result,omitempty"`
+}
+type SandboxMetricsInput struct {
+	SandboxId string  `json:"sandbox_id"`
+	Limit     *uint64 `json:"limit,omitempty"`
+}
+type SandboxMetricsResult struct {
+	Items     []json.RawMessage `json:"items"`
+	RequestId string            `json:"request_id"`
 }
 type SandboxPrepareForkCompletion struct {
 	SandboxId       string          `json:"sandbox_id"`
@@ -8867,6 +8883,8 @@ const (
 	ScopeActionsItemSandboxLsp                 ScopeActionsItem = "sandbox.lsp"
 	ScopeActionsItemSandboxBrowser             ScopeActionsItem = "sandbox.browser"
 	ScopeActionsItemSandboxDesktop             ScopeActionsItem = "sandbox.desktop"
+	ScopeActionsItemSandboxMetrics             ScopeActionsItem = "sandbox.metrics"
+	ScopeActionsItemSandboxLogs                ScopeActionsItem = "sandbox.logs"
 )
 
 type SecretRequestCompletion struct {
@@ -11434,7 +11452,9 @@ var Operations = []OperationDescriptor{
 	{"sandbox_get", "sandbox.get", "lamp sandbox get", "get", "/v1/sandboxes/{sandbox_id}", "SandboxGetInput", "SandboxGetResult", "authenticated_scope", false},
 	{"sandbox_kit", "sandbox.kit", "lamp sandbox kit", "post", "/v1/sandboxes/{sandbox_id}:kit", "SandboxKitInput", "SandboxKitResult", "authenticated_scope", true},
 	{"sandbox_list", "sandbox.list", "lamp sandbox list", "get", "/v1/sandboxes", "SandboxListInput", "SandboxListResult", "authenticated_scope", false},
+	{"sandbox_logs", "sandbox.logs", "lamp sandbox logs", "get", "/v1/sandboxes/{sandbox_id}/logs", "SandboxLogsInput", "SandboxLogsResult", "authenticated_scope", false},
 	{"sandbox_lsp", "sandbox.lsp", "lamp sandbox lsp", "post", "/v1/sandboxes/{sandbox_id}:lsp", "SandboxLspInput", "SandboxLspResult", "authenticated_scope", true},
+	{"sandbox_metrics", "sandbox.metrics", "lamp sandbox metrics", "get", "/v1/sandboxes/{sandbox_id}/metrics", "SandboxMetricsInput", "SandboxMetricsResult", "authenticated_scope", false},
 	{"sandbox_prepare_fork", "sandbox.prepare_fork", "lamp sandbox prepare-fork", "post", "/v1/sandboxes/{sandbox_id}:prepare-fork", "SandboxPrepareForkInput", "SandboxPrepareForkResult", "authenticated_scope", true},
 	{"sandbox_restore", "sandbox.restore", "lamp sandbox restore", "post", "/v1/sandboxes/{sandbox_id}:restore", "SandboxRestoreInput", "SandboxRestoreResult", "authenticated_scope", true},
 	{"sandbox_resume", "sandbox.resume", "lamp sandbox resume", "post", "/v1/sandboxes/{sandbox_id}:resume", "SandboxResumeInput", "SandboxResumeResult", "authenticated_scope", true},

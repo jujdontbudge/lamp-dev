@@ -19,7 +19,7 @@ func init() {
 		"browser_create", "browser_get", "browser_list", "browser_delete", "browser_action", "browser_fill_password", "browser_takeover", "browser_return_control",
 		"kit_create", "kit_get", "kit_list", "kit_delete", "kit_install", "kit_install_status",
 		"sandbox_kit", "sandbox_run_code", "sandbox_lsp", "sandbox_browser", "sandbox_desktop",
-		"sandbox_create", "sandbox_get", "sandbox_list", "sandbox_fork", "sandbox_delete",
+		"sandbox_metrics", "sandbox_logs", "sandbox_create", "sandbox_get", "sandbox_list", "sandbox_fork", "sandbox_delete",
 		"sandbox_suspend", "sandbox_resume", "snapshot_create", "snapshot_get",
 		"share_create", "share_get", "template_get", "blob_get", "blob_download",
 		"exec_create", "exec_get", "exec_list", "exec_watch", "exec_interrupt", "exec_input", "exec_resize",

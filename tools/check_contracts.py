@@ -16,6 +16,8 @@ def field_names(shape):
 def check_extra_operations(table, resources, operations, defs):
     # §12.1 exceptions to the default POST <collection>/{id}:<action>.
     routes = {
+        'sandbox_metrics': ('get', '/sandboxes/{sandbox_id}/metrics'),
+        'sandbox_logs': ('get', '/sandboxes/{sandbox_id}/logs'),
         'auth_flow_bootstrap': ('post', '/auth-flows:bootstrap'),
         'exec_watch': ('get', '/execs/{exec_id}/output'),
         'session_watch': ('get', '/sessions/{session_id}/output'),
@@ -34,6 +36,7 @@ def check_extra_operations(table, resources, operations, defs):
     # Inputs expressed as query parameters / bulk transport rather than an
     # action's {...} in §12.1. Watch pagination is specified in §12.4.
     special_inputs = {
+        'sandbox_metrics': 'limit', 'sandbox_logs': 'limit',
         'exec_watch': 'cursor limit wait_ms',
         'session_watch': 'cursor limit wait_ms',
         'sandbox_device_watch': 'device_ref cursor limit wait_ms',
@@ -46,6 +49,7 @@ def check_extra_operations(table, resources, operations, defs):
     # Typed completions from each entry in §12.1, with envelope/read/secret
     # rules from §12.2. Unlisted extras have the specified Operation-only {}.
     results = {
+        'sandbox_metrics': 'items request_id', 'sandbox_logs': 'items request_id',
         'auth_flow_bootstrap': 'auth_flow_id challenge audience expires_at request_id',
         'auth_flow_complete': 'secret secret_available',
         'auth_flow_exchange': 'secret secret_available',
@@ -73,7 +77,7 @@ def check_extra_operations(table, resources, operations, defs):
         'blob_download': 'blob_id offset_bytes data_base64 chunk_sha256 sha256 size_bytes eof request_id',
         'artifact_download': 'blob_id manifest_blob_id offset_bytes data_base64 chunk_sha256 sha256 size_bytes eof request_id',
     }
-    read_only = set('kit_install_status auth_flow_bootstrap sandbox_file_read sandbox_file_list sandbox_device_watch exec_watch session_watch blob_download artifact_download operation_wait api_describe docs_read metric_list'.split())
+    read_only = set('sandbox_metrics sandbox_logs kit_install_status auth_flow_bootstrap sandbox_file_read sandbox_file_list sandbox_device_watch exec_watch session_watch blob_download artifact_download operation_wait api_describe docs_read metric_list'.split())
     for line in table.splitlines():
         if not line.startswith('| `'):
             continue

@@ -108,6 +108,9 @@ func (s *Service) authenticate(r *http.Request) (caller, bool) {
 		return a, s.current(a)
 	}
 	c := s.journal.Control
+	if owner, ok := r.Context().Value(dashboardOwnerKey{}).(string); ok && owner == c.OwnerID {
+		return caller{Principal: owner}, true
+	}
 	values := r.Header.Values("Authorization")
 	if len(values) == 0 && !c.Credentialed {
 		return caller{Principal: c.OwnerID}, true
@@ -536,6 +539,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch op.Name {
+	case "sandbox_metrics", "sandbox_logs":
+		s.observabilityHTTP(w, r, id, op, selectors)
 	case "sandbox_create", "sandbox_fork", "sandbox_delete", "exec_create", "sandbox_get", "exec_get", "exec_watch", "operation_get",
 		"sandbox_suspend", "sandbox_resume", "snapshot_create", "snapshot_get",
 		"template_get", "blob_get", "blob_download":

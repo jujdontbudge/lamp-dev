@@ -829,6 +829,9 @@ func install(args []string) error {
 		// Control-only host until a supervisor is enrolled.
 		lampdArgs = append(lampdArgs, "--worker-socket", filepath.Join(p, "run", "worker.sock"), "--worker-id", "unenrolled", "--worker-boot-id", "unenrolled", "--grant-id", "none", "--worker-uid", strconv.Itoa(os.Getuid()), "--worker-pid", "1")
 	}
+	if !hasArg(extra, "--dashboard-listen") {
+		lampdArgs = append(lampdArgs, "--dashboard-listen", "127.0.0.1:0")
+	}
 	lampdArgs = append(lampdArgs, extra...)
 	if _, err := stage(p, *release, m, key); err != nil {
 		return err
@@ -934,7 +937,8 @@ func install(args []string) error {
 			return err
 		}
 	}
-	event(p, map[string]any{"event": "installed", "version": m.Version, "service": *service, "prefix": p, "automatic_updates": false})
+	dashboardURL, _ := os.ReadFile(filepath.Join(p, "run", "dashboard-url"))
+	event(p, map[string]any{"event": "installed", "version": m.Version, "service": *service, "prefix": p, "automatic_updates": false, "dashboard_url": strings.TrimSpace(string(dashboardURL)), "dashboard_sign_in": "file://" + filepath.Join(p, "run", "dashboard.html")})
 	return nil
 }
 

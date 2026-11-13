@@ -3321,6 +3321,32 @@ impl Engine {
             detail.insert("vmm_pid".into(), pid.to_string());
             detail.insert("vmm_uid".into(), sb.uid.to_string());
         }
+        if command_operation_id.is_empty()
+            && let Some(jail) = &sb.jail
+        {
+            detail.insert(
+                "boot_log".into(),
+                fsutil::log_tail(&jail.dir.join("vmm.log")),
+            );
+        }
+        // Empty Inspect is the read-only telemetry path. Command polling stays cheap.
+        if command_operation_id.is_empty()
+            && sb.state == State::Running
+            && let Some(vsock) = sb.jail.as_ref().map(|j| j.path(fc::VSOCK))
+            && let Ok(GuestResponse::Pong(status)) = guest::call(
+                &vsock,
+                &GuestRequest::Ping(Empty {}),
+                Duration::from_secs(2),
+            )
+            && status.sandbox_id == sb.id
+            && status.generation == sb.generation
+        {
+            detail.insert(
+                "metrics".into(),
+                serde_json::to_string(&status.metrics).unwrap(),
+            );
+            detail.insert("metrics_boot_id".into(), status.kernel_boot_id);
+        }
         let command = if command_operation_id.is_empty() {
             None
         } else {

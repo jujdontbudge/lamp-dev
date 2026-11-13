@@ -2531,6 +2531,16 @@ export const OPERATIONS = {
   "resultSchema": "SandboxListResult",
   "scope": "sandbox.list"
  },
+ "sandbox_logs": {
+  "cli": "lamp sandbox logs",
+  "inputSchema": "SandboxLogsInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "sandbox_logs",
+  "path": "/v1/sandboxes/{sandbox_id}/logs",
+  "resultSchema": "SandboxLogsResult",
+  "scope": "sandbox.logs"
+ },
  "sandbox_lsp": {
   "cli": "lamp sandbox lsp",
   "inputSchema": "SandboxLspInput",
@@ -2540,6 +2550,16 @@ export const OPERATIONS = {
   "path": "/v1/sandboxes/{sandbox_id}:lsp",
   "resultSchema": "SandboxLspResult",
   "scope": "sandbox.lsp"
+ },
+ "sandbox_metrics": {
+  "cli": "lamp sandbox metrics",
+  "inputSchema": "SandboxMetricsInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "sandbox_metrics",
+  "path": "/v1/sandboxes/{sandbox_id}/metrics",
+  "resultSchema": "SandboxMetricsResult",
+  "scope": "sandbox.metrics"
  },
  "sandbox_prepare_fork": {
   "cli": "lamp sandbox prepare-fork",
