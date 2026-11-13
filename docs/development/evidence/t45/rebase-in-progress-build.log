@@ -1,0 +1,21 @@
+mkdir -p bin
+cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
+go build ./...
+python3 tools/sdkgen.py --check
+Traceback (most recent call last):
+  File "/Users/johansardar/.t3/worktrees/lamp/t3-10631e56-28e63da2721f5c1d/tools/sdkgen.py", line 252, in <module>
+    main()
+    ~~~~^^
+  File "/Users/johansardar/.t3/worktrees/lamp/t3-10631e56-28e63da2721f5c1d/tools/sdkgen.py", line 233, in main
+    schema = json.loads((ROOT / 'contracts/public/schema.json').read_text())
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 33093 column 1 (char 743197)
+make: *** [build] Error 1

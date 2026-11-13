@@ -56,13 +56,17 @@ The live public service was not deployed or changed by this ticket.
 `make build` (Go workspace, SDK generation check, locked Rust workspace),
 focused `go vet` for changed Go packages, public/SDK generation checks and
 `git diff --check` passed. No test files were added. The final post-rebase build
-output is in [build.log](build.log).
+output is in [build.log](build.log). An interim build attempted before the
+contract merge conflicts were resolved failed to parse the conflicted schema;
+that output remains in [rebase-in-progress-build.log](rebase-in-progress-build.log).
 
 Sol loop: one round, Codex GPT-6.1 Sol, medium reasoning effort. Reviewed code
 head: `8c0ed41c869623d0080bc4bdc4c029c2dd1b8216`. Verdict: **APPROVE**.
 No blocker, should or nit findings; no fixes or reviewer tests to apply.
 Product diff before/after review: 28 files, 627 insertions, 36 deletions;
-review changed no product behavior. Later changes contain evidence only.
+review changed no product behavior. The final rebase preserved main's new
+exec/file contracts and regenerated the bindings; the T45 behavior diff is
+unchanged after approval. Remaining changes contain evidence only.
 Usage was not exposed.
 
 | Finding | Severity | Outcome | Test |

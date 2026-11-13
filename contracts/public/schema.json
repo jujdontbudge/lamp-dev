@@ -13597,16 +13597,8 @@
         {
           "not": {
             "anyOf": [
-              {
-                "required": [
-                  "recipe_id"
-                ]
-              },
-              {
-                "required": [
-                  "template_id"
-                ]
-              }
+              { "required": ["recipe_id"] },
+              { "required": ["template_id"] }
             ]
           }
         }
