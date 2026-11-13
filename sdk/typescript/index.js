@@ -2391,6 +2391,36 @@ export const OPERATIONS = {
   "resultSchema": "SandboxFileReadResult",
   "scope": "sandbox.file_read"
  },
+ "sandbox_file_rename": {
+  "cli": "lamp sandbox file-rename",
+  "inputSchema": "SandboxFileRenameInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_file_rename",
+  "path": "/v1/sandboxes/{sandbox_id}:file-rename",
+  "resultSchema": "SandboxFileRenameResult",
+  "scope": "sandbox.file_rename"
+ },
+ "sandbox_file_search": {
+  "cli": "lamp sandbox file-search",
+  "inputSchema": "SandboxFileSearchInput",
+  "method": "POST",
+  "mutation": false,
+  "name": "sandbox_file_search",
+  "path": "/v1/sandboxes/{sandbox_id}:file-search",
+  "resultSchema": "SandboxFileSearchResult",
+  "scope": "sandbox.file_search"
+ },
+ "sandbox_file_stat": {
+  "cli": "lamp sandbox file-stat",
+  "inputSchema": "SandboxFileStatInput",
+  "method": "POST",
+  "mutation": false,
+  "name": "sandbox_file_stat",
+  "path": "/v1/sandboxes/{sandbox_id}:file-stat",
+  "resultSchema": "SandboxFileStatResult",
+  "scope": "sandbox.file_stat"
+ },
  "sandbox_file_transfer": {
   "cli": "lamp sandbox file-transfer",
   "inputSchema": "SandboxFileTransferInput",
@@ -2400,6 +2430,16 @@ export const OPERATIONS = {
   "path": "/v1/sandboxes/{sandbox_id}:file-transfer",
   "resultSchema": "SandboxFileTransferResult",
   "scope": "sandbox.file_transfer"
+ },
+ "sandbox_file_watch": {
+  "cli": "lamp sandbox file-watch",
+  "inputSchema": "SandboxFileWatchInput",
+  "method": "POST",
+  "mutation": false,
+  "name": "sandbox_file_watch",
+  "path": "/v1/sandboxes/{sandbox_id}:file-watch",
+  "resultSchema": "SandboxFileWatchResult",
+  "scope": "sandbox.file_watch"
  },
  "sandbox_file_write": {
   "cli": "lamp sandbox file-write",

@@ -704,6 +704,7 @@ impl Ctl {
                     argv: argv.iter().map(|s| s.to_string()).collect(),
                     cwd: String::new(),
                     env: Default::default(),
+                    ..Default::default()
                 }),
             )
             .unwrap_or_else(|e| die(e));

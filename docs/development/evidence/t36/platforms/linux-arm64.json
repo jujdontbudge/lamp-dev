@@ -1,0 +1,68 @@
+[
+  {
+    "step": "source",
+    "commit": "5580cfd357e65844e25a04ec99449880c8a46047",
+    "host": "Linux aarch64",
+    "fresh_prefix": "/tmp/l36le"
+  },
+  {
+    "step": "installed",
+    "name": "local-afeab0c2d039"
+  },
+  {
+    "step": "sandbox",
+    "sandbox_id": "sb_789da5eae1e7f103187294c61e4b3f17",
+    "state": "ready"
+  },
+  {
+    "step": "separate-streams",
+    "stdout_bytes": 8388608,
+    "stderr_bytes": 8388608,
+    "stdout_sha256": "0c77bc0a0795a93612d45256897456d0fcb24f151c44c150d07ecd03f4ef5168",
+    "stderr_sha256": "955a11ec895891b769195ad76e719d4e47b7cdac3b172e59fe770bad50bd6f7c",
+    "exit_code": 0
+  },
+  {
+    "step": "stderr-flood-then-exec",
+    "stderr_bytes": 8388608,
+    "stderr_sha256": "9f5bc72de6f6780c7ff33ab7f43e17badeb87155dc19363de9a9f037c8128c45",
+    "next_stdout": "AFTER_STDERR_FLOOD",
+    "next_exit_code": 0
+  },
+  {
+    "step": "environment-cwd-stdin",
+    "env_value": "arm64-value",
+    "empty_env": true,
+    "cwd": "/tmp",
+    "stdin_bytes": 14,
+    "stdout_sha256": "aca0f388bb145ab6f033374ad2f0c6aab1126696e3ab1ce71c9e003827fc03ca",
+    "stderr": "ENV_STDERR",
+    "exit_code": 0
+  },
+  {
+    "step": "file-roundtrip",
+    "bytes": 16777216,
+    "source_sha256": "145ee816a2a819f9f6406fbb75cfba0934ce6f9febba16a1d224eed4c2237ca5",
+    "returned_sha256": "145ee816a2a819f9f6406fbb75cfba0934ce6f9febba16a1d224eed4c2237ca5"
+  },
+  {
+    "step": "interactive-terminal",
+    "transcript": "# stty -echo; printf '\\nTTY_READY:'; test -t 0 && echo yes; stty size\r\n\r\nTTY_READY:yes\r\n24 80\r\n# 40 100\r\nWAITING\r\n\r\n# AFTER_CTRL_C\r\n/tmp\r\n",
+    "initial_size": "24 80",
+    "resized": "40 100",
+    "ctrl_c_recovered": true,
+    "cwd": "/tmp",
+    "exit_code": 0
+  },
+  {
+    "step": "completed"
+  },
+  {
+    "step": "sandbox-released",
+    "state": "deleted"
+  },
+  {
+    "step": "uninstalled",
+    "name": "local-afeab0c2d039"
+  }
+]

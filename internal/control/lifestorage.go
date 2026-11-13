@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -172,11 +173,17 @@ func (s *Service) planBlobFinalize(a caller, in map[string]any) (lifePlan, error
 		return lifePlan{}, reject("RESOURCE_IN_USE", "blob is not uploading")
 	}
 	id := textField(m, "id")
-	data, err := os.ReadFile(s.blobTemp(id))
-	if err != nil && !os.IsNotExist(err) {
+	source, err := os.OpenFile(s.blobTemp(id), os.O_CREATE|os.O_RDONLY, 0600)
+	if err != nil {
 		return lifePlan{}, reject("DATA_UNAVAILABLE", "staged upload unreadable")
 	}
-	got := sha256Hex(data)
+	defer source.Close()
+	digest := sha256.New()
+	n, err := io.Copy(digest, source)
+	if err != nil {
+		return lifePlan{}, err
+	}
+	got := hex.EncodeToString(digest.Sum(nil))
 	want := trimDigest(textField(in, "sha256"))
 	if want == "" {
 		want = textField(m, "sha256")
@@ -185,20 +192,28 @@ func (s *Service) planBlobFinalize(a caller, in map[string]any) (lifePlan, error
 	if _, ok := in["size_bytes"]; !ok {
 		size = uintField(m, "size_bytes")
 	}
-	if (want != "" && want != got) || uint64(len(data)) != size {
-		// Corrupted input never becomes ready.
-		m["state"] = "failed"
-		editResource(m)
-		os.Remove(s.blobTemp(id))
-		return lifePlan{ref: lifeRef("blob", id), result: map[string]any{}}, nil
+	if (want != "" && want != got) || uint64(n) != size {
+		return lifePlan{}, reject("INVALID_ARGUMENT", "upload SHA-256 or size differs from finalized content")
 	}
-	if _, err := s.putObject(data); err != nil {
-		return lifePlan{}, reject("DATA_UNAVAILABLE", "cannot store blob")
+	temporary, err := os.CreateTemp(filepath.Join(s.dir, "objects", "tmp"), "finalize-")
+	if err != nil {
+		return lifePlan{}, err
+	}
+	defer os.Remove(temporary.Name())
+	defer temporary.Close()
+	if _, err = source.Seek(0, io.SeekStart); err != nil {
+		return lifePlan{}, err
+	}
+	if _, err = io.Copy(temporary, source); err != nil {
+		return lifePlan{}, err
+	}
+	if err = s.publishObject(temporary, got); err != nil {
+		return lifePlan{}, err
 	}
 	os.Remove(s.blobTemp(id))
 	m["state"] = "ready"
 	m["sha256"] = got
-	m["size_bytes"] = jsonNumber(uint64(len(data)))
+	m["size_bytes"] = jsonNumber(uint64(n))
 	editResource(m)
 	return lifePlan{ref: lifeRef("blob", id), result: map[string]any{}}, nil
 }
@@ -335,29 +350,65 @@ func (s *Service) planFileTransfer(a caller, in map[string]any) (lifePlan, error
 		return lifePlan{}, reject("INVALID_ARGUMENT", "path must be a clean absolute guest path")
 	}
 	direction := textField(in, "direction")
-	var data []byte
+
+	var object string
 	if direction == "upload" {
 		b, err := s.readyBlob(a, textField(in, "blob_id"))
 		if err != nil {
 			return lifePlan{}, err
 		}
-		if data, err = s.readObject(textField(b.R, "sha256")); err != nil {
-			return lifePlan{}, err
-		}
-		if len(data) > maxTransferBytes {
-			return lifePlan{}, reject("NO_CAPACITY", "transfer exceeds 256 MiB")
-		}
-	} else if textField(in, "blob_id") != "" {
-		return lifePlan{}, reject("INVALID_ARGUMENT", "download creates a new blob")
+		object = textField(b.R, "sha256")
+	} else if direction != "download" || textField(in, "blob_id") != "" {
+		return lifePlan{}, reject("INVALID_ARGUMENT", "direction must be upload or download; download creates a new blob")
+	}
+	if value(sb.CaptureTrust) == "owner_private" {
+		return lifePlan{}, reject("SCOPE_DENIED", "private custody files require the protected continuation adapter")
 	}
 	owner := a.Principal
 	var produced string
-	return lifePlan{ref: lifeRef("sandbox", id), timeout: 10 * time.Minute,
+	var size int64
+	return lifePlan{ref: lifeRef("sandbox", id), timeout: 30 * time.Minute,
 		run: func(ctx context.Context) (map[string]any, error) {
 			if direction == "upload" {
-				return map[string]any{"blob_id": textField(in, "blob_id")}, s.guestWriteFile(ctx, id, p, data)
+				source, err := os.Open(s.objectPath(object))
+				if err != nil {
+					return nil, err
+				}
+				defer source.Close()
+				temporary := p + ".lamp-" + newID("upload")
+				defer func() {
+					cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+					defer cancel()
+					_, _ = s.guestPython(cleanup, id, `import os,sys
+try: os.unlink(sys.argv[1])
+except FileNotFoundError: pass`, temporary)
+				}()
+				digest := sha256.New()
+				buffer := make([]byte, guestWriteChunk)
+				appendFlag := "0"
+				for {
+					n, readErr := source.Read(buffer)
+					if n > 0 || appendFlag == "0" {
+						digest.Write(buffer[:n])
+						if _, err = s.guestPython(ctx, id, pyAppend, temporary, base64.StdEncoding.EncodeToString(buffer[:n]), appendFlag); err != nil {
+							return nil, err
+						}
+						appendFlag = "1"
+					}
+					if readErr == io.EOF {
+						break
+					}
+					if readErr != nil {
+						return nil, readErr
+					}
+				}
+				if hex.EncodeToString(digest.Sum(nil)) != object {
+					return nil, reject("DATA_UNAVAILABLE", "blob SHA-256 mismatch")
+				}
+				_, err = s.guestPython(ctx, id, `import os,sys;os.replace(sys.argv[1],sys.argv[2])`, temporary, p)
+				return map[string]any{"blob_id": textField(in, "blob_id")}, err
 			}
-			exists, dir, size, err := s.guestStat(ctx, id, p)
+			exists, dir, observed, err := s.guestStat(ctx, id, p)
 			if err != nil {
 				return nil, err
 			}
@@ -365,26 +416,49 @@ func (s *Service) planFileTransfer(a caller, in map[string]any) (lifePlan, error
 				return nil, reject("NOT_FOUND", "guest path not found")
 			}
 			if dir {
-				data, err = s.guestArchive(ctx, id, maxTransferBytes, p)
-			} else {
-				data, err = s.guestReadFile(ctx, id, p, size, maxTransferBytes)
+				data, err := s.guestArchive(ctx, id, maxTransferBytes, p)
+				if err != nil {
+					return nil, err
+				}
+				size = int64(len(data))
+				produced, err = s.putObject(data)
+				return map[string]any{}, err
 			}
+			if observed > maxBlobBytes {
+				return nil, reject("NO_CAPACITY", "file exceeds 4 GiB blob limit")
+			}
+			temporary, err := os.CreateTemp(filepath.Join(s.dir, "objects", "tmp"), "download-")
 			if err != nil {
 				return nil, err
 			}
-			produced, err = s.putObject(data)
-			if err != nil {
-				return nil, err
+			defer os.Remove(temporary.Name())
+			defer temporary.Close()
+			digest := sha256.New()
+			for size < observed {
+				count := min(int64(guestReadChunk), observed-size)
+				raw, err := s.guestPython(ctx, id, pyRead, p, strconv.FormatInt(size, 10), strconv.FormatInt(count, 10))
+				if err != nil {
+					return nil, err
+				}
+				bytes, err := base64.StdEncoding.DecodeString(string(raw))
+				if err != nil {
+					return nil, err
+				}
+				if int64(len(bytes)) != count {
+					return nil, reject("DATA_UNAVAILABLE", "guest file changed during download")
+				}
+				if _, err = temporary.Write(bytes); err != nil {
+					return nil, err
+				}
+				digest.Write(bytes)
+				size += int64(len(bytes))
 			}
-			return map[string]any{}, nil
+			produced = hex.EncodeToString(digest.Sum(nil))
+			return map[string]any{}, s.publishObject(temporary, produced)
 		},
 		finish: func(result map[string]any, err error) error {
 			if err == nil && direction == "download" {
-				media := "application/octet-stream"
-				if strings.HasSuffix(p, ".tar") {
-					media = "application/x-tar"
-				}
-				b := s.newReadyBlob(owner, produced, int64(len(data)), media, id)
+				b := s.newReadyBlob(owner, produced, size, "application/octet-stream", id)
 				result["blob_id"] = textField(b, "id")
 			}
 			return err

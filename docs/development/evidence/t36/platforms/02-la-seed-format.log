@@ -1,0 +1,5 @@
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-i/d02bdbbb/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its template…
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 302 ms
+lamp-supervisor: DATA_UNAVAILABLE: seed.json: unknown field `page_size`, expected one of `format`, `digest_alg`, `name`, `guest_os`, `arch`, `kernel`, `rootfs`, `init`, `packages` at line 1 column 891
+lamp-installer: exit status 1

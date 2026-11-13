@@ -21,6 +21,8 @@ require (
 	tailscale.com v1.96.5
 )
 
+require github.com/kr/fs v0.1.0 // indirect
+
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/akutz/memconn v0.1.0 // indirect
@@ -73,6 +75,7 @@ require (
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/oklog/run v1.2.0 // indirect
 	github.com/pires/go-proxyproto v0.8.1 // indirect
+	github.com/pkg/sftp v1.13.6
 	github.com/prometheus-community/pro-bing v0.4.0 // indirect
 	github.com/safchain/ethtool v0.3.0 // indirect
 	github.com/tailscale/certstore v0.1.1-0.20231202035212-d3fa0460f47e // indirect
@@ -93,7 +96,7 @@ require (
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/term v0.47.0 // indirect
+	golang.org/x/term v0.47.0
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.51.0 // indirect

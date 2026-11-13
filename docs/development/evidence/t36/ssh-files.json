@@ -1,0 +1,52 @@
+[
+  {
+    "step": "capacity",
+    "live_firecracker": 1,
+    "available_mib": 14571
+  },
+  {
+    "step": "sandbox",
+    "sandbox_id": "sb_b9e1786ce2e2153e76aa50f2c3088e03",
+    "state": "ready"
+  },
+  {
+    "step": "stock-ssh-pty",
+    "output": "# stty -echo;test -t 0 && echo SSH_TTY_OK;cd /tmp;pwd;exit\r\nSSH_TTY_OK\r\n/tmp\r\n"
+  },
+  {
+    "step": "stock-scp",
+    "bytes": 65536,
+    "sha256": "43044d0ef7ad8fa3e24d383161c616192f14aac971ca8443077040d9b4ae88a7"
+  },
+  {
+    "step": "stock-rsync",
+    "bytes": 65536,
+    "sha256": "43044d0ef7ad8fa3e24d383161c616192f14aac971ca8443077040d9b4ae88a7"
+  },
+  {
+    "step": "stock-ssh-forward",
+    "response_base64": "Z3Vlc3Q6YmluYXJ5AGZvcndhcmQ="
+  },
+  {
+    "step": "pty-fixed",
+    "output": "# stty -echo;test -t 0 && echo TTY_OK;stty size\r\nTTY_OK\r\n24 80\r\n# 40 100\r\n\r\n# RECONNECTED\r\n/tmp\r\n",
+    "exit_code": 0
+  },
+  {
+    "step": "file-watch",
+    "changed": [
+      "watch-created"
+    ]
+  },
+  {
+    "step": "file-rename-delete",
+    "completed": true
+  },
+  {
+    "step": "completed"
+  },
+  {
+    "step": "sandbox-released",
+    "state": "deleted"
+  }
+]

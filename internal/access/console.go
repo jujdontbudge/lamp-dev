@@ -1,7 +1,6 @@
 package access
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -10,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -104,6 +103,19 @@ func (s *Service) console(session ssh.Session) {
 		e = b.output(ctx, session, session.Stderr(), "session_watch", "session_id", args[1])
 	case len(args) == 2 && args[0] == "shell" && safeID(args[1]):
 		e = b.shell(session, args[1])
+	case len(args) > 2 && path.Base(args[0]) == "rsync" && args[1] == "--server":
+		id, p, parseErr := sftpPath(args[len(args)-1])
+		if parseErr != nil {
+			e = parseErr
+			break
+		}
+		argv := append([]string{}, args...)
+		argv[len(argv)-1] = p
+		_, code, err := surface.ExecChannel(ctx, client, id, argv, session, session, session.Stderr())
+		e = err
+		if e == nil && code != 0 {
+			e = &guestExit{code}
+		}
 	default:
 		e = errors.New("use sessions, watch <session_id>, attach <session_id>, or shell <sandbox_id>")
 	}
@@ -121,67 +133,43 @@ func (s *Service) console(session ssh.Session) {
 }
 func safeID(s string) bool { return s != "" && len(s) <= 256 && !strings.ContainsAny(s, "/\\ \r\n\t") }
 
-// shell is the bounded line console supported by today's guest exec API. Every
-// line runs in a fresh guest /bin/sh, never the access host. T21 provides PTYs.
+// shell attaches stock SSH to a real guest PTY through the public exec API.
 func (b backend) shell(s ssh.Session, id string) error {
-	// Attaching is activity: a suspended sandbox resumes before the prompt.
 	wake, cancel := context.WithTimeout(s.Context(), 5*time.Minute)
-	e := surface.WakeSandbox(wake, b.client, id)
+	err := surface.WakeSandbox(wake, b.client, id)
 	cancel()
-	if e != nil {
-		return e
+	if err != nil {
+		return err
 	}
-	_, _, interactive := s.Pty()
-	if interactive {
-		fmt.Fprintln(s, "Lamp guest command console; each line starts a new shell. Ctrl-D exits.")
-	}
-	scan := bufio.NewScanner(s)
-	scan.Buffer(make([]byte, 4096), 48<<10)
-	status := 0
-	finish := func() error {
-		if status != 0 {
-			return &guestExit{status}
-		}
-		return nil
-	}
-	for {
-		if interactive {
-			fmt.Fprint(s, "$ ")
-		}
-		if !scan.Scan() {
-			if e := scan.Err(); e != nil {
-				return e
+	sizes := make(chan [2]uint64, 1)
+	pty, windows, ok := s.Pty()
+	if ok {
+		sizes <- [2]uint64{uint64(pty.Window.Height), uint64(pty.Window.Width)}
+		go func() {
+			for {
+				select {
+				case <-s.Context().Done():
+					return
+				case win, open := <-windows:
+					if !open {
+						return
+					}
+					select {
+					case sizes <- [2]uint64{uint64(win.Height), uint64(win.Width)}:
+					default:
+					}
+				}
 			}
-			return finish()
-		}
-		line := scan.Text()
-		if line == "exit" {
-			return finish()
-		}
-		m, e := b.call(s.Context(), "exec_create", map[string]any{"sandbox_id": id, "argv": []string{"/bin/sh", "-c", line}})
-		if e != nil {
-			return e
-		}
-		execID := text(field(m, "result"), "exec_id")
-		if execID == "" {
-			return errors.New("missing guest exec identity")
-		}
-		if e = b.output(s.Context(), s, s.Stderr(), "exec_watch", "exec_id", execID); e != nil {
-			return e
-		}
-		m, e = b.call(s.Context(), "exec_get", map[string]any{"exec_id": execID})
-		if e != nil {
-			return e
-		}
-		command := field(m, "data")
-		if text(command, "state") != "exited" {
-			return errors.New("guest command completion unknown")
-		}
-		status, e = strconv.Atoi(fmt.Sprint(command["exit_code"]))
-		if e != nil || status < 0 || status > 255 {
-			return errors.New("invalid guest exit status")
-		}
+		}()
 	}
+	_, code, err := surface.Terminal(s.Context(), b.client, id, "", s, s, s.Stderr(), sizes, pty.Term)
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return &guestExit{code}
+	}
+	return nil
 }
 func (b backend) output(ctx context.Context, stdout, stderr io.Writer, op, key, id string) error {
 	cursor := ""

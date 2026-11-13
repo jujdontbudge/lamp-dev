@@ -93,6 +93,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if wantsHelp {
 		return help(stdout, helpWords, asJSON, globals)
 	}
+	if len(args) >= 2 && args[0] == "sandbox" {
+		customArgs := append(append([]string{}, args[2:]...), globals...)
+		if args[1] == "shell" {
+			return shell(customArgs, stdout, stderr)
+		}
+		if args[1] == "cp" {
+			return copyFile(customArgs, stdout, stderr)
+		}
+	}
 	if args[0] == "--version" {
 		args[0] = "version"
 	}

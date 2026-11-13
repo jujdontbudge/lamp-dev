@@ -45,7 +45,7 @@ type custodyPlan struct {
 }
 
 func admittedSubscriptionExec(ex api.Exec) bool {
-	if ex.Argv == nil || (ex.Env != nil && len(*ex.Env) != 0) || (ex.Cwd != nil && *ex.Cwd != "/" && *ex.Cwd != "") {
+	if value(ex.StdinOpen) || value(ex.Pty) || ex.StdinBlobId != nil || ex.Argv == nil || (ex.Env != nil && len(*ex.Env) != 0) || (ex.Cwd != nil && *ex.Cwd != "/" && *ex.Cwd != "") {
 		return false
 	}
 	argv := *ex.Argv

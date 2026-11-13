@@ -22,8 +22,8 @@ mod mac {
     use lamp_init::*;
     use std::collections::{HashMap, VecDeque};
     use std::fs::File;
-    use std::io::{self, Read};
-    use std::os::fd::FromRawFd;
+    use std::io::{self, BufRead, BufReader, Read, Write};
+    use std::os::fd::{AsRawFd, FromRawFd};
     use std::os::unix::process::{CommandExt, ExitStatusExt};
     use std::process::{Command, Stdio};
     use std::sync::{Arc, Condvar, Mutex};
@@ -53,6 +53,7 @@ mod mac {
     struct Table {
         by_key: HashMap<String, Option<ExecDone>>,
         order: VecDeque<String>,
+        io: HashMap<String, Arc<command_io::CommandIo>>,
     }
 
     type Shared = Arc<Mutex<Identity>>;
@@ -164,10 +165,38 @@ mod mac {
                 },
                 GuestRequest::Exec(x) => exec(&x, &state, &results),
                 GuestRequest::Wait(w) => wait(&w, &state, &results),
-                GuestRequest::SessionCall(_) => error(
-                    "UNSUPPORTED",
-                    "native macOS guest session relay is unavailable",
-                ),
+                GuestRequest::ExecIo(x) => {
+                    if let Err(e) = admit(&x.sandbox_id, x.generation, &state) {
+                        *e
+                    } else {
+                        let io = results
+                            .0
+                            .lock()
+                            .unwrap()
+                            .io
+                            .get(&key(&x.sandbox_id, x.generation, &x.exec_id))
+                            .cloned();
+                        match io {
+                            Some(io) => io
+                                .serve(&x)
+                                .unwrap_or_else(|e| error("INVALID_ARGUMENT", &e.to_string())),
+                            None => error("NOT_FOUND", "command I/O not retained"),
+                        }
+                    }
+                }
+                GuestRequest::SessionCall(call) => {
+                    if let Err(e) = admit(&call.sandbox_id, call.generation, &state) {
+                        *e
+                    } else {
+                        match relay_call(&call) {
+                            Ok(response_json) => GuestResponse::SessionReply { response_json },
+                            Err(e) => error(
+                                "DATA_UNAVAILABLE",
+                                &format!("guest Python 3 relay unavailable: {e}"),
+                            ),
+                        }
+                    }
+                }
                 GuestRequest::Freeze(_) | GuestRequest::Thaw(_) => error(
                     "UNSUPPORTED",
                     "native macOS guests have no task freezer; the VM itself is paused",
@@ -182,6 +211,68 @@ mod mac {
                 let _ = Command::new("/sbin/shutdown").args(["-h", "now"]).status();
             }
         }
+    }
+
+    fn relay_call(call: &SessionCall) -> io::Result<String> {
+        use std::os::unix::net::UnixStream;
+        static BOOT: Mutex<()> = Mutex::new(());
+        let endpoint = "/var/run/lamp-session-bridge/io.sock";
+        let mut connection = {
+            let _boot = BOOT.lock().unwrap();
+            match UnixStream::connect(endpoint) {
+                Ok(connection) => connection,
+                Err(error)
+                    if error.kind() == io::ErrorKind::NotFound
+                        && !std::path::Path::new(endpoint).exists() =>
+                {
+                    Command::new("python3")
+                        .args([
+                            "-c",
+                            &call.bridge_source,
+                            "--serve",
+                            endpoint,
+                            "/var/run/lamp-sessions",
+                        ])
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .process_group(0)
+                        .spawn()?;
+                    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+                    loop {
+                        match UnixStream::connect(endpoint) {
+                            Ok(connection) => break connection,
+                            Err(error) => {
+                                if std::time::Instant::now() >= deadline {
+                                    return Err(error);
+                                }
+                                std::thread::sleep(Duration::from_millis(10));
+                            }
+                        }
+                    }
+                }
+                Err(error) => return Err(error),
+            }
+        };
+        connection.set_read_timeout(Some(Duration::from_secs(8)))?;
+        connection.set_write_timeout(Some(Duration::from_secs(8)))?;
+        connection.write_all(call.request_json.as_bytes())?;
+        connection.write_all(b"\n")?;
+        let mut response = Vec::new();
+        BufReader::new(connection)
+            .take(131073)
+            .read_until(b'\n', &mut response)?;
+        if response.len() > 131072 || !response.ends_with(b"\n") {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid session response",
+            ));
+        }
+        let response = String::from_utf8(response)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid session response"))?;
+        serde_json::from_str::<serde_json::Value>(&response)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid session response"))?;
+        Ok(response)
     }
 
     fn admit(sandbox_id: &str, generation: u64, state: &Shared) -> Result<(), Box<GuestResponse>> {
@@ -254,25 +345,6 @@ mod mac {
         format!("{sandbox_id}/{generation}/{exec_id}")
     }
 
-    /// Reads `r` to its end into `into` (at most `limit` bytes kept; the
-    /// flag says some were dropped).
-    fn read_into(mut r: impl Read, limit: usize, into: &Mutex<(Vec<u8>, bool)>) {
-        let mut buf = [0u8; 16 << 10];
-        loop {
-            match r.read(&mut buf) {
-                Ok(0) | Err(_) => break,
-                Ok(n) => {
-                    let mut g = into.lock().unwrap();
-                    let room = limit.saturating_sub(g.0.len());
-                    if n > room {
-                        g.1 = true;
-                    }
-                    g.0.extend_from_slice(&buf[..n.min(room)]);
-                }
-            }
-        }
-    }
-
     fn exec(x: &Exec, state: &Shared, results: &Results) -> GuestResponse {
         if let Err(refusal) = admit(&x.sandbox_id, x.generation, state) {
             return *refusal;
@@ -298,8 +370,13 @@ mod mac {
                 };
                 let old = t.order.remove(pos).unwrap();
                 t.by_key.remove(&old);
+                t.io.remove(&old);
             }
         }
+        let mut io = match command_io::CommandIo::new() {
+            Ok(io) => io,
+            Err(e) => return error("EXEC_FAILED", &e.to_string()),
+        };
         let mut cmd = Command::new(&x.argv[0]);
         cmd.args(&x.argv[1..])
             .env_clear()
@@ -308,10 +385,35 @@ mod mac {
             .env("LANG", "en_US.UTF-8")
             .envs(&x.env)
             .current_dir(if x.cwd.is_empty() { "/" } else { &x.cwd })
-            .stdin(Stdio::null())
+            .stdin(if x.stdin_path.is_empty() {
+                if x.stdin_open {
+                    Stdio::piped()
+                } else {
+                    Stdio::null()
+                }
+            } else {
+                match File::open(&x.stdin_path) {
+                    Ok(f) => Stdio::from(f),
+                    Err(e) => return error("EXEC_FAILED", &e.to_string()),
+                }
+            })
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .process_group(0);
+            .stderr(Stdio::piped());
+        if x.pty {
+            if let Err(e) = io.terminal(&mut cmd) {
+                return error("EXEC_FAILED", &e.to_string());
+            }
+            unsafe {
+                cmd.pre_exec(|| {
+                    if libc::setsid() < 0 || libc::ioctl(0, libc::TIOCSCTTY as _, 0) < 0 {
+                        return Err(io::Error::last_os_error());
+                    }
+                    Ok(())
+                });
+            }
+        } else {
+            cmd.process_group(0);
+        }
         let started_ns = now_ns();
         // std's spawn returns only once the program has been exec'd.
         let mut child = match cmd.spawn() {
@@ -324,29 +426,27 @@ mod mac {
             }
         };
         let pid = child.id() as i32;
-        let limit = x.output_limit;
+        io.pid = pid;
+        if let Some(input) = child.stdin.take() {
+            unsafe {
+                libc::fcntl(input.as_raw_fd(), libc::F_SETFL, libc::O_NONBLOCK);
+            }
+            io.input = Some(Mutex::new(Some(input)));
+        }
+        let io = Arc::new(io);
+        results.0.lock().unwrap().io.insert(k.clone(), io.clone());
         let timeout = x.timeout_ms;
         let results = results.clone();
         std::thread::spawn(move || {
-            let out = child.stdout.take().unwrap();
-            let err = child.stderr.take().unwrap();
-            // Readers fill shared buffers: a background job that inherited
-            // a pipe must not hold the command's completion (see below).
-            let (read_done, reads) = std::sync::mpsc::channel::<()>();
-            let obuf = Arc::new(Mutex::new((Vec::new(), false)));
-            let ebuf = Arc::new(Mutex::new((Vec::new(), false)));
-            {
-                let (b, tx) = (obuf.clone(), read_done.clone());
-                std::thread::spawn(move || {
-                    read_into(out, limit, &b);
-                    let _ = tx.send(());
-                });
-                let (b, tx) = (ebuf.clone(), read_done);
-                std::thread::spawn(move || {
-                    read_into(err, limit, &b);
-                    let _ = tx.send(());
-                });
-            }
+            let out = if let Some(terminal) = &io.terminal {
+                command_io::capture(terminal.try_clone().unwrap(), io.out.clone(), pid)
+            } else {
+                command_io::capture(child.stdout.take().unwrap(), io.out.clone(), pid)
+            };
+            let err = child
+                .stderr
+                .take()
+                .map(|source| command_io::capture(source, io.err.clone(), pid));
             let timed_out = Arc::new(std::sync::atomic::AtomicBool::new(false));
             // Dropped once the command has exited: the timeout then never
             // fires, so background jobs it started keep running.
@@ -368,19 +468,19 @@ mod mac {
             // The command has exited. Output still open after a short grace
             // belongs to a background job it left running: reply with what
             // was read so far (marked truncated) instead of waiting for it.
-            let grace = std::time::Instant::now() + Duration::from_millis(50);
-            let mut finished = 0;
-            while finished < 2 {
-                let left = grace.saturating_duration_since(std::time::Instant::now());
-                match reads.recv_timeout(left) {
-                    Ok(()) => finished += 1,
-                    Err(_) => break,
-                }
+            let grace = Duration::from_millis(50);
+            let _ = out.recv_timeout(grace);
+            if let Some(err) = err {
+                let _ = err.recv_timeout(grace);
             }
-            let still_open = finished < 2;
-            let (out, t1) = obuf.lock().unwrap().clone();
-            let (err, t2) = ebuf.lock().unwrap().clone();
-            let (t1, t2) = (t1 || still_open, t2);
+            io.finished
+                .store(true, std::sync::atomic::Ordering::Release);
+            let obuf = io.out.lock().unwrap();
+            let ebuf = io.err.lock().unwrap();
+            let out = obuf.chunk(0, DEFAULT_OUTPUT_LIMIT).unwrap_or_default();
+            let err = ebuf.chunk(0, DEFAULT_OUTPUT_LIMIT).unwrap_or_default();
+            let t1 = obuf.failed || obuf.size > out.len() as u64;
+            let t2 = ebuf.failed || ebuf.size > err.len() as u64;
             let (code, sig) = match status {
                 Ok(s) => (s.code().unwrap_or(-1), s.signal().unwrap_or(0)),
                 Err(_) => (-1, 0),

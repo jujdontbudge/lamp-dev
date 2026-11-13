@@ -569,6 +569,9 @@ fn apply_guest_limits(
         cwd: String::new(),
         timeout_ms: 10_000,
         output_limit: 4096,
+        stdin_path: String::new(),
+        pty: false,
+        stdin_open: false,
         audit: None,
     });
     let mut conn = guest::send(vsock, &req)?;
@@ -2204,6 +2207,32 @@ impl Engine {
         env: BTreeMap<String, String>,
         timeout_ms: u64,
     ) -> Result<Outcome> {
+        self.start_io(
+            auth,
+            operation_id,
+            argv,
+            cwd,
+            env,
+            timeout_ms,
+            String::new(),
+            false,
+            false,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_io(
+        &self,
+        auth: Authority<'_>,
+        operation_id: &str,
+        argv: Vec<String>,
+        cwd: String,
+        env: BTreeMap<String, String>,
+        timeout_ms: u64,
+        stdin_path: String,
+        pty: bool,
+        stdin_open: bool,
+    ) -> Result<Outcome> {
         if argv.is_empty() {
             return Err(EngineError::invalid("argv is empty"));
         }
@@ -2255,6 +2284,9 @@ impl Engine {
             cwd,
             timeout_ms,
             output_limit: lamp_init::DEFAULT_OUTPUT_LIMIT,
+            stdin_path,
+            pty,
+            stdin_open,
             audit: audited.then_some(lamp_init::Audit {
                 port: lamp_init::AUDIT_PORT,
                 task_uid: crate::net::TASK_UID,
@@ -2328,6 +2360,42 @@ impl Engine {
     }
 
     /// The state of a command started on this sandbox.
+
+    pub fn exec_io(&self, auth: Authority<'_>, bytes: Vec<u8>) -> Result<Outcome> {
+        let mut request: lamp_init::ExecIo =
+            serde_json::from_slice(&bytes).map_err(|e| EngineError::invalid(e.to_string()))?;
+        request.sandbox_id = auth.sandbox_id.into();
+        request.generation = auth.generation;
+        let vsock = {
+            let sb = self.sandbox(auth.sandbox_id)?;
+            let sb = sb.lock().unwrap();
+            Self::check(&sb, auth)?;
+            sb.jail
+                .as_ref()
+                .ok_or_else(|| EngineError::host("sandbox is not running"))?
+                .path(fc::VSOCK)
+        };
+        match guest::call(
+            &vsock,
+            &GuestRequest::ExecIo(request),
+            Duration::from_secs(5),
+        )? {
+            GuestResponse::SessionReply { response_json } => Ok(Outcome {
+                state: "session_reply".into(),
+                detail: BTreeMap::from([("response_json".into(), response_json)]),
+                ..Default::default()
+            }),
+            GuestResponse::Error { code, message } => Err(EngineError::new(
+                if code == "GENERATION_MISMATCH" {
+                    "REVISION_CONFLICT"
+                } else {
+                    "DATA_UNAVAILABLE"
+                },
+                message,
+            )),
+            _ => Err(EngineError::host("unexpected command I/O reply")),
+        }
+    }
     pub fn command(&self, sandbox_id: &str, operation_id: &str) -> Result<CommandRec> {
         let commands = self.sandbox(sandbox_id)?.lock().unwrap().commands.clone();
         let table = commands.lock().unwrap();

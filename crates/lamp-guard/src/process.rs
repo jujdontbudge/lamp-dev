@@ -398,6 +398,7 @@ pub fn run(
         | libc::PTRACE_O_EXITKILL
         | libc::PTRACE_O_TRACESECCOMP
         | libc::PTRACE_O_TRACESYSGOOD;
+    let terminal = unsafe { libc::isatty(0) } == 1;
     let mut gate = [0; 2];
     if unsafe { libc::pipe2(gate.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
         return Err(io::Error::last_os_error());
@@ -432,6 +433,13 @@ pub fn run(
                 child_fail();
             }
             if task == 0 {
+                // The controlling terminal's session must be visible in the
+                // task PID namespace. Acquiring it in the outer collector
+                // makes shell job control refer to an invisible process group.
+                if terminal {
+                    check(libc::setsid());
+                    check(libc::ioctl(0, libc::TIOCSCTTY, 0));
+                }
                 // Detach inherited proc first: task root must not unmount the new proc
                 // and reveal a view of the tracer's ancestor PID namespace underneath.
                 check(libc::umount2(c("/proc").as_ptr(), libc::MNT_DETACH));

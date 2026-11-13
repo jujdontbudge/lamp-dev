@@ -7163,6 +7163,44 @@ pub struct Exec {
         skip_serializing_if = "Option::is_none"
     )]
     pub output_cursor: Option<String>,
+    #[serde(
+        rename = "stdout_bytes",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stdout_bytes: Option<u64>,
+    #[serde(
+        rename = "stderr_bytes",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stderr_bytes: Option<u64>,
+    #[serde(
+        rename = "output_truncated",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub output_truncated: Option<bool>,
+    #[serde(rename = "timed_out", default, skip_serializing_if = "Option::is_none")]
+    pub timed_out: Option<bool>,
+    #[serde(
+        rename = "timeout_ms",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub timeout_ms: Option<u64>,
+    #[serde(
+        rename = "failure_reason",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub failure_reason: Option<String>,
+    #[serde(
+        rename = "stdin_open",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stdin_open: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -7221,6 +7259,18 @@ pub struct ExecCreateInput {
     pub idempotency_key: String,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(
+        rename = "timeout_ms",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub timeout_ms: Option<u64>,
+    #[serde(
+        rename = "stdin_open",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stdin_open: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ExecCreateInputVisibility {
@@ -7308,6 +7358,8 @@ pub struct ExecInputInput {
     pub wait_ms: Option<u64>,
     #[serde(rename = "expected_revision")]
     pub expected_revision: u64,
+    #[serde(rename = "eof", default, skip_serializing_if = "Option::is_none")]
+    pub eof: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16101,6 +16153,10 @@ pub struct SandboxFileListInput {
     pub sandbox_id: String,
     #[serde(rename = "path")]
     pub path: String,
+    #[serde(rename = "cursor", default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(rename = "limit", default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16123,12 +16179,105 @@ pub struct SandboxFileReadInput {
     pub sandbox_id: String,
     #[serde(rename = "path")]
     pub path: String,
-    #[serde(rename = "offset_bytes")]
-    pub offset_bytes: u64,
-    #[serde(rename = "length_bytes")]
-    pub length_bytes: u64,
+    #[serde(
+        rename = "offset_bytes",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub offset_bytes: Option<u64>,
+    #[serde(
+        rename = "length_bytes",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub length_bytes: Option<u64>,
 }
 pub type SandboxFileReadResult = FileReadResult;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileRenameCompletion {}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileRenameInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "path")]
+    pub path: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+    #[serde(rename = "destination")]
+    pub destination: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileRenameResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxFileRenameCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileSearchInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "path")]
+    pub path: String,
+    #[serde(rename = "query")]
+    pub query: String,
+    #[serde(rename = "contents", default, skip_serializing_if = "Option::is_none")]
+    pub contents: Option<bool>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileSearchResult {
+    #[serde(rename = "items")]
+    pub items: Vec<FileEntry>,
+    #[serde(
+        rename = "next_cursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "truncated", default, skip_serializing_if = "Option::is_none")]
+    pub truncated: Option<bool>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileStatInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "path")]
+    pub path: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileStatResult {
+    #[serde(rename = "items")]
+    pub items: Vec<FileEntry>,
+    #[serde(
+        rename = "next_cursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SandboxFileTransferCompletion {
@@ -16175,6 +16324,32 @@ pub struct SandboxFileTransferResult {
     pub operation: Option<Operation>,
     #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
     pub result: Option<SandboxFileTransferCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileWatchInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "path")]
+    pub path: String,
+    #[serde(rename = "cursor", default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileWatchResult {
+    #[serde(rename = "items")]
+    pub items: Vec<FileEntry>,
+    #[serde(
+        rename = "next_cursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -17973,6 +18148,14 @@ pub enum ScopeActionsItem {
     WarmPoolList,
     #[serde(rename = "warm_pool.update")]
     WarmPoolUpdate,
+    #[serde(rename = "sandbox.file_stat")]
+    SandboxFileStat,
+    #[serde(rename = "sandbox.file_search")]
+    SandboxFileSearch,
+    #[serde(rename = "sandbox.file_watch")]
+    SandboxFileWatch,
+    #[serde(rename = "sandbox.file_rename")]
+    SandboxFileRename,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -25440,6 +25623,39 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "sandbox_file_rename",
+        scope: "sandbox.file_rename",
+        cli: "lamp sandbox file-rename",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:file-rename",
+        input_schema: "SandboxFileRenameInput",
+        result_schema: "SandboxFileRenameResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_file_search",
+        scope: "sandbox.file_search",
+        cli: "lamp sandbox file-search",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:file-search",
+        input_schema: "SandboxFileSearchInput",
+        result_schema: "SandboxFileSearchResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
+        name: "sandbox_file_stat",
+        scope: "sandbox.file_stat",
+        cli: "lamp sandbox file-stat",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:file-stat",
+        input_schema: "SandboxFileStatInput",
+        result_schema: "SandboxFileStatResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
         name: "sandbox_file_transfer",
         scope: "sandbox.file_transfer",
         cli: "lamp sandbox file-transfer",
@@ -25449,6 +25665,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "SandboxFileTransferResult",
         authorization: "authenticated_scope",
         mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_file_watch",
+        scope: "sandbox.file_watch",
+        cli: "lamp sandbox file-watch",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:file-watch",
+        input_schema: "SandboxFileWatchInput",
+        result_schema: "SandboxFileWatchResult",
+        authorization: "authenticated_scope",
+        mutation: false,
     },
     OperationDescriptor {
         name: "sandbox_file_write",

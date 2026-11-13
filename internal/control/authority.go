@@ -492,6 +492,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.engineHTTP(w, r)
 		return
 	}
+	if op.Name == "sandbox_file_list" || op.Name == "sandbox_file_read" || op.Name == "sandbox_file_stat" || op.Name == "sandbox_file_search" || op.Name == "sandbox_file_watch" {
+		s.fileReadHTTP(w, r, id, op, selectors)
+		return
+	}
 	if lifeOperation(op.Name) {
 		s.lifeHTTP(w, r, id, op, selectors)
 		return

@@ -1,0 +1,11 @@
+Host memory: physical=24576 MiB, available=5120 MiB, physical reserve=2048 MiB, available headroom=1280 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+Importing the signed default Linux seed and preparing its template…
+Host memory: physical=24576 MiB, available=5323 MiB, physical reserve=2048 MiB, available headroom=1330 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+{"at":"2026-11-13T03:01:07Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l36m5","service":"process","version":"0.1.2"}
+lamp-supervisor: store open, 0 verified template(s) in 33 ms
+booted in 1180 ms: {"audit": "none", "barrier_us": "1447", "confined": "true", "devices": "{\"display\":null,\"keyboard\":false,\"mouse\":false,\"gpu\":false,\"audio_input\":false,\"audio_output\":false,\"guest_transport\":null,\"extra_disks\":[]}", "helper_ready_us": "928735", "machine_id": "1132d9dfa03c88a4ffd362766524f552", "rng_sample": "e803e82dd1093c618560f0961a9a6a5b", "spawn_us": "250042", "vz_start_us": "171731", "worker_identity": "_lampvm2388", "worker_pid": "71392"}
+$ sh -c uname -m && python3 --version && cc --version | head -1 && getconf PAGESIZE
+aarch64
+Python 3.14.4
+cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+4096

@@ -465,24 +465,30 @@ impl Server {
                     Ok(())
                 };
                 bridge.and_then(|_| {
-                    self.engine.start(
+                    self.engine.start_io(
                         auth,
                         &ctx.operation_id,
                         s.argv,
                         s.cwd,
                         s.env.into_iter().collect(),
-                        0,
+                        s.timeout_ms,
+                        s.stdin_path,
+                        s.pty,
+                        s.stdin_open,
                     )
                 })
             }
             #[cfg(target_os = "macos")]
-            request::Command::Start(s) => self.engine.start(
+            request::Command::Start(s) => self.engine.start_io(
                 auth,
                 &ctx.operation_id,
                 s.argv,
                 s.cwd,
                 s.env.into_iter().collect(),
-                0,
+                s.timeout_ms,
+                s.stdin_path,
+                s.pty,
+                s.stdin_open,
             ),
             #[cfg(target_os = "linux")]
             request::Command::Capture(c) => {
@@ -516,16 +522,13 @@ impl Server {
                 "ENGINE_UNQUALIFIED",
                 "this engine has no managed data NIC",
             )),
-            #[cfg(target_os = "linux")]
+            request::Command::SessionCall(call) if call.bridge_source == "lamp-exec-io/1" => {
+                self.engine.exec_io(auth, call.request_json)
+            }
             request::Command::SessionCall(call) => {
                 self.engine
                     .session_call(auth, call.request_json, call.bridge_source)
             }
-            #[cfg(target_os = "macos")]
-            request::Command::SessionCall(_) => Err(EngineError::new(
-                "ENGINE_UNQUALIFIED",
-                "guest session relay is not available on this engine",
-            )),
             request::Command::Cancel(_) => Err(EngineError::invalid(
                 "cancel is not supported; operations are short and atomic",
             )),
