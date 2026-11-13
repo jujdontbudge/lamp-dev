@@ -782,7 +782,9 @@ impl Engine {
         let staging = self.cfg.store.join("staging");
         let _ = std::fs::remove_dir_all(&staging);
         let _ = std::fs::create_dir_all(&staging);
-        let _ = fsutil::chmod(&staging, 0o700);
+        // Build workers traverse this parent to their granted kernel file.
+        // Keep the same traversal permission established at store creation.
+        let _ = fsutil::chmod(&staging, 0o711);
         if let Some(ram) = &self.cfg.ram_dir {
             for e in std::fs::read_dir(ram).into_iter().flatten().flatten() {
                 let _ = std::fs::remove_dir_all(e.path());
@@ -1195,9 +1197,7 @@ impl Engine {
                         .and_then(|n| n.checked_add(self.cfg.devices.extra_disk_bytes()))
                         .ok_or_else(|| EngineError::invalid("disk size overflow"))?
                         .div_ceil(1 << 30);
-                    if (self.cfg.devices == Default::default() && &resources != min)
-                        || resources.disk_gib < disk
-                    {
+                    if resources.disk_gib < disk {
                         return Err(mismatch(min, &resources));
                     }
                 }
@@ -1329,16 +1329,13 @@ impl Engine {
                 let t = self.template(capture_id)?;
                 match &t.machine {
                     MachineCfg::Linux { resources, .. } => {
-                        if (self.cfg.devices == Default::default() && &sb.resources != resources)
-                            || sb.resources.disk_gib
-                                < resources
-                                    .disk_gib
-                                    .checked_mul(1 << 30)
-                                    .and_then(|n| {
-                                        n.checked_add(self.cfg.devices.extra_disk_bytes())
-                                    })
-                                    .ok_or_else(|| EngineError::invalid("disk size overflow"))?
-                                    .div_ceil(1 << 30)
+                        if sb.resources.disk_gib
+                            < resources
+                                .disk_gib
+                                .checked_mul(1 << 30)
+                                .and_then(|n| n.checked_add(self.cfg.devices.extra_disk_bytes()))
+                                .ok_or_else(|| EngineError::invalid("disk size overflow"))?
+                                .div_ceil(1 << 30)
                         {
                             return Err(mismatch(resources, &sb.resources));
                         }
@@ -1685,6 +1682,18 @@ impl Engine {
         self.new_dir(sb)?;
         let disk = sb.dir.join(DISK);
         fsutil::reflink(&t.dir.join(DISK), &disk, 0o600)?;
+        let mut grow_linux_root = false;
+        if matches!(t.machine, MachineCfg::Linux { .. }) {
+            let bytes = (sb.resources.disk_gib << 30)
+                .checked_sub(self.cfg.devices.extra_disk_bytes())
+                .ok_or_else(|| EngineError::invalid("extra disks exceed disk_gib"))?;
+            let file = std::fs::OpenOptions::new().write(true).open(&disk)?;
+            if bytes > file.metadata()?.len() {
+                file.set_len(bytes)?;
+                file.sync_all()?;
+                grow_linux_root = true;
+            }
+        }
         let spec = match &t.machine {
             MachineCfg::Linux {
                 cmdline,
@@ -1751,10 +1760,14 @@ impl Engine {
         // a Linux template then cold-boots its own sealed disk (about as
         // fast; the receipt says which way it started).
         let locked = t.variant.is_some() && console_locked();
+        let same_shape = match &t.machine {
+            MachineCfg::Linux { resources, .. } => resources == &sb.resources,
+            MachineCfg::Macos { .. } => true,
+        };
         let state = t
             .variant
             .as_ref()
-            .filter(|_| !locked && self.cfg.devices == Default::default())
+            .filter(|_| !locked && same_shape && self.cfg.devices == Default::default())
             .map(|_| t.dir.join(STATE_FILE));
         let mut spec = spec;
         detail.insert(
@@ -1773,6 +1786,40 @@ impl Engine {
             .into(),
         );
         self.finish_start(sb, state.is_some(), &mut detail)?;
+        if grow_linux_root {
+            // The seed uses a whole-device ext4 root. Grow it online only
+            // after a cold boot; never pair changed geometry with saved RAM.
+            // BLKGETSIZE64 needs only a read-only device descriptor. Resize
+            // through EXT4_IOC_RESIZE_FS on the mounted root, so kernels with
+            // CONFIG_BLK_DEV_WRITE_MOUNTED=n need no writable raw-device open.
+            let done = self.guest_command(
+                sb,
+                &[
+                    "python3",
+                    "-c",
+                    r#"
+import fcntl, os, struct
+with open('/dev/vda', 'rb', buffering=0) as disk:
+    size = struct.unpack('Q', fcntl.ioctl(disk, 0x80081272, bytes(8)))[0]
+root = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
+try:
+    blocks = size // os.fstatvfs(root).f_frsize
+    fcntl.ioctl(root, 0x40086610, struct.pack('Q', blocks))
+finally:
+    os.close(root)
+"#,
+                ],
+            )?;
+            if done.exit_code != 0 {
+                return Err(EngineError::host(format!(
+                    "grow Linux root filesystem: {}",
+                    String::from_utf8_lossy(
+                        &lamp_init::b64_decode(&done.stderr_b64).unwrap_or_default()
+                    )
+                )));
+            }
+            detail.insert("root_disk_gib".into(), (sb.resources.disk_gib).to_string());
+        }
         Ok(Outcome {
             state: "restored".into(),
             detail,
@@ -2940,4 +2987,36 @@ pub fn new_generic_machine_identifier(worker: &Path) -> Result<String> {
 
 pub fn object(path: &Path) -> Result<Object> {
     fsutil::digest_file(path)
+}
+
+impl Engine {
+    pub fn mount_storage(
+        &self,
+        auth: Authority<'_>,
+        socket: &str,
+        path: &str,
+        read_only: bool,
+        unmount: bool,
+        caller_uid: u32,
+    ) -> Result<Outcome> {
+        let arc = self.sandbox(auth.sandbox_id)?;
+        let sb = arc.lock().unwrap();
+        Self::check(&sb, auth)?;
+        let vsock = Self::worker(&sb)?.vsock.clone();
+        drop(sb);
+        crate::storage::mount(
+            &vsock,
+            auth.sandbox_id,
+            auth.generation,
+            socket,
+            path,
+            read_only,
+            unmount,
+            caller_uid,
+        )?;
+        Ok(Outcome {
+            state: if unmount { "unmounted" } else { "mounted" }.into(),
+            ..Default::default()
+        })
+    }
 }

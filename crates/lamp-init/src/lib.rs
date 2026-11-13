@@ -31,6 +31,7 @@ pub enum GuestRequest {
     Wait(Wait),
     SessionCall(SessionCall),
     ExecIo(ExecIo),
+    Mount(Mount),
     /// Freezes every task process (the `tasks` cgroup) before a capture, so
     /// nothing runs between the copy and the copy's own identity barrier.
     Freeze(Empty),
@@ -155,6 +156,7 @@ pub struct SessionCall {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
 pub enum GuestResponse {
+    StorageUnmounted,
     Pong(Status),
     BarrierAck(BarrierAck),
     /// The program was exec'd (the close-on-exec status pipe closed empty).
@@ -367,3 +369,14 @@ pub struct ExecIo {
     pub columns: u16,
 }
 pub mod command_io;
+/// Private host-mediated filesystem attachment, handed directly to the
+/// kernel's 9p fd transport. Tasks never get the channel descriptor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Mount {
+    pub sandbox_id: String,
+    pub generation: u64,
+    pub path: String,
+    pub read_only: bool,
+    pub unmount: bool,
+}

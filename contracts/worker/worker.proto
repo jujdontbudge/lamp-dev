@@ -76,6 +76,9 @@ message Rebuild {
   string purpose = 3;
   bool clean_rebuild = 4;
 }
+// Owner-granted template management; definitions are bounded control inputs.
+message Template { string action = 1; string definition = 2; string reference = 3; }
+message StorageMount { string socket_path = 1; string mount_path = 2; bool read_only = 3; bool unmount = 4; }
 message Request {
   Context context = 1;
   oneof command {
@@ -90,6 +93,8 @@ message Request {
     Rebuild rebuild = 18;
     SessionCall session_call = 19;
     NetworkCall network_call = 20;
+    Template template = 21;
+    StorageMount storage_mount = 22;
   }
 }
 message WorkerError { string code = 1; string message = 2; bool retryable = 3; }

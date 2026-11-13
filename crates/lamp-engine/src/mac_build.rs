@@ -162,6 +162,35 @@ impl Engine {
         name: &str,
         resources: Resources,
     ) -> Result<Built> {
+        self.build_linux_steps(seed, name, resources, &[], "")
+    }
+
+    pub fn build_linux_definition(
+        &self,
+        seed: &Path,
+        def: &crate::definition::Definition,
+    ) -> Result<Built> {
+        self.build_linux_steps(
+            seed,
+            &def.name,
+            Resources {
+                memory_mib: def.memory_mib.unwrap_or(STANDARD.memory_mib),
+                vcpus: def.vcpus.unwrap_or(STANDARD.vcpus),
+                disk_gib: def.disk_gib.unwrap_or(STANDARD.disk_gib),
+            },
+            &def.steps,
+            &toml::to_string(def).unwrap_or_default(),
+        )
+    }
+
+    fn build_linux_steps(
+        &self,
+        seed: &Path,
+        name: &str,
+        resources: Resources,
+        steps: &[crate::definition::Step],
+        definition: &str,
+    ) -> Result<Built> {
         let mut log = String::new();
         let seed_json: serde_json::Value =
             serde_json::from_slice(&std::fs::read(seed.join("seed.json")).ctx("read seed.json")?)
@@ -181,6 +210,14 @@ impl Engine {
                     format!("seed {f} does not match seed.json"),
                 ));
             }
+        }
+        let seed_disk = std::fs::metadata(seed.join("rootfs.ext4"))?
+            .len()
+            .div_ceil(1 << 30);
+        if resources.disk_gib != seed_disk {
+            return Err(EngineError::invalid(format!(
+                "Mac template builds require the seed's {seed_disk} GiB disk; ext4 resizing is available on Linux"
+            )));
         }
         let cmdline = seed_json["kernel"]["cmdline"]
             .as_str()
@@ -254,6 +291,56 @@ impl Engine {
             )?;
             if probe.exit_code != 0 {
                 return Err(EngineError::host("template probe failed"));
+            }
+            for (i, step) in steps.iter().enumerate() {
+                let w = Engine::worker(&sb)?;
+                let op = format!("op_step_{i}");
+                let timeout_ms = step.timeout_s.unwrap_or(600) * 1000;
+                let mut conn = guest::send(
+                    &w.vsock,
+                    &GuestRequest::Exec(lamp_init::Exec {
+                        sandbox_id: sb.id.clone(),
+                        generation: 1,
+                        exec_id: op.clone(),
+                        argv: step.argv.clone(),
+                        env: step.env.clone(),
+                        cwd: step.cwd.clone().unwrap_or_default(),
+                        timeout_ms,
+                        output_limit: 64 << 10,
+                        audit: None,
+                        stdin_path: String::new(),
+                        pty: false,
+                        stdin_open: false,
+                    }),
+                )?;
+                match conn.next(Some(Duration::from_secs(10)))? {
+                    GuestResponse::ExecStarted(_) => {}
+                    other => return Err(EngineError::host(format!("step {i}: {other:?}"))),
+                }
+                let done = guest::wait_exec(
+                    &w.vsock,
+                    &sb.id,
+                    1,
+                    &op,
+                    Some(Instant::now() + Duration::from_millis(timeout_ms + 5000)),
+                    w.liveness(),
+                )?;
+                log.push_str(&format!(
+                    "step {i} {:?}: exit {}\n{}{}",
+                    step.argv,
+                    done.exit_code,
+                    String::from_utf8_lossy(
+                        &lamp_init::b64_decode(&done.stdout_b64).unwrap_or_default()
+                    ),
+                    String::from_utf8_lossy(
+                        &lamp_init::b64_decode(&done.stderr_b64).unwrap_or_default()
+                    )
+                ));
+                crate::buildlog::write(&self.cfg.store, definition, &log)?;
+                // The public build reader sees each completed stage.
+                if done.exit_code != 0 || done.timed_out {
+                    return Err(EngineError::invalid(format!("template step failed: {log}")));
+                }
             }
             let w = Engine::worker(&sb)?;
             let vsock = w.vsock.clone();

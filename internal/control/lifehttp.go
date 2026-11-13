@@ -583,6 +583,18 @@ func (s *Service) lifeFind(a caller, kind, id string) map[string]any {
 		// A recipe name resolves to its current immutable version.
 		id = s.life.RecipeNames[a.Principal+"\n"+id]
 	}
+	if kind == "template" && !strings.HasPrefix(id, "tp_") {
+		var found map[string]any
+		for _, m := range s.lifeItems(a, kind) {
+			if textField(m, "name") == id && textField(m, "state") == "ready" {
+				if found != nil {
+					return nil
+				}
+				found = m
+			}
+		}
+		return found
+	}
 	for _, m := range s.lifeItems(a, kind) {
 		if textField(m, "id") == id {
 			return m

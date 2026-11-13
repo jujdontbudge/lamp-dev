@@ -1,0 +1,15 @@
+capacity available; starting one public template build
+template build exit 0
+validating definition; preparing confined build VMdefinition: t40-tools-final (1 steps), seed lamp-seed/ubuntu-26.04@sha256:f9980827307a0acfdec620fcce4ee8912be51d3870d359d57358d7fee566f333
+
+build sandbox booted in 154 ms
+step 0 ["python3", "-c", "import pathlib,site,shutil; d=pathlib.Path('/opt/tools'); d.mkdir(exist_ok=True); shutil.copy('/opt/src/six.py',d/'six.py'); shutil.copy('/opt/src/six.py',pathlib.Path(site.getsitepackages()[0])/'six.py'); import six; print('installed public six',six.__version__)"]: exit 0 in 38 ms
+installed public six 1.17.0
+
+template VM booted in 147 ms
+full capture written in 3047 ms
+memory image: 956 MiB of zero pages left as holes
+published tp_5ae3fd70922ef5c55d1a4a4a9a as t40-tools-final in 19247 ms
+
+{"data":{"arch":"x86_64","created_at":"2026-11-13T02:52:45.167285387Z","default_resources":{"disk_gib":20,"memory_mib":1024,"pids_max":4096,"vcpus":2},"definition_blob_id":"bl_33ba5cff303e0e214853c308605cb32a","fleet_id":"fl_local","guest_os":"linux","id":"tp_96bc693cd4de518d33193aee4689a2b5","kind":"template","labels":{"build_log":"definition: t40-tools-final (1 steps), seed lamp-seed/ubuntu-26.04@sha256:f9980827307a0acfdec620fcce4ee8912be51d3870d359d57358d7fee566f333\nbuild sandbox booted in 154 ms\nstep 0 [\"python3\", \"-c\", \"import pathlib,site,shutil; d=pathlib.Path('/opt/tools'); d.mkdir(exist_ok=True); shutil.copy('/opt/src/six.py',d/'six.py'); shutil.copy('/opt/src/six.py',pathlib.Path(site.getsitepackages()[0])/'six.py'); import six; print('installed public six',six.__version__)\"]: exit 0 in 38 ms\ninstalled public six 1.17.0\n\ntemplate VM booted in 147 ms\nfull capture written in 3047 ms\nmemory image: 956 MiB of zero pages left as holes\npublished tp_5ae3fd70922ef5c55d1a4a4a9a as t40-tools-final in 19247 ms\n","engine_template_id":"tp_5ae3fd70922ef5c55d1a4a4a9a"},"minimum_resources":{"disk_gib":20,"memory_mib":256,"pids_max":1,"vcpus":1},"name":"/home/johan/.local/state/lamp-t40/tools.lamp","owner_id":"pr_local","revision":3,"state":"ready","updated_at":"2026-11-13T02:53:04.432360007Z","visibility":"private"},"request_id":"req_be411d7c16e9e1212adb755aab9e6f73"}
+

@@ -230,7 +230,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	// Resource shorthand remains compatible with the engine benchmark caller.
 	dimensions := map[string]*uint64{}
+	var mounts []createMount
 	if name == "sandbox_create" {
+		flags.Func("template", "template name or ID", func(v string) error {
+			if _, exists := in["template_id"]; exists {
+				return fmt.Errorf("duplicate template")
+			}
+			in["template_id"] = v
+			return nil
+		})
+		flags.Func("volume", "attach name-or-id:/path", mountFlag("volume", &mounts))
+		flags.Func("cache", "attach name-or-id:/path", mountFlag("cache", &mounts))
 		for _, d := range []struct {
 			name  string
 			value uint64
@@ -240,6 +250,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	remaining := args[2:]
 	positional := ""
+	buildFile := ""
 	if len(remaining) > 0 && !strings.HasPrefix(remaining[0], "-") {
 		positional = remaining[0]
 		remaining = remaining[1:]
@@ -284,6 +295,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 				}
 			}
 			in[k] = v
+		}
+	}
+	if name == "template_build" && positional != "" {
+		if info, err := os.Stat(positional); err == nil && info.Mode().IsRegular() {
+			buildFile = positional
+			positional = ""
 		}
 	}
 	if positional != "" {
@@ -345,6 +362,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	defer client.Close()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if buildFile != "" {
+		return templateFile(ctx, client, buildFile, stdout, stderr, asJSON)
+	}
 	if waitingSandbox || name == "operation_wait" {
 		if _, _, _, err := surface.Request(op, in); err != nil {
 			return usage(err.Error())
@@ -498,6 +518,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return usage("cannot save private screenshot")
 		}
 		data = []byte("{\"private_png_saved\":true}\n")
+	}
+	if status < 400 && !operationFailed(data) && len(mounts) > 0 {
+		if err := createAttachments(ctx, client, data, mounts, fmt.Sprint(in["idempotency_key"])); err != nil {
+			cliError(stderr, "STORAGE_ATTACH_FAILED", err.Error(), asJSON)
+			return 1
+		}
 	}
 	emit(stdout, stderr, data, status, asJSON)
 	if status < 400 && operationFailed(data) {

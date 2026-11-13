@@ -1256,6 +1256,135 @@ func (x *Rebuild) GetCleanRebuild() bool {
 	return false
 }
 
+// Owner-granted template management; definitions are bounded control inputs.
+type Template struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Action        string                 `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
+	Definition    string                 `protobuf:"bytes,2,opt,name=definition,proto3" json:"definition,omitempty"`
+	Reference     string                 `protobuf:"bytes,3,opt,name=reference,proto3" json:"reference,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Template) Reset() {
+	*x = Template{}
+	mi := &file_worker_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Template) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Template) ProtoMessage() {}
+
+func (x *Template) ProtoReflect() protoreflect.Message {
+	mi := &file_worker_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Template.ProtoReflect.Descriptor instead.
+func (*Template) Descriptor() ([]byte, []int) {
+	return file_worker_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *Template) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *Template) GetDefinition() string {
+	if x != nil {
+		return x.Definition
+	}
+	return ""
+}
+
+func (x *Template) GetReference() string {
+	if x != nil {
+		return x.Reference
+	}
+	return ""
+}
+
+type StorageMount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SocketPath    string                 `protobuf:"bytes,1,opt,name=socket_path,json=socketPath,proto3" json:"socket_path,omitempty"`
+	MountPath     string                 `protobuf:"bytes,2,opt,name=mount_path,json=mountPath,proto3" json:"mount_path,omitempty"`
+	ReadOnly      bool                   `protobuf:"varint,3,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`
+	Unmount       bool                   `protobuf:"varint,4,opt,name=unmount,proto3" json:"unmount,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StorageMount) Reset() {
+	*x = StorageMount{}
+	mi := &file_worker_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StorageMount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StorageMount) ProtoMessage() {}
+
+func (x *StorageMount) ProtoReflect() protoreflect.Message {
+	mi := &file_worker_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StorageMount.ProtoReflect.Descriptor instead.
+func (*StorageMount) Descriptor() ([]byte, []int) {
+	return file_worker_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *StorageMount) GetSocketPath() string {
+	if x != nil {
+		return x.SocketPath
+	}
+	return ""
+}
+
+func (x *StorageMount) GetMountPath() string {
+	if x != nil {
+		return x.MountPath
+	}
+	return ""
+}
+
+func (x *StorageMount) GetReadOnly() bool {
+	if x != nil {
+		return x.ReadOnly
+	}
+	return false
+}
+
+func (x *StorageMount) GetUnmount() bool {
+	if x != nil {
+		return x.Unmount
+	}
+	return false
+}
+
 type Request struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Context *Context               `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
@@ -1272,6 +1401,8 @@ type Request struct {
 	//	*Request_Rebuild
 	//	*Request_SessionCall
 	//	*Request_NetworkCall
+	//	*Request_Template
+	//	*Request_StorageMount
 	Command       isRequest_Command `protobuf_oneof:"command"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1279,7 +1410,7 @@ type Request struct {
 
 func (x *Request) Reset() {
 	*x = Request{}
-	mi := &file_worker_proto_msgTypes[17]
+	mi := &file_worker_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1291,7 +1422,7 @@ func (x *Request) String() string {
 func (*Request) ProtoMessage() {}
 
 func (x *Request) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[17]
+	mi := &file_worker_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1304,7 +1435,7 @@ func (x *Request) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Request.ProtoReflect.Descriptor instead.
 func (*Request) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{17}
+	return file_worker_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Request) GetContext() *Context {
@@ -1420,6 +1551,24 @@ func (x *Request) GetNetworkCall() *NetworkCall {
 	return nil
 }
 
+func (x *Request) GetTemplate() *Template {
+	if x != nil {
+		if x, ok := x.Command.(*Request_Template); ok {
+			return x.Template
+		}
+	}
+	return nil
+}
+
+func (x *Request) GetStorageMount() *StorageMount {
+	if x != nil {
+		if x, ok := x.Command.(*Request_StorageMount); ok {
+			return x.StorageMount
+		}
+	}
+	return nil
+}
+
 type isRequest_Command interface {
 	isRequest_Command()
 }
@@ -1468,6 +1617,14 @@ type Request_NetworkCall struct {
 	NetworkCall *NetworkCall `protobuf:"bytes,20,opt,name=network_call,json=networkCall,proto3,oneof"`
 }
 
+type Request_Template struct {
+	Template *Template `protobuf:"bytes,21,opt,name=template,proto3,oneof"`
+}
+
+type Request_StorageMount struct {
+	StorageMount *StorageMount `protobuf:"bytes,22,opt,name=storage_mount,json=storageMount,proto3,oneof"`
+}
+
 func (*Request_Allocate) isRequest_Command() {}
 
 func (*Request_Start) isRequest_Command() {}
@@ -1490,6 +1647,10 @@ func (*Request_SessionCall) isRequest_Command() {}
 
 func (*Request_NetworkCall) isRequest_Command() {}
 
+func (*Request_Template) isRequest_Command() {}
+
+func (*Request_StorageMount) isRequest_Command() {}
+
 type WorkerError struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
@@ -1501,7 +1662,7 @@ type WorkerError struct {
 
 func (x *WorkerError) Reset() {
 	*x = WorkerError{}
-	mi := &file_worker_proto_msgTypes[18]
+	mi := &file_worker_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1513,7 +1674,7 @@ func (x *WorkerError) String() string {
 func (*WorkerError) ProtoMessage() {}
 
 func (x *WorkerError) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[18]
+	mi := &file_worker_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1526,7 +1687,7 @@ func (x *WorkerError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkerError.ProtoReflect.Descriptor instead.
 func (*WorkerError) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{18}
+	return file_worker_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *WorkerError) GetCode() string {
@@ -1568,7 +1729,7 @@ type CommandResult struct {
 
 func (x *CommandResult) Reset() {
 	*x = CommandResult{}
-	mi := &file_worker_proto_msgTypes[19]
+	mi := &file_worker_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1580,7 +1741,7 @@ func (x *CommandResult) String() string {
 func (*CommandResult) ProtoMessage() {}
 
 func (x *CommandResult) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[19]
+	mi := &file_worker_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1593,7 +1754,7 @@ func (x *CommandResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandResult.ProtoReflect.Descriptor instead.
 func (*CommandResult) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{19}
+	return file_worker_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CommandResult) GetExitCode() int32 {
@@ -1666,7 +1827,7 @@ type Receipt struct {
 
 func (x *Receipt) Reset() {
 	*x = Receipt{}
-	mi := &file_worker_proto_msgTypes[20]
+	mi := &file_worker_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1678,7 +1839,7 @@ func (x *Receipt) String() string {
 func (*Receipt) ProtoMessage() {}
 
 func (x *Receipt) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[20]
+	mi := &file_worker_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1691,7 +1852,7 @@ func (x *Receipt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Receipt.ProtoReflect.Descriptor instead.
 func (*Receipt) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{20}
+	return file_worker_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Receipt) GetState() string {
@@ -1743,7 +1904,7 @@ type Response struct {
 
 func (x *Response) Reset() {
 	*x = Response{}
-	mi := &file_worker_proto_msgTypes[21]
+	mi := &file_worker_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1755,7 +1916,7 @@ func (x *Response) String() string {
 func (*Response) ProtoMessage() {}
 
 func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[21]
+	mi := &file_worker_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1768,7 +1929,7 @@ func (x *Response) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Response.ProtoReflect.Descriptor instead.
 func (*Response) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{21}
+	return file_worker_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Response) GetContext() *Context {
@@ -1833,7 +1994,7 @@ type Frame struct {
 
 func (x *Frame) Reset() {
 	*x = Frame{}
-	mi := &file_worker_proto_msgTypes[22]
+	mi := &file_worker_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1845,7 +2006,7 @@ func (x *Frame) String() string {
 func (*Frame) ProtoMessage() {}
 
 func (x *Frame) ProtoReflect() protoreflect.Message {
-	mi := &file_worker_proto_msgTypes[22]
+	mi := &file_worker_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1858,7 +2019,7 @@ func (x *Frame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Frame.ProtoReflect.Descriptor instead.
 func (*Frame) Descriptor() ([]byte, []int) {
-	return file_worker_proto_rawDescGZIP(), []int{22}
+	return file_worker_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Frame) GetPayload() isFrame_Payload {
@@ -2027,7 +2188,20 @@ const file_worker_proto_rawDesc = "" +
 	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x123\n" +
 	"\x15destination_principal\x18\x02 \x01(\tR\x14destinationPrincipal\x12\x18\n" +
 	"\apurpose\x18\x03 \x01(\tR\apurpose\x12#\n" +
-	"\rclean_rebuild\x18\x04 \x01(\bR\fcleanRebuild\"\x99\x05\n" +
+	"\rclean_rebuild\x18\x04 \x01(\bR\fcleanRebuild\"`\n" +
+	"\bTemplate\x12\x16\n" +
+	"\x06action\x18\x01 \x01(\tR\x06action\x12\x1e\n" +
+	"\n" +
+	"definition\x18\x02 \x01(\tR\n" +
+	"definition\x12\x1c\n" +
+	"\treference\x18\x03 \x01(\tR\treference\"\x85\x01\n" +
+	"\fStorageMount\x12\x1f\n" +
+	"\vsocket_path\x18\x01 \x01(\tR\n" +
+	"socketPath\x12\x1d\n" +
+	"\n" +
+	"mount_path\x18\x02 \x01(\tR\tmountPath\x12\x1b\n" +
+	"\tread_only\x18\x03 \x01(\bR\breadOnly\x12\x18\n" +
+	"\aunmount\x18\x04 \x01(\bR\aunmount\"\x96\x06\n" +
 	"\aRequest\x121\n" +
 	"\acontext\x18\x01 \x01(\v2\x17.lamp.worker.v1.ContextR\acontext\x126\n" +
 	"\ballocate\x18\n" +
@@ -2041,7 +2215,9 @@ const file_worker_proto_rawDesc = "" +
 	"\arelease\x18\x11 \x01(\v2\x17.lamp.worker.v1.ReleaseH\x00R\arelease\x123\n" +
 	"\arebuild\x18\x12 \x01(\v2\x17.lamp.worker.v1.RebuildH\x00R\arebuild\x12@\n" +
 	"\fsession_call\x18\x13 \x01(\v2\x1b.lamp.worker.v1.SessionCallH\x00R\vsessionCall\x12@\n" +
-	"\fnetwork_call\x18\x14 \x01(\v2\x1b.lamp.worker.v1.NetworkCallH\x00R\vnetworkCallB\t\n" +
+	"\fnetwork_call\x18\x14 \x01(\v2\x1b.lamp.worker.v1.NetworkCallH\x00R\vnetworkCall\x126\n" +
+	"\btemplate\x18\x15 \x01(\v2\x18.lamp.worker.v1.TemplateH\x00R\btemplate\x12C\n" +
+	"\rstorage_mount\x18\x16 \x01(\v2\x1c.lamp.worker.v1.StorageMountH\x00R\fstorageMountB\t\n" +
 	"\acommand\"Y\n" +
 	"\vWorkerError\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
@@ -2102,7 +2278,7 @@ func file_worker_proto_rawDescGZIP() []byte {
 }
 
 var file_worker_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_worker_proto_goTypes = []any{
 	(HandleKind)(0),       // 0: lamp.worker.v1.HandleKind
 	(*Hello)(nil),         // 1: lamp.worker.v1.Hello
@@ -2122,21 +2298,23 @@ var file_worker_proto_goTypes = []any{
 	(*Cancel)(nil),        // 15: lamp.worker.v1.Cancel
 	(*Release)(nil),       // 16: lamp.worker.v1.Release
 	(*Rebuild)(nil),       // 17: lamp.worker.v1.Rebuild
-	(*Request)(nil),       // 18: lamp.worker.v1.Request
-	(*WorkerError)(nil),   // 19: lamp.worker.v1.WorkerError
-	(*CommandResult)(nil), // 20: lamp.worker.v1.CommandResult
-	(*Receipt)(nil),       // 21: lamp.worker.v1.Receipt
-	(*Response)(nil),      // 22: lamp.worker.v1.Response
-	(*Frame)(nil),         // 23: lamp.worker.v1.Frame
-	nil,                   // 24: lamp.worker.v1.Start.EnvEntry
-	nil,                   // 25: lamp.worker.v1.Receipt.DetailEntry
+	(*Template)(nil),      // 18: lamp.worker.v1.Template
+	(*StorageMount)(nil),  // 19: lamp.worker.v1.StorageMount
+	(*Request)(nil),       // 20: lamp.worker.v1.Request
+	(*WorkerError)(nil),   // 21: lamp.worker.v1.WorkerError
+	(*CommandResult)(nil), // 22: lamp.worker.v1.CommandResult
+	(*Receipt)(nil),       // 23: lamp.worker.v1.Receipt
+	(*Response)(nil),      // 24: lamp.worker.v1.Response
+	(*Frame)(nil),         // 25: lamp.worker.v1.Frame
+	nil,                   // 26: lamp.worker.v1.Start.EnvEntry
+	nil,                   // 27: lamp.worker.v1.Receipt.DetailEntry
 }
 var file_worker_proto_depIdxs = []int32{
 	0,  // 0: lamp.worker.v1.HandleGrant.kind:type_name -> lamp.worker.v1.HandleKind
 	4,  // 1: lamp.worker.v1.Allocate.resources:type_name -> lamp.worker.v1.Resources
 	3,  // 2: lamp.worker.v1.Allocate.handles:type_name -> lamp.worker.v1.HandleGrant
 	6,  // 3: lamp.worker.v1.Allocate.devices:type_name -> lamp.worker.v1.DeviceRequest
-	24, // 4: lamp.worker.v1.Start.env:type_name -> lamp.worker.v1.Start.EnvEntry
+	26, // 4: lamp.worker.v1.Start.env:type_name -> lamp.worker.v1.Start.EnvEntry
 	3,  // 5: lamp.worker.v1.Capture.output_handles:type_name -> lamp.worker.v1.HandleGrant
 	5,  // 6: lamp.worker.v1.Restore.compatibility:type_name -> lamp.worker.v1.Compatibility
 	3,  // 7: lamp.worker.v1.Restore.input_handles:type_name -> lamp.worker.v1.HandleGrant
@@ -2152,19 +2330,21 @@ var file_worker_proto_depIdxs = []int32{
 	17, // 17: lamp.worker.v1.Request.rebuild:type_name -> lamp.worker.v1.Rebuild
 	10, // 18: lamp.worker.v1.Request.session_call:type_name -> lamp.worker.v1.SessionCall
 	9,  // 19: lamp.worker.v1.Request.network_call:type_name -> lamp.worker.v1.NetworkCall
-	20, // 20: lamp.worker.v1.Receipt.command:type_name -> lamp.worker.v1.CommandResult
-	25, // 21: lamp.worker.v1.Receipt.detail:type_name -> lamp.worker.v1.Receipt.DetailEntry
-	2,  // 22: lamp.worker.v1.Response.context:type_name -> lamp.worker.v1.Context
-	21, // 23: lamp.worker.v1.Response.receipt:type_name -> lamp.worker.v1.Receipt
-	19, // 24: lamp.worker.v1.Response.error:type_name -> lamp.worker.v1.WorkerError
-	1,  // 25: lamp.worker.v1.Frame.hello:type_name -> lamp.worker.v1.Hello
-	18, // 26: lamp.worker.v1.Frame.request:type_name -> lamp.worker.v1.Request
-	22, // 27: lamp.worker.v1.Frame.response:type_name -> lamp.worker.v1.Response
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	18, // 20: lamp.worker.v1.Request.template:type_name -> lamp.worker.v1.Template
+	19, // 21: lamp.worker.v1.Request.storage_mount:type_name -> lamp.worker.v1.StorageMount
+	22, // 22: lamp.worker.v1.Receipt.command:type_name -> lamp.worker.v1.CommandResult
+	27, // 23: lamp.worker.v1.Receipt.detail:type_name -> lamp.worker.v1.Receipt.DetailEntry
+	2,  // 24: lamp.worker.v1.Response.context:type_name -> lamp.worker.v1.Context
+	23, // 25: lamp.worker.v1.Response.receipt:type_name -> lamp.worker.v1.Receipt
+	21, // 26: lamp.worker.v1.Response.error:type_name -> lamp.worker.v1.WorkerError
+	1,  // 27: lamp.worker.v1.Frame.hello:type_name -> lamp.worker.v1.Hello
+	20, // 28: lamp.worker.v1.Frame.request:type_name -> lamp.worker.v1.Request
+	24, // 29: lamp.worker.v1.Frame.response:type_name -> lamp.worker.v1.Response
+	30, // [30:30] is the sub-list for method output_type
+	30, // [30:30] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_worker_proto_init() }
@@ -2172,7 +2352,7 @@ func file_worker_proto_init() {
 	if File_worker_proto != nil {
 		return
 	}
-	file_worker_proto_msgTypes[17].OneofWrappers = []any{
+	file_worker_proto_msgTypes[19].OneofWrappers = []any{
 		(*Request_Allocate)(nil),
 		(*Request_Start)(nil),
 		(*Request_Stop)(nil),
@@ -2184,12 +2364,14 @@ func file_worker_proto_init() {
 		(*Request_Rebuild)(nil),
 		(*Request_SessionCall)(nil),
 		(*Request_NetworkCall)(nil),
+		(*Request_Template)(nil),
+		(*Request_StorageMount)(nil),
 	}
-	file_worker_proto_msgTypes[21].OneofWrappers = []any{
+	file_worker_proto_msgTypes[23].OneofWrappers = []any{
 		(*Response_Receipt)(nil),
 		(*Response_Error)(nil),
 	}
-	file_worker_proto_msgTypes[22].OneofWrappers = []any{
+	file_worker_proto_msgTypes[24].OneofWrappers = []any{
 		(*Frame_Hello)(nil),
 		(*Frame_Request)(nil),
 		(*Frame_Response)(nil),
@@ -2200,7 +2382,7 @@ func file_worker_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_worker_proto_rawDesc), len(file_worker_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   25,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

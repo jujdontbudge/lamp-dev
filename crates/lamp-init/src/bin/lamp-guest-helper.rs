@@ -129,6 +129,28 @@ mod linux {
                     return;
                 }
             };
+            if let GuestRequest::Mount(m) = &request {
+                let id = state.lock().unwrap();
+                if id.sandbox_id != m.sandbox_id || id.generation != m.generation {
+                    let _ = write_frame(
+                        &mut stream,
+                        &error("SCOPE_DENIED", "mount identity mismatch"),
+                    );
+                    return;
+                }
+                drop(id);
+                let result = mount_storage(&stream, m);
+                if m.unmount {
+                    let response = match result {
+                        Ok(()) => GuestResponse::StorageUnmounted,
+                        Err(e) => error("DATA_UNAVAILABLE", &e.to_string()),
+                    };
+                    let _ = write_frame(&mut stream, &response);
+                } else if let Err(e) = result {
+                    eprintln!("lamp-guest-helper: mount: {e}");
+                }
+                return;
+            }
             let response = match request {
                 GuestRequest::Exec(x) => exec(&x, &state, &results),
                 GuestRequest::Wait(w) => wait(&w, &state, &results),
@@ -163,6 +185,51 @@ mod linux {
         }
     }
 
+    fn mount_storage(stream: &File, m: &lamp_init::Mount) -> io::Result<()> {
+        use std::ffi::CString;
+        use std::os::fd::AsRawFd;
+        let path = std::path::Path::new(&m.path);
+        if !path.is_absolute()
+            || m.path == "/"
+            || path
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid mount path",
+            ));
+        }
+        let target = CString::new(m.path.clone())?;
+        if m.unmount {
+            // Lazy detach also clears an inherited or disconnected mount.
+            if unsafe { libc::umount2(target.as_ptr(), libc::MNT_DETACH) } < 0 {
+                return Err(io::Error::last_os_error());
+            }
+            return Ok(());
+        }
+        std::fs::create_dir_all(path)?;
+        let fd = stream.as_raw_fd();
+        let options = CString::new(format!(
+            "trans=fd,rfdno={fd},wfdno={fd},version=9p2000.L,msize=262144,cache=none,access=any"
+        ))?;
+        let flags =
+            libc::MS_NODEV | libc::MS_NOSUID | if m.read_only { libc::MS_RDONLY } else { 0 };
+        if unsafe {
+            libc::mount(
+                c"lamp-storage".as_ptr(),
+                target.as_ptr(),
+                c"9p".as_ptr(),
+                flags,
+                options.as_ptr().cast(),
+            )
+        } < 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
+    }
+
     fn error(code: &str, message: &str) -> GuestResponse {
         GuestResponse::Error {
             code: code.into(),
@@ -186,9 +253,10 @@ mod linux {
             },
             GuestRequest::SessionCall(call) => session_call(&call, state),
             // Served by `serve`, which owns the result table.
-            GuestRequest::Exec(_) | GuestRequest::Wait(_) | GuestRequest::ExecIo(_) => {
-                error("INVALID_ARGUMENT", "served with results")
-            }
+            GuestRequest::Exec(_)
+            | GuestRequest::Wait(_)
+            | GuestRequest::ExecIo(_)
+            | GuestRequest::Mount(_) => error("INVALID_ARGUMENT", "served with results"),
             GuestRequest::Freeze(Empty {}) => match freeze() {
                 Ok(()) => GuestResponse::Frozen,
                 Err(e) => error("FREEZE_FAILED", &e.to_string()),

@@ -1,0 +1,6 @@
+   Compiling lamp-init v0.1.0 (/tmp/lamp-t40-source/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/tmp/lamp-t40-source/crates/lamp-guard)
+   Compiling lamp-worker-protocol v0.1.0 (/tmp/lamp-t40-source/crates/lamp-worker-protocol)
+   Compiling lamp-engine v0.1.0 (/tmp/lamp-t40-source/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/tmp/lamp-t40-source/crates/lamp-supervisor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.08s

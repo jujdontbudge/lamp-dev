@@ -277,6 +277,9 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 			r.Command = &pb.Request_Restore{Restore: &pb.Restore{CaptureId: capture}}
 			err := s.worker.perform(ctx, r, "restored")
 			if err == nil {
+				err = s.remountStorage(ctx, id)
+			}
+			if err == nil {
 				var res guestResult
 				res, err = s.guestRun(ctx, id, "/bin/true")
 				if err == nil && res.Exit != 0 {
@@ -347,6 +350,9 @@ func (s *Service) resumedGeneration(id string, generation uint64) bool {
 func (s *Service) reconcileResumed(ctx context.Context, id string, revision uint64) {
 	res, err := s.guestRun(ctx, id, "/bin/true")
 	if err != nil || res.Exit != 0 {
+		return
+	}
+	if err := s.remountStorage(ctx, id); err != nil {
 		return
 	}
 	s.readLock()

@@ -14,7 +14,6 @@ import (
 
 	"lamp.eilmer.si/internal/surface"
 	"lamp.eilmer.si/pkg/api"
-	pb "lamp.eilmer.si/pkg/workerpb"
 )
 
 func init() {
@@ -54,6 +53,9 @@ func (s *Service) engineSource(owner, ref string) (string, *api.Resources, error
 	}
 	var r api.Resources
 	json.Unmarshal(t.Resources, &r)
+	if t.Flexible {
+		return t.Capture, nil, nil
+	}
 	return t.Capture, &r, nil
 }
 
@@ -124,7 +126,7 @@ func (s *Service) planSaveTemplate(a caller, in map[string]any) (lifePlan, error
 	} else if len(taint) > 0 {
 		return lifePlan{}, reject("CLEAN_REBUILD_REQUIRED", "Verified reconstruction inputs required (tainted by "+strings.Join(taint, ",")+")")
 	} else if len(paths) == 0 {
-		return lifePlan{}, reject("INVALID_ARGUMENT", "selected_paths or reconstruction_blob_id required")
+		return lifePlan{}, reject("CLEAN_REBUILD_REQUIRED", "selected_paths or reconstruction_blob_id required")
 	}
 	base, fixed, err := s.engineSource(a.Principal, value(sb.TemplateId))
 	if err != nil {
@@ -149,9 +151,9 @@ func (s *Service) planSaveTemplate(a caller, in map[string]any) (lifePlan, error
 	m["labels"] = map[string]any{"source_sandbox_id": id, "build": how, "base_template_id": value(sb.TemplateId)}
 	rawRes, _ := json.Marshal(resources)
 	s.life.Templates[tp] = &lifeTemplate{R: m, Resources: rawRes, Base: value(sb.TemplateId)}
-	capture := "cp_" + strings.TrimPrefix(tp, "tp_")
-	if len(capture) > 60 {
-		capture = capture[:60]
+	var archiveObject string
+	if len(paths) == 0 {
+		return lifePlan{}, reject("CLEAN_REBUILD_REQUIRED", "selected_paths must identify the clean rebuild outputs")
 	}
 	var builder string
 	return lifePlan{ref: lifeRef("template", tp), timeout: 20 * time.Minute,
@@ -163,6 +165,10 @@ func (s *Service) planSaveTemplate(a caller, in map[string]any) (lifePlan, error
 				if archive, err = s.guestArchive(ctx, id, 1<<30, paths...); err != nil {
 					return nil, err
 				}
+			}
+			if how == "clean_copy" {
+				archiveObject, err = s.putObject(archive)
+				return map[string]any{"template_id": tp}, err
 			}
 			var err error
 			builder, err = s.internalCreate(ctx, a, "lamp-template-build:"+tp, base, resources)
@@ -200,9 +206,12 @@ func (s *Service) planSaveTemplate(a caller, in map[string]any) (lifePlan, error
 			if _, err := s.guestRun(ctx, builder, "sync"); err != nil {
 				return nil, err
 			}
-			r := s.workerRequest(ctx, "capture", builder, s.sandboxGeneration(builder))
-			r.Command = &pb.Request_Capture{Capture: &pb.Capture{CaptureId: capture, PreservesMemory: true, Consistency: "local"}}
-			if err := s.worker.perform(ctx, r, "captured"); err != nil {
+			archive, err = s.guestArchive(ctx, builder, 1<<30, paths...)
+			if err != nil {
+				return nil, err
+			}
+			archiveObject, err = s.putObject(archive)
+			if err != nil {
 				return nil, err
 			}
 			return map[string]any{"template_id": tp}, nil
@@ -213,8 +222,9 @@ func (s *Service) planSaveTemplate(a caller, in map[string]any) (lifePlan, error
 				m["state"] = "failed"
 			} else {
 				m["state"] = "ready"
-				t.Capture = capture
-				m["root_objects"] = []any{capture}
+				t.Capture = base
+				t.Archive = archiveObject
+				m["root_objects"] = []any{archiveObject}
 			}
 			editResource(m)
 			return err
@@ -238,6 +248,11 @@ func (s *Service) planTemplateDelete(a caller, in map[string]any) (lifePlan, err
 			return lifePlan{}, reject("RESOURCE_IN_USE", "sandbox "+sb.Id+" uses this template")
 		}
 	}
+	for _, t := range s.life.Templates {
+		if t.Base == id && textField(t.R, "state") != "deleted" {
+			return lifePlan{}, reject("RESOURCE_IN_USE", "template "+textField(t.R, "id")+" derives from this base")
+		}
+	}
 	for _, rc := range s.life.Recipes {
 		if textField(rc.R, "template_id") == id && textField(rc.R, "state") != "deleted" {
 			return lifePlan{}, reject("RESOURCE_IN_USE", "recipe "+textField(rc.R, "id")+" uses this template")
@@ -245,7 +260,7 @@ func (s *Service) planTemplateDelete(a caller, in map[string]any) (lifePlan, err
 	}
 	m["state"] = "deleted"
 	editResource(m)
-	if t := s.life.Templates[id]; t.Capture != "" {
+	if t := s.life.Templates[id]; t.Capture != "" && !t.Engine && t.Archive == "" {
 		s.life.Discards[t.Capture] = "template deleted"
 	}
 	return lifePlan{ref: lifeRef("template", id), result: map[string]any{}}, nil
@@ -324,7 +339,7 @@ func (s *Service) recipeFields(m, in map[string]any) error {
 	if textField(m, "name") == "" || textField(m, "template_id") == "" {
 		return reject("INVALID_ARGUMENT", "name and template_id required")
 	}
-	if t, ok := s.life.Templates[textField(m, "template_id")]; ok {
+	if t, ok := s.life.Templates[textField(m, "template_id")]; ok && !t.Flexible {
 		if textField(t.R, "owner_id") != textField(m, "owner_id") || textField(t.R, "state") != "ready" {
 			return reject("NOT_FOUND", "template not found")
 		}
@@ -464,6 +479,12 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 	if recipeID == "" && body["template_id"] == nil && s.installedTemplate != nil {
 		template = s.installedTemplate.Id
 	}
+	if _, ok := s.life.Templates[template]; !ok && template != "" {
+		if found := s.lifeFind(a, "template", template); found != nil {
+			template = textField(found, "id")
+			body["template_id"] = template
+		}
+	}
 	_, saved := s.life.Templates[template]
 	if recipeID == "" && !saved {
 		s.mu.Unlock()
@@ -515,7 +536,7 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 		}
 		// A retried miss takes the same deterministic rewrite below.
 		claimed := ""
-		if !retried && body["budget_id"] == nil && body["task_id"] == nil {
+		if !retried && body["budget_id"] == nil && body["task_id"] == nil && sameJSON(body["resources"], recipe["resources"]) {
 			claimed = s.claimPoolEntry(a, recipeID)
 		}
 		if claimed != "" {
@@ -536,6 +557,14 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 	source, fixed, err := s.engineSource(a.Principal, template)
 	if err != nil {
 		return fail("NOT_FOUND", "template not found")
+	}
+	if _, explicit := body["resources"]; !explicit {
+		if t := s.life.Templates[template]; t != nil && len(t.Resources) > 0 {
+			var defaults api.Resources
+			if json.Unmarshal(t.Resources, &defaults) == nil {
+				body["resources"] = defaults
+			}
+		}
 	}
 	s.mu.Unlock()
 	if fixed != nil {
@@ -559,7 +588,7 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 	}
 	body["template_id"] = source
 	raw, _ := json.Marshal(body)
-	inner := r.Clone(r.Context())
+	inner := r.Clone(context.WithValue(r.Context(), templateCreateKey{}, template))
 	inner.Body = io.NopCloser(bytes.NewReader(raw))
 	inner.ContentLength = int64(len(raw))
 	rec := httptest.NewRecorder()
@@ -784,14 +813,14 @@ func (s *Service) refillPools(ctx context.Context) {
 			res = &api.Resources{}
 			assign(rc.R["resources"].(map[string]any), res)
 		}
-		source, fixed, err := s.engineSource(textField(p.R, "owner_id"), textField(rc.R, "template_id"))
+		_, fixed, err := s.engineSource(textField(p.R, "owner_id"), textField(rc.R, "template_id"))
 		if err != nil {
 			continue
 		}
 		if fixed != nil {
 			res = fixed
 		}
-		fills = append(fills, fill{pool: id, owner: textField(p.R, "owner_id"), template: source, resources: res, n: len(p.Entries)})
+		fills = append(fills, fill{pool: id, owner: textField(p.R, "owner_id"), template: textField(rc.R, "template_id"), resources: res, n: len(p.Entries)})
 	}
 	s.mu.Unlock()
 	for _, f := range fills {
@@ -838,4 +867,10 @@ func (s *Service) refillPools(ctx context.Context) {
 			}
 		}()
 	}
+}
+
+func sameJSON(a, b any) bool {
+	x, _ := json.Marshal(a)
+	y, _ := json.Marshal(b)
+	return string(x) == string(y)
 }

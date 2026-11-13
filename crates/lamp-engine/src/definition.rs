@@ -26,6 +26,10 @@ pub struct Definition {
     /// it). Absent means the B1 standard, 4096 MiB.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub memory_mib: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vcpus: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disk_gib: Option<u64>,
     #[serde(default)]
     pub steps: Vec<Step>,
 }
@@ -106,7 +110,7 @@ pub fn parse(text: &str) -> Result<Definition> {
     }
     if looks_like_container_build(text) {
         return Err(EngineError::invalid(
-            "Dockerfile/OCI build input is not a lamp.template/v1 definition",
+            "Dockerfile/OCI build input is not a lamp.template/v1 definition; Docker is only available as a kit",
         ));
     }
     let def: Definition =
@@ -132,6 +136,13 @@ impl Definition {
             return Err(EngineError::invalid("arch must be x86_64 or arm64"));
         }
         parse_seed_ref(&self.seed_ref)?;
+        if self.vcpus.is_some_and(|n| n == 0 || n > 256)
+            || self.disk_gib.is_some_and(|n| !(20..=65536).contains(&n))
+        {
+            return Err(EngineError::invalid(
+                "vcpus must be 1..=256; disk_gib 20..=65536",
+            ));
+        }
         if let Some(m) = self.memory_mib
             && (!(128..=65536).contains(&m) || !m.is_multiple_of(128))
         {
@@ -188,4 +199,8 @@ impl Definition {
         }
         Ok(())
     }
+}
+
+pub fn normalized(def: &Definition) -> Option<String> {
+    toml::to_string(def).ok()
 }

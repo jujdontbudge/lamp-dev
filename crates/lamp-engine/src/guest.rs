@@ -133,3 +133,12 @@ pub fn wait_ready(uds: &Path, timeout: Duration) -> Result<GuestResponse> {
         "guest helper not ready after {timeout:?}: {last}"
     )))
 }
+
+/// Hand the private link to a protocol such as 9p after a framed request.
+pub fn handoff(uds: &Path, request: &GuestRequest) -> Result<UnixStream> {
+    let delivered = send(uds, request)?;
+    let stream = delivered.reader.into_inner();
+    stream.set_read_timeout(None)?;
+    stream.set_write_timeout(None)?;
+    Ok(stream)
+}

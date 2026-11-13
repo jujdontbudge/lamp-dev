@@ -256,7 +256,8 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
     let def: Definition = definition::parse(definition_text)?;
     let resources = Resources {
         memory_mib: def.memory_mib.unwrap_or(STANDARD.memory_mib),
-        ..STANDARD
+        vcpus: def.vcpus.unwrap_or(STANDARD.vcpus),
+        disk_gib: def.disk_gib.unwrap_or(STANDARD.disk_gib),
     };
     if def.arch != host_arch() {
         return Err(EngineError::new(
@@ -295,6 +296,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         def.seed_ref
     );
 
+    crate::buildlog::write(&engine.cfg.store, definition_text, &log)?;
     // 1. Build sandbox from the seed; run steps with no network.
     let mut steps = Vec::new();
     {
@@ -304,7 +306,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         };
         let uid = b.get().uid;
         link_ro(&seed_dir.join(fc::KERNEL), &b.get().path(fc::KERNEL))?;
-        fsutil::reflink(&seed_dir.join(fc::ROOTFS), &b.get().path(fc::ROOTFS), 0o600)?;
+        clone_build_file(&seed_dir.join(fc::ROOTFS), &b.get().path(fc::ROOTFS), 0o600)?;
         fsutil::chown(&b.get().path(fc::ROOTFS), uid, uid)?;
         let t = Instant::now();
         boot(b.get(), engine, &seed.kernel.cmdline, 2, 2048, false)?;
@@ -364,12 +366,13 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
                 done.exit_code,
                 t.elapsed().as_millis()
             );
+            crate::buildlog::write(&engine.cfg.store, definition_text, &log)?;
             if done.exit_code != 0 || done.timed_out {
                 let failed = engine.cfg.store.join("failed");
                 let _ = std::fs::create_dir_all(&failed);
                 let _ = std::fs::write(failed.join(format!("build-{tag}.log")), &log);
                 return Err(EngineError::invalid(format!(
-                    "step {i} failed (exit {}, timed_out {}); log kept in failed/build-{tag}.log",
+                    "step {i} failed (exit {}, timed_out {}); log kept in failed/build-{tag}.log\n{log}",
                     done.exit_code, done.timed_out
                 )));
             }
@@ -393,8 +396,20 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         std::fs::rename(b.get().path(fc::ROOTFS), st.join("root.ext4"))
             .ctx("collect built root")?;
     }
-    fsutil::reflink(&seed_dir.join(fc::KERNEL), &st.join(fc::KERNEL), 0o444)?;
-    seal(&st.join("root.ext4"))?;
+    clone_build_file(&seed_dir.join(fc::KERNEL), &st.join(fc::KERNEL), 0o444)?;
+    let root = st.join("root.ext4");
+    let size = std::fs::metadata(&root).ctx("stat built root")?.len();
+    if size > resources.disk_gib << 30 {
+        return Err(EngineError::invalid(
+            "requested template disk is smaller than the seed",
+        ));
+    }
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&root)?
+        .set_len(resources.disk_gib << 30)?;
+    resize_ext4(&root)?;
+    seal(&root)?;
     seal(&st.join(fc::KERNEL))?;
 
     // 2. Boot the built root at the standard size and capture the
@@ -406,14 +421,14 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         };
         let uid = v.get().uid;
         link_ro(&st.join(fc::KERNEL), &v.get().path(fc::KERNEL))?;
-        fsutil::reflink(&st.join("root.ext4"), &v.get().path(fc::ROOTFS), 0o600)?;
+        clone_build_file(&st.join("root.ext4"), &v.get().path(fc::ROOTFS), 0o600)?;
         fsutil::chown(&v.get().path(fc::ROOTFS), uid, uid)?;
         let t = Instant::now();
         boot(
             v.get(),
             engine,
             &seed.kernel.cmdline,
-            STANDARD.vcpus,
+            resources.vcpus,
             resources.memory_mib,
             true,
         )?;
@@ -599,4 +614,44 @@ fn probe(engine: &Engine, template_id: &str, tag: &str, resources: &Resources) -
             "probe command failed: {other:?}"
         ))),
     }
+}
+
+// Build disks are ordinary offline files, including on dm-thin hosts whose
+// store filesystem cannot reflink. Keep holes when copying on those hosts.
+fn clone_build_file(src: &Path, dst: &Path, mode: u32) -> Result<()> {
+    let status = std::process::Command::new("cp")
+        .args(["--sparse=always", "--reflink=auto"])
+        .arg(src)
+        .arg(dst)
+        .status()
+        .ctx("copy template build input")?;
+    if !status.success() {
+        return Err(EngineError::host("copy template build input failed"));
+    }
+    fsutil::chmod(dst, mode)
+}
+
+pub(crate) fn resize_ext4(path: &Path) -> Result<()> {
+    // The captured root was mounted in a VM. Replay its journal and mark it
+    // clean before offline growth; e2fsck's 1 means repairs completed.
+    let check = std::process::Command::new("e2fsck")
+        .args(["-p", "-f"])
+        .arg(path)
+        .status()
+        .ctx("check root filesystem")?;
+    if !matches!(check.code(), Some(0 | 1)) {
+        return Err(EngineError::host(
+            "e2fsck could not prepare root filesystem for growth",
+        ));
+    }
+    let status = std::process::Command::new("resize2fs")
+        .arg(path)
+        .status()
+        .ctx("grow root filesystem")?;
+    if !status.success() {
+        return Err(EngineError::host(
+            "resize2fs failed; root disk was not grown",
+        ));
+    }
+    Ok(())
 }

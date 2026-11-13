@@ -199,13 +199,34 @@ pub struct Rebuild {
     #[prost(bool, tag = "4")]
     pub clean_rebuild: bool,
 }
+/// Owner-granted template management; definitions are bounded control inputs.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Template {
+    #[prost(string, tag = "1")]
+    pub action: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub definition: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub reference: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StorageMount {
+    #[prost(string, tag = "1")]
+    pub socket_path: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub mount_path: ::prost::alloc::string::String,
+    #[prost(bool, tag = "3")]
+    pub read_only: bool,
+    #[prost(bool, tag = "4")]
+    pub unmount: bool,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Request {
     #[prost(message, optional, tag = "1")]
     pub context: ::core::option::Option<Context>,
     #[prost(
         oneof = "request::Command",
-        tags = "10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20"
+        tags = "10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22"
     )]
     pub command: ::core::option::Option<request::Command>,
 }
@@ -235,6 +256,10 @@ pub mod request {
         SessionCall(super::SessionCall),
         #[prost(message, tag = "20")]
         NetworkCall(super::NetworkCall),
+        #[prost(message, tag = "21")]
+        Template(super::Template),
+        #[prost(message, tag = "22")]
+        StorageMount(super::StorageMount),
     }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

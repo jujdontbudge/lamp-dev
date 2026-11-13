@@ -109,7 +109,11 @@ type lifeBackup struct {
 	File string         `json:"file"`
 }
 type lifeTemplate struct {
-	R map[string]any `json:"r"`
+	Building bool           `json:"building,omitempty"`
+	Archive  string         `json:"archive,omitempty"`
+	Flexible bool           `json:"flexible,omitempty"`
+	Engine   bool           `json:"engine,omitempty"`
+	R        map[string]any `json:"r"`
 	// Capture is the engine's durable capture that new sandboxes restore.
 	Capture string `json:"capture"`
 	// Resources must match the capture exactly.
@@ -193,6 +197,14 @@ func (s *Service) loadLife() error {
 	// Fresh owner requests must still be able to revoke surviving access.
 	for _, n := range st.Networks {
 		n.Pending = false
+	}
+	for _, t := range st.Templates {
+		if t.Building {
+			t.Building = false
+			t.R["state"] = "failed"
+			t.R["labels"] = map[string]any{"build_log": "build interrupted by daemon restart; outcome unknown; retry with a new idempotency key"}
+			editResource(t.R)
+		}
 	}
 	s.life = st
 	return nil
@@ -356,6 +368,11 @@ func (s *Service) readObjectRange(sum string, offset, length int64) ([]byte, int
 // referencedObjects lists every object still reachable from published state.
 func (s *Service) referencedObjects() map[string]bool {
 	refs := map[string]bool{}
+	for _, t := range s.life.Templates {
+		if textField(t.R, "state") != "deleted" && t.Archive != "" {
+			refs[t.Archive] = true
+		}
+	}
 	addTree := func(t tree) {
 		for _, e := range t {
 			if e.SHA256 != "" {

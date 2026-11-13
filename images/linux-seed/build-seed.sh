@@ -17,6 +17,7 @@ OUT=${1:?usage: build-seed.sh OUT_DIR}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 WORK=${LAMP_SEED_WORK:-$HOME/.cache/lamp-seed}
 KERNEL_VERSION=6.18.62
+KERNEL_CACHE=$KERNEL_VERSION-storage-v1
 KERNEL_SHA256=490a7aedf1b355c565d3a6c05333ccccb5da82064eca46b590448a7099d7d651
 # Firecracker's own guest config for this kernel line, at the pinned VMM tag.
 KCONFIG_URL=https://raw.githubusercontent.com/firecracker-microvm/firecracker/v1.17.0/resources/guest_configs/microvm-kernel-ci-x86_64-6.18.config
@@ -47,16 +48,17 @@ mkdir -p "$WORK" "$OUT"
 cd "$WORK"
 
 # 1. Guest kernel, built from verified kernel.org source and the pinned config.
-if [ ! -f "vmlinux-$KERNEL_VERSION" ]; then
+if [ ! -f "vmlinux-$KERNEL_CACHE" ]; then
   [ -f "linux-$KERNEL_VERSION.tar.xz" ] || curl -fsSLO "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$KERNEL_VERSION.tar.xz"
   echo "$KERNEL_SHA256  linux-$KERNEL_VERSION.tar.xz" | sha256sum -c -
   curl -fsSLo kernel.config "$KCONFIG_URL"
   if [ -n "$KCONFIG_SHA256" ]; then echo "$KCONFIG_SHA256  kernel.config" | sha256sum -c -; fi
   rm -rf "linux-$KERNEL_VERSION" && tar xf "linux-$KERNEL_VERSION.tar.xz"
   cp kernel.config "linux-$KERNEL_VERSION/.config"
+  (cd "linux-$KERNEL_VERSION" && ./scripts/config -e NET_9P -e NET_9P_FD -e 9P_FS -e 9P_FS_POSIX_ACL)
   make -C "linux-$KERNEL_VERSION" olddefconfig >/dev/null
   make -C "linux-$KERNEL_VERSION" -j"$(nproc)" vmlinux >kernel-build.log 2>&1
-  cp "linux-$KERNEL_VERSION/vmlinux" "vmlinux-$KERNEL_VERSION"
+  cp "linux-$KERNEL_VERSION/vmlinux" "vmlinux-$KERNEL_CACHE"
 fi
 
 # 2. Guest init and helper, static musl builds from this checkout.
@@ -101,7 +103,7 @@ sudo -n chown "$(id -u):$(id -g)" rootfs.ext4
 sudo -n rm -rf rootdir
 
 cp --sparse=always rootfs.ext4 "$OUT/rootfs.ext4"
-cp "vmlinux-$KERNEL_VERSION" "$OUT/vmlinux"
+cp "vmlinux-$KERNEL_CACHE" "$OUT/vmlinux"
 cp packages.txt "$OUT/packages.txt"
 python3 - "$OUT" "$KERNEL_VERSION" "$KERNEL_SHA256" "$DISTRIBUTION" "$BIN/lamp-init" "$BIN/lamp-guest-helper" "$BIN/lamp-guard" "$DIST" <<'PY'
 import hashlib, json, os, sys

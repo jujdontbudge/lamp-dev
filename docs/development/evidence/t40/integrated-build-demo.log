@@ -1,0 +1,20 @@
+capacity available; starting one public template build
+template build exit 1
+{"error":{"code":"TEMPLATE_BUILD_FAILED","message":"Post \"http://lamp/v1/blobs\": dial unix /home/johan/.local/state/lamp-t40/api.sock: connect: no such file or directory","retryable":false},"request_id":"cli"}
+
+
+capacity available; starting one public template build
+template build exit 0
+validating definition; preparing confined build VMdefinition: t40-tools-integrated (1 steps), seed lamp-seed/ubuntu-26.04@sha256:700de944f17c679e00c3907dc5bae86a7d62e0d1354b0a17eede99f5622c4345
+
+build sandbox booted in 173 ms
+step 0 ["python3", "-c", "import pathlib,site,shutil; d=pathlib.Path('/opt/tools'); d.mkdir(exist_ok=True); shutil.copy('/opt/src/six.py',d/'six.py'); shutil.copy('/opt/src/six.py',pathlib.Path(site.getsitepackages()[0])/'six.py'); import six; print('installed public six',six.__version__)"]: exit 0 in 58 ms
+installed public six 1.17.0
+
+template VM booted in 163 ms
+full capture written in 1121 ms
+memory image: 929 MiB of zero pages left as holes
+published tp_83206b657a74fe770a9687614e as t40-tools-integrated in 20300 ms
+
+{"data":{"arch":"x86_64","created_at":"2026-11-13T03:20:04.61024549Z","default_resources":{"disk_gib":20,"memory_mib":1024,"pids_max":4096,"vcpus":2},"definition_blob_id":"bl_299ae60cc11911acb487a331d2f6d252","fleet_id":"fl_local","guest_os":"linux","id":"tp_1242c439f1e9c4c1feb6e458ea61918d","kind":"template","labels":{"build_log":"definition: t40-tools-integrated (1 steps), seed lamp-seed/ubuntu-26.04@sha256:700de944f17c679e00c3907dc5bae86a7d62e0d1354b0a17eede99f5622c4345\nbuild sandbox booted in 173 ms\nstep 0 [\"python3\", \"-c\", \"import pathlib,site,shutil; d=pathlib.Path('/opt/tools'); d.mkdir(exist_ok=True); shutil.copy('/opt/src/six.py',d/'six.py'); shutil.copy('/opt/src/six.py',pathlib.Path(site.getsitepackages()[0])/'six.py'); import six; print('installed public six',six.__version__)\"]: exit 0 in 58 ms\ninstalled public six 1.17.0\n\ntemplate VM booted in 163 ms\nfull capture written in 1121 ms\nmemory image: 929 MiB of zero pages left as holes\npublished tp_83206b657a74fe770a9687614e as t40-tools-integrated in 20300 ms\n","engine_template_id":"tp_83206b657a74fe770a9687614e"},"minimum_resources":{"disk_gib":20,"memory_mib":256,"pids_max":1,"vcpus":1},"name":"/home/johan/.local/state/lamp-t40/tools.lamp","owner_id":"pr_local","revision":3,"state":"ready","updated_at":"2026-11-13T03:20:24.930106361Z","visibility":"private"},"request_id":"req_b0541d9a0f81d284d9d9841a4f984800"}
+
