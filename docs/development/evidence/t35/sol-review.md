@@ -13,4 +13,7 @@ Sol was retained; no additional implementation tests were added. The fixture's
 helper directory was moved alongside the production directory. The VMM profile
 itself was not broadened. `make build` passed after the fixes.
 
-Round 2: pending, fixes and open findings only.
+Round 2 verdict: APPROVE at `e58385dc6198e2c4d6be2e023966f86be70c7cad`.
+S1 and S2 resolved; no new blocker or should-fix finding. The reviewer ran
+a targeted `lamp-vz` build, the retained audit test, and `git diff --check`;
+all passed. No privileged Mac engine or VM was run. Usage was not exposed.
