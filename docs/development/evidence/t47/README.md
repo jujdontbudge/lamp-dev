@@ -76,4 +76,8 @@ were built before merge; these must use the final merged source.
 
 ## Review
 
-Sol review pending. No new tests were written by the implementation agent.
+Sol approved behavior head `1e7d05383c7383e50a2ff5952d1726215e25e6b6` in one
+round with Codex GPT-6.1 Sol, medium reasoning effort. No blocker or should
+findings; no fixes or tests were requested or added. See [ledger](sol-review.md).
+Only this review record changed after approval. No new tests were written by
+the implementation agent.
