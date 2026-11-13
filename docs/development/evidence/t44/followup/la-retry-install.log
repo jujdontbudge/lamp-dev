@@ -1,0 +1,11 @@
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-i/c89df4a5/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its template…
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 510 ms
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 193 ms
+definition: default (0 steps), seed lamp-seed/ubuntu-26.04-arm64@sha256:d294d41945e1c081e1d1759bb4b2df0d28e239591367b0c817a4956ab3b04292
+build sandbox booted in 3486 ms
+template VM booted in 9355 ms
+full capture written in 9868 ms
+memory image: 1916 MiB of zero pages left as holes
+published tp_69fa233c42c63e0679e7920b2f as default in 42300 ms
+{"at":"2026-11-13T07:12:54Z","automatic_updates":false,"event":"installed","prefix":"/home/johansardar.guest/t44-install9","service":"process","version":"0.1.2"}

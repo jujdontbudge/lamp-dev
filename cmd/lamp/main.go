@@ -220,6 +220,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 			flags.Func(strings.TrimSuffix(flagName, "-json"), "canonical "+field+" (JSON)", setter)
 		}
 	}
+	if name == "sandbox_create" {
+		flags.Func("kit", "add a built-in guest kit (repeatable)", func(v string) error { names, _ := in["kit_ids"].([]any); in["kit_ids"] = append(names, v); return nil })
+	}
 	// Resource shorthand remains compatible with the engine benchmark caller.
 	dimensions := map[string]*uint64{}
 	if name == "sandbox_create" {
@@ -288,7 +291,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		in[field] = positional
 	}
-	if flags.NArg() > 0 {
+	if flags.NArg() > 0 && name == "sandbox_run_code" {
+		if flags.NArg() != 1 || in["code"] != nil {
+			return usage("provide one code argument or --code")
+		}
+		in["code"] = flags.Arg(0)
+	} else if flags.NArg() > 0 {
 		if name != "exec_create" {
 			return usage("unexpected arguments")
 		}

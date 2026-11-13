@@ -64,3 +64,4 @@ their own licences; see [THIRD_PARTY.md](THIRD_PARTY.md).
 Hosts, rolling updates and remote access: [release setup guide](docs/release/fleets-and-access.md).
 
 Control setup: [CI enrollment, keys, session shares, approvals and notifications](docs/control-operations.md).
+Sandbox tools are available as built-in [kits](docs/guides/kits.md): headless Chromium, a virtual desktop with recording, guest Docker, toolchains, persistent Python and a TypeScript LSP.

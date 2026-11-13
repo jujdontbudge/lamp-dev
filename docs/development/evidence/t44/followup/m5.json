@@ -1,0 +1,1989 @@
+[
+  {
+    "command": [
+      "sandbox",
+      "create",
+      "--resources",
+      "{\"vcpus\": 2, \"memory_mib\": 2048, \"disk_gib\": 20, \"pids_max\": 4096}",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b82045fb19a099c7664b67bb2daf11d1",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_d72419787be3b8a900488304a5beab99",
+      "replayed": false,
+      "operation": {
+        "id": "op_b82045fb19a099c7664b67bb2daf11d1",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:51:13.297748Z",
+        "updated_at": "2026-11-13T04:51:14.413481Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_create",
+        "request_hash": "62d5e690896ab0ab1dfdc50588b4ed85a4b75dab08e8724fa9b8d9f0538bc38d",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "phase": "command",
+        "accepted_at": "2026-11-13T04:51:13.297748Z",
+        "completed_at": "2026-11-13T04:51:14.413481Z",
+        "outcome": {
+          "result": {
+            "sandbox_id": "sb_60df213dd2c7c37bfb476eb5dac2136b",
+            "session_ids": []
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "volatile"
+      },
+      "result": {
+        "sandbox_id": "sb_60df213dd2c7c37bfb476eb5dac2136b",
+        "session_ids": []
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "kit",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--kit",
+      "python",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_4e56155d5a1fa559d956ff1c38ed5d24",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_99559e539b70fdfe58cebeba9e0d2ba0",
+      "replayed": false,
+      "operation": {
+        "id": "op_4e56155d5a1fa559d956ff1c38ed5d24",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:51:14.449865Z",
+        "updated_at": "2026-11-13T04:51:45.837999Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_kit",
+        "request_hash": "a37099aea375c7a366f4c54499e225d4bdd667ab44ae946a62f322ea975ac0c8",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:51:14.449865Z",
+        "completed_at": "2026-11-13T04:51:45.837999Z",
+        "outcome": {
+          "result": {
+            "boundary": "vm",
+            "kit": "python",
+            "state": "ready"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "boundary": "vm",
+        "kit": "python",
+        "state": "ready"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "run-code",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--code",
+      "x=41; x+1",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_956decb88f7192cb183c6bb2e7b152c2",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_4adb7e7c2cd453bc324b3b4c7a6c07b7",
+      "replayed": false,
+      "operation": {
+        "id": "op_956decb88f7192cb183c6bb2e7b152c2",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:51:45.869327Z",
+        "updated_at": "2026-11-13T04:51:45.96736Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_run_code",
+        "request_hash": "82eab5077cab76ce68e065204ae0872aca66aa649669f7dd2b512471208f07a4",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:51:45.869327Z",
+        "completed_at": "2026-11-13T04:51:45.96736Z",
+        "outcome": {
+          "result": {
+            "context": "default",
+            "outputs": [],
+            "result": "42",
+            "stderr": "",
+            "stdout": ""
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "context": "default",
+        "outputs": [],
+        "result": "42",
+        "stderr": "",
+        "stdout": ""
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "run-code",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--code",
+      "x+2",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_fc8f69eb56b0ba283c0f62192a27cd5a",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_feda6bc82cbd39e96f2c74657d71afb5",
+      "replayed": false,
+      "operation": {
+        "id": "op_fc8f69eb56b0ba283c0f62192a27cd5a",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:51:45.996314Z",
+        "updated_at": "2026-11-13T04:51:46.093888Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_run_code",
+        "request_hash": "52fe2c26b53a00a2cee976ef5f4c9272eeb0596fd6759040dd2e4fe324998ab4",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:51:45.996314Z",
+        "completed_at": "2026-11-13T04:51:46.093888Z",
+        "outcome": {
+          "result": {
+            "context": "default",
+            "outputs": [],
+            "result": "43",
+            "stderr": "",
+            "stdout": ""
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "context": "default",
+        "outputs": [],
+        "result": "43",
+        "stderr": "",
+        "stdout": ""
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "kit",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--kit",
+      "browser",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_8d4f453d89ec1c1ce38cdafccc7fd1ab",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_ec5142b55286dad1d1a1331c58704166",
+      "replayed": false,
+      "operation": {
+        "id": "op_8d4f453d89ec1c1ce38cdafccc7fd1ab",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:51:46.123398Z",
+        "updated_at": "2026-11-13T04:52:35.161244Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_kit",
+        "request_hash": "0c4af118eed90846a3429a9c60acb804539c5cc9c1af44017c8034d4422c37f8",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:51:46.123398Z",
+        "completed_at": "2026-11-13T04:52:35.161244Z",
+        "outcome": {
+          "result": {
+            "boundary": "vm",
+            "kit": "browser",
+            "state": "ready"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "boundary": "vm",
+        "kit": "browser",
+        "state": "ready"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "browser",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "navigate",
+      "--url",
+      "https://example.com",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b0876fbe5da1a570ab9746193df8c8ad",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_110956c08b9c74122fb834cb0cc2512f",
+      "replayed": false,
+      "operation": {
+        "id": "op_b0876fbe5da1a570ab9746193df8c8ad",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:52:35.193208Z",
+        "updated_at": "2026-11-13T04:52:36.005198Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_browser",
+        "request_hash": "93097b018174583cc135dd416fc3b273482f947d16389c1b1a53eb8a6a819e21",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:52:35.193208Z",
+        "completed_at": "2026-11-13T04:52:36.005198Z",
+        "outcome": {
+          "result": {
+            "title": "Example Domain",
+            "url": "https://example.com/"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "title": "Example Domain",
+        "url": "https://example.com/"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "browser",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "evaluate",
+      "--expression",
+      "document.title",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_83b2a2843c426ca702ff338c47b468f7",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_b0fba1cd2f6995f8294e8a87637b2e24",
+      "replayed": false,
+      "operation": {
+        "id": "op_83b2a2843c426ca702ff338c47b468f7",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:52:36.042885Z",
+        "updated_at": "2026-11-13T04:52:36.373237Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_browser",
+        "request_hash": "001665187947d3929787939193bbfcce971aed477c43215e20dca429336ad534",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:52:36.042885Z",
+        "completed_at": "2026-11-13T04:52:36.373237Z",
+        "outcome": {
+          "result": {
+            "value": "Example Domain"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "value": "Example Domain"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "browser",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "screenshot",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_0763db7f7d820892d523a4a0f537f35f",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_d24bdc5ce1e26fba8c6a9bc26b79e14b",
+      "replayed": false,
+      "operation": {
+        "id": "op_0763db7f7d820892d523a4a0f537f35f",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:52:36.40186Z",
+        "updated_at": "2026-11-13T04:52:36.745518Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_browser",
+        "request_hash": "3a6038f1158bd2f207ece1b9889941c9575b9e334218b66ac8a0de272b2f00e2",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:52:36.40186Z",
+        "completed_at": "2026-11-13T04:52:36.745518Z",
+        "outcome": {
+          "result": {
+            "mime_type": "image/png",
+            "path": "/tmp/lamp-sandbox-kits/92b35c8def28452980fa4937c3b0bce7.png",
+            "size_bytes": 74622
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "mime_type": "image/png",
+        "path": "/tmp/lamp-sandbox-kits/92b35c8def28452980fa4937c3b0bce7.png",
+        "size_bytes": 74622
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "file-read",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--path",
+      "/tmp/lamp-sandbox-kits/92b35c8def28452980fa4937c3b0bce7.png",
+      "--offset-bytes",
+      "0",
+      "--length-bytes",
+      "24576"
+    ],
+    "reply": {
+      "eof": false,
+      "request_id": "req_f1c65e2a3375e98467c82d8157e8228a",
+      "sha256": "6fcdf0d0101c941a1676d510c1d4622ea1bf6e5fcf86aa8a18d76ee382216d3a",
+      "data_bytes": 24576,
+      "data_sha256": "6fcdf0d0101c941a1676d510c1d4622ea1bf6e5fcf86aa8a18d76ee382216d3a"
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "file-read",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--path",
+      "/tmp/lamp-sandbox-kits/92b35c8def28452980fa4937c3b0bce7.png",
+      "--offset-bytes",
+      "24576",
+      "--length-bytes",
+      "24576"
+    ],
+    "reply": {
+      "eof": false,
+      "request_id": "req_56b2172190206cfe63a104cd786d3924",
+      "sha256": "e8401a9c59c67f1e2fcd655d1bd22b89f4d7fdc1f3a7488bcc1f85be4f9700d0",
+      "data_bytes": 24576,
+      "data_sha256": "e8401a9c59c67f1e2fcd655d1bd22b89f4d7fdc1f3a7488bcc1f85be4f9700d0"
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "file-read",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--path",
+      "/tmp/lamp-sandbox-kits/92b35c8def28452980fa4937c3b0bce7.png",
+      "--offset-bytes",
+      "49152",
+      "--length-bytes",
+      "24576"
+    ],
+    "reply": {
+      "eof": false,
+      "request_id": "req_a25a4c5fcaa0fdf6ea92bb6dd0572b91",
+      "sha256": "aea8b578cfc40bec7314c81d0c2d201e7a0ebe03727d2958bc03c450e490af27",
+      "data_bytes": 24576,
+      "data_sha256": "aea8b578cfc40bec7314c81d0c2d201e7a0ebe03727d2958bc03c450e490af27"
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "file-read",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--path",
+      "/tmp/lamp-sandbox-kits/92b35c8def28452980fa4937c3b0bce7.png",
+      "--offset-bytes",
+      "73728",
+      "--length-bytes",
+      "24576"
+    ],
+    "reply": {
+      "eof": true,
+      "request_id": "req_ba49f46df494129e98e0ada436b39333",
+      "sha256": "acb59396ac3816d55fe9e685813ce33f139e85a61e205a64ef94a3a039935139",
+      "data_bytes": 894,
+      "data_sha256": "acb59396ac3816d55fe9e685813ce33f139e85a61e205a64ef94a3a039935139"
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "browser",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "close",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_febeef4a2a4cc86d78cfde0d4ef7793e",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_8991187736cae1f3702c7442aea80b7b",
+      "replayed": false,
+      "operation": {
+        "id": "op_febeef4a2a4cc86d78cfde0d4ef7793e",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:52:36.938822Z",
+        "updated_at": "2026-11-13T04:52:37.272133Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_browser",
+        "request_hash": "5b33c461c6fcf9413d19a01a123d39e5f402163e9b8b408166a325f7a9aec822",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:52:36.938822Z",
+        "completed_at": "2026-11-13T04:52:37.272133Z",
+        "outcome": {
+          "result": {
+            "closed": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "closed": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "kit",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--kit",
+      "docker",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b6e400e5b90c23c582750161fabbc168",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_5cda5c80685590871ec746f61df5efb7",
+      "replayed": false,
+      "operation": {
+        "id": "op_b6e400e5b90c23c582750161fabbc168",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:52:37.303074Z",
+        "updated_at": "2026-11-13T04:52:49.6155Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_kit",
+        "request_hash": "8b11929f385866ad161ddc14d46895a98b187d0fd9bdbbe3db9416798c48327f",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:52:37.303074Z",
+        "completed_at": "2026-11-13T04:52:49.6155Z",
+        "outcome": {
+          "result": {
+            "boundary": "vm",
+            "container_network": "use --network host",
+            "docker_host": "unix:///tmp/lamp-docker.sock",
+            "kit": "docker",
+            "state": "ready"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "boundary": "vm",
+        "container_network": "use --network host",
+        "docker_host": "unix:///tmp/lamp-docker.sock",
+        "kit": "docker",
+        "state": "ready"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "run-code",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--code",
+      "import subprocess; r=subprocess.run([\"docker\",\"run\",\"--rm\",\"--network\",\"host\",\"alpine:3.20\",\"echo\",\"DIND_OK\"],capture_output=True,text=True); print(r.returncode); print(r.stdout); print(r.stderr)",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b594772cd8d4c4afa4ab2bdf5c3d9023",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_87c61c9acd7ce02422d5ceac90655a75",
+      "replayed": false,
+      "operation": {
+        "id": "op_b594772cd8d4c4afa4ab2bdf5c3d9023",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:52:49.64543Z",
+        "updated_at": "2026-11-13T04:52:53.818267Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_run_code",
+        "request_hash": "163741b6c7fbef71cd6490f0219563660c05d4dbb71cba2f49da7358972b069b",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:52:49.64543Z",
+        "completed_at": "2026-11-13T04:52:53.818267Z",
+        "outcome": {
+          "result": {
+            "context": "default",
+            "outputs": [],
+            "result": null,
+            "stderr": "",
+            "stdout": "0\nDIND_OK\n\nUnable to find image 'alpine:3.20' locally\n3.20: Pulling from library/alpine\n3f26bc2dec0b: Pulling fs layer\n3f26bc2dec0b: Verifying Checksum\n3f26bc2dec0b: Download complete\n3f26bc2dec0b: Pull complete\nDigest: sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc\nStatus: Downloaded newer image for alpine:3.20\n\n"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "context": "default",
+        "outputs": [],
+        "result": null,
+        "stderr": "",
+        "stdout": "0\nDIND_OK\n\nUnable to find image 'alpine:3.20' locally\n3.20: Pulling from library/alpine\n3f26bc2dec0b: Pulling fs layer\n3f26bc2dec0b: Verifying Checksum\n3f26bc2dec0b: Download complete\n3f26bc2dec0b: Pull complete\nDigest: sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc\nStatus: Downloaded newer image for alpine:3.20\n\n"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "kit",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--kit",
+      "lsp",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_47bfc44268004a04557abc557d6745c7",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_bc48d7757060808a6f59ccdeb91d15b3",
+      "replayed": false,
+      "operation": {
+        "id": "op_47bfc44268004a04557abc557d6745c7",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:52:53.847881Z",
+        "updated_at": "2026-11-13T04:54:13.954708Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_kit",
+        "request_hash": "64746371df1127ed5b510d72b201d710ad43423246c7f415f20f09a1c3dec4c7",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:52:53.847881Z",
+        "completed_at": "2026-11-13T04:54:13.954708Z",
+        "outcome": {
+          "result": {
+            "boundary": "vm",
+            "kit": "lsp",
+            "state": "ready"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "boundary": "vm",
+        "kit": "lsp",
+        "state": "ready"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "run-code",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--code",
+      "from pathlib import Path; Path(\"/tmp/example.ts\").write_text(\"export function greet(name: string) { return name; }\"+chr(10)+\"gre\")",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b58271b16590f0b37b8a46a0b001392b",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_59e9277bc47ae15af11962677704da9f",
+      "replayed": false,
+      "operation": {
+        "id": "op_b58271b16590f0b37b8a46a0b001392b",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:54:14.098214Z",
+        "updated_at": "2026-11-13T04:54:14.456443Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_run_code",
+        "request_hash": "e59fec6500065bba2f3248992002a239069bf284c8f01b41ad7e99f242cd2936",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:54:14.098214Z",
+        "completed_at": "2026-11-13T04:54:14.456443Z",
+        "outcome": {
+          "result": {
+            "context": "default",
+            "outputs": [],
+            "result": "56",
+            "stderr": "",
+            "stdout": ""
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "context": "default",
+        "outputs": [],
+        "result": "56",
+        "stderr": "",
+        "stdout": ""
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "start",
+      "--path",
+      "/tmp",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_d448793957a81af4ada8f6027e3027d5",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_300ae09654be1f08bd1663b08c0b3bf6",
+      "replayed": false,
+      "operation": {
+        "id": "op_d448793957a81af4ada8f6027e3027d5",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:54:14.49632Z",
+        "updated_at": "2026-11-13T04:54:14.885263Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "e9ffa47f4bee5f6d0bac6bfb68995e0cbc841cb83a738afa506d86b32ebacb8e",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:54:14.49632Z",
+        "completed_at": "2026-11-13T04:54:14.885263Z",
+        "outcome": {
+          "result": {
+            "started": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "started": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "open",
+      "--path",
+      "/tmp/example.ts",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_96b29f290f05489eda2d04b7ad5a44bf",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_a0d7442bed01fde98edeafb0772bc533",
+      "replayed": false,
+      "operation": {
+        "id": "op_96b29f290f05489eda2d04b7ad5a44bf",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:54:14.937232Z",
+        "updated_at": "2026-11-13T04:54:15.095121Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "4bdfb2b1eda7cc068a363deed2354161b70cdacaf269db9989a466fc8815ba86",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:54:14.937232Z",
+        "completed_at": "2026-11-13T04:54:15.095121Z",
+        "outcome": {
+          "result": {
+            "opened": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "opened": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "symbols",
+      "--path",
+      "/tmp/example.ts",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_1270a2f1b21290eb84a2153468cd5fb0",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_be8bdf1b00318ec0fd043d0636dd05ae",
+      "replayed": false,
+      "operation": {
+        "id": "op_1270a2f1b21290eb84a2153468cd5fb0",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:54:15.13607Z",
+        "updated_at": "2026-11-13T04:54:15.934636Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "9f4f6fac1f4dbadfd8a60f33554c855a525d060418de226aeb97eda41c5a9516",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:54:15.13607Z",
+        "completed_at": "2026-11-13T04:54:15.934636Z",
+        "outcome": {
+          "result": {
+            "is_incomplete": false,
+            "items": [
+              {
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 52,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/example.ts"
+                },
+                "name": "greet"
+              }
+            ],
+            "total": 1,
+            "truncated": false
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "is_incomplete": false,
+        "items": [
+          {
+            "kind": 12,
+            "location": {
+              "range": {
+                "end": {
+                  "character": 52,
+                  "line": 0
+                },
+                "start": {
+                  "character": 0,
+                  "line": 0
+                }
+              },
+              "uri": "file:///tmp/example.ts"
+            },
+            "name": "greet"
+          }
+        ],
+        "total": 1,
+        "truncated": false
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "completions",
+      "--path",
+      "/tmp/example.ts",
+      "--line",
+      "1",
+      "--character",
+      "3",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_c3720787321dc1822079f7fd909885ed",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_c1a43526f051e2338d1f46e0371275da",
+      "replayed": false,
+      "operation": {
+        "id": "op_c3720787321dc1822079f7fd909885ed",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:54:15.968178Z",
+        "updated_at": "2026-11-13T04:54:16.352494Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "038f91ee4886121d7437b93ba33fc297c788e95901b6428eb56016ee2ca8552e",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:54:15.968178Z",
+        "completed_at": "2026-11-13T04:54:16.352494Z",
+        "outcome": {
+          "result": {
+            "is_incomplete": false,
+            "total": 983,
+            "truncated": true,
+            "returned_items": 580,
+            "items_sample": [
+              {
+                "data": {
+                  "cacheId": 1
+                },
+                "kind": 3,
+                "label": "greet",
+                "sortText": "11"
+              },
+              {
+                "data": {
+                  "cacheId": 2
+                },
+                "kind": 6,
+                "label": "AbortController",
+                "sortText": "15"
+              },
+              {
+                "data": {
+                  "cacheId": 3
+                },
+                "kind": 6,
+                "label": "AbortSignal",
+                "sortText": "15"
+              }
+            ]
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "is_incomplete": false,
+        "total": 983,
+        "truncated": true,
+        "returned_items": 580,
+        "items_sample": [
+          {
+            "data": {
+              "cacheId": 1
+            },
+            "kind": 3,
+            "label": "greet",
+            "sortText": "11"
+          },
+          {
+            "data": {
+              "cacheId": 2
+            },
+            "kind": 6,
+            "label": "AbortController",
+            "sortText": "15"
+          },
+          {
+            "data": {
+              "cacheId": 3
+            },
+            "kind": 6,
+            "label": "AbortSignal",
+            "sortText": "15"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "stop",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_941ceecef04463357affca12431f65f9",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_76a11de443ccb1f23bd499bba85f5b21",
+      "replayed": false,
+      "operation": {
+        "id": "op_941ceecef04463357affca12431f65f9",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:54:16.393306Z",
+        "updated_at": "2026-11-13T04:54:16.507262Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "f31fc4d13719ea2795eca0598987d9ad2b66a1947496453da0136e7b1d06b29b",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:54:16.393306Z",
+        "completed_at": "2026-11-13T04:54:16.507262Z",
+        "outcome": {
+          "result": {
+            "stopped": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "stopped": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "kit",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--kit",
+      "desktop",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_e079a6b604f4126d7185a4cbc68a61e5",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_14890dce63e3dc90285a24bd40d43377",
+      "replayed": false,
+      "operation": {
+        "id": "op_e079a6b604f4126d7185a4cbc68a61e5",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:54:16.537842Z",
+        "updated_at": "2026-11-13T04:55:16.54239Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_kit",
+        "request_hash": "e7ea1e7128e7b1a444d7ab42d12b95f1585ea875a13af34d0d16feebe6df0597",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:54:16.537842Z",
+        "completed_at": "2026-11-13T04:55:16.54239Z",
+        "outcome": {
+          "result": {
+            "boundary": "vm",
+            "display": ":99",
+            "kit": "desktop",
+            "state": "ready",
+            "view_path": "/",
+            "view_port": 6080
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "boundary": "vm",
+        "display": ":99",
+        "kit": "desktop",
+        "state": "ready",
+        "view_path": "/",
+        "view_port": 6080
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "info",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b5f487fe93dae472a66a3090fb8b66da",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_fd51388b121f6b4ca2f6784ee744fd59",
+      "replayed": false,
+      "operation": {
+        "id": "op_b5f487fe93dae472a66a3090fb8b66da",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:16.593462Z",
+        "updated_at": "2026-11-13T04:55:16.884428Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "f8b2b1ca5471b52a74d196da2fa796241a236d509a7e12e3475761ad8a069e46",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:16.593462Z",
+        "completed_at": "2026-11-13T04:55:16.884428Z",
+        "outcome": {
+          "result": {
+            "height": 768,
+            "pointer": {
+              "SCREEN": "0",
+              "WINDOW": "8388635",
+              "X": "512",
+              "Y": "384"
+            },
+            "view_port": 6080,
+            "width": 1024
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "height": 768,
+        "pointer": {
+          "SCREEN": "0",
+          "WINDOW": "8388635",
+          "X": "512",
+          "Y": "384"
+        },
+        "view_port": 6080,
+        "width": 1024
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "move",
+      "--x",
+      "100",
+      "--y",
+      "100",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_043a430373fa98b26e3497b9dc1adf17",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_9e8bc6822942dc1aa3b24fd1a6bf356e",
+      "replayed": false,
+      "operation": {
+        "id": "op_043a430373fa98b26e3497b9dc1adf17",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:16.976109Z",
+        "updated_at": "2026-11-13T04:55:17.20852Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "c8e1d9d7079970b630a20945f10ae84c5bfd0582bc7a2b0479b5fbe742c053a0",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:16.976109Z",
+        "completed_at": "2026-11-13T04:55:17.20852Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "click",
+      "--button",
+      "1",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_e2ec850d1fc797fac1cfb02b3b70d920",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_18f823bf8eb49c0380252f97fcf26d58",
+      "replayed": false,
+      "operation": {
+        "id": "op_e2ec850d1fc797fac1cfb02b3b70d920",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:17.248444Z",
+        "updated_at": "2026-11-13T04:55:17.699366Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "fe871856dc86a9c3b580409a1cf3c097067d0bc3b9002f9c5e8f4ba1cb94417c",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:17.248444Z",
+        "completed_at": "2026-11-13T04:55:17.699366Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "type",
+      "--text",
+      "echo ARM_KITS_OK",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_bb50fd08bbc8dc084efd17a64c51f258",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_1543a24541e8117a78651b3cf37ceb63",
+      "replayed": false,
+      "operation": {
+        "id": "op_bb50fd08bbc8dc084efd17a64c51f258",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:17.742319Z",
+        "updated_at": "2026-11-13T04:55:18.190413Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "ed5a70d8b6a5fa064134f6a210b5a663589a539ea3ae1b3bfb7a74a4b8f1cac2",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:17.742319Z",
+        "completed_at": "2026-11-13T04:55:18.190413Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "key",
+      "--key",
+      "Return",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b8ce9d089814c6a5350b6927a5b947dd",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_2152c9e4d4c213a0694a36492ab5eabd",
+      "replayed": false,
+      "operation": {
+        "id": "op_b8ce9d089814c6a5350b6927a5b947dd",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:18.236881Z",
+        "updated_at": "2026-11-13T04:55:18.420129Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "99d57fea0793b3148299de8550bd5ef68200255a1d02ced0e6b809d19a88e17b",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:18.236881Z",
+        "completed_at": "2026-11-13T04:55:18.420129Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "screenshot",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_1379c96d432d8237a16f7c6517ee1bb6",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_ac9e6bcce22cc149dd416131ed06d63a",
+      "replayed": false,
+      "operation": {
+        "id": "op_1379c96d432d8237a16f7c6517ee1bb6",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:18.460893Z",
+        "updated_at": "2026-11-13T04:55:18.913838Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "596cc4748f09d73f3651a20f28fd6dec9305bb21786dce1342969f638603ddfb",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:18.460893Z",
+        "completed_at": "2026-11-13T04:55:18.913838Z",
+        "outcome": {
+          "result": {
+            "mime_type": "image/png",
+            "path": "/tmp/lamp-sandbox-kits/f8ee187c920645be90595f27aa1e23e9.png",
+            "size_bytes": 22604
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "mime_type": "image/png",
+        "path": "/tmp/lamp-sandbox-kits/f8ee187c920645be90595f27aa1e23e9.png",
+        "size_bytes": 22604
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "file-read",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--path",
+      "/tmp/lamp-sandbox-kits/f8ee187c920645be90595f27aa1e23e9.png",
+      "--offset-bytes",
+      "0",
+      "--length-bytes",
+      "24576"
+    ],
+    "reply": {
+      "eof": true,
+      "request_id": "req_6b5987d430715e8cdb2a663b86b3e25d",
+      "sha256": "f6b8e3f84fbb5ecc87fd649c7dd49aa1c12ffb7d33d2aa20704e420d9d37874e",
+      "data_bytes": 22604,
+      "data_sha256": "f6b8e3f84fbb5ecc87fd649c7dd49aa1c12ffb7d33d2aa20704e420d9d37874e"
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "record_start",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_72db861fe6601bd0978380d081364045",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_9499080d8bfaff55b24e770f57b2f803",
+      "replayed": false,
+      "operation": {
+        "id": "op_72db861fe6601bd0978380d081364045",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:19.046569Z",
+        "updated_at": "2026-11-13T04:55:19.557468Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "8b6c09a619c77442065f381d56a7ded08d1f27abf2b102ecc96a5ae3b5827d42",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:19.046569Z",
+        "completed_at": "2026-11-13T04:55:19.557468Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "move",
+      "--x",
+      "200",
+      "--y",
+      "200",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_e9b0b81e6a4ae9338c34842d6c8187cc",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_e807cd2757b123304e025b20d71f3d92",
+      "replayed": false,
+      "operation": {
+        "id": "op_e9b0b81e6a4ae9338c34842d6c8187cc",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:19.595734Z",
+        "updated_at": "2026-11-13T04:55:19.794017Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "5b092de460434bf9f290b06d74a540006844d13aff9b9d280373170df06cb494",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:19.595734Z",
+        "completed_at": "2026-11-13T04:55:19.794017Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--action",
+      "record_stop",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_4a6fd7d7bb2e11c32a8e059009a0e4e9",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_045d21a4bf421868bcfcd35b3ca63226",
+      "replayed": false,
+      "operation": {
+        "id": "op_4a6fd7d7bb2e11c32a8e059009a0e4e9",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:19.84218Z",
+        "updated_at": "2026-11-13T04:55:20.629571Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "a18dd6590d92a80ae475fa030e86d3be8a7f6da220d382706ee192cd3fdf6e71",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:19.84218Z",
+        "completed_at": "2026-11-13T04:55:20.629571Z",
+        "outcome": {
+          "result": {
+            "mime_type": "video/mp4",
+            "path": "/tmp/lamp-sandbox-kits/fe5bae3af39745bc9a3ef721d62fbc03.mp4",
+            "size_bytes": 27956
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "mime_type": "video/mp4",
+        "path": "/tmp/lamp-sandbox-kits/fe5bae3af39745bc9a3ef721d62fbc03.mp4",
+        "size_bytes": 27956
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "file-read",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--path",
+      "/tmp/lamp-sandbox-kits/fe5bae3af39745bc9a3ef721d62fbc03.mp4",
+      "--offset-bytes",
+      "0",
+      "--length-bytes",
+      "24576"
+    ],
+    "reply": {
+      "eof": false,
+      "request_id": "req_8a9783fb0b553e82fe614c0f3d72a841",
+      "sha256": "8499e504a68fe38344add2685883f758f18f441ecc6020fddc6217a202b5fde3",
+      "data_bytes": 24576,
+      "data_sha256": "8499e504a68fe38344add2685883f758f18f441ecc6020fddc6217a202b5fde3"
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "file-read",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--path",
+      "/tmp/lamp-sandbox-kits/fe5bae3af39745bc9a3ef721d62fbc03.mp4",
+      "--offset-bytes",
+      "24576",
+      "--length-bytes",
+      "24576"
+    ],
+    "reply": {
+      "eof": true,
+      "request_id": "req_3a602251468c1bd26577bc26197182f4",
+      "sha256": "6e4956e476a8f20cd906f47d6c1d5bbfa9be0bcf1fed0292578b1a5f686e38bc",
+      "data_bytes": 3380,
+      "data_sha256": "6e4956e476a8f20cd906f47d6c1d5bbfa9be0bcf1fed0292578b1a5f686e38bc"
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "run-code",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--code",
+      "import urllib.request,platform; print(platform.machine()); print(urllib.request.urlopen(\"https://example.com\",timeout=20).status)",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b107897b748efffe5e2c16e770000613",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_d819f6b4b06ffa063292b2d35f2e965b",
+      "replayed": false,
+      "operation": {
+        "id": "op_b107897b748efffe5e2c16e770000613",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:20.846402Z",
+        "updated_at": "2026-11-13T04:55:21.306238Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_run_code",
+        "request_hash": "2a2146be0d458b87b6aa162ac641d390888ad278c80e462103f6e04d9764745c",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:55:20.846402Z",
+        "completed_at": "2026-11-13T04:55:21.306238Z",
+        "outcome": {
+          "result": {
+            "context": "default",
+            "outputs": [],
+            "result": null,
+            "stderr": "",
+            "stdout": "aarch64\n200\n"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "context": "default",
+        "outputs": [],
+        "result": null,
+        "stderr": "",
+        "stdout": "aarch64\n200\n"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "delete",
+      "sb_60df213dd2c7c37bfb476eb5dac2136b",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_3fa975077d897bae7129e08aa97bb0a7",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+        }
+      ],
+      "request_id": "req_df45e57b7b0f771652edb07e9b79447f",
+      "replayed": false,
+      "operation": {
+        "id": "op_3fa975077d897bae7129e08aa97bb0a7",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T04:55:21.343132Z",
+        "updated_at": "2026-11-13T04:55:23.678211Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_delete",
+        "request_hash": "5d356a177ceca7438a9d4bd5dc417b2cf5741d8f7b8ab4c2176ab2d315b7eea4",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_60df213dd2c7c37bfb476eb5dac2136b"
+          }
+        ],
+        "phase": "cleanup",
+        "accepted_at": "2026-11-13T04:55:21.343132Z",
+        "completed_at": "2026-11-13T04:55:23.678211Z",
+        "outcome": {
+          "result": {}
+        },
+        "cleanup_state": "complete",
+        "durability": "volatile"
+      },
+      "result": {}
+    }
+  }
+]

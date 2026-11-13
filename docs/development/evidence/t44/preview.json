@@ -1,0 +1,17 @@
+{
+  "access": "private",
+  "requests": [
+    {
+      "path": "/",
+      "status": 200,
+      "bytes": 188,
+      "content_type": "text/html"
+    },
+    {
+      "path": "/screen.png?t=proof",
+      "status": 200,
+      "bytes": 32492,
+      "content_type": "image/png"
+    }
+  ]
+}

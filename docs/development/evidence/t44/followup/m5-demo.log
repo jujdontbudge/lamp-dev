@@ -1,0 +1,46 @@
+host Darwin arm64
+{"command": ["sandbox", "create", "--resources", "{\"vcpus\": 2, \"memory_mib\": 2048, \"disk_gib\": 20, \"pids_max\": 4096}"], "state": "succeeded"}
+{"command": ["sandbox", "kit", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--kit"], "state": "succeeded"}
+{"command": ["sandbox", "run-code", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--code"], "state": "succeeded"}
+{"command": ["sandbox", "run-code", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--code"], "state": "succeeded"}
+PYTHON_OK
+{"command": ["sandbox", "kit", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--kit"], "state": "succeeded"}
+{"command": ["sandbox", "browser", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "browser", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "browser", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "file-read", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--path"], "state": "ok"}
+{"command": ["sandbox", "file-read", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--path"], "state": "ok"}
+{"command": ["sandbox", "file-read", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--path"], "state": "ok"}
+{"command": ["sandbox", "file-read", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--path"], "state": "ok"}
+{"command": ["sandbox", "browser", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+CHROMIUM_OK
+{"command": ["sandbox", "kit", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--kit"], "state": "succeeded"}
+{"command": ["sandbox", "run-code", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--code"], "state": "succeeded"}
+DOCKER_OK
+{"command": ["sandbox", "kit", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--kit"], "state": "succeeded"}
+{"command": ["sandbox", "run-code", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--code"], "state": "succeeded"}
+{"command": ["sandbox", "lsp", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "lsp", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "lsp", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "lsp", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "lsp", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+LSP_OK
+{"command": ["sandbox", "kit", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--kit"], "state": "succeeded"}
+{"command": ["sandbox", "desktop", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "desktop", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "desktop", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "desktop", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "desktop", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "desktop", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "file-read", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--path"], "state": "ok"}
+{"command": ["sandbox", "desktop", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "desktop", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "desktop", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--action"], "state": "succeeded"}
+{"command": ["sandbox", "file-read", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--path"], "state": "ok"}
+{"command": ["sandbox", "file-read", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--path"], "state": "ok"}
+DESKTOP_OK
+{"command": ["sandbox", "run-code", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--code"], "state": "succeeded"}
+NETWORK_STILL_OK_NO_RECOVERY
+{"command": ["sandbox", "delete", "sb_60df213dd2c7c37bfb476eb5dac2136b", "--wait-ms"], "state": "succeeded"}
+{"at":"2026-11-13T04:55:28Z","data":"deleted","event":"uninstalled","name":"local-758def48cf54","owner_data":"delete"}
+DISPOSABLE_INSTALL_REMOVED

@@ -57,9 +57,9 @@ func engineFiles() []engineFile {
 }
 
 func componentNames() []string {
-	out := []string{"lamp-supervisor"}
+	out := []string{"lamp-supervisor", "lamp-network"}
 	if runtime.GOOS == "linux" {
-		out = append(out, "lamp-guard", "lamp-network")
+		out = append(out, "lamp-guard")
 	}
 	for _, f := range engineFiles() {
 		out = append(out, f.name)

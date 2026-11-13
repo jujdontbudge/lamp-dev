@@ -1,0 +1,138 @@
+{
+  "calls": [
+    {
+      "command": [
+        "sandbox",
+        "create",
+        "--resources",
+        "{\"vcpus\": 2, \"memory_mib\": 2048, \"disk_gib\": 20, \"pids_max\": 4096}",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_5a4f8657909965a345f1ccc3f1bd72d3",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_8375336291d0076a6dc56d4c14edd809"
+          }
+        ],
+        "request_id": "req_96c287808ab8a3c5dfa3700c9c96c3d2",
+        "replayed": false,
+        "operation": {
+          "id": "op_5a4f8657909965a345f1ccc3f1bd72d3",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_owner",
+          "revision": 3,
+          "created_at": "2026-11-13T05:04:24.034303933Z",
+          "updated_at": "2026-11-13T05:04:25.266625443Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_create",
+          "request_hash": "3742f0b768fe9eae1ec6c1a28a9cdfb6d668589c52e1d636d904311623898955",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_8375336291d0076a6dc56d4c14edd809"
+            }
+          ],
+          "phase": "command",
+          "accepted_at": "2026-11-13T05:04:24.034303933Z",
+          "completed_at": "2026-11-13T05:04:25.266625443Z",
+          "outcome": {
+            "result": {
+              "sandbox_id": "sb_8375336291d0076a6dc56d4c14edd809",
+              "session_ids": []
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "volatile"
+        },
+        "result": {
+          "sandbox_id": "sb_8375336291d0076a6dc56d4c14edd809",
+          "session_ids": []
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "kit",
+        "sb_8375336291d0076a6dc56d4c14edd809",
+        "--kit",
+        "python",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_0d504ebf30334bd61f0962e5d183a7fe",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_8375336291d0076a6dc56d4c14edd809"
+          }
+        ],
+        "request_id": "req_e1516ad6c0e369a95d321c42d5551c29",
+        "replayed": false,
+        "operation": {
+          "id": "op_0d504ebf30334bd61f0962e5d183a7fe",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_owner",
+          "revision": 3,
+          "created_at": "2026-11-13T05:04:25.287063589Z",
+          "updated_at": "2026-11-13T05:09:53.200146406Z",
+          "state": "outcome_unknown",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_kit",
+          "request_hash": "1bea0798022753f933d3244b8d2bb0b5371dbcd259b23dc39deb4f6cc5c85b22",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_8375336291d0076a6dc56d4c14edd809"
+            }
+          ],
+          "accepted_at": "2026-11-13T05:04:25.287063589Z",
+          "completed_at": "2026-11-13T05:09:53.200146406Z",
+          "error": {
+            "code": "OUTCOME_UNKNOWN",
+            "message": "guest kit job result unavailable: 63194e1ceead416488081e97de86afbf",
+            "retryable": false,
+            "operation_id": "op_0d504ebf30334bd61f0962e5d183a7fe"
+          },
+          "cleanup_state": "pending",
+          "durability": "local"
+        }
+      }
+    }
+  ],
+  "guest_job_result": {
+    "kit": "python",
+    "state": "ready",
+    "boundary": "vm"
+  },
+  "slow_poll_observation": {
+    "worker_operation": "op_96fcf47c962694d5382eb902858fd935.kit",
+    "handle_us": 6273647,
+    "relay_timeout_ms": 5000
+  },
+  "receiver_errors": [
+    "lamp-guard: failed to fill whole buffer",
+    "lamp-guard: audit spool full or oversized batch/record",
+    "lamp-guard: audit spool full or oversized batch/record",
+    "lamp-guard: audit spool full or oversized batch/record",
+    "lamp-guard: Resource temporarily unavailable (os error 11)",
+    "lamp-guard: Resource temporarily unavailable (os error 11)",
+    "lamp-guard: Resource temporarily unavailable (os error 11)",
+    "lamp-guard: Resource temporarily unavailable (os error 11)",
+    "lamp-guard: Resource temporarily unavailable (os error 11)",
+    "lamp-guard: Resource temporarily unavailable (os error 11)",
+    "lamp-guard: Resource temporarily unavailable (os error 11)",
+    "lamp-guard: Resource temporarily unavailable (os error 11)",
+    "lamp-guard: Resource temporarily unavailable (os error 11)",
+    "lamp-guard: Resource temporarily unavailable (os error 11)"
+  ]
+}

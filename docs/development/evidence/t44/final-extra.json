@@ -1,0 +1,1374 @@
+[
+  {
+    "command": [
+      "sandbox",
+      "run-code",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--code",
+      "import subprocess; r=subprocess.run([\"docker\",\"run\",\"--rm\",\"alpine:3.20\",\"echo\",\"DIND_OK\"],capture_output=True,text=True); print(r.returncode);print(r.stdout);print(r.stderr)",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_68b07e178b6a23bdffbff2307cd46b8f",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_a96053d33026d72e98e3d14dc5d5ac63",
+      "replayed": false,
+      "operation": {
+        "id": "op_68b07e178b6a23bdffbff2307cd46b8f",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:10:53.701669365Z",
+        "updated_at": "2026-11-13T04:10:55.614272362Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_run_code",
+        "request_hash": "b2e68a98d55a728ac3307b80df085f819432fead34daccf3f375028a8549502c",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:10:53.701669365Z",
+        "completed_at": "2026-11-13T04:10:55.614272362Z",
+        "outcome": {
+          "result": {
+            "context": "default",
+            "outputs": [],
+            "result": null,
+            "stderr": "",
+            "stdout": "0\nDIND_OK\n\nWARNING: IPv4 forwarding is disabled. Networking will not work.\n\n"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "context": "default",
+        "outputs": [],
+        "result": null,
+        "stderr": "",
+        "stdout": "0\nDIND_OK\n\nWARNING: IPv4 forwarding is disabled. Networking will not work.\n\n"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "run-code",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--code",
+      "from pathlib import Path; Path(\"/tmp/example.ts\").write_text(\"export function greet(name: string) { return name; }\"+chr(10)+\"gre\")",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_9dd014697aebcd4c659179ad6a4ab3f6",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_d1f904eb2143805b2331106146b9fd58",
+      "replayed": false,
+      "operation": {
+        "id": "op_9dd014697aebcd4c659179ad6a4ab3f6",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:11:12.126126057Z",
+        "updated_at": "2026-11-13T04:11:12.508147072Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_run_code",
+        "request_hash": "cc231ba88695a47a08e7df610fd9a370b5d0b7b8866588566778d00d53ccb58f",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:11:12.126126057Z",
+        "completed_at": "2026-11-13T04:11:12.508147072Z",
+        "outcome": {
+          "result": {
+            "context": "default",
+            "outputs": [],
+            "result": "56",
+            "stderr": "",
+            "stdout": ""
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "context": "default",
+        "outputs": [],
+        "result": "56",
+        "stderr": "",
+        "stdout": ""
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "start",
+      "--path",
+      "/tmp",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_063836574a1d2c02f005c818bec241da",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_68d41e8fc8a048560afc870caab5d03c",
+      "replayed": false,
+      "operation": {
+        "id": "op_063836574a1d2c02f005c818bec241da",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:11:12.53477546Z",
+        "updated_at": "2026-11-13T04:11:13.527153796Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "5de1a4f61fd8d1d537c823293c76444ad2e764340ed92a9856331d011f6ea5ce",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:11:12.53477546Z",
+        "completed_at": "2026-11-13T04:11:13.527153796Z",
+        "outcome": {
+          "result": {
+            "started": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "started": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "open",
+      "--path",
+      "/tmp/example.ts",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_fccdedefafbc171c5cb60d8666f48d83",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_ef8daa0f43dd8ca4c4cae729f4a1ce8d",
+      "replayed": false,
+      "operation": {
+        "id": "op_fccdedefafbc171c5cb60d8666f48d83",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:11:13.555828253Z",
+        "updated_at": "2026-11-13T04:11:14.209443365Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "70c2330863aac5ae84f0a8824bf921d04958abf427761d393c46fee9a4c6c2c9",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:11:13.555828253Z",
+        "completed_at": "2026-11-13T04:11:14.209443365Z",
+        "outcome": {
+          "result": {
+            "opened": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "opened": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "symbols",
+      "--path",
+      "/tmp/example.ts",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_1d8194397d566d850018d1661e88eb43",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_7c201dbe9bb467ce3e4f675cbf41eee7",
+      "replayed": false,
+      "operation": {
+        "id": "op_1d8194397d566d850018d1661e88eb43",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:11:14.224170233Z",
+        "updated_at": "2026-11-13T04:11:14.807861702Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "16fbdf1b82a71f8c5f01f209aa05cc7068b94ee4febcb9a4fd03f172d8cf99a7",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:11:14.224170233Z",
+        "completed_at": "2026-11-13T04:11:14.807861702Z",
+        "outcome": {
+          "result": {
+            "is_incomplete": false,
+            "items": [
+              {
+                "kind": 12,
+                "location": {
+                  "range": {
+                    "end": {
+                      "character": 52,
+                      "line": 0
+                    },
+                    "start": {
+                      "character": 0,
+                      "line": 0
+                    }
+                  },
+                  "uri": "file:///tmp/example.ts"
+                },
+                "name": "greet"
+              }
+            ],
+            "total": 1,
+            "truncated": false
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "is_incomplete": false,
+        "items": [
+          {
+            "kind": 12,
+            "location": {
+              "range": {
+                "end": {
+                  "character": 52,
+                  "line": 0
+                },
+                "start": {
+                  "character": 0,
+                  "line": 0
+                }
+              },
+              "uri": "file:///tmp/example.ts"
+            },
+            "name": "greet"
+          }
+        ],
+        "total": 1,
+        "truncated": false
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "completions",
+      "--path",
+      "/tmp/example.ts",
+      "--line",
+      "1",
+      "--character",
+      "3",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_f012184711f2124e3a2e99c9d6424cfa",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_9d26d0927f0578a7d2998ba7380b8be7",
+      "replayed": false,
+      "operation": {
+        "id": "op_f012184711f2124e3a2e99c9d6424cfa",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:11:14.822671347Z",
+        "updated_at": "2026-11-13T04:11:15.43399325Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "c4ca8eaf4664d306e76888a804d048cc005c9975488c383a82a7e33c13b33055",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:11:14.822671347Z",
+        "completed_at": "2026-11-13T04:11:15.43399325Z",
+        "outcome": {
+          "result": {
+            "is_incomplete": false,
+            "total": 983,
+            "truncated": true,
+            "returned_items": 580,
+            "items_sample": [
+              {
+                "data": {
+                  "cacheId": 1
+                },
+                "kind": 3,
+                "label": "greet",
+                "sortText": "11"
+              },
+              {
+                "data": {
+                  "cacheId": 2
+                },
+                "kind": 6,
+                "label": "AbortController",
+                "sortText": "15"
+              },
+              {
+                "data": {
+                  "cacheId": 3
+                },
+                "kind": 6,
+                "label": "AbortSignal",
+                "sortText": "15"
+              }
+            ]
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "is_incomplete": false,
+        "total": 983,
+        "truncated": true,
+        "returned_items": 580,
+        "items_sample": [
+          {
+            "data": {
+              "cacheId": 1
+            },
+            "kind": 3,
+            "label": "greet",
+            "sortText": "11"
+          },
+          {
+            "data": {
+              "cacheId": 2
+            },
+            "kind": 6,
+            "label": "AbortController",
+            "sortText": "15"
+          },
+          {
+            "data": {
+              "cacheId": 3
+            },
+            "kind": 6,
+            "label": "AbortSignal",
+            "sortText": "15"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "diagnostics",
+      "--path",
+      "/tmp/example.ts",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_972ebc70c9862f1869df1554de325f38",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_47bc1b14cd5efb2a045cdf35ed341034",
+      "replayed": false,
+      "operation": {
+        "id": "op_972ebc70c9862f1869df1554de325f38",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:11:15.484586306Z",
+        "updated_at": "2026-11-13T04:11:15.658262647Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "272b441202fc36a1d748eafc1718506aca11414c24ec90c7da35767bf3814678",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:11:15.484586306Z",
+        "completed_at": "2026-11-13T04:11:15.658262647Z",
+        "outcome": {
+          "result": {
+            "diagnostics": []
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "diagnostics": []
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "close",
+      "--path",
+      "/tmp/example.ts",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b2219390b07f9e95fea6ae5640b8f6f9",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_7ee3152250c3452ea27d3288d7e224cb",
+      "replayed": false,
+      "operation": {
+        "id": "op_b2219390b07f9e95fea6ae5640b8f6f9",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:11:15.671463249Z",
+        "updated_at": "2026-11-13T04:11:15.937484258Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "7c1f5d8f1e6be00eb4664ec8874e7200582a7f43ae2b6a65032f79a07f976d58",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:11:15.671463249Z",
+        "completed_at": "2026-11-13T04:11:15.937484258Z",
+        "outcome": {
+          "result": {
+            "closed": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "closed": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "lsp",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "stop",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_ec2d698faf64ea38280ab9c3e158aa6b",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_6e526539c90ee17182da8f1fdc16c96e",
+      "replayed": false,
+      "operation": {
+        "id": "op_ec2d698faf64ea38280ab9c3e158aa6b",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:11:15.963903291Z",
+        "updated_at": "2026-11-13T04:11:16.262422534Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_lsp",
+        "request_hash": "3fc08a42e4c4ff8020f0b64ac7d6f08065e6484194c665419dcc6e96087e7e6e",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:11:15.963903291Z",
+        "completed_at": "2026-11-13T04:11:16.262422534Z",
+        "outcome": {
+          "result": {
+            "stopped": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "stopped": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "suspend",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_7912dd8e68ff6b9e376c8d1bde629e1a",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_fa6883581245c224ffd35180dddb7cf9",
+      "replayed": false,
+      "operation": {
+        "id": "op_7912dd8e68ff6b9e376c8d1bde629e1a",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:12:28.580299686Z",
+        "updated_at": "2026-11-13T04:12:52.643210101Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_suspend",
+        "request_hash": "8837be019fbda1b9f339d08ffd2292c3f865c052413f453f12d9686c78d6ceac",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:12:28.580299686Z",
+        "completed_at": "2026-11-13T04:12:52.643210101Z",
+        "outcome": {
+          "result": {}
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {}
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "resume",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_9e9a48b84f023bc60a41d051dba37619",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_2b1358783ba023b9eb1853b21033e1d2",
+      "replayed": false,
+      "operation": {
+        "id": "op_9e9a48b84f023bc60a41d051dba37619",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:00.337648585Z",
+        "updated_at": "2026-11-13T04:13:09.785616826Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_resume",
+        "request_hash": "6c425c07bdd9503857bb0efc8065f9eb485b9614145aff034a1873989528228a",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:00.337648585Z",
+        "completed_at": "2026-11-13T04:13:09.785616826Z",
+        "outcome": {
+          "result": {}
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {}
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "kit",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--kit",
+      "desktop",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b62dbd5262271c38ff94be50f0b9455c",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_030b6129050d2e9ad58ad5cd1807a9d0",
+      "replayed": false,
+      "operation": {
+        "id": "op_b62dbd5262271c38ff94be50f0b9455c",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:17.007473801Z",
+        "updated_at": "2026-11-13T04:13:20.18264544Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_kit",
+        "request_hash": "4d4a089a075101309c21ddfb8abb23c06a21b3ed861a16ff936cf0b1ac6ca3ee",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:17.007473801Z",
+        "completed_at": "2026-11-13T04:13:20.18264544Z",
+        "outcome": {
+          "result": {
+            "boundary": "vm",
+            "display": ":99",
+            "kit": "desktop",
+            "state": "ready",
+            "view_path": "/",
+            "view_port": 6080
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "boundary": "vm",
+        "display": ":99",
+        "kit": "desktop",
+        "state": "ready",
+        "view_path": "/",
+        "view_port": 6080
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "info",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_dff839ae3156e1ea8c2c5a4546ec2e7d",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_07d6f5cf40c452ea90a77ae6f597c787",
+      "replayed": false,
+      "operation": {
+        "id": "op_dff839ae3156e1ea8c2c5a4546ec2e7d",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:20.198481169Z",
+        "updated_at": "2026-11-13T04:13:20.478758472Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "3a7e4d9d03344cfba5abd06b7d610a6d1239c32cc98a6a5a5e37e538c665e866",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:20.198481169Z",
+        "completed_at": "2026-11-13T04:13:20.478758472Z",
+        "outcome": {
+          "result": {
+            "height": 768,
+            "pointer": {
+              "SCREEN": "0",
+              "WINDOW": "8388635",
+              "X": "512",
+              "Y": "384"
+            },
+            "view_port": 6080,
+            "width": 1024
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "height": 768,
+        "pointer": {
+          "SCREEN": "0",
+          "WINDOW": "8388635",
+          "X": "512",
+          "Y": "384"
+        },
+        "view_port": 6080,
+        "width": 1024
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "move",
+      "--x",
+      "100",
+      "--y",
+      "100",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_e7a4ed46c88ed1f9a0edb9b03f16604e",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_76bc672af7cb7ca8fc3179f3d5940bec",
+      "replayed": false,
+      "operation": {
+        "id": "op_e7a4ed46c88ed1f9a0edb9b03f16604e",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:20.491929402Z",
+        "updated_at": "2026-11-13T04:13:21.009554054Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "fc20598b733450ec0bcd8048bdd513623fc13da7fcb5b6c7c8bf18a094654179",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:20.491929402Z",
+        "completed_at": "2026-11-13T04:13:21.009554054Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "info",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_c0825a539f55d22a95b88d6bb11b0232",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_a5c6dc8a2322533d5eef4566bd807c52",
+      "replayed": false,
+      "operation": {
+        "id": "op_c0825a539f55d22a95b88d6bb11b0232",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:21.03168622Z",
+        "updated_at": "2026-11-13T04:13:21.388411888Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "f978fe24f434b9b043e3622175be82eaa35b8c32275a760a5465e8c20d05cb02",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:21.03168622Z",
+        "completed_at": "2026-11-13T04:13:21.388411888Z",
+        "outcome": {
+          "result": {
+            "height": 768,
+            "pointer": {
+              "SCREEN": "0",
+              "WINDOW": "4194316",
+              "X": "100",
+              "Y": "100"
+            },
+            "view_port": 6080,
+            "width": 1024
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "height": 768,
+        "pointer": {
+          "SCREEN": "0",
+          "WINDOW": "4194316",
+          "X": "100",
+          "Y": "100"
+        },
+        "view_port": 6080,
+        "width": 1024
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "click",
+      "--button",
+      "1",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_6acac57fa76b41fef3cf6a61410286cf",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_e6f346010f75cfb38095435126e62a25",
+      "replayed": false,
+      "operation": {
+        "id": "op_6acac57fa76b41fef3cf6a61410286cf",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:21.404164874Z",
+        "updated_at": "2026-11-13T04:13:22.131718913Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "9d000fa38a1926eab05494c2edb8846102ed1030ade0f3cd17510fbda93b2e32",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:21.404164874Z",
+        "completed_at": "2026-11-13T04:13:22.131718913Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "type",
+      "--text",
+      "echo hi",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_7afba794707ea6c7f9051528f86f2bbf",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_4c4db32b323e5c30815565d458225c6c",
+      "replayed": false,
+      "operation": {
+        "id": "op_7afba794707ea6c7f9051528f86f2bbf",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:22.166373706Z",
+        "updated_at": "2026-11-13T04:13:22.866867047Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "cc48fd7aa58980fe00fce7757011548cffac0394eb6730f0b0ba8aac9787bdfb",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:22.166373706Z",
+        "completed_at": "2026-11-13T04:13:22.866867047Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "key",
+      "--key",
+      "Return",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_fd76b60a5dd88d45ad214889baf8c5fc",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_eaeb4f11a7584de4008664ef4535812a",
+      "replayed": false,
+      "operation": {
+        "id": "op_fd76b60a5dd88d45ad214889baf8c5fc",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:22.882845647Z",
+        "updated_at": "2026-11-13T04:13:23.339166423Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "7805fba76b927abad1f6f7c138b0fde5c42bef2c0cf07800845dc1f95ad5aec3",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:22.882845647Z",
+        "completed_at": "2026-11-13T04:13:23.339166423Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "screenshot",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_816c66cad7b8df053fbce106336577bc",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_aad1f8282987888548c89e4283cf24d4",
+      "replayed": false,
+      "operation": {
+        "id": "op_816c66cad7b8df053fbce106336577bc",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:23.364812221Z",
+        "updated_at": "2026-11-13T04:13:24.716926581Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "0564964e57805af425dfb465046b19a606f9634c8aca8fc0b5048256f3b307ca",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:23.364812221Z",
+        "completed_at": "2026-11-13T04:13:24.716926581Z",
+        "outcome": {
+          "result": {
+            "mime_type": "image/png",
+            "path": "/tmp/lamp-sandbox-kits/54d42e510e9d4a6dbd76ef1ac0c6ca36.png",
+            "size_bytes": 32225
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "mime_type": "image/png",
+        "path": "/tmp/lamp-sandbox-kits/54d42e510e9d4a6dbd76ef1ac0c6ca36.png",
+        "size_bytes": 32225
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "record_start",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_98fa0e6dbf6b1a48161d509edc0ae3b2",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_c0c8bb2b966bad0737ea1265df5e807e",
+      "replayed": false,
+      "operation": {
+        "id": "op_98fa0e6dbf6b1a48161d509edc0ae3b2",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:25.009577641Z",
+        "updated_at": "2026-11-13T04:13:25.434084413Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "f245117ac9b01b1496f7befafe6822384753ad204d46ede92499087b3b1cb43d",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:25.009577641Z",
+        "completed_at": "2026-11-13T04:13:25.434084413Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "move",
+      "--x",
+      "200",
+      "--y",
+      "200",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_009bcf8a42fb3285a445d7c602faa9c4",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_f80db6d95ba4a5a91dd9ee518164f06b",
+      "replayed": false,
+      "operation": {
+        "id": "op_009bcf8a42fb3285a445d7c602faa9c4",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:25.452485906Z",
+        "updated_at": "2026-11-13T04:13:26.229946458Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "ad65a8d3f2112d371ff2d69f93a516a0cdc0f79c1c2aabd18eb999a6f088dca6",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:25.452485906Z",
+        "completed_at": "2026-11-13T04:13:26.229946458Z",
+        "outcome": {
+          "result": {
+            "ok": true
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "ok": true
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "desktop",
+      "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+      "--action",
+      "record_stop",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_200b1e52104bedd6d3f5b60552f52e30",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+        }
+      ],
+      "request_id": "req_f1fd36e7ab4281c3dbe2cea43160d811",
+      "replayed": false,
+      "operation": {
+        "id": "op_200b1e52104bedd6d3f5b60552f52e30",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_t44_demo",
+        "revision": 3,
+        "created_at": "2026-11-13T04:13:26.244927134Z",
+        "updated_at": "2026-11-13T04:13:27.448495907Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_desktop",
+        "request_hash": "a6616ec35dc8b906cef0db020c16d655ba3e340c0d0e293eaeb2d853b0a5652c",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "accepted_at": "2026-11-13T04:13:26.244927134Z",
+        "completed_at": "2026-11-13T04:13:27.448495907Z",
+        "outcome": {
+          "result": {
+            "mime_type": "video/mp4",
+            "path": "/tmp/lamp-sandbox-kits/46f96cd9f8bd4f41b74211842ceec8b5.mp4",
+            "size_bytes": 34268
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "mime_type": "video/mp4",
+        "path": "/tmp/lamp-sandbox-kits/46f96cd9f8bd4f41b74211842ceec8b5.mp4",
+        "size_bytes": 34268
+      }
+    }
+  }
+]

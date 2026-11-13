@@ -101,6 +101,16 @@ func (s *Service) kitsHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	// Lamp's public sandbox/exec API, whose handlers must remain able to run.
 	s.kitsMu.Lock()
 	defer s.kitsMu.Unlock()
+	if s.kitsSocket == "" && op.Name == "kit_list" {
+		items := []any{}
+		for name, description := range builtinKits {
+			entry := newResource("kit", requestCaller(r).Principal)
+			entry["id"], entry["name"], entry["labels"] = name, name, map[string]any{"lamp.description": description, "lamp.builtin": "true"}
+			items = append(items, entry)
+		}
+		prepareJSON(w, 200, map[string]any{"request_id": id, "items": items})()
+		return
+	}
 	if s.kitsSocket == "" {
 		writeError(w, id, "HOST_UNAVAILABLE", "start lampd with --kits-config or an enrolled --kits-socket", nil)
 		return

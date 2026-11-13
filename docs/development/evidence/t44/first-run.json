@@ -1,0 +1,1393 @@
+{
+  "steps": [
+    {
+      "command": [
+        "kit",
+        "list"
+      ],
+      "reply": {
+        "items": [
+          {
+            "created_at": "2026-11-13T03:28:59.021056869Z",
+            "fleet_id": "fl_local",
+            "id": "desktop",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Virtual desktop, input, screenshots and recording"
+            },
+            "name": "desktop",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T03:28:59.021056869Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T03:28:59.021074007Z",
+            "fleet_id": "fl_local",
+            "id": "docker",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Docker daemon inside the guest"
+            },
+            "name": "docker",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T03:28:59.021074007Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T03:28:59.021076383Z",
+            "fleet_id": "fl_local",
+            "id": "node",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Node.js and npm"
+            },
+            "name": "node",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T03:28:59.021076383Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T03:28:59.021078022Z",
+            "fleet_id": "fl_local",
+            "id": "c",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "C/C++ and make"
+            },
+            "name": "c",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T03:28:59.021078022Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T03:28:59.021079469Z",
+            "fleet_id": "fl_local",
+            "id": "lsp",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "TypeScript language server"
+            },
+            "name": "lsp",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T03:28:59.021079469Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T03:28:59.021086701Z",
+            "fleet_id": "fl_local",
+            "id": "browser",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Headless Chromium (throwaway guest profile)"
+            },
+            "name": "browser",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T03:28:59.021086701Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T03:28:59.021088653Z",
+            "fleet_id": "fl_local",
+            "id": "python",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Python with pip, matplotlib and persistent interpreter"
+            },
+            "name": "python",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T03:28:59.021088653Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T03:28:59.021090111Z",
+            "fleet_id": "fl_local",
+            "id": "go",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Go"
+            },
+            "name": "go",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T03:28:59.021090111Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T03:28:59.021093462Z",
+            "fleet_id": "fl_local",
+            "id": "rust",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Rust and Cargo"
+            },
+            "name": "rust",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T03:28:59.021093462Z",
+            "visibility": "private"
+          }
+        ],
+        "request_id": "req_f2c7259ec162df11eb69bb42660b9fd5"
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "create",
+        "--template-id",
+        "tp_5807c7e2a1dab4d912b5b1c4ec",
+        "--resources",
+        "{\"vcpus\": 2, \"memory_mib\": 2048, \"disk_gib\": 20, \"pids_max\": 4096}",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_266f8c29cf5717fdc36701a34d0d7d14",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_49df594e2ff234d082e4c1a186379834",
+        "replayed": false,
+        "operation": {
+          "id": "op_266f8c29cf5717fdc36701a34d0d7d14",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:28:59.046933468Z",
+          "updated_at": "2026-11-13T03:28:59.395754455Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_create",
+          "request_hash": "9d0919719f294b9a14a0d17b20faf519bdf7714821f14fb69b7a35ec5ecf85e4",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "phase": "command",
+          "accepted_at": "2026-11-13T03:28:59.046933468Z",
+          "completed_at": "2026-11-13T03:28:59.395754455Z",
+          "outcome": {
+            "result": {
+              "sandbox_id": "sb_2e1a5e38307adb195680af9bda6cf6f6",
+              "session_ids": []
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "volatile"
+        },
+        "result": {
+          "sandbox_id": "sb_2e1a5e38307adb195680af9bda6cf6f6",
+          "session_ids": []
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "kit",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--kit",
+        "python",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_b32f688ea740fa063c785655996fc165",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_672b28f638752a258f34902b079e9d0e",
+        "replayed": false,
+        "operation": {
+          "id": "op_b32f688ea740fa063c785655996fc165",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:28:59.424209473Z",
+          "updated_at": "2026-11-13T03:29:28.819523979Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_kit",
+          "request_hash": "c82acf5763138bc8d84bc2b1c33f731e7af792852317117d647db9cbc8dd50af",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:28:59.424209473Z",
+          "completed_at": "2026-11-13T03:29:28.819523979Z",
+          "outcome": {
+            "result": {
+              "boundary": "vm",
+              "kit": "python",
+              "state": "ready"
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "boundary": "vm",
+          "kit": "python",
+          "state": "ready"
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "run-code",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--code",
+        "x=41; print(x); x+1",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_6d3a54bfc60cc5b2c0fb3f70b96381fd",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_aa32af224824bbb9995fbb4a20508b90",
+        "replayed": false,
+        "operation": {
+          "id": "op_6d3a54bfc60cc5b2c0fb3f70b96381fd",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:29:28.832308Z",
+          "updated_at": "2026-11-13T03:29:28.997098579Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_run_code",
+          "request_hash": "9e2839cb59aa1c13bf595e11d4386de86f6ba2ae4b681c4806f236ea868340c4",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:29:28.832308Z",
+          "completed_at": "2026-11-13T03:29:28.997098579Z",
+          "outcome": {
+            "result": {
+              "context": "default",
+              "outputs": [],
+              "result": "42",
+              "stderr": "",
+              "stdout": "41\n"
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "context": "default",
+          "outputs": [],
+          "result": "42",
+          "stderr": "",
+          "stdout": "41\n"
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "run-code",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--code",
+        "x+2",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_571fc984c1e0d6415bfcf7741e966630",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_04bbf128a50614b18e0385eff8fad630",
+        "replayed": false,
+        "operation": {
+          "id": "op_571fc984c1e0d6415bfcf7741e966630",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:29:29.022041394Z",
+          "updated_at": "2026-11-13T03:29:29.217733816Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_run_code",
+          "request_hash": "9b340632825be035a143957e3da6f26aefd0d591c1e689cf17c41132364cd731",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:29:29.022041394Z",
+          "completed_at": "2026-11-13T03:29:29.217733816Z",
+          "outcome": {
+            "result": {
+              "context": "default",
+              "outputs": [],
+              "result": "43",
+              "stderr": "",
+              "stdout": ""
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "context": "default",
+          "outputs": [],
+          "result": "43",
+          "stderr": "",
+          "stdout": ""
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "run-code",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--code",
+        "1/0",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_8dbe3dfcfacac6e4efc661271e93b682",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_b400df0cece8af5391a5d8529c07bdf6",
+        "replayed": false,
+        "operation": {
+          "id": "op_8dbe3dfcfacac6e4efc661271e93b682",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:29:29.232416759Z",
+          "updated_at": "2026-11-13T03:29:29.485149002Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_run_code",
+          "request_hash": "1370f493083a66b2f1fab7b02f23b88851da32756216d39b5f5a8bb5e19f46bb",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:29:29.232416759Z",
+          "completed_at": "2026-11-13T03:29:29.485149002Z",
+          "outcome": {
+            "result": {
+              "context": "default",
+              "exception": {
+                "message": "division by zero",
+                "name": "ZeroDivisionError",
+                "traceback": "Traceback (most recent call last):\n  File \"/tmp/lamp-sandbox-kits/runtime.py\", line 161, in code\n    value=eval(compile(ast.Expression(last.value),'<lamp>','eval'),scope) if last else None\n          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<lamp>\", line 1, in <module>\nZeroDivisionError: division by zero\n"
+              },
+              "outputs": [],
+              "stderr": "",
+              "stdout": ""
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "context": "default",
+          "exception": {
+            "message": "division by zero",
+            "name": "ZeroDivisionError",
+            "traceback": "Traceback (most recent call last):\n  File \"/tmp/lamp-sandbox-kits/runtime.py\", line 161, in code\n    value=eval(compile(ast.Expression(last.value),'<lamp>','eval'),scope) if last else None\n          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<lamp>\", line 1, in <module>\nZeroDivisionError: division by zero\n"
+          },
+          "outputs": [],
+          "stderr": "",
+          "stdout": ""
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "run-code",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--code",
+        "x",
+        "--context",
+        "fresh",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_f7d82f74ec6069331be835ca8554c3f4",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_bef1621f1f7760113058a311341c0488",
+        "replayed": false,
+        "operation": {
+          "id": "op_f7d82f74ec6069331be835ca8554c3f4",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:29:29.542190052Z",
+          "updated_at": "2026-11-13T03:29:29.72157001Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_run_code",
+          "request_hash": "09fb6ca67572f0e233193d630896d34349402c26c525a0307db68ab46df27076",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:29:29.542190052Z",
+          "completed_at": "2026-11-13T03:29:29.72157001Z",
+          "outcome": {
+            "result": {
+              "context": "fresh",
+              "exception": {
+                "message": "name 'x' is not defined",
+                "name": "NameError",
+                "traceback": "Traceback (most recent call last):\n  File \"/tmp/lamp-sandbox-kits/runtime.py\", line 161, in code\n    value=eval(compile(ast.Expression(last.value),'<lamp>','eval'),scope) if last else None\n          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<lamp>\", line 1, in <module>\nNameError: name 'x' is not defined\n"
+              },
+              "outputs": [],
+              "stderr": "",
+              "stdout": ""
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "context": "fresh",
+          "exception": {
+            "message": "name 'x' is not defined",
+            "name": "NameError",
+            "traceback": "Traceback (most recent call last):\n  File \"/tmp/lamp-sandbox-kits/runtime.py\", line 161, in code\n    value=eval(compile(ast.Expression(last.value),'<lamp>','eval'),scope) if last else None\n          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<lamp>\", line 1, in <module>\nNameError: name 'x' is not defined\n"
+          },
+          "outputs": [],
+          "stderr": "",
+          "stdout": ""
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "run-code",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--code",
+        "import matplotlib; matplotlib.use(\"Agg\"); import matplotlib.pyplot as plt; plt.plot([1,2],[3,4]); plt.show()",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_cf7fd2f6824537c8bbce5b7123d0a656",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_c52b3273c652bc9d60d113126d444cc6",
+        "replayed": false,
+        "operation": {
+          "id": "op_cf7fd2f6824537c8bbce5b7123d0a656",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:29:29.736191108Z",
+          "updated_at": "2026-11-13T03:29:30.180942157Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_run_code",
+          "request_hash": "44f552c161e02493a783ae20eb1789ea031c2573c7d564f12fe9335e910f9506",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:29:29.736191108Z",
+          "completed_at": "2026-11-13T03:29:30.180942157Z",
+          "outcome": {
+            "result": {
+              "context": "default",
+              "outputs": [
+                {
+                  "mime_type": "image/png",
+                  "path": "/tmp/lamp-sandbox-kits/e3bc694cbeaa4626b51a1b4d5db23624.png",
+                  "size_bytes": 17218
+                }
+              ],
+              "result": null,
+              "stderr": "<lamp>:1: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown\n",
+              "stdout": ""
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "context": "default",
+          "outputs": [
+            {
+              "mime_type": "image/png",
+              "path": "/tmp/lamp-sandbox-kits/e3bc694cbeaa4626b51a1b4d5db23624.png",
+              "size_bytes": 17218
+            }
+          ],
+          "result": null,
+          "stderr": "<lamp>:1: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown\n",
+          "stdout": ""
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "run-code",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--code",
+        "x+3",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_732d24b74df0c9c1b9f04f5f00ebdf87",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_092dc55d52c5c96e26e65764efa85cbe",
+        "replayed": false,
+        "operation": {
+          "id": "op_732d24b74df0c9c1b9f04f5f00ebdf87",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:29:30.365675615Z",
+          "updated_at": "2026-11-13T03:29:30.49239824Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_run_code",
+          "request_hash": "328390621e8975eb6354a7b0f479946bc231ac01dd518ed3d8fea1aa9b2b1461",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:29:30.365675615Z",
+          "completed_at": "2026-11-13T03:29:30.49239824Z",
+          "outcome": {
+            "result": {
+              "context": "default",
+              "outputs": [],
+              "result": "44",
+              "stderr": "",
+              "stdout": ""
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "context": "default",
+          "outputs": [],
+          "result": "44",
+          "stderr": "",
+          "stdout": ""
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "kit",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--kit",
+        "desktop",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_38d4f3469f553ea523c9a1d72ff6f4f9",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_99a0aa644b583b15e60e21434ff71330",
+        "replayed": false,
+        "operation": {
+          "id": "op_38d4f3469f553ea523c9a1d72ff6f4f9",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:29:30.511199813Z",
+          "updated_at": "2026-11-13T03:30:59.688264197Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_kit",
+          "request_hash": "8dd98b33fd8ca68e4f78ba4c8a9203134bd960b2e91a8250130114c2b328a421",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:29:30.511199813Z",
+          "completed_at": "2026-11-13T03:30:59.688264197Z",
+          "outcome": {
+            "result": {
+              "boundary": "vm",
+              "display": ":99",
+              "kit": "desktop",
+              "state": "ready",
+              "view_path": "/",
+              "view_port": 6080
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "boundary": "vm",
+          "display": ":99",
+          "kit": "desktop",
+          "state": "ready",
+          "view_path": "/",
+          "view_port": 6080
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "desktop",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--action",
+        "info",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_a68c42a2d833c0bc27c79001a4410435",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_f84b60315703ab4009ad6a2e3798d89e",
+        "replayed": false,
+        "operation": {
+          "id": "op_a68c42a2d833c0bc27c79001a4410435",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:30:59.911566052Z",
+          "updated_at": "2026-11-13T03:31:00.178194527Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_desktop",
+          "request_hash": "25417ddfa62f25f2e837359714f7270bbf1041b6065e4ac692c8c7420efa4667",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:30:59.911566052Z",
+          "completed_at": "2026-11-13T03:31:00.178194527Z",
+          "outcome": {
+            "result": {
+              "height": 768,
+              "pointer": {
+                "SCREEN": "0",
+                "WINDOW": "6291483",
+                "X": "512",
+                "Y": "384"
+              },
+              "view_port": 6080,
+              "width": 1024
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "height": 768,
+          "pointer": {
+            "SCREEN": "0",
+            "WINDOW": "6291483",
+            "X": "512",
+            "Y": "384"
+          },
+          "view_port": 6080,
+          "width": 1024
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "desktop",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--action",
+        "move",
+        "--x",
+        "100",
+        "--y",
+        "100",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_0fcacd36994dd85c6de91a1472b543c5",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_c32998239224e089d90e79c8eb33feb5",
+        "replayed": false,
+        "operation": {
+          "id": "op_0fcacd36994dd85c6de91a1472b543c5",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:31:00.189746886Z",
+          "updated_at": "2026-11-13T03:31:00.388196971Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_desktop",
+          "request_hash": "769e261e15e38eac931ec5dfebf72ebf174ebb2a3b1dcf183407be72f2f61bde",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:31:00.189746886Z",
+          "completed_at": "2026-11-13T03:31:00.388196971Z",
+          "outcome": {
+            "result": {
+              "ok": true
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "desktop",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--action",
+        "info",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_3a123c3500c9242ad34816ef8a11bd70",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_c571a02c4443fde5e37146901a19fbb7",
+        "replayed": false,
+        "operation": {
+          "id": "op_3a123c3500c9242ad34816ef8a11bd70",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:31:00.40784333Z",
+          "updated_at": "2026-11-13T03:31:00.650736021Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_desktop",
+          "request_hash": "c9ce75bea308853776db333dcc1aa695cade0ff7d13c1da0a201326bda7f86e6",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:31:00.40784333Z",
+          "completed_at": "2026-11-13T03:31:00.650736021Z",
+          "outcome": {
+            "result": {
+              "height": 768,
+              "pointer": {
+                "SCREEN": "0",
+                "WINDOW": "4194316",
+                "X": "100",
+                "Y": "100"
+              },
+              "view_port": 6080,
+              "width": 1024
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "height": 768,
+          "pointer": {
+            "SCREEN": "0",
+            "WINDOW": "4194316",
+            "X": "100",
+            "Y": "100"
+          },
+          "view_port": 6080,
+          "width": 1024
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "desktop",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--action",
+        "type",
+        "--text",
+        "echo hi",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_a998d69938df9c68a48d7beb7176f61d",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_031e52e3d1059bcdc762f52c6b428ac1",
+        "replayed": false,
+        "operation": {
+          "id": "op_a998d69938df9c68a48d7beb7176f61d",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:31:00.680396704Z",
+          "updated_at": "2026-11-13T03:31:01.19078932Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_desktop",
+          "request_hash": "c5d55d3e9edb28e4ddb32d6716439a2a26e74d19de6a8e01e09815b3ed51ec37",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:31:00.680396704Z",
+          "completed_at": "2026-11-13T03:31:01.19078932Z",
+          "outcome": {
+            "result": {
+              "ok": true
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "desktop",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--action",
+        "key",
+        "--key",
+        "Return",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_de4e6f63e9c5bcac1a846583f0665fc1",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_adcfd8fdfb405d8f0f2f6faa41f8dd7e",
+        "replayed": false,
+        "operation": {
+          "id": "op_de4e6f63e9c5bcac1a846583f0665fc1",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:31:01.203185368Z",
+          "updated_at": "2026-11-13T03:31:01.385646159Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_desktop",
+          "request_hash": "23019973ee5d3cfc05e46b0adf00187fd0f3f5c49d5be165af111850777cef53",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:31:01.203185368Z",
+          "completed_at": "2026-11-13T03:31:01.385646159Z",
+          "outcome": {
+            "result": {
+              "ok": true
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "desktop",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--action",
+        "screenshot",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_bac5804fc922c9a96848f7272f002f24",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_8ad42c21f1c8dfc9b421b09cb66ddc96",
+        "replayed": false,
+        "operation": {
+          "id": "op_bac5804fc922c9a96848f7272f002f24",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:31:01.403610539Z",
+          "updated_at": "2026-11-13T03:31:01.893006638Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_desktop",
+          "request_hash": "e2d98becd39aaa7631d2fe938759d039e1355278407738f9093a9a02ad4c332a",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:31:01.403610539Z",
+          "completed_at": "2026-11-13T03:31:01.893006638Z",
+          "outcome": {
+            "result": {
+              "mime_type": "image/png",
+              "path": "/tmp/lamp-sandbox-kits/85317d74709c430fba00735a2c818dc4.png",
+              "size_bytes": 24369
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "mime_type": "image/png",
+          "path": "/tmp/lamp-sandbox-kits/85317d74709c430fba00735a2c818dc4.png",
+          "size_bytes": 24369
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "desktop",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--action",
+        "record_start",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_74afd668e9973e0c4e2c129b6fc40670",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_4b41a02dc4f8046a1e6a89912d200da9",
+        "replayed": false,
+        "operation": {
+          "id": "op_74afd668e9973e0c4e2c129b6fc40670",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:31:01.918919547Z",
+          "updated_at": "2026-11-13T03:31:02.133032623Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_desktop",
+          "request_hash": "5400db9d46117711590d99ed4358ff06050290e4946d579737a4bd6e19afd9e9",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:31:01.918919547Z",
+          "completed_at": "2026-11-13T03:31:02.133032623Z",
+          "outcome": {
+            "result": {
+              "ok": true
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "desktop",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--action",
+        "move",
+        "--x",
+        "200",
+        "--y",
+        "200",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_c5b86ff1b744c66fea8fe097745d9180",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_f8391b380d09304921199b5eca572b22",
+        "replayed": false,
+        "operation": {
+          "id": "op_c5b86ff1b744c66fea8fe097745d9180",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:31:02.145045504Z",
+          "updated_at": "2026-11-13T03:31:02.730885246Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_desktop",
+          "request_hash": "7e27c11bc12ebb564dc542a624ce081be2f44fb3e510d2849190475a7395c0cf",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:31:02.145045504Z",
+          "completed_at": "2026-11-13T03:31:02.730885246Z",
+          "outcome": {
+            "result": {
+              "ok": true
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "desktop",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--action",
+        "record_stop",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_46f2be14ac44a99f137e1b6a1da05c28",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_88b44742eb5625824af97eb6314387fd",
+        "replayed": false,
+        "operation": {
+          "id": "op_46f2be14ac44a99f137e1b6a1da05c28",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:31:02.75457328Z",
+          "updated_at": "2026-11-13T03:31:03.80461367Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_desktop",
+          "request_hash": "8febf90705e5a12bda0402dfe958c3890920ca0165ec1fd8d5231ab787a8f926",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:31:02.75457328Z",
+          "completed_at": "2026-11-13T03:31:03.80461367Z",
+          "outcome": {
+            "result": {
+              "mime_type": "video/mp4",
+              "path": "/tmp/lamp-sandbox-kits/c4392b1b262047a1ac575ee3e8c0622c.mp4",
+              "size_bytes": 14797
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "mime_type": "video/mp4",
+          "path": "/tmp/lamp-sandbox-kits/c4392b1b262047a1ac575ee3e8c0622c.mp4",
+          "size_bytes": 14797
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "run-code",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--code",
+        "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:6080/\").status",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_d93f240f0b7752e6c3b703a7240badac",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_58d097fc2d998502c0f52163af354f7a",
+        "replayed": false,
+        "operation": {
+          "id": "op_d93f240f0b7752e6c3b703a7240badac",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:31:03.825132005Z",
+          "updated_at": "2026-11-13T03:31:04.037854518Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_run_code",
+          "request_hash": "d6ce35d6ea8603ff967ae6f72f239d4a459a69bdfe487a646db14c2cd9e200e4",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "accepted_at": "2026-11-13T03:31:03.825132005Z",
+          "completed_at": "2026-11-13T03:31:04.037854518Z",
+          "outcome": {
+            "result": {
+              "context": "default",
+              "outputs": [],
+              "result": "200",
+              "stderr": "",
+              "stdout": ""
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "context": "default",
+          "outputs": [],
+          "result": "200",
+          "stderr": "",
+          "stdout": ""
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "delete",
+        "sb_2e1a5e38307adb195680af9bda6cf6f6",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_60204a875bedd9c99544e2e8ac39cdf0",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+          }
+        ],
+        "request_id": "req_1cc71e2db6c4f852193a64e9157d5e32",
+        "replayed": false,
+        "operation": {
+          "id": "op_60204a875bedd9c99544e2e8ac39cdf0",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T03:32:43.075529672Z",
+          "updated_at": "2026-11-13T03:32:43.945769033Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_delete",
+          "request_hash": "b1b873a91016ae1756914c62965284a5a5804026a39ec8211196a34622fb32b2",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+            }
+          ],
+          "phase": "cleanup",
+          "accepted_at": "2026-11-13T03:32:43.075529672Z",
+          "completed_at": "2026-11-13T03:32:43.945769033Z",
+          "outcome": {
+            "result": {}
+          },
+          "cleanup_state": "complete",
+          "durability": "volatile"
+        },
+        "result": {}
+      }
+    }
+  ],
+  "fixture": "public Ubuntu 26.04 template, disposable task VM",
+  "host": "ubuntu-server",
+  "sandbox_id": "sb_2e1a5e38307adb195680af9bda6cf6f6"
+}

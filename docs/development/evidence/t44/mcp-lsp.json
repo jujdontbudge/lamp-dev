@@ -1,0 +1,82 @@
+[
+  {
+    "action": "start",
+    "result": {
+      "started": true
+    }
+  },
+  {
+    "action": "open",
+    "result": {
+      "opened": true
+    }
+  },
+  {
+    "action": "symbols",
+    "result": {
+      "is_incomplete": false,
+      "items": [
+        {
+          "kind": 12,
+          "location": {
+            "range": {
+              "end": {
+                "character": 52,
+                "line": 0
+              },
+              "start": {
+                "character": 0,
+                "line": 0
+              }
+            },
+            "uri": "file:///tmp/example.ts"
+          },
+          "name": "greet"
+        }
+      ],
+      "total": 1,
+      "truncated": false
+    }
+  },
+  {
+    "action": "completions",
+    "result": {
+      "is_incomplete": false,
+      "total": 983,
+      "truncated": true,
+      "returned_items": 580,
+      "items_sample": [
+        {
+          "data": {
+            "cacheId": 1
+          },
+          "kind": 3,
+          "label": "greet",
+          "sortText": "11"
+        },
+        {
+          "data": {
+            "cacheId": 2
+          },
+          "kind": 6,
+          "label": "AbortController",
+          "sortText": "15"
+        },
+        {
+          "data": {
+            "cacheId": 3
+          },
+          "kind": 6,
+          "label": "AbortSignal",
+          "sortText": "15"
+        }
+      ]
+    }
+  },
+  {
+    "action": "stop",
+    "result": {
+      "stopped": true
+    }
+  }
+]

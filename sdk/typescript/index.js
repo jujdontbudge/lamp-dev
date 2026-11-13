@@ -2321,6 +2321,16 @@ export const OPERATIONS = {
   "resultSchema": "RelayListResult",
   "scope": "relay.list"
  },
+ "sandbox_browser": {
+  "cli": "lamp sandbox browser",
+  "inputSchema": "SandboxBrowserInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_browser",
+  "path": "/v1/sandboxes/{sandbox_id}:browser",
+  "resultSchema": "SandboxBrowserResult",
+  "scope": "sandbox.browser"
+ },
  "sandbox_create": {
   "cli": "lamp sandbox create",
   "inputSchema": "SandboxCreateInput",
@@ -2340,6 +2350,16 @@ export const OPERATIONS = {
   "path": "/v1/sandboxes/{sandbox_id}",
   "resultSchema": "SandboxDeleteResult",
   "scope": "sandbox.delete"
+ },
+ "sandbox_desktop": {
+  "cli": "lamp sandbox desktop",
+  "inputSchema": "SandboxDesktopInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_desktop",
+  "path": "/v1/sandboxes/{sandbox_id}:desktop",
+  "resultSchema": "SandboxDesktopResult",
+  "scope": "sandbox.desktop"
  },
  "sandbox_device_input": {
   "cli": "lamp sandbox device-input",
@@ -2471,6 +2491,16 @@ export const OPERATIONS = {
   "resultSchema": "SandboxGetResult",
   "scope": "sandbox.get"
  },
+ "sandbox_kit": {
+  "cli": "lamp sandbox kit",
+  "inputSchema": "SandboxKitInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_kit",
+  "path": "/v1/sandboxes/{sandbox_id}:kit",
+  "resultSchema": "SandboxKitResult",
+  "scope": "sandbox.kit"
+ },
  "sandbox_list": {
   "cli": "lamp sandbox list",
   "inputSchema": "SandboxListInput",
@@ -2480,6 +2510,16 @@ export const OPERATIONS = {
   "path": "/v1/sandboxes",
   "resultSchema": "SandboxListResult",
   "scope": "sandbox.list"
+ },
+ "sandbox_lsp": {
+  "cli": "lamp sandbox lsp",
+  "inputSchema": "SandboxLspInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_lsp",
+  "path": "/v1/sandboxes/{sandbox_id}:lsp",
+  "resultSchema": "SandboxLspResult",
+  "scope": "sandbox.lsp"
  },
  "sandbox_prepare_fork": {
   "cli": "lamp sandbox prepare-fork",
@@ -2510,6 +2550,16 @@ export const OPERATIONS = {
   "path": "/v1/sandboxes/{sandbox_id}:resume",
   "resultSchema": "SandboxResumeResult",
   "scope": "sandbox.resume"
+ },
+ "sandbox_run_code": {
+  "cli": "lamp sandbox run-code",
+  "inputSchema": "SandboxRunCodeInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_run_code",
+  "path": "/v1/sandboxes/{sandbox_id}:run-code",
+  "resultSchema": "SandboxRunCodeResult",
+  "scope": "sandbox.run_code"
  },
  "sandbox_save_template": {
   "cli": "lamp sandbox save-template",

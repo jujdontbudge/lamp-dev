@@ -35,6 +35,10 @@ fn main() {
                 let c = config(&args[2])?;
                 let mut spool = audit::Spool::create(&c.spool, c.spool_bytes, c.attribution)?;
                 let socket = unsafe { audit::stream(fd(&args[3])?)? };
+                // An idle guest is not a lost collector. Keep partial frames
+                // until EOF; the guest enforces its own durable-ACK deadline,
+                // and attachment teardown kills this confined receiver.
+                socket.set_read_timeout(None)?;
                 use std::os::fd::AsRawFd;
                 lamp_guard::confinement::enter(
                     c.guard_uid,

@@ -1,0 +1,11 @@
+built 0.1.2 linux/arm64 with 21 files
+indexed 0.1.2 (1 platforms) release_digest sha256:45162eb0d95ab58fb7dc4848c62da82a23fe5a5fc6b3a6f2d22aac8711c79f7c
+{"at":"2026-11-13T06:56:11Z","data":"deleted","event":"uninstalled","name":"t44-install7","owner_data":"delete"}
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-i/19c9c2de/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its template…
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 255 ms
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 685 ms
+lamp-supervisor: HOST_UNAVAILABLE: bad API status line: ""
+rm: cannot remove '/var/lib/lamp-i/uid-198115328': Read-only file system
+engine cleanup: exit status 1
+lamp-installer: default template preparation failed: exit status 1

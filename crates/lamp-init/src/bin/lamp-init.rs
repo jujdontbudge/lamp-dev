@@ -128,6 +128,14 @@ mod linux {
         mount("proc", "/proc", "proc", nosuid, "");
         mount("sysfs", "/sys", "sysfs", nosuid, "");
         mount("devtmpfs", "/dev", "devtmpfs", libc::MS_NOSUID, "mode=0755");
+        // Nested guest networks use TUN under their own user/network namespace.
+        // Opening the device grants no authority over the VM's parent NIC.
+        if std::path::Path::new("/dev/net/tun").exists()
+            && let Err(error) =
+                std::fs::set_permissions("/dev/net/tun", std::fs::Permissions::from_mode(0o666))
+        {
+            eprintln!("lamp-init: TUN permissions: {error}");
+        }
         mount(
             "devpts",
             "/dev/pts",

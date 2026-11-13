@@ -249,6 +249,9 @@ def serve(directory, endpoint, request):
 
 
 def main(request):
+    # The guest collector traces forks. A vfork child can otherwise hold the
+    # relay thread needed to complete its traced launch.
+    subprocess._USE_VFORK = False
     if request["action"] == "exec":
         with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as error:
             try:
@@ -365,13 +368,18 @@ if __name__ == "__main__":
                     connection, _ = listener.accept()
                     with connection:
                         connection.settimeout(30)
-                        request = receive(connection)
-                        request["root"] = root
                         try:
+                            request = receive(connection)
+                            request["root"] = root
                             result = main(request)
                         except Exception:
                             result = {"error": "DATA_UNAVAILABLE"}
-                        connection.sendall(json.dumps(result).encode() + b"\n")
+                        try:
+                            connection.sendall(json.dumps(result).encode() + b"\n")
+                        except OSError:
+                            # A caller may time out while its command finishes.
+                            # Its lost reply must not terminate the shared bridge.
+                            pass
         else:
             request = json.loads(base64.b64decode(sys.argv[1], validate=True))
             print(json.dumps(main(request)))

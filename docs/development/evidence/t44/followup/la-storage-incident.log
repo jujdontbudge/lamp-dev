@@ -1,0 +1,29 @@
+[    1.835976] EXT4-fs (vda1): mounted filesystem 177d9ef8-e333-4882-995c-d464bfb9147b ro with ordered data mode. Quota mode: none.
+[    2.257342] EXT4-fs (vda1): re-mounted 177d9ef8-e333-4882-995c-d464bfb9147b r/w.
+[ 5886.518898] I/O error, dev vda, sector 4225152 op 0x1:(WRITE) flags 0x809800 phys_seg 1 prio class 2
+[ 5886.521124] Aborting journal on device vda1-8.
+[ 5886.521566] EXT4-fs error (device vda1): ext4_journal_check_start:86: comm systemd-journal: Detected aborted journal
+[ 5886.523047] EXT4-fs error (device vda1): ext4_journal_check_start:86: comm rs:main Q:Reg: Detected aborted journal
+[ 5886.523090] I/O error, dev vda, sector 4196352 op 0x1:(WRITE) flags 0x809800 phys_seg 1 prio class 2
+[ 5886.523098] Buffer I/O error on dev vda1, logical block 262144, lost sync page write
+[ 5886.523118] JBD2: I/O error when updating journal superblock for vda1-8.
+[ 5886.523637] I/O error, dev vda, sector 2099200 op 0x1:(WRITE) flags 0x803800 phys_seg 1 prio class 2
+[ 5886.523655] Buffer I/O error on dev vda1, logical block 0, lost sync page write
+[ 5886.523700] EXT4-fs (vda1): I/O error while writing superblock
+[ 5886.523705] EXT4-fs (vda1): Remounting filesystem read-only
+[ 5886.526571] I/O error, dev vda, sector 2099200 op 0x1:(WRITE) flags 0x803800 phys_seg 1 prio class 2
+[ 5886.526578] Buffer I/O error on dev vda1, logical block 0, lost sync page write
+[ 5886.527634] EXT4-fs (vda1): I/O error while writing superblock
+[ 5886.547750] lampbr: port 2(lampnet) entered disabled state
+[ 5886.667328] systemd-journald[444]: /var/log/journal/c177269986e04af38b873e7c76e8c273/system.journal: Read-only file system, rotating.
+[ 5886.667400] systemd-journald[444]: Failed to rotate /var/log/journal/c177269986e04af38b873e7c76e8c273/system.journal: Read-only file system
+[ 5886.677177] systemd-journald[444]: Failed to write entry to /var/log/journal/c177269986e04af38b873e7c76e8c273/system.journal (21 items, 726 bytes) despite vacuuming, ignoring: Read-only file system
+[ 5886.677244] systemd-journald[444]: /var/log/journal/c177269986e04af38b873e7c76e8c273/system.journal: Read-only file system, rotating.
+[ 5886.677252] systemd-journald[444]: Failed to rotate /var/log/journal/c177269986e04af38b873e7c76e8c273/system.journal: Read-only file system
+[ 5886.677403] systemd-journald[444]: /var/log/journal/c177269986e04af38b873e7c76e8c273/system.journal: Read-only file system, rotating.
+[ 5886.677408] systemd-journald[444]: Failed to rotate /var/log/journal/c177269986e04af38b873e7c76e8c273/system.journal: Read-only file system
+[ 5895.754382] I/O error, dev loop0, sector 83895185 op 0x1:(WRITE) flags 0x9800 phys_seg 1 prio class 2
+[ 5895.754406] XFS (loop0): log I/O error -5
+[ 5895.754417] XFS (loop0): Filesystem has been shut down due to log error (0x2).
+[ 5895.754420] XFS (loop0): Please unmount the filesystem and rectify the problem(s).
+[ 5895.755344] systemd-journald[444]: Failed to write entry to /var/log/journal/c177269986e04af38b873e7c76e8c273/system.journal (11 items, 368 bytes) despite vacuuming, ignoring: Read-only file system (Dropped 5402 similar message(s))
