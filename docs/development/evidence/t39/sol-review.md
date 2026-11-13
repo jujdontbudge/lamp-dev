@@ -18,6 +18,10 @@ The branch was rebased onto `03944fb` (including T38 and T33). The create-input
 conflict retains T33's explicit pids_max validation and T39's network_policy_id.
 Worker protobuf regeneration check passed after the automatic merges.
 
-Round 2 will check S1 and the changed recovery/conflict-resolution code only.
-Initial review diff: 31 files, 2186 insertions, 316 deletions. Final size and
-verdict are recorded after round 2.
+Round 2 reviewed head `6941c6a` and returned **APPROVE**. S1 is resolved;
+no new blocker/should findings. The targeted regression and diff check passed.
+Both review rounds used the same model and effort; usage was not exposed.
+
+Initial review diff: 31 files, 2186 insertions, 316 deletions. Final ticket diff:
+33 files, 2277 insertions, 315 deletions, including this ledger and the single
+reviewer regression. The branch is pushed to MR !11; it is not watched or merged.
