@@ -1,0 +1,38 @@
+{
+ "version": "0.1.2",
+ "commit": "0556062ef77cb9ff0c5007c5eaaa40a04dccbca4",
+ "platforms": {
+  "linux-amd64": {
+   "engine": true,
+   "commit": "0556062ef77cb9ff0c5007c5eaaa40a04dccbca4"
+  },
+  "linux-arm64": {
+   "engine": true,
+   "commit": "0556062ef77cb9ff0c5007c5eaaa40a04dccbca4"
+  },
+  "darwin-arm64": {
+   "notarization": [
+    "notary log>       \"arch\": \"arm64\",",
+    "notary log>       \"cdhash\": \"d4870e7fa7905ab30a02995a64d7fd8c75307414\",",
+    "notary log>       \"digestAlgorithm\": \"SHA-256\",",
+    "notary log>       \"path\": \"notarize.zip/notarize/lamp-relay-client\"",
+    "notary log>     },",
+    "notary log>     {",
+    "notary log>       \"arch\": \"arm64\",",
+    "notary log>       \"cdhash\": \"3aa28a66f88761327d5edc7f37ab3496b371f18d\",",
+    "notary log>       \"digestAlgorithm\": \"SHA-256\",",
+    "notary log>       \"path\": \"notarize.zip/notarize/lamp-ingress\"",
+    "notary log>     },",
+    "notary log>     {",
+    "notary log>       \"arch\": \"arm64\",",
+    "notary log>       \"cdhash\": \"f4155dce3e59df064cf9b3920b00414c788ad9f3\",",
+    "notary log>       \"digestAlgorithm\": \"SHA-256\",",
+    "notary log>       \"path\": \"notarize.zip/notarize/lampd\"",
+    "notary log>     }",
+    "notary log>   ],",
+    "notary log>   \"uploadDate\": \"2026-11-13T16:01:28.860Z\"",
+    "notary log> }"
+   ]
+  }
+ }
+}

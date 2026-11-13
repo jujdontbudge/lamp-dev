@@ -1,0 +1,20 @@
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-i/6b7c20d4/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its template…
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 360 ms
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 839 ms
+lamproot: recovering journal
+lamproot: 53602/1310720 files (0.1% non-contiguous), 337865/5242880 blocks
+resize2fs 1.47.2 (1-Jan-2025)
+The filesystem is already 5242880 (4k) blocks long.  Nothing to do!
+
+definition: default (0 steps), seed lamp-seed/lamp-0.1.2-ubuntu-arm64@sha256:a4392f14c6d81800f02a519bcbfc4108a488ee233476f801d2f08c2595b4f19e
+build sandbox booted in 4004 ms
+template VM booted in 7769 ms
+full capture written in 6306 ms
+memory image: 1965 MiB of zero pages left as holes
+published tp_7d057271832846d2ac1745a81b as default in 30621 ms
+{"at":"2026-11-13T16:09:47Z","automatic_updates":false,"dashboard_sign_in":"file:///tmp/l47c/run/dashboard.html","dashboard_url":"http://127.0.0.1:38833/dashboard","event":"installed","prefix":"/tmp/l47c","service":"process","version":"0.1.2"}
+signed release candidate
+aarch64
+42
+{"at":"2026-11-13T16:09:56Z","data":"deleted","event":"uninstalled","name":"local-6b7c20d4412c","owner_data":"delete"}

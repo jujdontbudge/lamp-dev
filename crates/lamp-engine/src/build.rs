@@ -634,7 +634,10 @@ fn clone_build_file(src: &Path, dst: &Path, mode: u32) -> Result<()> {
 pub(crate) fn resize_ext4(path: &Path) -> Result<()> {
     // The captured root was mounted in a VM. Replay its journal and mark it
     // clean before offline growth; e2fsck's 1 means repairs completed.
+    // Keep template-build stdout reserved for its JSON result. Filesystem tools
+    // report diagnostics on stderr, including successful repair/growth output.
     let check = std::process::Command::new("e2fsck")
+        .stdout(std::io::stderr())
         .args(["-p", "-f"])
         .arg(path)
         .status()
@@ -645,6 +648,7 @@ pub(crate) fn resize_ext4(path: &Path) -> Result<()> {
         ));
     }
     let status = std::process::Command::new("resize2fs")
+        .stdout(std::io::stderr())
         .arg(path)
         .status()
         .ctx("grow root filesystem")?;
