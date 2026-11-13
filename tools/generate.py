@@ -65,11 +65,18 @@ def generate():
                 gt, rt = typ(v, 'go'), typ(v, 'rust')
                 optional = k not in required
                 # Pointer to slice/map preserves absent vs supplied-empty selectors.
-                if optional: gt = '*' + gt; rt = 'Option<' + rt + '>'
+                defaulted = optional and v.get('x-lamp-concrete-default', False)
+                if optional and not defaulted: gt = '*' + gt; rt = 'Option<' + rt + '>'
                 go += [f'{pascal(k)} {gt} `json:"{k}{",omitempty" if optional else ""}"`']
-                rust += [f'#[serde(rename = "{k}"{", default, skip_serializing_if = \"Option::is_none\"" if optional else ""})]']
+                if defaulted:
+                    rust += [f'#[serde(rename = "{k}", default = "default_{name.lower()}_{k}")]']
+                else:
+                    rust += [f'#[serde(rename = "{k}"{", default, skip_serializing_if = \"Option::is_none\"" if optional else ""})]']
                 rust += [f'pub {"r#" if k in ["type", "ref"] else ""}{k}: {rt},']
             go += ['}']; rust += ['}']
+            for k, v in s['properties'].items():
+                if k not in required and v.get('x-lamp-concrete-default', False):
+                    rust += [f'fn default_{name.lower()}_{k}() -> {typ(v, "rust")} {{ {json.dumps(v["default"])} }}']
         elif 'oneOf' in s or 'anyOf' in s:
             variants = s.get('oneOf', s.get('anyOf'))
             # Go retains raw tagged JSON; admission validates oneOf and exact shape.

@@ -4914,7 +4914,7 @@ export interface Resources {
   "vcpus": number;
   "memory_mib": number;
   "disk_gib": number;
-  "pids_max": number;
+  "pids_max"?: number;
 }
 export interface RevocationStatus {
   "enforcers"?: Array<EnforcerStatus>;

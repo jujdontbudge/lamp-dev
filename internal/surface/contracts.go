@@ -399,6 +399,11 @@ func Query(op api.OperationDescriptor, q url.Values, in map[string]any) error {
 				return err
 			}
 			in[k] = json.Number(values[0])
+		} else if p["type"] == "boolean" {
+			if values[0] != "true" && values[0] != "false" {
+				return fmt.Errorf("invalid boolean query field %s", k)
+			}
+			in[k] = values[0] == "true"
 		} else {
 			in[k] = values[0]
 		}
