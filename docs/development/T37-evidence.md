@@ -192,3 +192,17 @@ and MCP names**. The ownership audit now lists **88** remaining operations;
 T39 also supplies five connection operations originally assigned to T43.
 Both T37 focused regressions and T39's interrupted-preview recovery regression
 passed together (2.788s). `make build` passed after this integration.
+
+Completion round 2 approved `bd09955`: S2 resolved, S1 remains resolved,
+no new blockers or should-fix findings in shared dispatch/inventory. Its three
+focused regressions passed (2.505s); usage was not returned. The completion
+diff after review was 20 files, 910 additions and 79 deletions, including
+evidence, integration changes and the single retained expiry regression.
+
+Main subsequently merged T32 at `43a941e`; the final rebase applied cleanly.
+`make build` and the same three regressions passed (2.460s). The first demo
+continuation connected before the daemon accepted connections; no operation
+ran. After waiting for an accepting socket, the actual daemon demonstration
+passed all eleven operations again, both configuration inventories, and
+244-name interface parity. The previous approved product changes were retained;
+no additional review round was run for this clean rebase.
