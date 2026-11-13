@@ -156,7 +156,7 @@ func attachSession(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		state := v["data"].(map[string]any)["state"]
-		if state == "ended" || state == "failed" {
+		if (state == "ended" || state == "failed") && cursor == "" {
 			return 0
 		}
 		select {

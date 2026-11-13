@@ -4,7 +4,9 @@ This change makes release OpenCode sessions, host-held OpenRouter model keys,
 OpenRouter PKCE, scoped guest capabilities and the existing broker available
 through the daemon. It does **not** complete every T43 finding: Claude
 subscription sign-in/custody (F59) is still unsupported by the release path.
-No real subscription login or signed-in third-party CLI account was used.
+Only OpenRouter PKCE initiation (`pending`) was observed; a completed real
+sign-in exchange is unproven. No real subscription login or signed-in
+third-party CLI account was used.
 
 Actual observations, 2026-11-12/13:
 
@@ -51,3 +53,7 @@ SDK changes are generated contract synchronization only. No new tests were
 written for implementation. `tools/check_contracts.py` still fails on existing
 fleet/spec drift (`unavailable_host_ids`, `stranded_sandbox_ids`). No full smoke,
 benchmark or manual kernel/VM test suite was run.
+
+Sol review added one regression for attach draining retained output after a
+session ends. It failed before the one-line fix and passed afterward; see
+`sol-review.md`. The review build and `go vet ./cmd/lamp` also passed.
