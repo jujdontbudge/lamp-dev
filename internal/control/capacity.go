@@ -22,6 +22,9 @@ func (s *Service) preflight(parent context.Context, sb api.Sandbox, fork bool) e
 	}
 	r := sb.Resources
 	template := value(sb.TemplateId)
+	if t := s.life.Templates[template]; t != nil {
+		template = t.Capture
+	}
 	if fork {
 		template = ""
 	}

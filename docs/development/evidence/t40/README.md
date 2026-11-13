@@ -51,3 +51,16 @@ No SDK work or benchmark suite was added.
 Two reviewer-supplied regression tests were retained. `sol-before.log` records
 their failures; `sol-after.log` records their passing run. Review used
 Codex `gpt-6.1-sol`, medium effort; token usage was not supplied.
+
+## Integration with T33 and T38
+
+Rebased onto `03944fbdc30e28f1062700af7ceca4d736258a89` (including T38
+`8150e50`). The capacity-accounting conflict keeps T33's implementation;
+README retains both tickets' guides. Worker bindings were regenerated from the
+combined protocol. Saved-template admission now sends the underlying engine
+reference to T33's validation, while retaining the public template for archive
+restoration. Recovery coalesces startup and reconnect probes before remounting.
+
+After integration: `make build`, `go vet ./cmd/lamp ./internal/control` and the
+two reviewer regression tests passed. The complete demonstration above predates
+the rebase; `rebased-recovery.log` records the focused integrated runtime check.

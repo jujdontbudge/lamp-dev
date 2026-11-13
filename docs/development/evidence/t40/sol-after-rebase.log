@@ -1,0 +1,6 @@
+=== RUN   TestT40RenamedDirectoryRemainsUsable
+--- PASS: TestT40RenamedDirectoryRemainsUsable (0.02s)
+=== RUN   TestT40InterruptedTemplateBuildCanRetryAfterRestart
+--- PASS: TestT40InterruptedTemplateBuildCanRetryAfterRestart (0.44s)
+PASS
+ok  	lamp.eilmer.si/internal/control	1.794s

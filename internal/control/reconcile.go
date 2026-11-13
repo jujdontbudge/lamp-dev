@@ -19,6 +19,14 @@ func (s *Service) reconcileSandbox(id, operationID string) {
 	defer cancel()
 	s.readLock()
 	sb, ok := s.journal.Sandboxes[id]
+	if !ok || sb.State != "unavailable" || s.busy[id] {
+		s.mu.Unlock()
+		return
+	}
+	// Startup and worker reconnect recovery can inspect the same guest.
+	// Only one may reconnect its mounts before publishing readiness.
+	s.busy[id] = true
+	defer func() { s.mu.Lock(); delete(s.busy, id); s.mu.Unlock() }()
 	if ok && sb.State == "unavailable" && s.resumedGeneration(id, value(sb.Generation)) {
 		revision := sb.Revision
 		s.mu.Unlock()
