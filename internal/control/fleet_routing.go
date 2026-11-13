@@ -120,13 +120,13 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 		writeError(w, id, "UNAUTHENTICATED", "valid fleet credential required", nil)
 		return
 	}
-	if !allowed {
-		writeError(w, id, "SCOPE_DENIED", "action not permitted", nil)
-		return
-	}
 	// Frozen offline authority is useful only during its declared permit horizon.
 	if !f.leaseValid() {
 		writeError(w, id, "QUORUM_REQUIRED", "local authority requires a quorum activation or has expired", nil)
+		return
+	}
+	if !allowed {
+		writeError(w, id, "SCOPE_DENIED", "action not permitted", nil)
 		return
 	}
 	if op.Name == "host_get" || op.Name == "host_list" || op.Name == "engine_get" || op.Name == "engine_list" {
@@ -386,7 +386,7 @@ func (f *Fleet) choose(a caller, input map[string]any) string {
 	f.mu.Unlock()
 	candidates := []string{}
 	for id, peer := range f.peers {
-		if pin != "" && id != pin || id != f.config.HostID && !online[id] {
+		if pin != "" && id != pin || id != f.config.HostID && (!online[id] || !observations[id].Admitting) {
 			continue
 		}
 		engine := textField(input, "engine_id")
@@ -534,7 +534,10 @@ func (f *Fleet) hostsHTTP(w http.ResponseWriter, r *http.Request, id string, a c
 		}
 		state := "unavailable"
 		if host.ID == f.config.HostID || online[host.ID] {
-			state = "ready"
+			state = "enrolling"
+			if observations[host.ID].Admitting {
+				state = "ready"
+			}
 		}
 		capacity := object(host.Capacity)
 		used := api.Resources{}

@@ -49,6 +49,7 @@ type FleetHost struct {
 	Capacity api.Capacity `json:"capacity"`
 }
 type fleetObservation struct {
+	Admitting          bool                   `json:"admitting"`
 	Version            string                 `json:"version,omitempty"`
 	ControlDigest      string                 `json:"control_digest"`
 	AuthorityEnforced  bool                   `json:"authority_enforced"`
@@ -540,7 +541,7 @@ func (f *Fleet) peerHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/internal/fleet/observe" && r.Method == "GET" {
 		s := f.service
 		s.readLock()
-		observation := fleetObservation{Version: s.installedVersion(), ControlDigest: digest(s.journal.Control), AuthorityEnforced: s.authorityEnforced(), AuthorityExpiresAt: f.fsm.snapshot().ExpiresAt, Host: f.config.HostID, Sandboxes: s.journal.Sandboxes, Execs: s.journal.Execs, Sequence: s.journal.Sequence, At: timestamp()}
+		observation := fleetObservation{Admitting: f.leaseValid(), Version: s.installedVersion(), ControlDigest: digest(s.journal.Control), AuthorityEnforced: s.authorityEnforced(), AuthorityExpiresAt: f.fsm.snapshot().ExpiresAt, Host: f.config.HostID, Sandboxes: s.journal.Sandboxes, Execs: s.journal.Execs, Sequence: s.journal.Sequence, At: timestamp()}
 		raw, err := json.Marshal(observation)
 		s.mu.Unlock()
 		if err != nil {
@@ -572,7 +573,7 @@ func (f *Fleet) collect() {
 			if id == f.config.HostID {
 				s := f.service
 				s.readLock()
-				raw, _ := json.Marshal(fleetObservation{Version: s.installedVersion(), ControlDigest: digest(s.journal.Control), AuthorityEnforced: s.authorityEnforced(), AuthorityExpiresAt: f.fsm.snapshot().ExpiresAt, Host: id, Sandboxes: s.journal.Sandboxes, Execs: s.journal.Execs, Sequence: s.journal.Sequence, At: timestamp()})
+				raw, _ := json.Marshal(fleetObservation{Admitting: f.leaseValid(), Version: s.installedVersion(), ControlDigest: digest(s.journal.Control), AuthorityEnforced: s.authorityEnforced(), AuthorityExpiresAt: f.fsm.snapshot().ExpiresAt, Host: id, Sandboxes: s.journal.Sandboxes, Execs: s.journal.Execs, Sequence: s.journal.Sequence, At: timestamp()})
 				s.mu.Unlock()
 				err = json.Unmarshal(raw, &observation)
 			} else {
