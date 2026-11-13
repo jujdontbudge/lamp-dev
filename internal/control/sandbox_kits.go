@@ -120,14 +120,18 @@ func (s *Service) sandboxKitCall(ctx context.Context, sandbox string, in map[str
 		s.lifeSB(sandbox).activity = time.Now()
 		s.mu.Unlock()
 		result, err = s.kitRelayExec(ctx, sandbox, generation, []string{"python3", client, "--poll", job})
-		if err != nil {
-			if refusal, ok := err.(*coreError); ok && refusal.code == "INVALID_ARGUMENT" {
-				return nil, err // The completed guest job reported its own failure.
+		// Polling only reads the acknowledged job's result. A slow or lost
+		// relay can be retried without submitting the installation again.
+		if err == nil {
+			if pending, _ := result["pending"].(bool); !pending {
+				if unknown, _ := result["outcome_unknown"].(bool); unknown {
+					return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit runtime result unavailable; job may still run", unknown: true}
+				}
+				if code := textField(result, "error"); code != "" {
+					return nil, reject("INVALID_ARGUMENT", code+": "+textField(result, "message"))
+				}
+				return result, nil
 			}
-			return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit job result unavailable: " + job, unknown: true}
-		}
-		if pending, _ := result["pending"].(bool); !pending {
-			return result, nil
 		}
 		timer := time.NewTimer(200 * time.Millisecond)
 		select {
@@ -164,12 +168,6 @@ func (s *Service) kitRelayExec(ctx context.Context, sandbox string, generation u
 	var result map[string]any
 	if json.Unmarshal(output, &result) != nil {
 		return nil, fmt.Errorf("guest kit failed (exit %d)", reply.Exit)
-	}
-	if unknown, _ := result["outcome_unknown"].(bool); unknown {
-		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit runtime result unavailable; job may still run", unknown: true}
-	}
-	if code := textField(result, "error"); code != "" {
-		return nil, reject("INVALID_ARGUMENT", code+": "+textField(result, "message"))
 	}
 	return result, nil
 }
