@@ -1,7 +1,9 @@
 package control
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -9,8 +11,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -28,15 +32,17 @@ const backupMagic = "LAMPBK1\n"
 const backupChunk = 1 << 20
 
 type backupHeader struct {
-	Format     string           `json:"format"`
-	BackupID   string           `json:"backup_id"`
-	Kind       string           `json:"kind"`
-	Resource   map[string]any   `json:"resource"`
-	Tree       tree             `json:"tree,omitempty"`
-	Blobs      []map[string]any `json:"blobs,omitempty"`
-	Objects    []string         `json:"objects"`
-	CapturedAt string           `json:"captured_at"`
-	Epoch      uint64           `json:"authority_epoch"`
+	EngineBundle string           `json:"engine_bundle,omitempty"`
+	SavedSandbox *lifeSandbox     `json:"saved_sandbox,omitempty"`
+	Format       string           `json:"format"`
+	BackupID     string           `json:"backup_id"`
+	Kind         string           `json:"kind"`
+	Resource     map[string]any   `json:"resource"`
+	Tree         tree             `json:"tree,omitempty"`
+	Blobs        []map[string]any `json:"blobs,omitempty"`
+	Objects      []string         `json:"objects"`
+	CapturedAt   string           `json:"captured_at"`
+	Epoch        uint64           `json:"authority_epoch"`
 }
 
 func (s *Service) backupKey() ([]byte, error) {
@@ -79,8 +85,21 @@ func (s *Service) planBackupCreate(a caller, in map[string]any) (lifePlan, error
 	}
 	kind := textField(in, "resource_kind")
 	res, err := s.ownedOrMissing(a, kind, textField(in, "resource_id"))
-	if kind != "volume" && kind != "cache" && kind != "artifact" {
-		return lifePlan{}, reject("INVALID_ARGUMENT", "backups cover volumes, caches and artifacts")
+	if kind == "sandbox" {
+		sb, e := s.lifeSandboxFor(a, textField(in, "resource_id"))
+		err = e
+		if e == nil {
+			if sb.State != "suspended" || s.busy[sb.Id] {
+				return lifePlan{}, reject("RESOURCE_IN_USE", "suspend the sandbox before backing it up")
+			}
+			if len(s.stateAdmin) == 0 {
+				return lifePlan{}, reject("DATA_UNAVAILABLE", "sandbox backup requires --state-admin")
+			}
+			res = object(sb)
+		}
+	}
+	if kind != "sandbox" && kind != "volume" && kind != "cache" && kind != "artifact" {
+		return lifePlan{}, reject("INVALID_ARGUMENT", "backups cover suspended sandboxes, volumes, caches and artifacts")
 	}
 	if err != nil {
 		return lifePlan{}, err
@@ -92,6 +111,14 @@ func (s *Service) planBackupCreate(a caller, in map[string]any) (lifePlan, error
 	raw, _ := json.Marshal(res)
 	decodeNumbers(raw, &h.Resource)
 	switch kind {
+	case "sandbox":
+		l := s.lifeSB(resID)
+		if l.Capture == "" {
+			return lifePlan{}, reject("DATA_UNAVAILABLE", "suspended capture is missing")
+		}
+		saved := *l
+		h.SavedSandbox = &saved
+		s.busy[resID] = true
 	case "volume":
 		// The last completed save is the volume's committed tree; a live
 		// writer's unsaved guest changes are not part of it.
@@ -137,10 +164,20 @@ func (s *Service) planBackupCreate(a caller, in map[string]any) (lifePlan, error
 	return lifePlan{ref: lifeRef("backup", id), timeout: 30 * time.Minute,
 		run: func(ctx context.Context) (map[string]any, error) {
 			var err error
+			if kind == "sandbox" {
+				h.EngineBundle, err = s.backupEngine(ctx, h.SavedSandbox.Capture)
+				if err != nil {
+					return nil, err
+				}
+				h.Objects = append(h.Objects, h.EngineBundle)
+			}
 			digest, envs, err = s.sealBackup(h, file)
 			return map[string]any{"backup_id": id}, err
 		},
 		finish: func(_ map[string]any, err error) error {
+			if kind == "sandbox" {
+				delete(s.busy, resID)
+			}
 			if err != nil {
 				m["state"] = "failed"
 			} else {
@@ -343,7 +380,7 @@ func (s *Service) planBackupRestore(a caller, in map[string]any) (lifePlan, erro
 	var h backupHeader
 	var objects map[string][]byte
 	var restored api.ResourceRef
-	plan := lifePlan{ref: lifeRef("backup", id), timeout: 30 * time.Minute,
+	plan := lifePlan{ref: lifeRef("backup", id), ids: []string{"$accountability"}, timeout: 30 * time.Minute,
 		run: func(ctx context.Context) (map[string]any, error) {
 			var err error
 			h, objects, err = s.openBackup(id, file, digest)
@@ -355,11 +392,32 @@ func (s *Service) planBackupRestore(a caller, in map[string]any) (lifePlan, erro
 					return nil, reject("DATA_UNAVAILABLE", "cannot store restored object")
 				}
 			}
+			if h.Kind == "sandbox" {
+				if h.SavedSandbox == nil {
+					return nil, reject("DATA_UNAVAILABLE", "backup has no saved sandbox")
+				}
+				capture, err := s.restoreEngine(ctx, objects[h.EngineBundle])
+				if err != nil {
+					return nil, err
+				}
+				h.SavedSandbox.Capture = capture
+			}
 			return map[string]any{}, nil
 		},
 		finish: func(_ map[string]any, err error) error {
 			if err != nil {
 				return err
+			}
+			if h.Kind == "sandbox" {
+				var sb api.Sandbox
+				assign(h.Resource, &sb)
+				sb.TaskId = nil
+				if h.SavedSandbox == nil || h.SavedSandbox.Capture == "" {
+					return reject("DATA_UNAVAILABLE", "backup has no saved sandbox")
+				}
+				if err := s.accountAdmission(a, "sandbox_create", sb); err != nil {
+					return err
+				}
 			}
 			restored = s.restoreResource(a, h, id, next)
 			m["authority_epoch"] = jsonNumber(next)
@@ -383,6 +441,8 @@ func (s *Service) restoreResource(a caller, h backupHeader, backupID string, epo
 	now := timestamp()
 	reuse := false
 	switch h.Kind {
+	case "sandbox":
+		reuse = false
 	case "volume":
 		v := s.life.Volumes[orig]
 		reuse = v == nil || textField(v.R, "state") == "deleted"
@@ -393,7 +453,7 @@ func (s *Service) restoreResource(a caller, h backupHeader, backupID string, epo
 		ar := s.life.Artifacts[orig]
 		reuse = ar == nil || textField(ar.R, "state") == "deleted"
 	}
-	prefix := map[string]string{"volume": "vo", "cache": "ca", "artifact": "ar"}[h.Kind]
+	prefix := map[string]string{"sandbox": "sb", "volume": "vo", "cache": "ca", "artifact": "ar"}[h.Kind]
 	id := orig
 	if !reuse {
 		id = s.resourceID(prefix)
@@ -404,6 +464,30 @@ func (s *Service) restoreResource(a caller, h backupHeader, backupID string, epo
 	m["created_at"] = now
 	m["updated_at"] = now
 	switch h.Kind {
+	case "sandbox":
+		var sb api.Sandbox
+		assign(m, &sb)
+		sb.Id = id
+		sb.State = "suspended"
+		sb.Generation = pointer(uint64(1))
+		sb.HostId = pointer(s.hostID())
+		sb.CustodyHostIds = &[]string{s.hostID()}
+		sb.TaskId = nil
+		sb.ParentSandboxId = nil
+		sb.Exposures = nil
+		sb.SnapshotId = nil
+		sb.Lifecycle = nil
+		sb.SuspendEligibility = nil
+		s.bindDefaultTask(a, &sb)
+		s.journal.Sandboxes[id] = sb
+		l := *h.SavedSandbox
+		l.SuspendedAt = timestamp()
+		l.Activity = time.Time{}
+		l.IdleFrom = time.Time{}
+		l.Resumed = 0
+		l.Pool = ""
+		l.waking = nil
+		s.life.Sandboxes[id] = &l
 	case "volume":
 		m["state"] = "ready"
 		m["attachment_ids"] = []any{}
@@ -481,4 +565,148 @@ func (s *Service) planBackupDelete(a caller, in map[string]any) (lifePlan, error
 	os.Remove(s.life.Backups[textField(m, "id")].File)
 	syncDir(filepath.Join(s.dir, "backups"))
 	return lifePlan{ref: lifeRef("backup", textField(m, "id")), result: map[string]any{}}, nil
+}
+
+// Engine bundles remain signed and require an enrolled producer and compatible
+// template on import. Encryption wraps the complete bundle, not just metadata.
+func (s *Service) stateCall(ctx context.Context, args ...string) (map[string]any, error) {
+	if len(s.stateAdmin) == 0 {
+		return nil, reject("DATA_UNAVAILABLE", "sandbox backup/restore requires --state-admin")
+	}
+	cmd := exec.CommandContext(ctx, s.stateAdmin[0], append(append([]string{}, s.stateAdmin[1:]...), args...)...)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, reject("DATA_UNAVAILABLE", "engine state administration failed")
+	}
+	var reply map[string]any
+	if json.Unmarshal(out, &reply) != nil || reply["ok"] != true {
+		return nil, reject("DATA_UNAVAILABLE", "engine state administration refused the bundle")
+	}
+	return reply, nil
+}
+func (s *Service) stateCommand(ctx context.Context, args ...string) error {
+	_, err := s.stateCall(ctx, args...)
+	return err
+}
+
+func (s *Service) backupEngine(ctx context.Context, capture string) (string, error) {
+	dir, err := os.MkdirTemp(s.dir, "backup-engine-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(dir)
+	bundle := filepath.Join(dir, "bundle")
+	if err = s.stateCommand(ctx, "export", capture, bundle); err != nil {
+		return "", err
+	}
+	var data bytes.Buffer
+	gz := gzip.NewWriter(&data)
+	tw := tar.NewWriter(gz)
+	for _, name := range []string{"manifest.json", "mem", "vmstate", "disk"} {
+		f, err := os.Open(filepath.Join(bundle, name))
+		if err != nil {
+			return "", err
+		}
+		info, err := f.Stat()
+		if err != nil {
+			f.Close()
+			return "", err
+		}
+		if err = tw.WriteHeader(&tar.Header{Name: name, Mode: 0600, Size: info.Size()}); err == nil {
+			_, err = io.Copy(tw, f)
+		}
+		f.Close()
+		if err != nil {
+			return "", err
+		}
+	}
+	if err = tw.Close(); err != nil {
+		return "", err
+	}
+	if err = gz.Close(); err != nil {
+		return "", err
+	}
+	return s.putObject(data.Bytes())
+}
+func (s *Service) restoreEngine(ctx context.Context, data []byte) (string, error) {
+	dir, err := os.MkdirTemp(s.dir, "restore-engine-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(dir)
+	gz, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	seen := map[string]bool{}
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+		if (h.Name != "manifest.json" && h.Name != "mem" && h.Name != "vmstate" && h.Name != "disk") || h.Typeflag != tar.TypeReg || seen[h.Name] {
+			return "", reject("DATA_UNAVAILABLE", "invalid engine bundle entry")
+		}
+		seen[h.Name] = true
+		f, err := os.OpenFile(filepath.Join(dir, h.Name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err != nil {
+			return "", err
+		}
+		var destination io.Writer = f
+		if h.Name == "disk" {
+			destination = sparseBackupDisk{file: f, ctx: ctx}
+		}
+		_, err = io.Copy(destination, tr)
+		if err == nil {
+			err = f.Truncate(h.Size)
+		}
+		f.Close()
+		if err != nil {
+			return "", err
+		}
+	}
+	if len(seen) != 4 {
+		return "", reject("DATA_UNAVAILABLE", "incomplete engine bundle")
+	}
+	var manifest struct {
+		CaptureID string `json:"capture_id"`
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil || json.Unmarshal(raw, &manifest) != nil || manifest.CaptureID == "" {
+		return "", fmt.Errorf("invalid capture manifest")
+	}
+	reply, err := s.stateCall(ctx, "import", dir)
+	if err != nil {
+		return "", err
+	}
+	capture := textField(reply, "capture_id")
+	if capture == "" {
+		return "", reject("DATA_UNAVAILABLE", "import omitted capture_id")
+	}
+	return capture, nil
+}
+
+// Restored VM disks contain large zero runs. Keep those as holes instead of
+// flooding the journal filesystem with the disk's full logical capacity.
+type sparseBackupDisk struct {
+	file *os.File
+	ctx  context.Context
+}
+
+func (w sparseBackupDisk) Write(p []byte) (int, error) {
+	if err := w.ctx.Err(); err != nil {
+		return 0, err
+	}
+	if bytes.Count(p, []byte{0}) == len(p) {
+		if _, err := w.file.Seek(int64(len(p)), io.SeekCurrent); err != nil {
+			return 0, err
+		}
+		return len(p), nil
+	}
+	return w.file.Write(p)
 }

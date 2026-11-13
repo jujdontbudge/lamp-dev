@@ -680,7 +680,7 @@ func (s *Service) driveSessions() {
 	}
 }
 
-func (s *Service) wakeSessionInput(ctx context.Context, a caller, in map[string]any) error {
+func (s *Service) wakeSessionInput(ctx context.Context, a caller, in map[string]any, attach bool) error {
 	s.readLock()
 	work := s.journal.Control.Sessions[textField(in, "session_id")]
 	lease := s.journal.Control.InputLeases[textField(in, "lease_id")]
@@ -690,13 +690,13 @@ func (s *Service) wakeSessionInput(ctx context.Context, a caller, in map[string]
 		textField(lease, "holder_id") != a.Principal || textField(lease, "resource_id") != textField(work.Resource, "id") ||
 		textField(lease, "state") != "active" || sessionExpired(lease) ||
 		uintField(lease, "location_epoch") != uintField(work.Resource, "location_epoch") ||
-		uintField(in, "location_epoch") != uintField(work.Resource, "location_epoch") ||
-		uintField(in, "sequence") != work.Next[textField(lease, "id")] {
+		(!attach && (uintField(in, "location_epoch") != uintField(work.Resource, "location_epoch") ||
+			uintField(in, "sequence") != work.Next[textField(lease, "id")])) {
 		s.mu.Unlock()
 		return nil
 	}
 	data, err := base64.StdEncoding.DecodeString(textField(in, "data_base64"))
-	if err != nil || len(data) == 0 || len(data) > 32768 || len(work.Pending) >= 64 {
+	if !attach && (err != nil || len(data) == 0 || len(data) > 32768 || len(work.Pending) >= 64) {
 		s.mu.Unlock()
 		return nil
 	}

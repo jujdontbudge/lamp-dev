@@ -148,10 +148,11 @@ type lifeSandbox struct {
 	// create command, so restart reconciliation probes it instead.
 	Resumed uint64 `json:"resumed_generation,omitempty"`
 	// Activity is the last task session activity Lamp itself mediated
-	// (an exec admission or completion). It is in-memory only.
-	activity time.Time
-	idleFrom time.Time
-	waking   chan struct{}
+	// (an exec admission or completion). Persisted with the idle countdown.
+	Activity    time.Time `json:"activity,omitempty"`
+	IdleFrom    time.Time `json:"idle_from,omitempty"`
+	waking      chan struct{}
+	reconciling bool
 }
 
 func (s *Service) lifePath() string { return filepath.Join(s.dir, lifeStateFile) }

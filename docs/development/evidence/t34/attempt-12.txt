@@ -1,0 +1,36 @@
+{"data": {"available_mib": 18009, "firecracker": 0}, "step": "capacity"}
+{"data": {"template_id": "tp_0d07bacfa64be676336ee78c28"}, "step": "using public template"}
+{"data": {"generation": 1, "max_generation": 18446744073709551615}, "step": "default grant lifecycle scope"}
+{"data": [{"authority_epoch": 1, "captured_at": "2026-11-13T02:22:07.286494922Z", "consistency": "application", "created_at": "2026-11-13T02:29:24.392295811Z", "custody_host_ids": ["hs_local"], "desired_replicas": 1, "durability": "backup", "fleet_id": "fl_local", "id": "bk_17e3ff6b2d05a39019a2ece9ebf1fcbf", "key_envelopes": [{"envelope_digest": "sha256:0cb44e6728f62d7d942d2c6ee3e8d165fcd1b8e313d2c132e0c3cc6a73e35d0a", "key_id": "19d0954524549708", "recipient_id": "hs_local", "recipient_kind": "host", "wrapping_algorithm": "A256GCM"}, {"envelope_digest": "sha256:b7f34bec1eb7311ff289b40a41fb84b587708118227844a255a6c66830266141", "key_id": "lCOJfji63VUFGm3wL6lbOztnR17jk/0Ex4hzVwJ1UzA=", "recipient_id": "owner", "recipient_kind": "owner_recovery", "wrapping_algorithm": "X25519-HKDF-SHA256-A256GCM"}], "kind": "backup", "labels": {"lamp.recovered": "owner-recovery-key"}, "manifest_digest": "sha256:839a7a9fd69d24c11e2760554d0ec308fe1beba38bf2a4accac3bc4049a0a789", "owner_id": "pr_t34_demo", "recovery_state": "available", "resource_id": "sb_532d4d176ac6ebdd676b15ec833f6b35", "resource_kind": "sandbox", "revision": 1, "state": "ready", "target_host_ids": ["hs_local"], "updated_at": "2026-11-13T02:29:24.392295811Z", "visibility": "private"}, {"authority_epoch": 1, "captured_at": "2026-11-13T02:22:03.45622156Z", "consistency": "application", "created_at": "2026-11-13T02:29:24.398422219Z", "custody_host_ids": ["hs_local"], "desired_replicas": 1, "durability": "backup", "fleet_id": "fl_local", "id": "bk_cd7277c08905e2585c9c21ae3c825146", "key_envelopes": [{"envelope_digest": "sha256:4dee898bf819d289906439b5c0bef210ef9d8048f0229b31370c8db2da06ecea", "key_id": "19d0954524549708", "recipient_id": "hs_local", "recipient_kind": "host", "wrapping_algorithm": "A256GCM"}, {"envelope_digest": "sha256:728b88b421468d979ed41112123dbe66c80a746b68b496d26ac4ee2cd1446a31", "key_id": "lCOJfji63VUFGm3wL6lbOztnR17jk/0Ex4hzVwJ1UzA=", "recipient_id": "owner", "recipient_kind": "owner_recovery", "wrapping_algorithm": "X25519-HKDF-SHA256-A256GCM"}], "kind": "backup", "labels": {"lamp.recovered": "owner-recovery-key"}, "manifest_digest": "sha256:30a3a07cc170b15d0291de9cacd891c9966b162e9d51bdf2698c1459fe77720f", "owner_id": "pr_t34_demo", "recovery_state": "available", "resource_id": "vo_918b308e7dfbe932a66972cafcbfb64f", "resource_kind": "volume", "revision": 1, "state": "ready", "target_host_ids": ["hs_local"], "updated_at": "2026-11-13T02:29:24.398422219Z", "visibility": "private"}], "step": "offline recovery imported"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 155, in <module>
+    recovered=api.op('backup_restore',backup_id=backup,expected_revision=1)['resource_ids'][-1]['id']; owned.append((api,recovered)); capacity(); api.change(recovered,'resume')
+              ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 36, in op
+    out=self.raw(o['method'].upper(),path,fields if o['mutation'] else None,h)
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 24, in raw
+    c.request(method,path,None if body is None else json.dumps(body),h); r=c.getresponse(); out=json.loads(r.read() or '{}'); c.close()
+                                                                           ~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/http/client.py", line 1459, in getresponse
+    response.begin()
+    ~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/http/client.py", line 336, in begin
+    version, status, reason = self._read_status()
+                              ~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/http/client.py", line 305, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+                             " response")
+http.client.RemoteDisconnected: Remote end closed connection without response
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 212, in <module>
+    if daemon and daemon.poll() is None: daemon.terminate(); daemon.wait(timeout=60)
+                                                             ~~~~~~~~~~~^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1279, in wait
+    return self._wait(timeout=timeout)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 2076, in _wait
+    raise TimeoutExpired(self.args, timeout)
+subprocess.TimeoutExpired: Command '['/home/johan/lamp-t34/src/bin/lampd', '--worker-socket', '/home/johan/lamp-t34/t34-demo-12/worker.sock', '--worker-id', 'lamp-supervisor@ubuntu-server', '--worker-boot-id', '35c1328f-930a-4a2b-aed4-8973fb293ccb', '--worker-uid', '0', '--worker-pid', '1268519', '--grant-id', '<redacted-grant-id>', '--worker-timeout', '60s', '--audit-release', '["sudo", "-n", "/usr/bin/python3", "/home/johan/lamp-t34/src/tools/guard-audit-release.py", "/var/lib/lamp/demo-01/audit"]', '--state-admin', '["/usr/bin/python3", "/home/johan/lamp-t34/t34-demo-12/state-admin.py", "sudo", "-n", "/home/johan/lamp-t34/src/target/debug/lamp-supervisor", "state", "--admin-socket", "/home/johan/lamp-t34/t34-demo-12/admin.sock"]', '--identity-file', '/home/johan/lamp-t34/t34-demo-12/identity.json', '--state-dir', '/home/johan/lamp-t34/t34-demo-12/recovered', '--socket', '/home/johan/lamp-t34/t34-demo-12/recovered.sock', '--recovery-public-key', '/home/johan/lamp-t34/t34-demo-12/recovery.pub', '--recovery-key-file', '/home/johan/lamp-t34/t34-demo-12/offline.key', '--recovery-import-dir', '/home/johan/lamp-t34/t34-demo-10/state/backups']' timed out after 60 seconds

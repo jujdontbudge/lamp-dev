@@ -1,0 +1,12 @@
+{"data": {"available_mib": 18150, "firecracker": 0}, "step": "capacity"}
+{"data": {"template_id": "tp_0d07bacfa64be676336ee78c28"}, "step": "using public template"}
+{"data": {"generation": 1, "max_generation": 18446744073709551615}, "step": "default grant lifecycle scope"}
+{"data": "0", "step": "live firecracker after cleanup"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 154, in <module>
+    start('recovered',True); log('offline recovery imported',api.op('backup_list')['items'])
+    ~~~~~^^^^^^^^^^^^^^^^^^
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 104, in start
+    if daemon.poll() is not None or time.monotonic()>until: raise RuntimeError('daemon failed to start')
+                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: daemon failed to start

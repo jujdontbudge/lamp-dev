@@ -530,12 +530,20 @@ func Open(config Config) (*Service, error) {
 	s.readLock()
 	s.initNotifications(config.Notifications)
 	s.mu.Unlock()
+	s.readLock()
+	for id, sb := range s.journal.Sandboxes {
+		if sb.State == "unavailable" && s.resumedGeneration(id, value(sb.Generation)) {
+			s.wg.Add(1)
+			go s.reconcileSandbox(id, "")
+		}
+	}
 	for _, rec := range s.journal.Operations {
-		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
+		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && !s.resumedGeneration(rec.Resource.Id, value(s.journal.Sandboxes[rec.Resource.Id].Generation)) && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
 			s.wg.Add(1)
 			go s.reconcileSandbox(rec.Resource.Id, rec.Operation.Id)
 		}
 	}
+	s.mu.Unlock()
 	if len(s.auditRelease) > 0 {
 		s.wg.Add(1)
 		go s.sweepGuardAudit()

@@ -186,7 +186,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		case strings.HasPrefix(path, "/v1/sandboxes/"):
 			if sb, ok := s.journal.Sandboxes[strings.TrimPrefix(path, "/v1/sandboxes/")]; ok && s.sandboxAllowed(requestCaller(r), sb) {
-				send = prepareJSON(w, 200, api.SandboxGetResult{Data: sb, RequestId: requestID})
+				send = prepareJSON(w, 200, map[string]any{"data": s.withCountdowns(sb), "request_id": requestID})
 				return
 			}
 		case strings.HasPrefix(path, "/v1/execs/"):
@@ -213,6 +213,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 	var input any
 	var sb api.Sandbox
 	var ex api.Exec
+	var resourcesSupplied bool
 	switch {
 	case r.Method == "DELETE":
 		var in api.SandboxDeleteInput
@@ -231,17 +232,18 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		input = in
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		fields, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms network_policy_id kit_ids")
+		fields, err := decodeInput(w, r, &in, "template_id snapshot_id budget_id lifecycle host_id engine_id resources devices durability task_id labels wait_ms network_policy_id kit_ids")
 		in.IdempotencyKey = key
+		resourcesSupplied = in.Resources != nil
 		if err != nil {
 			writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
 			return
 		}
-		if in.TemplateId == nil && s.installedTemplate != nil {
+		if in.TemplateId == nil && in.SnapshotId == nil && s.installedTemplate != nil {
 			in.TemplateId = pointer(s.installedTemplate.Id)
 		}
-		if err != nil || in.TemplateId == nil || *in.TemplateId == "" {
-			writeError(w, requestID, "INVALID_ARGUMENT", "template_id required; run lamp template list (or reinstall with the default engine and seed)", nil)
+		if (value(in.TemplateId) == "" && value(in.SnapshotId) == "") || (value(in.TemplateId) != "" && value(in.SnapshotId) != "") || in.IdempotencyKey == "" {
+			writeError(w, requestID, "INVALID_ARGUMENT", "template_id or snapshot_id: choose exactly one; use lamp template list or lamp snapshot list", nil)
 			return
 		}
 		if in.Resources != nil && in.Resources.PidsMax == 0 {
@@ -255,7 +257,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if in.Resources == nil {
 			in.Resources = &api.Resources{Vcpus: 2, MemoryMib: 4096, DiskGib: 20, PidsMax: 4096}
-			if s.installedTemplate != nil && *in.TemplateId == s.installedTemplate.Id {
+			if s.installedTemplate != nil && value(in.TemplateId) == s.installedTemplate.Id {
 				in.Resources = s.installedTemplate.DefaultResources
 			}
 		}
@@ -315,6 +317,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			sb.KitIds = in.KitIds
 		}
 		sb.TaskId = in.TaskId
+		sb.Lifecycle = in.Lifecycle
 		sb.Id = s.resourceID("sb")
 		sb.HostId = pointer(s.hostID())
 		sb.CustodyHostIds = pointer([]string{s.hostID()})
@@ -511,6 +514,64 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if name == "sandbox_create" {
+		in := input.(api.SandboxCreateInput)
+		if err := s.validateLifecycle(a, sb.Lifecycle); err != nil {
+			s.mu.Unlock()
+			e := err.(*coreError)
+			writeError(w, requestID, e.code, e.message, nil)
+			return
+		}
+		if in.SnapshotId != nil {
+			snap, ok := s.journal.Snapshots[*in.SnapshotId]
+			if !ok || snap.Snapshot.State != "ready" || !s.snapshotAllowed(a, snap) {
+				s.mu.Unlock()
+				writeError(w, requestID, "NOT_FOUND", "ready snapshot not found", nil)
+				return
+			}
+			sb.Resources, sb.EngineId = snap.Resources, snap.EngineID
+			if sb.Resources == nil {
+				sb.Resources = s.journal.Sandboxes[value(snap.Snapshot.SandboxId)].Resources
+			}
+			if sb.Resources == nil {
+				s.mu.Unlock()
+				writeError(w, requestID, "DATA_UNAVAILABLE", "snapshot resource limits missing", nil)
+				return
+			}
+			if resourcesSupplied && digest(in.Resources) != digest(sb.Resources) || in.EngineId != nil && value(in.EngineId) != value(sb.EngineId) || in.Devices != nil && len(*in.Devices) > 0 {
+				s.mu.Unlock()
+				writeError(w, requestID, "INVALID_ARGUMENT", "a snapshot fixes its resources, engine and devices", nil)
+				return
+			}
+			sb.SnapshotId = in.SnapshotId
+			sb.CaptureTrust = pointer(api.SandboxCaptureTrust(value(snap.Snapshot.CaptureTrust)))
+		}
+		if in.BudgetId != nil {
+			if in.TaskId != nil {
+				s.mu.Unlock()
+				writeError(w, requestID, "INVALID_ARGUMENT", "choose task_id or budget_id", nil)
+				return
+			}
+			task, err := s.taskForBudget(a, *in.BudgetId)
+			if err != nil {
+				s.mu.Unlock()
+				e := err.(*coreError)
+				writeError(w, requestID, e.code, e.message, nil)
+				return
+			}
+			sb.TaskId = &task.Id
+			s.journal.Accountability.Tasks[task.Id] = task
+			s.journal.Accountability.TaskCallers[task.Id] = a
+			defer func() {
+				s.mu.Lock()
+				defer s.mu.Unlock()
+				if _, committed := s.journal.Sandboxes[sb.Id]; !committed {
+					delete(s.journal.Accountability.Tasks, task.Id)
+					delete(s.journal.Accountability.TaskCallers, task.Id)
+				}
+			}()
+		}
+	}
 	if err := s.accountAdmission(a, name, sb); err != nil {
 		s.mu.Unlock()
 		e := err.(*coreError)
@@ -556,6 +617,16 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ex.OwnerId = a.Principal
+	if in, ok := input.(api.SandboxCreateInput); ok && in.BudgetId != nil {
+		task := s.journal.Accountability.Tasks[value(sb.TaskId)]
+		budget := s.journal.Accountability.Budgets[*in.BudgetId]
+		if task.DeadlineAt != nil && (budget.DeadlineAt == nil || earlier(*task.DeadlineAt, *budget.DeadlineAt)) {
+			budget.DeadlineAt = task.DeadlineAt
+			budget.Revision++
+			budget.UpdatedAt = timestamp()
+			s.journal.Accountability.Budgets[budget.Id] = budget
+		}
+	}
 	ref := api.ResourceRef{Kind: "sandbox", Id: sb.Id}
 	if name == "exec_create" {
 		ref = api.ResourceRef{Kind: "exec", Id: ex.Id}
@@ -736,6 +807,15 @@ func (s *Service) execute(id, source string) {
 	} else {
 		sb = s.journal.Sandboxes[source]
 	}
+	restoreID := value(sb.TemplateId)
+	if sb.SnapshotId != nil {
+		snap := s.journal.Snapshots[*sb.SnapshotId]
+		restoreID = snap.CaptureID
+		if restoreID == "" {
+			restoreID = snap.TemplateID
+		}
+	}
+	sourceGeneration := value(s.journal.Sandboxes[source].Generation)
 	// Accepted is the durable no-replay boundary. For exec, running is an
 	// internal dispatch fence; the next durable public transition is the worker
 	// command-start result. Readers use durableOps and never see this unsaved
@@ -855,7 +935,7 @@ func (s *Service) execute(id, source string) {
 		err = allocate()
 		if err == nil {
 			stage("template")
-			err = restore(value(sb.TemplateId))
+			err = restore(restoreID)
 		}
 		if err == nil {
 			stage("command")
@@ -863,7 +943,7 @@ func (s *Service) execute(id, source string) {
 		}
 	case "sandbox_fork":
 		capture := newID("capture")
-		r := request("capture", source, generation)
+		r := request("capture", source, sourceGeneration)
 		consistency := "crash"
 		if value(sb.Durability) == "local" {
 			consistency = "local"
@@ -940,11 +1020,18 @@ func (s *Service) execute(id, source string) {
 	}
 	// Boot may have reached the worker despite a request timeout. Preserve
 	// capacity accounting and release it with a fresh cleanup deadline.
+	if name == "sandbox_fork" && err != nil && !sourceIntact {
+		probeCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		probe, probeErr := s.guestRun(probeCtx, source, "/bin/true")
+		stop()
+		sourceIntact = probeErr == nil && probe.Exit == 0
+	}
 	cleaned := false
 	if err != nil && (name == "sandbox_create" || name == "sandbox_fork") {
 		cleanupCtx, cancelCleanup := context.WithTimeout(context.WithoutCancel(ctx), 90*time.Second)
 		cleaned = s.releaseSandbox(cleanupCtx, sb) == nil
 		cancelCleanup()
+
 	}
 	if <-running != nil {
 		s.mu.Lock()

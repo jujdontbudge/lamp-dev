@@ -1,0 +1,2 @@
+{"binary": "/usr/local/lib/lamp/lamp-guard", "sha256": "8734fc7ff8ce18b8cda333d63b8937e828528d4b2503691df331840a4546764d", "acks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], "exit_code": 0, "correct": true}
+{"binary": "/home/johan/lamp-t34/src/target/debug/lamp-guard", "sha256": "b048cd304c125b454c7674c13217faeb03b6620f9858b54978f315d8486d59f7", "acks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], "exit_code": 0, "correct": true}

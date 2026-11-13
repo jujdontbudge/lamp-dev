@@ -1,0 +1,10 @@
+{"data": {"available_mib": 13870, "firecracker": 2}, "step": "capacity"}
+{"data": "2", "step": "live firecracker after cleanup"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 66, in <module>
+    capacity()
+    ~~~~~~~~^^
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 18, in capacity
+    if n>=2 or available<12288: raise RuntimeError('shared capacity unavailable')
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: shared capacity unavailable

@@ -5315,6 +5315,7 @@ const (
 	LifecycleIdleActionSuspend LifecycleIdleAction = "suspend"
 	LifecycleIdleActionDelete  LifecycleIdleAction = "delete"
 	LifecycleIdleActionKeep    LifecycleIdleAction = "keep"
+	LifecycleIdleActionStop    LifecycleIdleAction = "stop"
 )
 
 type LifecycleOnJobEnd string
@@ -7558,48 +7559,50 @@ const (
 )
 
 type Sandbox struct {
-	Id                      string               `json:"id"`
-	Kind                    SandboxKind          `json:"kind"`
-	FleetId                 string               `json:"fleet_id"`
-	OwnerId                 string               `json:"owner_id"`
-	Revision                uint64               `json:"revision"`
-	CreatedAt               string               `json:"created_at"`
-	UpdatedAt               string               `json:"updated_at"`
-	State                   SandboxState         `json:"state"`
-	Labels                  StringMap            `json:"labels"`
-	Visibility              SandboxVisibility    `json:"visibility"`
-	RecipeId                *string              `json:"recipe_id,omitempty"`
-	TemplateId              *string              `json:"template_id,omitempty"`
-	HostId                  *string              `json:"host_id,omitempty"`
-	EngineId                *string              `json:"engine_id,omitempty"`
-	GuestOs                 *string              `json:"guest_os,omitempty"`
-	Arch                    *string              `json:"arch,omitempty"`
-	Boundary                *SandboxBoundary     `json:"boundary,omitempty"`
-	Resources               *Resources           `json:"resources,omitempty"`
-	Devices                 *[]Device            `json:"devices,omitempty"`
-	TaskId                  *string              `json:"task_id,omitempty"`
-	ParentSandboxId         *string              `json:"parent_sandbox_id,omitempty"`
-	Generation              *uint64              `json:"generation,omitempty"`
-	ForkPreparation         *ForkPreparation     `json:"fork_preparation,omitempty"`
-	HarnessId               *string              `json:"harness_id,omitempty"`
-	AuthMode                *SandboxAuthMode     `json:"auth_mode,omitempty"`
-	KitIds                  *[]string            `json:"kit_ids,omitempty"`
-	ConnectionIds           *[]string            `json:"connection_ids,omitempty"`
-	SettingsSourceIds       *[]string            `json:"settings_source_ids,omitempty"`
-	NetworkPolicyId         *string              `json:"network_policy_id,omitempty"`
-	NetworkPlans            *[]NetworkPlan       `json:"network_plans,omitempty"`
-	NetworkAttachmentIds    *[]string            `json:"network_attachment_ids,omitempty"`
-	AttachmentIds           *[]string            `json:"attachment_ids,omitempty"`
-	Lifecycle               *Lifecycle           `json:"lifecycle,omitempty"`
-	SuspendEligibility      *SuspendEligibility  `json:"suspend_eligibility,omitempty"`
-	Readiness               *Readiness           `json:"readiness,omitempty"`
-	CaptureTrust            *SandboxCaptureTrust `json:"capture_trust,omitempty"`
-	SnapshotId              *string              `json:"snapshot_id,omitempty"`
-	WarmPoolId              *string              `json:"warm_pool_id,omitempty"`
-	EffectivePolicyRevision *uint64              `json:"effective_policy_revision,omitempty"`
-	Durability              *SandboxDurability   `json:"durability,omitempty"`
-	CustodyHostIds          *[]string            `json:"custody_host_ids,omitempty"`
-	Exposures               *[]string            `json:"exposures,omitempty"`
+	Id                      string                `json:"id"`
+	Kind                    SandboxKind           `json:"kind"`
+	FleetId                 string                `json:"fleet_id"`
+	OwnerId                 string                `json:"owner_id"`
+	Revision                uint64                `json:"revision"`
+	CreatedAt               string                `json:"created_at"`
+	UpdatedAt               string                `json:"updated_at"`
+	State                   SandboxState          `json:"state"`
+	Labels                  StringMap             `json:"labels"`
+	Visibility              SandboxVisibility     `json:"visibility"`
+	RecipeId                *string               `json:"recipe_id,omitempty"`
+	TemplateId              *string               `json:"template_id,omitempty"`
+	HostId                  *string               `json:"host_id,omitempty"`
+	EngineId                *string               `json:"engine_id,omitempty"`
+	GuestOs                 *string               `json:"guest_os,omitempty"`
+	Arch                    *string               `json:"arch,omitempty"`
+	Boundary                *SandboxBoundary      `json:"boundary,omitempty"`
+	Resources               *Resources            `json:"resources,omitempty"`
+	Devices                 *[]Device             `json:"devices,omitempty"`
+	TaskId                  *string               `json:"task_id,omitempty"`
+	ParentSandboxId         *string               `json:"parent_sandbox_id,omitempty"`
+	Generation              *uint64               `json:"generation,omitempty"`
+	ForkPreparation         *ForkPreparation      `json:"fork_preparation,omitempty"`
+	HarnessId               *string               `json:"harness_id,omitempty"`
+	AuthMode                *SandboxAuthMode      `json:"auth_mode,omitempty"`
+	KitIds                  *[]string             `json:"kit_ids,omitempty"`
+	ConnectionIds           *[]string             `json:"connection_ids,omitempty"`
+	SettingsSourceIds       *[]string             `json:"settings_source_ids,omitempty"`
+	NetworkPolicyId         *string               `json:"network_policy_id,omitempty"`
+	NetworkPlans            *[]NetworkPlan        `json:"network_plans,omitempty"`
+	NetworkAttachmentIds    *[]string             `json:"network_attachment_ids,omitempty"`
+	AttachmentIds           *[]string             `json:"attachment_ids,omitempty"`
+	Lifecycle               *Lifecycle            `json:"lifecycle,omitempty"`
+	SuspendEligibility      *SuspendEligibility   `json:"suspend_eligibility,omitempty"`
+	Readiness               *Readiness            `json:"readiness,omitempty"`
+	CaptureTrust            *SandboxCaptureTrust  `json:"capture_trust,omitempty"`
+	SnapshotId              *string               `json:"snapshot_id,omitempty"`
+	WarmPoolId              *string               `json:"warm_pool_id,omitempty"`
+	EffectivePolicyRevision *uint64               `json:"effective_policy_revision,omitempty"`
+	Durability              *SandboxDurability    `json:"durability,omitempty"`
+	CustodyHostIds          *[]string             `json:"custody_host_ids,omitempty"`
+	Exposures               *[]string             `json:"exposures,omitempty"`
+	SavedStateUntil         *string               `json:"saved_state_until,omitempty"`
+	IdleCountdown           *SandboxIdleCountdown `json:"idle_countdown,omitempty"`
 }
 type SandboxAuthMode string
 
@@ -7677,6 +7680,8 @@ type SandboxCreateInput struct {
 	IdempotencyKey    string                        `json:"idempotency_key"`
 	WaitMs            *uint64                       `json:"wait_ms,omitempty"`
 	Labels            *StringMap                    `json:"labels,omitempty"`
+	SnapshotId        *string                       `json:"snapshot_id,omitempty"`
+	BudgetId          *string                       `json:"budget_id,omitempty"`
 }
 type SandboxCreateInputAuthMode string
 
@@ -7976,6 +7981,13 @@ type SandboxGetInput struct {
 type SandboxGetResult struct {
 	Data      Sandbox `json:"data"`
 	RequestId string  `json:"request_id"`
+}
+type SandboxIdleCountdown struct {
+	Action       *string `json:"action,omitempty"`
+	GraceSeconds *uint64 `json:"grace_seconds,omitempty"`
+	IdleSince    *string `json:"idle_since,omitempty"`
+	FiresAt      *string `json:"fires_at,omitempty"`
+	ExpiresAt    *string `json:"expires_at,omitempty"`
 }
 type SandboxKind string
 

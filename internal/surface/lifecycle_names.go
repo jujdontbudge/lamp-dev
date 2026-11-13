@@ -3,7 +3,7 @@ package surface
 // Lifecycle, lasting storage and saved-template handlers (T19).
 func init() {
 	for _, name := range []string{
-		"sandbox_suspend", "sandbox_resume", "sandbox_update", "sandbox_save_template", "sandbox_file_transfer",
+		"snapshot_list", "snapshot_delete", "sandbox_suspend", "sandbox_resume", "sandbox_update", "sandbox_save_template", "sandbox_file_transfer",
 		"blob_create", "blob_get", "blob_list", "blob_upload", "blob_finalize", "blob_download", "blob_delete",
 		"cache_create", "cache_get", "cache_list", "cache_publish", "cache_evict", "cache_delete",
 		"volume_create", "volume_get", "volume_list", "volume_delete",

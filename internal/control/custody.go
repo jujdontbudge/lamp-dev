@@ -21,10 +21,12 @@ import (
 const custodyOperationTimeout = 10 * time.Minute
 
 type savedSnapshot struct {
-	Snapshot     api.Snapshot `json:"snapshot"`
-	CaptureID    string       `json:"capture_id,omitempty"`
-	TemplateID   string       `json:"template_id,omitempty"`
-	ExportBlobID string       `json:"export_blob_id,omitempty"`
+	Resources    *api.Resources `json:"resources,omitempty"`
+	EngineID     *string        `json:"engine_id,omitempty"`
+	Snapshot     api.Snapshot   `json:"snapshot"`
+	CaptureID    string         `json:"capture_id,omitempty"`
+	TemplateID   string         `json:"template_id,omitempty"`
+	ExportBlobID string         `json:"export_blob_id,omitempty"`
 }
 
 type cleanExport struct {
@@ -101,7 +103,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 		if s.broken {
 			send = prepareError(w, requestID, api.ErrorDetail{Code: "DATA_UNAVAILABLE", Message: "journal unavailable"})
 		} else if strings.HasPrefix(path, "/v1/snapshots/") {
-			if snapshot, ok := s.journal.Snapshots[strings.TrimPrefix(path, "/v1/snapshots/")]; ok && s.sandboxAllowed(requestCaller(r), s.journal.Sandboxes[value(snapshot.Snapshot.SandboxId)]) && s.resourceAllowed(requestCaller(r), api.ResourceRef{Kind: "snapshot", Id: snapshot.Snapshot.Id}) {
+			if snapshot, ok := s.journal.Snapshots[strings.TrimPrefix(path, "/v1/snapshots/")]; ok && snapshot.Snapshot.State != "deleted" && s.snapshotAllowed(requestCaller(r), snapshot) {
 				send = prepareJSON(w, 200, api.SnapshotGetResult{RequestId: requestID, Data: snapshot.Snapshot})
 			}
 		} else if share, ok := s.journal.Shares[strings.TrimPrefix(path, "/v1/shares/")]; ok {
@@ -128,7 +130,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 		return fail("INVALID_ARGUMENT", "one bounded Idempotency-Key is required")
 	}
 	key := keys[0]
-	plan := custodyPlan{Durability: "volatile"}
+	plan := custodyPlan{Durability: "local"}
 	var input any
 	var wait *uint64
 	var revision uint64
@@ -278,6 +280,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 	ref := api.ResourceRef{Kind: "sandbox", Id: sb.Id}
 	if plan.Name == "snapshot_create" || suspend {
 		plan.SnapshotID = newID("ss")
+		snapshot.Resources, snapshot.EngineID = sb.Resources, sb.EngineId
 		snapshot.Snapshot = api.Snapshot{Id: plan.SnapshotID, Kind: "snapshot", FleetId: "fl_local", OwnerId: sb.OwnerId, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "capturing", Labels: api.StringMap{}, Visibility: "private", SandboxId: pointer(sb.Id), Generation: sb.Generation, Durability: pointer(plan.Durability)}
 		s.journal.Snapshots[plan.SnapshotID] = snapshot
 		if !suspend {

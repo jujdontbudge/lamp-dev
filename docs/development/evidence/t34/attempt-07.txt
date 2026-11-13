@@ -1,0 +1,23 @@
+{"data": {"available_mib": 14360, "firecracker": 0}, "step": "capacity"}
+{"data": {"template_id": "tp_0d07bacfa64be676336ee78c28"}, "step": "using public template"}
+{"data": {"generation": 1, "max_generation": 18446744073709551615}, "step": "default grant lifecycle scope"}
+{"data": {"available_mib": 14683, "firecracker": 0}, "step": "capacity"}
+{"data": [1, 11], "step": "counter before suspend"}
+{"data": {"available_mib": 14428, "firecracker": 1}, "step": "capacity"}
+{"data": {"counter": [16, 30], "state": "ready"}, "step": "resume after daemon restart"}
+{"data": {"eligibility": {"eligible": false, "observation_state": "fresh", "observed_at": "2026-11-13T02:17:49.789052676Z", "reasons": ["session_activity", "task_process"]}, "state": "ready"}, "step": "busy eligibility"}
+{"data": [{"capture_trust": "clean", "created_at": "2026-11-13T02:17:50.61115683Z", "custody_host_ids": ["ubuntu-server"], "durability": "local", "fleet_id": "fl_local", "generation": 2, "id": "ss_499a8e6f86ec553d7df0cf35ae6ccc22", "kind": "snapshot", "labels": {}, "owner_id": "pr_t34_demo", "preserves_memory": true, "revision": 2, "sandbox_id": "sb_99a278220bac7f31232f07db987582bf", "state": "ready", "updated_at": "2026-11-13T02:17:52.51997273Z", "visibility": "private"}], "step": "snapshot outlives source"}
+{"data": {"available_mib": 14425, "firecracker": 1}, "step": "capacity"}
+{"data": [65, 76], "step": "snapshot memory restored"}
+{"data": "ss_499a8e6f86ec553d7df0cf35ae6ccc22", "step": "snapshot explicitly deleted"}
+{"data": {"backup": "bk_3416bf83d093215a1539d9f5cae53aea", "volume": "vo_4561912aabab5d5bc95e84d1e35df545"}, "step": "encrypted volume backup"}
+{"data": {"available_mib": 14052, "firecracker": 2}, "step": "capacity"}
+{"data": "1", "step": "live firecracker after cleanup"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 134, in <module>
+    capacity(); child=api.change(restored,'fork',fork_mode='memory')['resource_ids'][0]['id']; owned.append((api,child)); api.change(child,'delete')
+    ~~~~~~~~^^
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 18, in capacity
+    if n>=2 or available<12288: raise RuntimeError('shared capacity unavailable')
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: shared capacity unavailable

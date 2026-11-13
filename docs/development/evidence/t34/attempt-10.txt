@@ -1,0 +1,27 @@
+{"data": {"available_mib": 14858, "firecracker": 1}, "step": "capacity"}
+{"data": {"template_id": "tp_0d07bacfa64be676336ee78c28"}, "step": "using public template"}
+{"data": {"generation": 1, "max_generation": 18446744073709551615}, "step": "default grant lifecycle scope"}
+{"data": {"available_mib": 14552, "firecracker": 1}, "step": "capacity"}
+{"data": [2, 14], "step": "counter before suspend"}
+{"data": {"available_mib": 14449, "firecracker": 1}, "step": "capacity"}
+{"data": {"counter": [19, 29], "state": "ready"}, "step": "resume after daemon restart"}
+{"data": {"eligibility": {"eligible": false, "observation_state": "fresh", "observed_at": "2026-11-13T02:21:58.952231264Z", "reasons": ["session_activity", "task_process"]}, "state": "ready"}, "step": "busy eligibility"}
+{"data": [{"capture_trust": "clean", "created_at": "2026-11-13T02:21:59.58416846Z", "custody_host_ids": ["ubuntu-server"], "durability": "local", "fleet_id": "fl_local", "generation": 2, "id": "ss_6f4e8f9467a2d1975391bb9a1ab14004", "kind": "snapshot", "labels": {}, "owner_id": "pr_t34_demo", "preserves_memory": true, "revision": 2, "sandbox_id": "sb_ae283b1072ccd3606b290fec1e4b66f4", "state": "ready", "updated_at": "2026-11-13T02:22:00.226460766Z", "visibility": "private"}], "step": "snapshot outlives source"}
+{"data": {"available_mib": 15483, "firecracker": 0}, "step": "capacity"}
+{"data": [71, 82], "step": "snapshot memory restored"}
+{"data": "ss_6f4e8f9467a2d1975391bb9a1ab14004", "step": "snapshot explicitly deleted"}
+{"data": {"backup": "bk_cd7277c08905e2585c9c21ae3c825146", "volume": "vo_918b308e7dfbe932a66972cafcbfb64f"}, "step": "encrypted volume backup"}
+{"data": "shared slot occupied; see previous real fork transcript", "step": "fork omitted"}
+{"data": {"available_mib": 15279, "firecracker": 0}, "step": "capacity"}
+{"data": [94, 104], "step": "automatic exec wake"}
+{"data": {"authority_epoch": 1, "captured_at": "2026-11-13T02:22:07.286494922Z", "consistency": "application", "created_at": "2026-11-13T02:22:07.286488587Z", "custody_host_ids": ["hs_local"], "desired_replicas": 1, "durability": "backup", "fleet_id": "fl_local", "id": "bk_17e3ff6b2d05a39019a2ece9ebf1fcbf", "key_envelopes": [{"envelope_digest": "sha256:3baf99e941c80d99f908a4c7727e2d084c771edfffc1e58de9d412421a0b4701", "key_id": "f34e24cadebf9b24", "recipient_id": "hs_local", "recipient_kind": "host", "wrapping_algorithm": "A256GCM"}, {"envelope_digest": "sha256:b7f34bec1eb7311ff289b40a41fb84b587708118227844a255a6c66830266141", "key_id": "lCOJfji63VUFGm3wL6lbOztnR17jk/0Ex4hzVwJ1UzA=", "recipient_id": "owner", "recipient_kind": "owner_recovery", "wrapping_algorithm": "X25519-HKDF-SHA256-A256GCM"}], "kind": "backup", "labels": {}, "manifest_digest": "sha256:839a7a9fd69d24c11e2760554d0ec308fe1beba38bf2a4accac3bc4049a0a789", "owner_id": "pr_t34_demo", "recovery_state": "available", "resource_id": "sb_532d4d176ac6ebdd676b15ec833f6b35", "resource_kind": "sandbox", "revision": 2, "state": "ready", "target_host_ids": ["hs_local"], "updated_at": "2026-11-13T02:24:06.792366526Z", "visibility": "private"}, "step": "encrypted sandbox backup"}
+{"data": {"available_mib": 12633, "firecracker": 1}, "step": "capacity"}
+{"data": "0", "step": "live firecracker after cleanup"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 141, in <module>
+    capacity(); api.run(restored,'kill $(cat /tmp/counter.pid)');
+                ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 56, in run
+    assert e.get('exit_code')==0,(e,data.decode(),errors.decode()); return data.decode().strip()
+           ^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ({'id': 'ex_0b73d00a3182dad7245329bbb057018d', 'kind': 'exec', 'fleet_id': 'fl_local', 'owner_id': 'pr_t34_demo', 'revision': 3, 'created_at': '2026-11-13T02:24:15.252097653Z', 'updated_at': '2026-11-13T02:24:15.92484883Z', 'state': 'exited', 'labels': {}, 'visibility': 'private', 'sandbox_id': 'sb_532d4d176ac6ebdd676b15ec833f6b35', 'argv': ['sh', '-c', 'kill $(cat /tmp/counter.pid)'], 'started_at': '2026-11-13T02:24:15.325267285Z', 'exit_code': 1, 'signal': 0}, '', 'sh: 1: kill: No such process\n\n')

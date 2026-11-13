@@ -1,0 +1,13 @@
+{"data": {"available_mib": 14460, "firecracker": 0}, "step": "capacity"}
+{"data": {"template_id": "tp_0d07bacfa64be676336ee78c28"}, "step": "using public template"}
+{"data": {"generation": 1, "max_generation": 18446744073709551615}, "step": "default grant lifecycle scope"}
+{"data": {"available_mib": 14184, "firecracker": 0}, "step": "capacity"}
+{"data": "0", "step": "live firecracker after cleanup"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 110, in <module>
+    api.run(sb,counter); before=api.advancing(sb); log('counter before suspend',before)
+                                ~~~~~~~~~~~~~^^^^
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 58, in advancing
+    values=list(map(int,self.run(sb,'cat /tmp/counter; echo; sleep 1; cat /tmp/counter; echo').splitlines())); assert len(values)==2 and values[1]>values[0],values; return values
+                                                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: [10]

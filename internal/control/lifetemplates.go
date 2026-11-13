@@ -465,7 +465,7 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 		template = s.installedTemplate.Id
 	}
 	_, saved := s.life.Templates[template]
-	if recipeID == "" && !saved && !hasLifecycle {
+	if recipeID == "" && !saved {
 		s.mu.Unlock()
 		return false
 	}
@@ -491,6 +491,17 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 		if !hasLifecycle && recipe["lifecycle"] != nil {
 			lifecycle, hasLifecycle = recipe["lifecycle"], true
 		}
+		if hasLifecycle {
+			var l api.Lifecycle
+			raw, _ := json.Marshal(lifecycle)
+			if json.Unmarshal(raw, &l) != nil {
+				return fail("INVALID_ARGUMENT", "invalid lifecycle")
+			}
+			if err := s.validateLifecycle(a, &l); err != nil {
+				e := err.(*coreError)
+				return fail(e.code, e.message)
+			}
+		}
 		// A warm-pool hit hands out one never-used entry, exactly once. A
 		// retried claim replays its original operation without claiming again.
 		key := r.Header.Get("Idempotency-Key")
@@ -504,7 +515,7 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 		}
 		// A retried miss takes the same deterministic rewrite below.
 		claimed := ""
-		if !retried {
+		if !retried && body["budget_id"] == nil && body["task_id"] == nil {
 			claimed = s.claimPoolEntry(a, recipeID)
 		}
 		if claimed != "" {
@@ -543,7 +554,9 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 		}
 	}
 	delete(body, "recipe_id")
-	delete(body, "lifecycle")
+	if hasLifecycle {
+		body["lifecycle"] = lifecycle
+	}
 	body["template_id"] = source
 	raw, _ := json.Marshal(body)
 	inner := r.Clone(r.Context())
@@ -579,9 +592,6 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 				sb.RecipeId = pointer(recipeID)
 				// Recipes on this host are signed out (auth_mode none).
 				sb.AuthMode = pointer(api.SandboxAuthModeNone)
-			}
-			if hasLifecycle {
-				sb.Lifecycle = &parsed
 			}
 			s.journal.Sandboxes[id] = sb
 			if s.save(id) != nil {
@@ -734,7 +744,7 @@ func (s *Service) finishClaim(id, recipeID string, lifecycle any) {
 	sb.Revision++
 	sb.UpdatedAt = timestamp()
 	s.journal.Sandboxes[id] = sb
-	s.lifeSB(id).activity = time.Now()
+	s.lifeSB(id).Activity = time.Now()
 }
 
 // refillPools creates at most one entry per pool per tick, never beyond max.

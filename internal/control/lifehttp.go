@@ -37,7 +37,7 @@ var lifeHandlers = map[string]lifeHandler{}
 
 // lifeReads are reads served from lifecycle state (get/list by kind).
 var lifeKinds = map[string]bool{"blob": true, "cache": true, "volume": true, "attachment": true, "artifact": true, "backup": true,
-	"template": true, "recipe": true, "warm_pool": true, "change_set": true}
+	"snapshot": true, "template": true, "recipe": true, "warm_pool": true, "change_set": true}
 
 func lifeOperation(name string) bool {
 	if strings.HasPrefix(name, "change_set_") {
@@ -285,7 +285,7 @@ func restoreInPlace(dst, src reflect.Value) {
 func (s *Service) keepEphemeral(restored *lifeState) {
 	for id, old := range s.life.Sandboxes {
 		if n, ok := restored.Sandboxes[id]; ok {
-			n.activity, n.idleFrom, n.waking = old.activity, old.idleFrom, old.waking
+			n.Activity, n.IdleFrom, n.waking, n.reconciling = old.Activity, old.IdleFrom, old.waking, old.reconciling
 		}
 	}
 }
@@ -312,7 +312,11 @@ func (s *Service) lifeRun(opID string, plan lifePlan) {
 		err = plan.finish(result, err)
 	}
 	if plan.more != nil {
-		refs := append(*rec.Operation.ResourceIds, plan.more()...)
+		more := plan.more()
+		refs := append(*rec.Operation.ResourceIds, more...)
+		for _, ref := range more {
+			ids = append(ids, ref.Id)
+		}
 		rec.Operation.ResourceIds = &refs
 	}
 	now := timestamp()
@@ -495,6 +499,12 @@ func (s *Service) lifeItems(a caller, kind string) []map[string]any {
 		for _, n := range s.life.Networks {
 			if textField(n.R, "kind") == kind {
 				add(n.R)
+			}
+		}
+	case "snapshot":
+		for _, snap := range s.journal.Snapshots {
+			if snap.Snapshot.State != "deleted" && s.snapshotAllowed(a, snap) {
+				all = append(all, object(snap.Snapshot))
 			}
 		}
 	case "job":

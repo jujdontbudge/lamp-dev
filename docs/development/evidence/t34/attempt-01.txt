@@ -1,0 +1,17 @@
+{"data": {"available_mib": 13179, "firecracker": 0}, "step": "capacity"}
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 211 ms
+{"data": {"available_mib": 15966, "firecracker": 0}, "step": "capacity"}
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 6266 ms
+definition: t34-public-demo (0 steps), seed lamp-seed/ubuntu-26.04-t29-ci@sha256:b27a508629230ba139b216e213b0d304fb9657d5d066e51a48f29a15374c0d0e
+build sandbox booted in 383 ms
+template VM booted in 302 ms
+full capture written in 46426 ms
+memory image: 3972 MiB of zero pages left as holes
+published tp_0d07bacfa64be676336ee78c28 as t34-public-demo in 429078 ms
+{"data": {"template_id": "tp_0d07bacfa64be676336ee78c28"}, "step": "public template"}
+{"data": "0", "step": "live firecracker after cleanup"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 75, in <module>
+    if worker.poll() is not None or time.monotonic()>until: raise RuntimeError('worker failed to start')
+                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: worker failed to start

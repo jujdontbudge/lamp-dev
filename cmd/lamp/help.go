@@ -44,7 +44,11 @@ func help(out io.Writer, words []string, asJSON bool, globals []string) int {
 		}
 	}
 	if asJSON {
-		json.NewEncoder(out).Encode(map[string]any{"commands": selected, "usage": "lamp <resource> <action> [id] [flags]", "errors": exitHelp})
+		result := map[string]any{"commands": selected, "usage": "lamp <resource> <action> [id] [flags]", "errors": exitHelp}
+		if prefix == "sandbox_create" || prefix == "sandbox_update" {
+			result["lifecycle_defaults"] = map[string]any{"idle_action": "suspend", "idle_grace_seconds": 300, "suspended_retention_seconds": 604800, "expires_at": "none (task budgets still apply)"}
+		}
+		json.NewEncoder(out).Encode(result)
 		return 0
 	}
 	fmt.Fprintln(out, "Lamp — isolated workspaces for agents")
@@ -117,6 +121,9 @@ func help(out io.Writer, words []string, asJSON bool, globals []string) int {
 			fmt.Fprintf(w, "  --%s\t%s\n", strings.ReplaceAll(field, "_", "-"), detail)
 		}
 		w.Flush()
+		if prefix == "sandbox_create" || prefix == "sandbox_update" {
+			fmt.Fprintln(out, "Lifecycle defaults: suspend after 300 idle seconds; retain suspended state for 604800 seconds; no maximum age (task budgets still apply).")
+		}
 		if prefix == "sandbox_create" {
 			fmt.Fprintln(out, "Installed defaults: 2 CPUs, up to 2048 MiB memory sized for the host, 20 GiB disk, 4096 PIDs.\nUse lamp template list for the installed resources. Create waits up to 60 s for readiness.\nShorthands: --vcpus, --memory-mib, --disk-gib, --pids-max; --resources takes JSON.")
 		}
