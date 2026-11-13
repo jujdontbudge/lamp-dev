@@ -247,7 +247,10 @@ mod mac {
                         }
                     }
                 }
-                GuestRequest::Mount(_) => error("UNSUPPORTED", "native macOS guest storage mounts are unavailable"),
+                GuestRequest::Mount(_) => error(
+                    "UNSUPPORTED",
+                    "native macOS guest storage mounts are unavailable",
+                ),
                 GuestRequest::Freeze(_) | GuestRequest::Thaw(_) => error(
                     "UNSUPPORTED",
                     "native macOS guests have no task freezer; the VM itself is paused",

@@ -308,6 +308,9 @@ impl Engine {
                         timeout_ms,
                         output_limit: 64 << 10,
                         audit: None,
+                        stdin_path: String::new(),
+                        pty: false,
+                        stdin_open: false,
                     }),
                 )?;
                 match conn.next(Some(Duration::from_secs(10)))? {

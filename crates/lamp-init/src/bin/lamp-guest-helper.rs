@@ -253,9 +253,10 @@ mod linux {
             },
             GuestRequest::SessionCall(call) => session_call(&call, state),
             // Served by `serve`, which owns the result table.
-            GuestRequest::Exec(_) | GuestRequest::Wait(_) | GuestRequest::ExecIo(_) | GuestRequest::Mount(_) => {
-                error("INVALID_ARGUMENT", "served with results")
-            }
+            GuestRequest::Exec(_)
+            | GuestRequest::Wait(_)
+            | GuestRequest::ExecIo(_)
+            | GuestRequest::Mount(_) => error("INVALID_ARGUMENT", "served with results"),
             GuestRequest::Freeze(Empty {}) => match freeze() {
                 Ok(()) => GuestResponse::Frozen,
                 Err(e) => error("FREEZE_FAILED", &e.to_string()),
