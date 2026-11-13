@@ -23,3 +23,9 @@ Usage was not exposed.
   test added. Review diff grew from 40 files / 1132 insertions / 144 deletions to
   42 files / 1858 insertions / 149 deletions, mostly recorded live evidence.
   Usage not exposed. Final branch is pushed to MR 8; coordinator reviews/merges.
+
+After T38 merged as `8150e50`, T33 was rebased onto it. The sole conflict
+combined T38's relay fields with T33's audit mutex, preserving both. The rebased
+workspace `make build` passed (332 generated operations), as did selected Go
+vet, the T33 restart/authority smokes and T38's stranded-sandbox fleet-get test.
+No behavior changed during conflict resolution; Sol's approval still applies.
