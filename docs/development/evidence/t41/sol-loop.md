@@ -27,3 +27,18 @@ add 11 product lines and the reviewer's 86-line regression file; this ledger is
 the remaining review evidence.
 
 Final diff: 36 files; see the MR for the complete source, two reviewer tests and evidence.
+
+## Integration after T33 and T38
+
+Rebased onto main 03944fbdc30e28f1062700af7ceca4d736258a89, including
+T33 and T38 (8150e50). Conflict resolutions retain T33 admission, omitted
+pids_max defaults, queued deletion and quota accounting; T38 host/engine/relay
+inventory; and T41 error, retry and discovery behavior. The original Sol
+APPROVE above predates this rebase; no new review round is claimed.
+
+Post-rebase checks passed: scoped Go vet; the two reviewer regressions and
+existing CLI mutation-header check; T33 missing-guest restart accounting and
+T38 stranded-sandbox fleet checks; both generated-file checks. The recorded
+192-operation demonstration is historical, before the expanded main inventory.
+The full post-rebase `CARGO_BUILD_JOBS=2 make build` passed (Go workspace,
+SDK generation check and locked Rust workspace build). `git diff --check` passed.
