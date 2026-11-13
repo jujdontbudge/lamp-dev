@@ -103,3 +103,9 @@ zero-leak measurement. Enrollment-only feature and Linux arm64 kit limitations
 remain as written in the release notes. Immutable archive docs are the
 pre-publication snapshot; final observations are published in the live source
 and release description without changing any asset.
+
+## Final review
+
+Sol approved the publication record at `7a236da` in one round with no findings,
+fixes or new tests. See the [review ledger](sol-review.md). Only this review
+record changed afterward; the public release and its observations are unchanged.
