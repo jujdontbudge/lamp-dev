@@ -77,7 +77,7 @@ func quickstart(args []string, stdout, stderr io.Writer) (exit int) {
 			break
 		}
 		if arg == "--help" {
-			fmt.Fprintln(stdout, "usage: lamp sandbox run [--template-id ID] -- COMMAND [ARG...]\n       lamp sandbox exec ID -- COMMAND [ARG...]\nrun creates a private 2 vCPU / 2048 MiB / 20 GiB VM, waits until ready, runs code, then deletes it.\nexec uses an existing sandbox. Exit status and stdout/stderr come from the guest.\nPersistent create defaults: idle suspend after 300 s; suspended retention 7 days; previews private.")
+			fmt.Fprintln(stdout, "usage: lamp sandbox run [--template-id ID] -- COMMAND [ARG...]\n       lamp sandbox exec ID -- COMMAND [ARG...]\nrun creates a private VM from the installed default template, waits until ready, runs code, then deletes it.\nThe installer sizes the default guest for the host; lamp template list shows its resources.\nexec uses an existing sandbox. Exit status and stdout/stderr come from the guest.\nPersistent create defaults: idle suspend after 300 s; suspended retention 7 days; previews private.")
 			return 0
 		}
 	}

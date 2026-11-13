@@ -4,4 +4,4 @@ go build ./...
 python3 tools/sdkgen.py --check
 sdk codegen: clean (330 operations)
 cargo build --workspace --locked
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s

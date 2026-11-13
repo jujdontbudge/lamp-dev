@@ -91,6 +91,9 @@ func enginePreflight(payload string, gib uint64) error {
 		if err != nil || major < 26 {
 			return fmt.Errorf("engine requires macOS 26 or later")
 		}
+		if _, err := defaultMacMemory(filepath.Join(payload, "bin", "lamp-vz")); err != nil {
+			return err
+		}
 	}
 	if os.Geteuid() != 0 {
 		if err := exec.Command("sudo", "-n", "true").Run(); err != nil {
@@ -98,6 +101,34 @@ func enginePreflight(payload string, gib uint64) error {
 		}
 	}
 	return nil
+}
+
+// Use the engine's observation and physical reserve, including its 256 MiB
+// VMM charge. Leave a quarter of currently available pages for host activity.
+func defaultMacMemory(worker string) (uint64, error) {
+	raw, err := exec.Command(worker, "memory").Output()
+	if err != nil {
+		return 0, fmt.Errorf("cannot observe host memory: %w", err)
+	}
+	var m struct {
+		Physical  uint64 `json:"physical_mib"`
+		Available uint64 `json:"available_mib"`
+		Reserve   uint64 `json:"host_reserve_mib"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return 0, err
+	}
+	physicalBudget := uint64(0)
+	if m.Physical > m.Reserve {
+		physicalBudget = m.Physical - m.Reserve
+	}
+	for _, guest := range []uint64{2048, 1024, 512, 256} {
+		if guest+256 <= m.Available*3/4 && guest+256 <= physicalBudget {
+			say("Host memory: physical=%d MiB, available=%d MiB, physical reserve=%d MiB; default guest=%d MiB plus 256 MiB VMM allowance", m.Physical, m.Available, m.Reserve, guest)
+			return guest, nil
+		}
+	}
+	return 0, fmt.Errorf("NO_CAPACITY: smallest first-run guest is 256 MiB plus 256 MiB VMM allowance; physical=%d MiB, available=%d MiB, physical reserve=%d MiB; need at least 683 MiB available to retain host headroom; retry when memory is available or use another host", m.Physical, m.Available, m.Reserve)
 }
 
 func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
@@ -112,13 +143,27 @@ func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
 	if err := rootRun("mkdir", "-m", "0755", base); err != nil {
 		return fmt.Errorf("engine directory %s exists or is unwritable; inspect it before retrying: %w", base, err)
 	}
+	var createdRecords []string
 	defer func() {
-		if setupErr != nil && runtime.GOOS == "linux" {
+		if setupErr != nil {
 			if st.Supervisor != nil {
 				if err := stopSupervisor(p, st); err != nil {
 					fmt.Fprintln(os.Stderr, "engine cleanup:", err)
 					return
 				}
+			}
+			if runtime.GOOS == "darwin" {
+				// A failed setup may have created only part of the account pool.
+				// Remove only records this attempt established were absent.
+				for i := len(createdRecords) - 1; i >= 0; i-- {
+					if err := rootRun("dscl", ".", "-delete", createdRecords[i]); err != nil {
+						fmt.Fprintln(os.Stderr, "engine account cleanup:", err)
+					}
+				}
+				if err := rootRun("rm", "-rf", base, runDir); err != nil {
+					fmt.Fprintln(os.Stderr, "engine cleanup:", err)
+				}
+				return
 			}
 			if err := removeManagedEngine(p); err != nil {
 				fmt.Fprintln(os.Stderr, "engine cleanup:", err)
@@ -177,8 +222,10 @@ func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
 		first := int(uidBase/65536)*2 + 100
 		for i := first; i < first+2; i++ {
 			name := fmt.Sprintf("_lampvm%02d", i)
-			if exec.Command("dscl", ".", "-read", "/Users/"+name).Run() == nil {
-				return fmt.Errorf("worker account %s exists; refusing to share its identity", name)
+			for _, kind := range []string{"/Users/", "/Groups/"} {
+				if exec.Command("dscl", ".", "-read", kind+name).Run() == nil {
+					return fmt.Errorf("worker account %s exists; refusing to share its identity", kind+name)
+				}
 			}
 			uid := strconv.Itoa(100000 + i)
 			for _, entry := range []struct{ path, key, value string }{
@@ -187,6 +234,9 @@ func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
 				{"/Users/" + name, "UserShell", "/usr/bin/false"}, {"/Users/" + name, "NFSHomeDirectory", "/var/empty"},
 				{"/Users/" + name, "IsHidden", "1"}, {"/Users/" + name, "Password", "*"},
 			} {
+				if len(createdRecords) == 0 || createdRecords[len(createdRecords)-1] != entry.path {
+					createdRecords = append(createdRecords, entry.path)
+				}
 				if err := rootRun("dscl", ".", "-create", entry.path, entry.key, entry.value); err != nil {
 					return err
 				}
@@ -200,7 +250,7 @@ func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
 	if runtime.GOOS == "darwin" {
 		cpArgs = []string{"-cR", seed, rootSeed}
 	}
-	say("Importing the signed default Linux seed and preparing its 2 GiB template…")
+	say("Importing the signed default Linux seed and preparing its template…")
 	if err := rootRun("cp", cpArgs...); err != nil {
 		return err
 	}
@@ -209,6 +259,7 @@ func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
 	}
 	var built []byte
 	var err error
+	memoryMiB := uint64(2048)
 	if runtime.GOOS == "linux" {
 		if _, err = rootOutput(paths["lamp-supervisor"], append([]string{"seed-import", rootSeed}, args...)...); err != nil {
 			return err
@@ -229,7 +280,11 @@ func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
 		}
 		built, err = rootOutput(paths["lamp-supervisor"], append([]string{"template-build", file}, args...)...)
 	} else {
-		built, err = rootOutput(paths["lamp-supervisor"], append([]string{"template-prepare", rootSeed, "default", "--memory-mib", "2048", "--vcpus", "2", "--disk-gib", "20"}, args...)...)
+		memoryMiB, err = defaultMacMemory(paths["lamp-vz"])
+		if err != nil {
+			return err
+		}
+		built, err = rootOutput(paths["lamp-supervisor"], append([]string{"template-prepare", rootSeed, "default", "--memory-mib", strconv.FormatUint(memoryMiB, 10), "--vcpus", "2", "--disk-gib", "20"}, args...)...)
 	}
 	if err != nil {
 		return fmt.Errorf("default template preparation failed: %w", err)
@@ -295,7 +350,7 @@ func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
 	if arch == "amd64" {
 		arch = "x86_64"
 	}
-	t := map[string]any{"id": result.ID, "kind": "template", "fleet_id": "fl_local", "owner_id": owner, "revision": 1, "created_at": now, "updated_at": now, "state": "ready", "visibility": "private", "labels": map[string]string{"lamp.default": "true"}, "name": "default", "guest_os": "linux", "arch": arch, "default_resources": api.Resources{Vcpus: 2, MemoryMib: 2048, DiskGib: 20, PidsMax: 4096}}
+	t := map[string]any{"id": result.ID, "kind": "template", "fleet_id": "fl_local", "owner_id": owner, "revision": 1, "created_at": now, "updated_at": now, "state": "ready", "visibility": "private", "labels": map[string]string{"lamp.default": "true"}, "name": "default", "guest_os": "linux", "arch": arch, "default_resources": api.Resources{Vcpus: 2, MemoryMib: memoryMiB, DiskGib: 20, PidsMax: 4096}}
 	raw, _ := json.Marshal(t)
 	return writePrivate(filepath.Join(p, "config", "default-template.json"), raw)
 }

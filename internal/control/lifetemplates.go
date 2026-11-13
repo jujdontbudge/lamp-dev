@@ -230,6 +230,9 @@ func (s *Service) planTemplateDelete(a caller, in map[string]any) (lifePlan, err
 		return lifePlan{}, err
 	}
 	id := textField(m, "id")
+	if s.installedTemplate != nil && id == s.installedTemplate.Id {
+		return lifePlan{}, reject("RESOURCE_IN_USE", "installed default template is managed by the installer")
+	}
 	for _, sb := range s.journal.Sandboxes {
 		if value(sb.TemplateId) == id && sb.State != "deleted" && sb.State != "failed" {
 			return lifePlan{}, reject("RESOURCE_IN_USE", "sandbox "+sb.Id+" uses this template")
@@ -458,6 +461,9 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 	lifecycle, hasLifecycle := body["lifecycle"]
 	a := requestCaller(r)
 	s.readLock()
+	if recipeID == "" && body["template_id"] == nil && s.installedTemplate != nil {
+		template = s.installedTemplate.Id
+	}
 	_, saved := s.life.Templates[template]
 	if recipeID == "" && !saved && !hasLifecycle {
 		s.mu.Unlock()

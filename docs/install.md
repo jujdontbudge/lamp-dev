@@ -13,7 +13,13 @@ curl -fsSL https://lamp.eilmer.si/install.sh | sh
 
 `run` creates a VM, waits for readiness, runs the command with separate stdout
 and stderr and its real exit code, then deletes the sandbox. It uses the
-installed default template: 2 vCPUs, 2048 MiB RAM, 20 GiB disk, 4096 PIDs.
+installed default template: 2 vCPUs, up to 2048 MiB RAM, 20 GiB disk, 4096 PIDs.
+On Macs the installer selects 2048, 1024, 512 or 256 MiB from current available
+memory, leaving a quarter of those pages for host activity after accounting
+for the 256 MiB VMM allowance. It retains the engine's physical host reserve
+and capacity checks. `lamp template list` shows the selected default resources.
+If even the smallest guest cannot fit, installation refuses with observed
+memory, the required headroom and a next step before creating engine files.
 The default template is private. Persistent sandboxes suspend after 300 seconds
 idle and retain suspended state for 7 days. Previews are private by default;
 network/package setup is documented separately when available on the host.
@@ -44,9 +50,10 @@ is not available in this installer.
 macOS requires Apple Silicon, macOS 26+, APFS clone support, and noninteractive
 administrator access for isolated worker accounts and root-owned engine files.
 It uses the release's signed/notarized engine without building from source or
-accessing the Keychain. The 8 GB Air uses the same 2 GiB Linux template and no
-RAM-backed capture disk. Mac restore and networking still need release
-validation on both machines; do not treat the Linux demonstration as Mac proof.
+accessing the Keychain. The 8 GB Air uses a smaller default when its everyday
+apps leave less memory available, and no RAM-backed capture disk. The reserve
+limits total physical VM allocations; it is not added to the available-page
+requirement. Mac networking still needs separate release validation.
 
 The default store on Linux is an **80 GiB sparse XFS image**, with reflinks.
 It occupies physical space as data is written. Allow at least 20 GiB of logical

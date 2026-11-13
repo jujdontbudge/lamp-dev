@@ -51,6 +51,11 @@ fn main() {
         }
     };
     match cmd.as_str() {
+        "memory" => println!(
+            "{}",
+            serde_json::to_string(&lamp_vz::admission::Memory::detect().unwrap_or_else(|e| die(e)))
+                .unwrap()
+        ),
         "worker" => {
             let paused = has(&mut args, "--paused");
             let no_confine = has(&mut args, "--no-confine");
