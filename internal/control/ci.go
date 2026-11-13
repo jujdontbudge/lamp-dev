@@ -208,6 +208,17 @@ func (s *Service) ciUpdate(id string, fn func(*ciJob)) error {
 	j := s.life.Jobs[id]
 	fn(j)
 	editResource(j.R)
+	// Save the latest schedule occurrence with its terminal job, including
+	// recovery after controller loss. Older overlapping jobs cannot overwrite it.
+	if j.Plugin == "pg_schedule" {
+		if sc := s.life.Schedules[j.Trigger]; sc != nil && sc.Active == id {
+			status := map[string]string{"completed": "success", "failed": "failure", "canceled": "cancelled", "cleanup_failed": "failure"}[textField(j.R, "state")]
+			if status != "" {
+				sc.R["last_run_status"] = status
+				editResource(sc.R)
+			}
+		}
+	}
 	if err := s.saveLife(); err != nil {
 		s.broken = true
 		return errors.New("CI journal unavailable")

@@ -66,6 +66,15 @@ type updatePolicy struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "--help" || os.Args[1] == "-h" || os.Args[1] == "help") {
+		fmt.Fprintln(os.Stdout, `Usage: lamp-installer <command> [flags]
+Install and manage signed Lamp releases.
+Commands: install, update, auto, policy, rollback, status, uninstall, rollout,
+          recover, keygen, recovery-keygen, build, verify, index, publish, agent, restart.
+Use lamp-installer <command> --help for options.
+Example: lamp-installer status --help`)
+		return
+	}
 	if len(os.Args) < 2 {
 		usage()
 	}
@@ -78,7 +87,7 @@ func main() {
 	if !ok {
 		usage()
 	}
-	if err := fn(os.Args[2:]); err != nil {
+	if err := fn(os.Args[2:]); err != nil && !errors.Is(err, flag.ErrHelp) {
 		fmt.Fprintln(os.Stderr, "lamp-installer:", err)
 		var ex exitErr
 		if errors.As(err, &ex) {

@@ -19,8 +19,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"lamp.eilmer.si/internal/surface"
 )
 
 // Triggers and schedules start agent work: a fresh sandbox from the owner's
@@ -62,10 +60,6 @@ func init() {
 	lifeHandlers["schedule_run"] = (*Service).planScheduleRun
 	lifeHandlers["schedule_pause"] = (*Service).planSchedulePause
 	lifeHandlers["schedule_resume"] = (*Service).planScheduleResume
-	for _, n := range []string{"trigger_create", "trigger_get", "trigger_list", "trigger_update", "trigger_delete", "trigger_deliver",
-		"schedule_create", "schedule_get", "schedule_list", "schedule_update", "schedule_delete", "schedule_run", "schedule_pause", "schedule_resume"} {
-		surface.CoreNames[n] = true
-	}
 }
 
 func (s *Service) ownerOnly(a caller) error {
@@ -601,6 +595,9 @@ func (s *Service) scheduleOccurrence(a caller, sc *lifeSchedule, at time.Time) (
 		return plan, err
 	}
 	sc.Last, sc.Active = key, plan.ref.Id
+	sc.R["last_run_at"], sc.R["last_run_status"] = key, "running"
+	editResource(sc.R)
+
 	return plan, nil
 }
 

@@ -315,12 +315,16 @@ func (s *Service) eventsHTTP(w http.ResponseWriter, r *http.Request, id string, 
 				return
 			}
 			controller.SetWriteDeadline(time.Time{})
+			limit -= uint64(len(items))
+			if limit == 0 || !time.Now().Before(until) {
+				return
+			}
 			if len(items) > 0 {
 				continue
 			}
 		}
 		delay := time.Until(until)
-		if streaming || delay > time.Second {
+		if delay > time.Second {
 			delay = time.Second
 		}
 		if delay <= 0 {

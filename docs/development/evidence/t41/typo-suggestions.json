@@ -1,0 +1,14 @@
+[
+  {
+    "command": "lamp sandbx list",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "lamp: unknown command \"sandbx list\"; did you mean \"sandbox list\"?\n"
+  },
+  {
+    "command": "lamp sandbox create --templat-id unused",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "lamp: flag provided but not defined: -templat-id; did you mean \"-template-id\"?\n"
+  }
+]

@@ -6595,6 +6595,8 @@ pub enum ErrorCode {
     TOKENHOMEUNAVAILABLE,
     #[serde(rename = "AUDIT_UNAVAILABLE")]
     AUDITUNAVAILABLE,
+    #[serde(rename = "FAILED_PRECONDITION")]
+    FAILEDPRECONDITION,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -7370,6 +7372,12 @@ pub struct ExecListInput {
     pub limit: Option<u64>,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(
+        rename = "sandbox_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sandbox_id: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -10167,12 +10175,8 @@ pub struct KeyCreateInput {
     pub parent_key_id: Option<String>,
     #[serde(rename = "scope", default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<Scope>,
-    #[serde(
-        rename = "expires_at",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub expires_at: Option<String>,
+    #[serde(rename = "expires_at")]
+    pub expires_at: String,
     #[serde(rename = "labels", default, skip_serializing_if = "Option::is_none")]
     pub labels: Option<StringMap>,
     #[serde(
@@ -16900,6 +16904,18 @@ pub struct Schedule {
     pub next_run_at: Option<String>,
     #[serde(rename = "enabled", default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    #[serde(
+        rename = "last_run_at",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_run_at: Option<String>,
+    #[serde(
+        rename = "last_run_status",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_run_status: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -68,7 +68,7 @@ func (w *workerClient) disconnect() {
 		w.conn = nil
 	}
 	for id, pending := range w.pending {
-		pending.reply <- workerReply{err: &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker transport lost", unknown: true}}
+		pending.reply <- workerReply{err: &workerFailure{code: "OUTCOME_UNKNOWN", message: "connection to the execution service (worker) was lost; the outcome is unknown; inspect the operation before retrying with the same idempotency key", unknown: true}}
 		delete(w.pending, id)
 	}
 }
@@ -176,11 +176,11 @@ func (w *workerClient) call(ctx context.Context, r *pb.Request) (*pb.Receipt, er
 	w.mu.Lock()
 	if err := ctx.Err(); err != nil {
 		w.mu.Unlock()
-		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error()}
+		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: "cannot reach the enrolled execution service (worker): " + err.Error() + "; check that the supervisor is running and its socket and enrollment match lampd"}
 	}
 	if err := w.connect(ctx); err != nil {
 		w.mu.Unlock()
-		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error()}
+		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: "cannot reach the enrolled execution service (worker): " + err.Error() + "; check that the supervisor is running and its socket and enrollment match lampd"}
 	}
 	f := &pb.Frame{Payload: &pb.Frame_Request{Request: r}}
 	if proto.Size(f) > int(w.maximum) {

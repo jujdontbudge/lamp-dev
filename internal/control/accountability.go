@@ -411,7 +411,7 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 			}
 		}
 		if uint64(held+1) > q.AuditBytes/s.auditReservationBytes {
-			return reject("CONTROL_QUOTA_EXCEEDED", fmt.Sprintf("guard spool limit=%d bytes, used=%d bytes, request=%d bytes; held sandboxes=%v; delete sandboxes or fix --audit-release and restart lampd to retry cleanup", q.AuditBytes, uint64(held)*s.auditReservationBytes, s.auditReservationBytes, heldIDs))
+			return reject("CONTROL_QUOTA_EXCEEDED", fmt.Sprintf("audit storage (guard spool) limit=%d bytes, used=%d bytes, request=%d bytes; held sandboxes=%v; delete sandboxes or fix --audit-release and restart lampd to retry cleanup", q.AuditBytes, uint64(held)*s.auditReservationBytes, s.auditReservationBytes, heldIDs))
 		}
 		if n >= q.Sandboxes || sb.Resources == nil || sb.Resources.MemoryMib > q.MemoryMiB || mem > q.MemoryMiB-sb.Resources.MemoryMib || sb.Resources.DiskGib > q.DiskGiB || disk > q.DiskGiB-sb.Resources.DiskGib {
 			return reject("CONTROL_QUOTA_EXCEEDED", fmt.Sprintf("sandbox quota: count=%d/%d, memory=%d/%d MiB, disk=%d/%d GiB; request=%d MiB/%d GiB; delete sandboxes or raise --quota-file limits", n, q.Sandboxes, mem, q.MemoryMiB, disk, q.DiskGiB, sb.Resources.MemoryMib, sb.Resources.DiskGib))

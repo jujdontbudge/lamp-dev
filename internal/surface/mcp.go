@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 
 	"lamp.eilmer.si/pkg/api"
@@ -56,10 +55,7 @@ func ServeMCP(ctx context.Context, input io.Reader, output io.Writer, client *Cl
 				response["result"] = map[string]any{}
 			case "tools/list":
 				list := []any{}
-				for _, op := range api.Operations {
-					if !CoreNames[op.Name] && !(strings.HasPrefix(client.URL, "lamp+fleet:") && (op.Name == "host_get" || op.Name == "host_list")) {
-						continue
-					}
+				for _, op := range client.Operations(ctx) {
 					list = append(list, map[string]any{"name": op.Name, "description": op.CLI + "; required scope " + op.Scope, "inputSchema": InputSchema(op.InputSchema)})
 				}
 				response["result"] = map[string]any{"tools": list}
@@ -86,7 +82,7 @@ func ServeMCP(ctx context.Context, input io.Reader, output io.Writer, client *Cl
 				}
 				data, status, err := client.Call(ctx, op, args)
 				if err != nil {
-					response["result"] = map[string]any{"isError": true, "content": []any{map[string]any{"type": "text", "text": fmt.Sprintf(`{"error":{"code":"DATA_UNAVAILABLE","message":%q}}`, err.Error())}}}
+					response["result"] = toolError("DATA_UNAVAILABLE", fmt.Sprintf("cannot reach Lamp API: %s; check LAMP_SOCKET or LAMP_API_URL", err))
 					break
 				}
 				if !json.Valid(data) {
@@ -94,7 +90,7 @@ func ServeMCP(ctx context.Context, input io.Reader, output io.Writer, client *Cl
 					break
 				}
 				structured, _ := Decode(data)
-				response["result"] = map[string]any{"isError": status >= 400 || MutationFailed(data), "structuredContent": structured, "content": []any{map[string]any{"type": "text", "text": string(data)}}}
+				response["result"] = map[string]any{"isError": status >= 400 || MutationFailed(data) || failedOperation(structured), "structuredContent": structured, "content": []any{map[string]any{"type": "text", "text": string(data)}}}
 			default:
 				rpcError(-32601, "method not found")
 			}
@@ -107,4 +103,16 @@ func ServeMCP(ctx context.Context, input io.Reader, output io.Writer, client *Cl
 func toolError(code, message string) map[string]any {
 	raw, _ := json.Marshal(api.ErrorEnvelope{RequestId: "mcp", Error: api.ErrorDetail{Code: api.ErrorCode(code), Message: message}})
 	return map[string]any{"isError": true, "structuredContent": json.RawMessage(raw), "content": []any{map[string]any{"type": "text", "text": string(raw)}}}
+}
+
+func failedOperation(m map[string]any) bool {
+	for _, key := range []string{"operation", "data"} {
+		if op, ok := m[key].(map[string]any); ok && op["kind"] == "operation" {
+			switch op["state"] {
+			case "failed", "canceled", "outcome_unknown":
+				return true
+			}
+		}
+	}
+	return false
 }

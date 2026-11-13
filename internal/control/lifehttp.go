@@ -152,6 +152,7 @@ func (s *Service) lifeStartWith(a caller, name string, in map[string]any, handle
 	hash := bearerHash(name + "\n" + string(raw))
 	key := a.Principal + "\n" + name + "\n" + textField(in, "idempotency_key")
 	s.readLock()
+	retryHash := s.retryHash(name, in)
 	if s.broken {
 		s.mu.Unlock()
 		return "", false, reject("DATA_UNAVAILABLE", "journal unavailable")
@@ -166,7 +167,7 @@ func (s *Service) lifeStartWith(a caller, name string, in map[string]any, handle
 		if !s.lifeOperationAllowed(a, rec) {
 			return "", false, reject("NOT_FOUND", "operation not found")
 		}
-		if rec.Hash != hash {
+		if rec.Hash != hash && (rec.RetryHashV1 == "" || rec.RetryHashV1 != retryHash) {
 			return old, false, reject("IDEMPOTENCY_CONFLICT", "key already used with different inputs")
 		}
 		return old, true, nil
@@ -198,7 +199,7 @@ func (s *Service) lifeStartWith(a caller, name string, in map[string]any, handle
 		operation.Outcome = &api.Outcome{Result: &adapter}
 		close(done)
 	}
-	rec := &record{Operation: operation, Hash: hash, Key: key, Resource: plan.ref, Caller: a}
+	rec := &record{Operation: operation, Hash: hash, RetryHashV1: retryHash, Key: key, Resource: plan.ref, Caller: a}
 	s.journal.Operations[opID] = rec
 	s.keys[key] = opID
 	s.done[opID] = done
@@ -417,18 +418,16 @@ func (s *Service) lifeRespond(w http.ResponseWriter, r *http.Request, requestID,
 		return
 	}
 	op := rec.Operation
-	if op.Error != nil {
-		send = prepareError(w, requestID, *op.Error)
-		return
-	}
 	refs := []api.ResourceRef{rec.Resource}
 	if op.ResourceIds != nil {
 		refs = *op.ResourceIds
 	}
 	result := api.MutationEnvelope{OperationId: id, ResourceIds: refs, RequestId: requestID, Replayed: replayed, Operation: &op}
 	status := 202
-	if op.State == "succeeded" {
+	if terminal(op.State) {
 		status = 200
+	}
+	if op.State == "succeeded" && op.Outcome != nil {
 		result.Result = op.Outcome.Result
 	}
 	send = prepareJSON(w, status, result)

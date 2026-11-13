@@ -74,6 +74,24 @@ fn take_bool(args: &mut Vec<String>, name: &str) -> bool {
 
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
+    if args
+        .iter()
+        .take_while(|arg| arg.as_str() != "--")
+        .any(|arg| arg == "--help" || arg == "-h")
+        || args.first().is_some_and(|arg| arg == "help")
+    {
+        for line in include_str!("main.rs")
+            .lines()
+            .take_while(|line| line.starts_with("//!"))
+        {
+            let text = line.trim_start_matches("//!").trim_start();
+            if !text.starts_with("```") {
+                println!("{text}");
+            }
+        }
+        return;
+    }
+
     if args.is_empty() {
         die("usage: lamp-supervisor serve|seed-import|template-build|ctl ...");
     }
@@ -138,7 +156,7 @@ fn block_term_signals() {}
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn grant_command(cmd: &str, store: &std::path::Path, mut args: Vec<String>) {
-    use lamp_supervisor::grants::{COMMANDS, ControlGrant, FORMAT, GrantStore, revoke};
+    use lamp_supervisor::grants::{revoke, ControlGrant, GrantStore, COMMANDS, FORMAT};
     let dir = store.join("grants");
     if cmd == "grant-revoke" {
         let id = args.first().unwrap_or_else(|| die("grant-revoke GRANT_ID"));
@@ -1800,7 +1818,11 @@ fn wait_unlocked() -> f64 {
             std::thread::sleep(std::time::Duration::from_secs(2));
         }
         let waited = t.elapsed().as_secs_f64();
-        if waited > 0.01 { waited } else { 0.0 }
+        if waited > 0.01 {
+            waited
+        } else {
+            0.0
+        }
     }
     #[cfg(not(target_os = "macos"))]
     0.0

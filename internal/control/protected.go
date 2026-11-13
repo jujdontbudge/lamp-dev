@@ -28,7 +28,7 @@ func (s *Service) invokeProtected(w http.ResponseWriter, r *http.Request, reques
 	}
 	if id, ok := s.keys[key]; ok {
 		rec := s.journal.Operations[id]
-		if rec.Hash != hash {
+		if rec.Hash != hash && (rec.RetryHashV1 == "" || rec.RetryHashV1 != s.retryHash("connection_invoke", canonical)) {
 			s.mu.Unlock()
 			writeError(w, requestID, "IDEMPOTENCY_CONFLICT", "key already used with different inputs", pointer(id))
 			return
@@ -77,7 +77,7 @@ func (s *Service) invokeProtected(w http.ResponseWriter, r *http.Request, reques
 	ref := *bound.Plan.ResourceRef
 	refs := []api.ResourceRef{ref}
 	operation := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer("connection_invoke"), ResourceIds: &refs, RequestHash: &hash, AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded)}
-	rec := &record{Operation: operation, Key: key, Hash: hash, Resource: ref, Caller: a}
+	rec := &record{Operation: operation, Key: key, Hash: hash, RetryHashV1: s.retryHash("connection_invoke", canonical), Resource: ref, Caller: a}
 	s.journal.Operations[id] = rec
 	s.keys[key] = id
 	s.done[id] = make(chan struct{})

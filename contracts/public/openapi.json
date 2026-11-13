@@ -15796,6 +15796,15 @@
               "format": "uint64",
               "readOnly": true
             }
+          },
+          {
+            "name": "sandbox_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Only execs belonging to this sandbox."
+            }
           }
         ],
         "responses": {
@@ -23453,7 +23462,9 @@
                     "readOnly": true
                   }
                 },
-                "required": []
+                "required": [
+                  "expires_at"
+                ]
               }
             }
           }
@@ -60680,6 +60691,17 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "last_run_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "UTC occurrence time of the latest started run."
+          },
+          "last_run_status": {
+            "type": "string",
+            "readOnly": true,
+            "description": "Latest run: running, success, failure or cancelled."
           }
         },
         "required": [
@@ -62064,7 +62086,8 @@
           "QUORUM_REQUIRED",
           "IDEMPOTENCY_HOME_UNAVAILABLE",
           "TOKEN_HOME_UNAVAILABLE",
-          "AUDIT_UNAVAILABLE"
+          "AUDIT_UNAVAILABLE",
+          "FAILED_PRECONDITION"
         ]
       },
       "ErrorDetail": {
@@ -64125,7 +64148,8 @@
           }
         },
         "required": [
-          "idempotency_key"
+          "idempotency_key",
+          "expires_at"
         ]
       },
       "KeyCreateResult": {
@@ -67496,6 +67520,10 @@
             "maximum": 25000,
             "format": "uint64",
             "readOnly": true
+          },
+          "sandbox_id": {
+            "type": "string",
+            "description": "Only execs belonging to this sandbox."
           }
         }
       },

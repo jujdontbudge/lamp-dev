@@ -461,11 +461,11 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !authenticated {
-		writeError(w, id, "UNAUTHENTICATED", "valid caller credential required", nil)
+		writeError(w, id, "UNAUTHENTICATED", "valid caller credential required; set LAMP_TOKEN_FILE to the installed config/owner.token or supply LAMP_TOKEN", nil)
 		return
 	}
 	if !allowed {
-		writeError(w, id, "SCOPE_DENIED", "action not permitted", nil)
+		writeError(w, id, "SCOPE_DENIED", "action "+op.Scope+" is not permitted; use a key with this action and the required resource scope", nil)
 		return
 	}
 	if s.native != nil && op.Mutation && (strings.HasPrefix(op.Name, "login_") || op.Name == "connection_invoke") {
