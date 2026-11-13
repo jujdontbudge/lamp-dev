@@ -83,3 +83,55 @@ and replaced. The completed replacement returned APPROVE with no findings.
 Usage was not exposed. The reviewed diff was 31 files, 1,363 insertions and
 20 deletions; review added no behavior changes. Only this review record was
 added afterward.
+
+## Fresh-install integration after rebase
+
+Rebased onto the merged T32/T41/T43/T44/T45/T40 work. The dashboard CLI now
+uses T32's installed-executable and `LAMP_PREFIX` discovery and preserves
+T41's extracted global `--socket` / `--json` flags. Its help describes the
+local sign-in command. Upstream operations and schema definitions were
+preserved when regenerating bindings.
+
+A focused second Sol round approved `74e068c4035fa5026dbbe130672e50bf28a1cb9c`
+with zero findings. Its real compiled CLI demonstration covered discovery
+through `current/bin/lamp`, dashboard output, JSON, global flags and help.
+The fixture initially mismatched `/var` and `/private/var`; canonicalizing
+that fixture resolved it. No product changes, tests or VM runs were added
+by review. Later rebase conflicts retained both upstream storage types/docs
+and T42 additions; no T42 behavior changed. Total: two completed rounds,
+GPT-6.1 Sol on medium effort, no open/declined findings, usage unavailable.
+
+`make build`, scoped Go vet, JavaScript syntax, generated-code consistency
+and `git diff --check` passed after the final behavior integration.
+`tools/check_contracts.py` reports fleet field drift for
+`unavailable_host_ids` / `stranded_sandbox_ids`; the identical failure was
+reproduced using unchanged upstream files. It is not reported as passing.
+
+The first assembled engine candidate omitted the newly required
+`lamp-network` binary and was refused before installation. After adding it,
+the older reused T32 seed failed template probing because its guest helper
+rejected T41's `stdin_path` field. The installer removed that disposable
+engine. Those are preserved demonstration failures, not passing results.
+The disposable seed was then updated offline with the current cross-compiled
+Linux arm64 helper, its rootfs digest recomputed, and the candidate re-signed.
+The optimized engine avoids the initial debug build's slow seed hashing.
+
+`fresh-install.log` records the corrected signed candidate installed through
+`lamp-installer install --engine --service process` at a new custom prefix.
+Its default Linux template booted and ran the real probe (aarch64, Python,
+compiler and page size). The installed `current/bin/lamp dashboard --json`
+discovered its prefix with no socket or environment; explicit socket,
+leading global JSON, `LAMP_PREFIX` and help also worked. The public dashboard
+returned HTTP 200; cookie-authenticated sandbox listing worked, the CLI
+automatically discovered owner credentials, the sign-in file was mode 0600,
+sign-out returned 204 and the subsequent API request returned 401.
+
+The demonstration initially compared `/tmp` against its `/private/tmp` alias
+and used the old fixed installation name for deletion confirmation. Those
+fixture assumptions were corrected on the same installation; no candidate
+reinstall was needed. Cleanup then removed its daemon, engine, isolated
+workers and owner data. The offline seed workspace and signed candidate
+were removed from both the Mac and its existing Lima VM. No existing
+installation, Docker object or visible app was changed. The Mac retained
+more than 30 GiB free throughout this continuation. The seed refresh is
+disposable demonstration preparation, not publication of new public archives.
