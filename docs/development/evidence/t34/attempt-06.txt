@@ -1,0 +1,28 @@
+{"data": {"available_mib": 13918, "firecracker": 1}, "step": "capacity"}
+{"data": {"template_id": "tp_0d07bacfa64be676336ee78c28"}, "step": "using public template"}
+{"data": {"generation": 1, "max_generation": 18446744073709551615}, "step": "default grant lifecycle scope"}
+{"data": {"available_mib": 15061, "firecracker": 0}, "step": "capacity"}
+{"data": [1, 12], "step": "counter before suspend"}
+{"data": {"available_mib": 14637, "firecracker": 0}, "step": "capacity"}
+{"data": {"counter": [16, 27], "state": "ready"}, "step": "resume after daemon restart"}
+{"data": {"eligibility": {"eligible": false, "observation_state": "fresh", "observed_at": "2026-11-13T02:14:54.00171868Z", "reasons": ["session_activity", "task_process"]}, "state": "ready"}, "step": "busy eligibility"}
+{"data": [{"capture_trust": "clean", "created_at": "2026-11-13T02:14:54.731071411Z", "custody_host_ids": ["ubuntu-server"], "durability": "local", "fleet_id": "fl_local", "generation": 2, "id": "ss_1dfc2e87165c144b93ac9b8c6ae6adeb", "kind": "snapshot", "labels": {}, "owner_id": "pr_t34_demo", "preserves_memory": true, "revision": 2, "sandbox_id": "sb_9511c6636155f1c957a3a43be439b95c", "state": "ready", "updated_at": "2026-11-13T02:14:55.611905501Z", "visibility": "private"}], "step": "snapshot outlives source"}
+{"data": {"available_mib": 14517, "firecracker": 0}, "step": "capacity"}
+{"data": [61, 72], "step": "snapshot memory restored"}
+{"data": "ss_1dfc2e87165c144b93ac9b8c6ae6adeb", "step": "snapshot explicitly deleted"}
+{"data": {"backup": "bk_26fe6bb34d70431bc2e40310677e14f7", "volume": "vo_7b6be3a984085649d48cd60cb5bf4ba1"}, "step": "encrypted volume backup"}
+{"data": {"available_mib": 14368, "firecracker": 1}, "step": "capacity"}
+{"data": {"counter": "89", "state": "ready"}, "step": "source usable after writing fork"}
+{"data": {"available_mib": 14428, "firecracker": 0}, "step": "capacity"}
+{"data": [92, 104], "step": "automatic exec wake"}
+{"data": "0", "step": "live firecracker after cleanup"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 137, in <module>
+    api.change(restored,'suspend'); backup=api.op('backup_create',resource_kind='sandbox',resource_id=restored)['resource_ids'][0]['id']; log('encrypted sandbox backup',api.get('backup',backup))
+                                           ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 36, in op
+    out=self.raw(o['method'].upper(),path,fields if o['mutation'] else None,h)
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 25, in raw
+    if r.status>=400: raise RuntimeError(json.dumps(out))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: {"error": {"code": "DATA_UNAVAILABLE", "message": "engine state administration failed", "retryable": false, "operation_id": "op_195fac894537f8bc681274242b1c4cce"}, "request_id": "req_7453d8a8c8aa64810e3443e80bed0187"}

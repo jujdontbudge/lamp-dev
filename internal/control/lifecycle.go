@@ -806,6 +806,11 @@ func (s *Service) lifeTickOnce() {
 			if s.busy[id] || l.reconciling {
 				continue
 			}
+			if s.resumedGeneration(id, value(sb.Generation)) {
+				l.reconciling = true
+				recoveries = append(recoveries, struct{ id, operation string }{id, ""})
+				continue
+			}
 			for _, op := range s.journal.Operations {
 				name := value(op.Operation.OperationName)
 				if op.Resource.Id == id && op.Operation.State == "succeeded" && (name == "sandbox_create" || name == "sandbox_fork") {

@@ -84,7 +84,9 @@ try:
     grant=json.loads(sh('sudo','-n',SUP,'grant-install','--store',STORE,'--caller-uid',str(os.getuid()),'--ttl-s','7200'))
     log('default grant lifecycle scope',dict(generation=grant['generation'],max_generation=grant.get('max_generation')))
     sh(SRC/'bin/lamp-installer','recovery-keygen','--out',ROOT/'offline.key','--public',ROOT/'recovery.pub')
-    wargs=['--worker-socket',str(ws),'--worker-id','lamp-supervisor@'+os.uname().nodename,'--worker-boot-id',Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'--worker-uid','0','--worker-pid',pidfile.read_text().strip(),'--grant-id',grant['grant_id'],'--worker-timeout','60s','--state-admin',json.dumps(['sudo','-n',SUP,'state','--admin-socket',str(admin)])]
+    admin_wrapper=ROOT/'state-admin.py'
+    admin_wrapper.write_text('import pathlib,subprocess,sys\nr=subprocess.run(sys.argv[1:],capture_output=True)\nif r.returncode:\n with pathlib.Path(__file__).with_suffix(".failure").open("ab") as f: f.write(repr(sys.argv[1:]).encode()+b"\\n"+r.stdout+r.stderr)\nsys.stdout.buffer.write(r.stdout)\nsys.exit(r.returncode)\n')
+    wargs=['--worker-socket',str(ws),'--worker-id','lamp-supervisor@'+os.uname().nodename,'--worker-boot-id',Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'--worker-uid','0','--worker-pid',pidfile.read_text().strip(),'--grant-id',grant['grant_id'],'--worker-timeout','60s','--state-admin',json.dumps([sys.executable,str(admin_wrapper),'sudo','-n',SUP,'state','--admin-socket',str(admin)])]
     def start(prefix,recovery=False):
         global daemon,api
         sock=ROOT/(prefix+'.sock')
@@ -105,7 +107,7 @@ try:
     sb=api.create(template_id=tpl,resources=limits,lifecycle=dict(idle_grace_seconds=10,suspended_retention_seconds=600))
     program='import time,os\ni=0\nopen("/tmp/counter.pid","w").write(str(os.getpid()))\nwhile True:\n i+=1; f=open("/tmp/counter-next","w"); f.write(str(i)); f.close(); os.replace("/tmp/counter-next","/tmp/counter"); time.sleep(.1)'
     counter='setsid python3 -u -c '+shlex.quote(program)+' >/dev/null 2>&1 </dev/null &'
-    api.run(sb,counter); before=api.advancing(sb); log('counter before suspend',before)
+    api.run(sb,counter+'\nuntil test -s /tmp/counter; do sleep 0.1; done'); before=api.advancing(sb); log('counter before suspend',before)
     api.change(sb,'suspend'); assert api.get('sandbox',sb)['state']=='suspended'
     stop(); start('state'); capacity(); api.change(sb,'resume'); log('resume after daemon restart',dict(state=api.get('sandbox',sb)['state'],counter=api.advancing(sb)))
     # Background process must prevent idle suspension, despite no mediated execs.
@@ -127,10 +129,12 @@ try:
     api.op('attachment_delete',attachment_id=at,expected_revision=api.get('attachment',at)['revision'])
     volume_backup=api.op('backup_create',resource_kind='volume',resource_id=vol)['resource_ids'][0]['id']
     log('encrypted volume backup',dict(volume=vol,backup=volume_backup))
-    # Fork during writes; delete child promptly before starting anything else.
-    api.run(restored,"setsid sh -c 'dd if=/dev/zero of=/var/tmp/t34-write bs=1M count=400; sync' >/dev/null 2>&1 </dev/null &")
-    capacity(); child=api.change(restored,'fork',fork_mode='memory')['resource_ids'][0]['id']; owned.append((api,child)); api.change(child,'delete')
-    log('source usable after writing fork',dict(state=api.get('sandbox',restored)['state'],counter=api.run(restored,'cat /tmp/counter')))
+    if not os.environ.get('T34_SKIP_FORK'):
+        # Fork during writes; delete child promptly before starting anything else.
+        api.run(restored,"setsid sh -c 'dd if=/dev/zero of=/var/tmp/t34-write bs=1M count=400; sync' >/dev/null 2>&1 </dev/null &")
+        capacity(); child=api.change(restored,'fork',fork_mode='memory')['resource_ids'][0]['id']; owned.append((api,child)); api.change(child,'delete')
+        log('source usable after writing fork',dict(state=api.get('sandbox',restored)['state'],counter=api.run(restored,'cat /tmp/counter')))
+    else: log('fork omitted','shared slot occupied; see previous real fork transcript')
     api.change(restored,'suspend'); capacity(); log('automatic exec wake',api.advancing(restored))
     api.change(restored,'suspend'); backup=api.op('backup_create',resource_kind='sandbox',resource_id=restored)['resource_ids'][0]['id']; log('encrypted sandbox backup',api.get('backup',backup))
     # Stop the counter, establish an idle countdown, then restart mid-countdown.

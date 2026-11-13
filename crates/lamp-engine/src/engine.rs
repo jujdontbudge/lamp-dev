@@ -3031,7 +3031,8 @@ impl Engine {
         std::fs::create_dir(dir).ctx("create export dir")?;
         let full = dir.join("full.mem");
         self.materialize(cid, &full, dir, 0)?;
-        memimg::encode(&full, &t.dir.join(fc::MEM), &dir.join("mem"), true, true)?;
+        let base = self.template_base(&t, e.manifest.memory.image_bytes)?;
+        memimg::encode(&full, &base, &dir.join("mem"), true, true)?;
         std::fs::remove_file(&full)?;
         std::fs::copy(
             self.state.object(&e.manifest.vmstate.object),

@@ -98,6 +98,9 @@ func (s *Service) planSnapshotDelete(a caller, in map[string]any) (lifePlan, err
 	if snap.Snapshot.Revision != uintField(in, "expected_revision") {
 		return lifePlan{}, reject("REVISION_CONFLICT", "snapshot revision is "+strconv.FormatUint(snap.Snapshot.Revision, 10))
 	}
+	if snap.Snapshot.State == "capturing" {
+		return lifePlan{}, reject("RESOURCE_IN_USE", "snapshot capture is in progress")
+	}
 	for _, sb := range s.journal.Sandboxes {
 		if value(sb.SnapshotId) == id && sb.State != "deleted" && sb.State != "ready" && sb.State != "failed" {
 			return lifePlan{}, reject("RESOURCE_IN_USE", "snapshot is in use")
