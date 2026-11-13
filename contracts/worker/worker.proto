@@ -2,9 +2,9 @@ syntax = "proto3";
 package lamp.worker.v1;
 option go_package = "lamp.eilmer.si/pkg/workerpb";
 
-// lamp.worker/1 control only. Bulk content never appears in these messages.
+// lamp.worker/2 control only. Bulk content never appears in these messages.
 message Hello {
-  string protocol = 1; // exactly lamp.worker/1
+  string protocol = 1; // exactly lamp.worker/2
   string worker_id = 2;
   string boot_id = 3;
   uint32 max_control_bytes = 4; // <= 1048576
@@ -55,7 +55,7 @@ message Compatibility {
 // Devices the caller requested at create. An engine refuses any it cannot
 // attach (DEVICE_UNAVAILABLE) before allocating anything.
 message DeviceRequest { string id = 1; string type = 2; uint64 size_mib = 3; }
-message Allocate { Resources resources = 1; string engine_id = 2; repeated HandleGrant handles = 3; repeated DeviceRequest devices = 4; }
+message Allocate { Resources resources = 1; string engine_id = 2; repeated HandleGrant handles = 3; repeated DeviceRequest devices = 4; bool validate_only = 5; string template_id = 6; bool shared_disk = 7; }
 message Start { repeated string argv = 1; string cwd = 2; map<string,string> env = 3; }
 message SessionCall { bytes request_json = 1; string bridge_source = 2; }
 message Stop { bool force = 1; }

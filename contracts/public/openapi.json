@@ -36800,6 +36800,15 @@
               "format": "uint64",
               "readOnly": true
             }
+          },
+          {
+            "name": "include_deleted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include deleted records retained for 24 hours after confirmed audit release."
+            }
           }
         ],
         "responses": {
@@ -66407,6 +66416,10 @@
             "maximum": 25000,
             "format": "uint64",
             "readOnly": true
+          },
+          "include_deleted": {
+            "type": "boolean",
+            "description": "Include deleted records retained for 24 hours after confirmed audit release."
           }
         }
       },

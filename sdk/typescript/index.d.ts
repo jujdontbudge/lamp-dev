@@ -5163,6 +5163,7 @@ export interface SandboxListInput {
   "cursor"?: string;
   readonly "limit"?: number;
   readonly "wait_ms"?: number;
+  "include_deleted"?: boolean;
 }
 export interface SandboxListResult {
   "items": Array<Sandbox>;

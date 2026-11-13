@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,17 +39,20 @@ func (s *Service) loadReleasedGuardAudit() error {
 // releaseGuardAudit captures then removes a deleted sandbox's guard spools.
 // Without a configured release command spools are kept and the slot stays held.
 func (s *Service) releaseGuardAudit(ctx context.Context, sandbox string) error {
+	s.auditMu.Lock()
+	defer s.auditMu.Unlock()
 	if len(s.auditRelease) == 0 {
-		return nil
+		return errors.New("audit release is unconfigured; configure --audit-release and restart lampd")
 	}
 	s.readLock()
 	done := s.auditReleased[sandbox]
 	sb, ok := s.journal.Sandboxes[sandbox]
+	releasable := ok && s.guardReleasable(sb)
 	s.mu.Unlock()
 	if done {
 		return nil
 	}
-	if !ok || sb.State != "deleted" {
+	if !releasable {
 		return errors.New("guard audit is released only after sandbox deletion")
 	}
 	run := func(action string) ([]byte, error) {
@@ -66,7 +70,7 @@ func (s *Service) releaseGuardAudit(ctx context.Context, sandbox string) error {
 	}
 	records, err := run("capture")
 	if err != nil {
-		return errors.New("guard audit capture failed")
+		return guardReleaseError(s.auditRelease[0], sandbox, "capture", err)
 	}
 	dir := filepath.Join(s.dir, guardAuditDir)
 	if err = os.MkdirAll(dir, 0o700); err != nil {
@@ -76,7 +80,7 @@ func (s *Service) releaseGuardAudit(ctx context.Context, sandbox string) error {
 		return err
 	}
 	if _, err = run("remove"); err != nil {
-		return errors.New("guard audit spool removal failed")
+		return guardReleaseError(s.auditRelease[0], sandbox, "remove", err)
 	}
 	if err = writeDurable(filepath.Join(dir, sandbox+".released"), nil); err != nil {
 		return err
@@ -110,7 +114,7 @@ func (s *Service) sweepGuardAudit() {
 		var held []string
 		s.readLock()
 		for id, sb := range s.journal.Sandboxes {
-			if sb.State == "deleted" && !s.auditReleased[id] {
+			if s.guardReleasable(sb) && !s.auditReleased[id] {
 				held = append(held, id)
 			}
 		}
@@ -119,7 +123,9 @@ func (s *Service) sweepGuardAudit() {
 			if s.context().Err() != nil {
 				return
 			}
-			s.releaseGuardAudit(s.context(), id)
+			if err := s.releaseGuardAudit(s.context(), id); err != nil {
+				log.Print(err)
+			}
 		}
 		select {
 		case <-s.context().Done():

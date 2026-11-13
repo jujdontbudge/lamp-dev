@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -80,7 +81,7 @@ func run() error {
 	workerID := flags.String("worker-id", "", "assigned supervisor identity")
 	bootID := flags.String("worker-boot-id", "", "enrolled supervisor boot identity")
 	uid := flags.Int("worker-uid", -1, "assigned supervisor OS UID (required)")
-	pid := flags.Int("worker-pid", 0, "assigned supervisor OS PID (required)")
+	pid := flags.Int("worker-pid", 0, "legacy supervisor PID hint (reconnection authenticates UID, worker identity and host boot)")
 	grant := flags.String("grant-id", "", "supervisor-installed control grant ID")
 	timeout := flags.Duration("worker-timeout", 30*time.Second, "absolute operation deadline (max 1m)")
 	auditRelease := flags.String("audit-release", "", "JSON argv of the trusted guard-spool release command (given capture|remove and a sandbox ID)")
@@ -104,6 +105,13 @@ func run() error {
 	if *auditRelease != "" {
 		if err := json.Unmarshal([]byte(*auditRelease), &release); err != nil || len(release) == 0 {
 			return fmt.Errorf("--audit-release must be a JSON argv")
+		}
+	}
+	if len(release) == 0 && *workerSocket != "" {
+		if runtime.GOOS == "darwin" {
+			release = []string{"/usr/bin/true"}
+		} else {
+			return fmt.Errorf("--audit-release is required with --worker-socket: configure tools/guard-audit-release.py for this supervisor's audit directory so deleted sandboxes release capacity")
 		}
 	}
 	if *profileDir != "" {
@@ -252,7 +260,20 @@ func run() error {
 		defer fleet.Close()
 		handler = fleet
 	}
-	// Never unlink an existing socket: a second daemon must not steal a live path.
+	// Open holds the state lock. Only ECONNREFUSED proves an old socket stale;
+	// permissions, timeouts and non-socket paths must never cause an unlink.
+	if info, e := os.Lstat(*socket); e == nil && info.Mode()&os.ModeSocket != 0 {
+		c, dialErr := net.DialTimeout("unix", *socket, time.Second)
+		if dialErr == nil {
+			c.Close()
+			return fmt.Errorf("API socket is already served: %s", *socket)
+		}
+		if errors.Is(dialErr, syscall.ECONNREFUSED) {
+			if e := os.Remove(*socket); e != nil {
+				return e
+			}
+		}
+	}
 	listener, err := net.Listen("unix", *socket)
 	if err != nil {
 		return err

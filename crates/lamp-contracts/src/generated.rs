@@ -16322,6 +16322,12 @@ pub struct SandboxListInput {
     pub limit: Option<u64>,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(
+        rename = "include_deleted",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub include_deleted: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

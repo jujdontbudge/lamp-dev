@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const Protocol = "lamp.worker/1"
+const Protocol = "lamp.worker/2"
 const MaxControlBytes = 1 << 20
 
 // ReadFrame rejects an oversized length before allocating or consuming its body.

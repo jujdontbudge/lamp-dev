@@ -380,19 +380,21 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 		// Deleted sandboxes keep their slot until their spools are captured and
 		// removed; live and unreleased sandboxes each hold one reservation.
 		held := 0
+		var heldIDs []string
 		for id, x := range s.journal.Sandboxes {
-			if x.State != "deleted" || !s.auditReleased[id] {
+			if !s.guardReleasable(x) || !s.auditReleased[id] {
 				held++
+				heldIDs = append(heldIDs, id)
 			}
 		}
 		if uint64(held+1) > q.AuditBytes/s.auditReservationBytes {
-			return reject("CONTROL_QUOTA_EXCEEDED", "retained guard spool reservations exhausted")
+			return reject("CONTROL_QUOTA_EXCEEDED", fmt.Sprintf("guard spool limit=%d bytes, used=%d bytes, request=%d bytes; held sandboxes=%v; delete sandboxes or fix --audit-release and restart lampd to retry cleanup", q.AuditBytes, uint64(held)*s.auditReservationBytes, s.auditReservationBytes, heldIDs))
 		}
 		if retains && sb.Resources != nil {
 			disk += sb.Resources.DiskGib + (sb.Resources.MemoryMib+1023)/1024
 		}
 		if n >= q.Sandboxes || sb.Resources == nil || sb.Resources.MemoryMib > q.MemoryMiB || mem > q.MemoryMiB-sb.Resources.MemoryMib || sb.Resources.DiskGib > q.DiskGiB || disk > q.DiskGiB-sb.Resources.DiskGib {
-			return reject("CONTROL_QUOTA_EXCEEDED", "sandbox resource quota reached")
+			return reject("CONTROL_QUOTA_EXCEEDED", fmt.Sprintf("sandbox quota: count=%d/%d, memory=%d/%d MiB, disk=%d/%d GiB; request=%d MiB/%d GiB; delete sandboxes or raise --quota-file limits", n, q.Sandboxes, mem, q.MemoryMiB, disk, q.DiskGiB, sb.Resources.MemoryMib, sb.Resources.DiskGib))
 		}
 	}
 	if retains && name != "sandbox_fork" && sb.Resources != nil && (disk+sb.Resources.DiskGib+(sb.Resources.MemoryMib+1023)/1024 > q.DiskGiB) {

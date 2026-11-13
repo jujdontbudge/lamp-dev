@@ -322,6 +322,9 @@ func (w *workerFixture) serve(c net.Conn) {
 		switch r.Command.(type) {
 		case *pb.Request_Allocate:
 			state = "allocated"
+			if r.GetAllocate().ValidateOnly {
+				state = "validated"
+			}
 		case *pb.Request_Restore:
 			state = "restored"
 		case *pb.Request_Capture:
@@ -342,7 +345,9 @@ func (w *workerFixture) serve(c net.Conn) {
 		case *pb.Request_Release:
 			state = "released"
 		}
-		w.states[r.Context.SandboxId] = state
+		if r.GetAllocate() == nil || !r.GetAllocate().ValidateOnly {
+			w.states[r.Context.SandboxId] = state
+		}
 		w.mu.Unlock()
 		response := &pb.Response{Context: r.Context, Result: &pb.Response_Receipt{Receipt: &pb.Receipt{State: state}}}
 		if inspect := r.GetInspect(); inspect != nil && inspect.CommandOperationId != "" {

@@ -1145,6 +1145,16 @@ impl Engine {
     /// Reserves the sandbox record. Identity, files and the worker come with
     /// Restore, once the template or capture (and so the guest class) is known.
     pub fn allocate(&self, auth: Authority<'_>, requested: Option<Resources>) -> Result<Outcome> {
+        self.allocate_plan(auth, requested, false, "")
+    }
+
+    pub fn allocate_plan(
+        &self,
+        auth: Authority<'_>,
+        requested: Option<Resources>,
+        validate_only: bool,
+        template_id: &str,
+    ) -> Result<Outcome> {
         if !valid_id(auth.sandbox_id, "sb_") {
             return Err(EngineError::invalid(
                 "sandbox_id must match sb_[a-z0-9_]+ (≤60)",
@@ -1166,6 +1176,52 @@ impl Engine {
             .disk_gib
             .checked_mul(1 << 30)
             .ok_or_else(|| EngineError::invalid("disk_gib overflows byte accounting"))?;
+        if !template_id.is_empty() {
+            let t = self.template(template_id)?;
+            match &t.machine {
+                MachineCfg::Linux { resources: min, .. } => {
+                    let disk = min
+                        .disk_gib
+                        .checked_mul(1 << 30)
+                        .and_then(|n| n.checked_add(self.cfg.devices.extra_disk_bytes()))
+                        .ok_or_else(|| EngineError::invalid("disk size overflow"))?
+                        .div_ceil(1 << 30);
+                    if (self.cfg.devices == Default::default() && &resources != min)
+                        || resources.disk_gib < disk
+                    {
+                        return Err(mismatch(min, &resources));
+                    }
+                }
+                MachineCfg::Macos {
+                    minimum_resources: min,
+                    ..
+                } => {
+                    let disk = std::fs::metadata(t.dir.join(DISK))
+                        .ctx("template disk")?
+                        .len()
+                        .checked_add(self.cfg.devices.extra_disk_bytes())
+                        .ok_or_else(|| EngineError::invalid("disk size overflow"))?
+                        .div_ceil(1 << 30);
+                    if resources.vcpus < min.vcpus
+                        || resources.memory_mib < min.memory_mib
+                        || resources.disk_gib < disk
+                        || (self.cfg.devices.extra_disks.is_empty() && resources.disk_gib != disk)
+                    {
+                        return Err(EngineError::invalid(format!(
+                            "template needs at least {} vCPUs, {} MiB and resources.disk_gib={disk}",
+                            min.vcpus, min.memory_mib
+                        )));
+                    }
+                    let (used, cap) = self.macos_slots();
+                    if used >= cap {
+                        return Err(EngineError::new(
+                            "NO_CAPACITY",
+                            format!("macOS slots: {used}/{cap}; delete a sandbox"),
+                        ));
+                    }
+                }
+            }
+        }
         let mut all = self.sandboxes.lock().unwrap();
         if all.contains_key(auth.sandbox_id) {
             return Err(EngineError::in_use(format!(
@@ -1185,6 +1241,12 @@ impl Engine {
             }
         }
         Self::admit_memory(resources.memory_mib, reserved, pending)?;
+        if validate_only {
+            return Ok(Outcome {
+                state: "validated".into(),
+                ..Default::default()
+            });
+        }
         all.insert(
             auth.sandbox_id.to_string(),
             Arc::new(Mutex::new(Sandbox {
@@ -2524,7 +2586,7 @@ impl Engine {
         let arc = self.sandbox(auth.sandbox_id)?;
         {
             let mut sb = arc.lock().unwrap();
-            Self::check(&sb, auth)?;
+            // The supervisor authorizes release across generations.
             if let Some(mut w) = sb.worker.take() {
                 w.kill();
             }

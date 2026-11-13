@@ -2,7 +2,7 @@
 
 The only engine path in `lamp` is HTTP over `lampd`'s owner-only Unix socket.
 `lampd` journals admission before dispatch, then calls the enrolled Rust
-supervisor over the existing `lamp.worker/1` Protobuf framing. Go owns public
+supervisor over the existing `lamp.worker/2` Protobuf framing. Go owns public
 operation/resource state; it does not boot VMs, fork processes, open guest RAM,
 or accept caller-supplied host storage paths.
 
@@ -20,7 +20,7 @@ T4 owns its guard/audit attachment. T6 must join them and measure the engine gat
 
 Build `go build -o bin/lamp ./cmd/lamp` and
 `go build -o bin/lampd ./cmd/lampd` (create `bin/` first).
-The supervisor installer must supply its assigned OS UID/PID, worker identity,
+The supervisor installer must supply its assigned OS UID, worker identity,
 boot identity, socket, and installed control grant. A string passed as
 `--grant-id` is only a reference, not authority minted by `lampd`; the Rust
 receiver must validate its live supervisor-installed authority before effect.
@@ -29,19 +29,55 @@ Never disable the worker's grant/generation/handle checks to run the demo.
 ```sh
 bin/lampd --worker-socket "$WORKER_SOCKET" \
   --worker-id "$WORKER_ID" --worker-boot-id "$WORKER_BOOT_ID" \
-  --worker-uid "$WORKER_UID" --worker-pid "$WORKER_PID" \
-  --grant-id "$CONTROL_GRANT_ID"
+  --worker-uid "$WORKER_UID" \
+  --grant-id "$CONTROL_GRANT_ID" \
+  --audit-release "$AUDIT_RELEASE_ARGV"
 ```
 
 Default socket: `~/.local/state/lamp-demo/api.sock`; journal:
 `~/.local/state/lamp-demo/control/`. Override with `--socket` and `--state-dir`.
 Their final directories must be owner-owned mode 0700, with trusted parent
 paths; the socket is mode 0600. HTTP peers must match the daemon's OS UID.
-Worker UID **and PID** are checked before Hello, followed by exact assigned
-worker/boot identities, protocol version, and negotiated frame maximum.
-The service never removes an existing socket to steal a live listener. After an
-unclean stop, remove a stale socket only after confirming its process is gone.
-A state-directory lock prevents simultaneous writers.
+Worker UID is checked before Hello, followed by exact enrolled worker/host-boot
+identities, protocol version, and negotiated frame maximum. The legacy
+`--worker-pid` hint is accepted but no longer pins a supervisor process across
+restarts. A state-directory lock prevents simultaneous writers. Startup removes
+only a stale Unix socket that refuses connections, preserving live listeners.
+
+On Linux, `AUDIT_RELEASE_ARGV` is a JSON argv for the trusted
+`tools/guard-audit-release.py` with this supervisor's audit root. For example,
+`["sudo","-n","/usr/bin/python3","/absolute/path/guard-audit-release.py","/var/lib/lamp/audit"]`.
+The release command captures records durably before removing host spools. Linux
+worker installs refuse startup without it; the installer supplies it. On macOS,
+which has no host guard spools, lampd defaults to `/usr/bin/true`.
+Do not substitute a no-op for a Linux guard-spool release command.
+
+Deleting a sandbox releases its spools before a waiting delete returns. A failed
+release retains the reservation, logs the command and sandbox ID, and is retried
+on startup and every minute. Fix the command and restart lampd to retry immediately.
+`lamp quota --json` (`GET /v1/metrics`, MCP `metric_list`) shows effective control
+limits, charged usage, and pending audit-release IDs. Engine admission additionally
+checks current host resources and reports their numbers in `NO_CAPACITY` errors.
+
+`sandbox list` hides deleted records. Use `--include-deleted true` (HTTP
+`?include_deleted=true`, MCP `include_deleted:true`) to inspect them for 24 hours;
+after audit release and that retention period their sandbox records are purged.
+Audit captures and operation/idempotency history retain their own quotas.
+
+Upgrade lampd and the supervisor together: worker protocol 2 adds side-effect-free
+admission preflight and a shared-disk charge. Reflink forks reserve 1 GiB of initial
+CoW headroom instead of the full logical disk, and further writes remain subject
+to actual store space and the sandbox's logical disk limit. Existing resident
+disks are already reflected in filesystem free space.
+
+Systemd and launchd installs restart crashes automatically. Process installs are
+unsupervised; `lamp-installer status` reports that and gives the restart command.
+`lamp-installer restart --prefix PREFIX` works even if lampd is down. Volatile
+guests are destroyed by engine recovery after a supervisor crash; lampd reconnects,
+marks those guests failed, and releases their reservations. Durable suspended
+captures retain their existing recovery behavior. A lampd crash does not restart
+the engine: incomplete creates are reaped without replaying user commands, and
+retrying the original key returns the original operation envelope.
 
 ## Caller interface
 

@@ -1188,6 +1188,21 @@ impl Engine {
         pids_max: Option<u64>,
         devices: &[DeviceRequest],
     ) -> Result<Outcome> {
+        self.allocate_plan(auth, requested, pids_max, devices, false, "", false)
+    }
+
+    /// The same admission used by Allocate, without creating host resources.
+    #[allow(clippy::too_many_arguments)]
+    pub fn allocate_plan(
+        &self,
+        auth: Authority<'_>,
+        requested: Option<Resources>,
+        pids_max: Option<u64>,
+        devices: &[DeviceRequest],
+        validate_only: bool,
+        template_id: &str,
+        shared_disk: bool,
+    ) -> Result<Outcome> {
         if !valid_id(auth.sandbox_id, "sb_") {
             return Err(EngineError::invalid(
                 "sandbox_id must match sb_[a-z0-9_]+ (≤60)",
@@ -1205,7 +1220,14 @@ impl Engine {
                 "vcpus must be 1 or an even number ≤ 32",
             ));
         }
-        if resources.memory_mib < 128 || resources.disk_gib == 0 || resources.disk_gib > 65536 {
+        if resources.memory_mib < 128
+            || resources
+                .memory_mib
+                .checked_add(VMM_ALLOWANCE_MIB)
+                .is_none()
+            || resources.disk_gib == 0
+            || resources.disk_gib > 65536
+        {
             return Err(EngineError::invalid(
                 "memory_mib must be ≥128 and disk_gib 1..=65536",
             ));
@@ -1245,7 +1267,23 @@ impl Engine {
                 auth.sandbox_id
             )));
         }
-        self.admit(&all, &resources, extra_mib)?;
+        if !template_id.is_empty() {
+            let t = self.template(template_id)?;
+            self.template_disk(&t)?;
+            if resources.disk_gib < t.variant.resources.disk_gib {
+                return Err(EngineError::invalid(format!(
+                    "template {} needs resources.disk_gib of at least {} GiB",
+                    t.id, t.variant.resources.disk_gib
+                )));
+            }
+        }
+        self.admit(&all, &resources, extra_mib, shared_disk)?;
+        if validate_only {
+            return Ok(Outcome {
+                state: "validated".into(),
+                ..Default::default()
+            });
+        }
         // A released id that is allocated again (a resumed sandbox) keeps its
         // custody record: its lineage and exposures carry over, never reset.
         self.custody
@@ -1266,7 +1304,14 @@ impl Engine {
         // caller captures the source next, and the two overlap.
         let pending_net = match &self.cfg.network {
             Some(policy) if self.cfg.subscription.is_none() => {
-                let guard_uid = self.alloc_uid()?;
+                let guard_uid = match self.alloc_uid() {
+                    Ok(uid) => uid,
+                    Err(err) => {
+                        jail.destroy();
+                        self.free_uid(uid);
+                        return Err(err);
+                    }
+                };
                 let (policy, inventory, host) = (
                     policy.clone(),
                     self.inventory.clone(),
@@ -1340,6 +1385,7 @@ impl Engine {
         all: &HashMap<String, Arc<Mutex<Sandbox>>>,
         r: &Resources,
         extra_mib: u64,
+        shared_disk: bool,
     ) -> Result<()> {
         let host = HostCapacity::detect(&self.cfg.store)?;
         let (mut mem, mut pending, mut cpus, mut disk) = (0u64, 0u64, 0u32, 0u64);
@@ -1355,15 +1401,22 @@ impl Engine {
                 pending += charge;
             }
             cpus += sb.resources.vcpus;
-            disk += sb.resources.disk_gib
-                + sb.disks
-                    .iter()
-                    .map(|d| d.size_mib)
-                    .sum::<u64>()
-                    .div_ceil(1024);
+            disk += if sb.state == State::Allocated {
+                sb.resources.disk_gib
+            } else {
+                0
+            } + sb
+                .disks
+                .iter()
+                .map(|d| d.size_mib)
+                .sum::<u64>()
+                .div_ceil(1024);
         }
         let charge = r.memory_mib + VMM_ALLOWANCE_MIB;
-        let want_disk = r.disk_gib + extra_mib.div_ceil(1024);
+        // Reflink forks reserve 1 GiB for initial CoW writes. Existing resident
+        // disks are already reflected in filesystem free space; only pending
+        // allocations need an additional physical reservation.
+        let want_disk = if shared_disk { 1 } else { r.disk_gib } + extra_mib.div_ceil(1024);
         let refuse = |what: String| {
             Err(EngineError::new(
                 "NO_CAPACITY",
@@ -1885,7 +1938,11 @@ impl Engine {
         // until the barrier below thaws the tasks with the new identity.
         // Firecracker refuses clock_realtime on aarch64 ("not supported");
         // there the guest clock is set after the identity barrier instead.
-        let clock = if cfg!(target_arch = "x86_64") { r#","clock_realtime":true"# } else { "" };
+        let clock = if cfg!(target_arch = "x86_64") {
+            r#","clock_realtime":true"#
+        } else {
+            ""
+        };
         let body = format!(
             r#"{{"snapshot_path":"/{}/{}","mem_backend":{{"backend_type":"File","backend_path":{}}},"track_dirty_pages":false,"resume_vm":true{}}}"#,
             fc::MEMDIR,
@@ -3040,7 +3097,8 @@ impl Engine {
         let arc = self.sandbox(auth.sandbox_id)?;
         {
             let mut sb = arc.lock().unwrap();
-            Self::check(&sb, auth)?;
+            // Release is authorized by the supervisor's cleanup grant, across
+            // generations, so a failed resume cannot make a sandbox undeletable.
             if let Some(uid) = sb.teardown() {
                 self.free_uid(uid);
             }

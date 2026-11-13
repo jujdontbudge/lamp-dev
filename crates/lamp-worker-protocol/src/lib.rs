@@ -1,4 +1,4 @@
-//! lamp.worker/1 length-prefixed control framing. Authentication and authority
+//! lamp.worker/2 length-prefixed control framing. Authentication and authority
 //! validation belong to the receiving service, before command dispatch.
 use prost::Message;
 use std::io::{self, Read, Write};
@@ -7,7 +7,7 @@ pub mod grant;
 #[cfg(unix)]
 pub mod unix;
 pub mod wire;
-pub const PROTOCOL: &str = "lamp.worker/1";
+pub const PROTOCOL: &str = "lamp.worker/2";
 pub const MAX_CONTROL_BYTES: usize = 1 << 20;
 
 pub fn read_frame(reader: &mut impl Read) -> io::Result<Frame> {

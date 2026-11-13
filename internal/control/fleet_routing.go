@@ -626,6 +626,9 @@ func (f *Fleet) catalogHTTP(w http.ResponseWriter, r *http.Request, id string, a
 				continue
 			}
 			if op.Name == "sandbox_list" {
+				if sb.State == "deleted" && in["include_deleted"] != true {
+					continue
+				}
 				if !online[host] && sb.State != "deleted" && sb.State != "suspended" {
 					sb.State = "unavailable"
 					sb.Readiness = coreReadiness(false, nil)

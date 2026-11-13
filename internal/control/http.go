@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -221,9 +222,16 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		var in api.SandboxCreateInput
 		_, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms")
 		in.IdempotencyKey = key
-		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
+		if err != nil {
+			writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
+			return
+		}
+		if in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "create requires template_id and Idempotency-Key; only demo body fields are admitted", nil)
 			return
+		}
+		if in.Resources != nil && in.Resources.PidsMax == 0 {
+			in.Resources.PidsMax = 4096
 		}
 		if in.Resources == nil {
 			in.Resources = &api.Resources{Vcpus: 2, MemoryMib: 4096, DiskGib: 20, PidsMax: 4096}
@@ -381,11 +389,12 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		s.respond(w, r, requestID, id, true, wait)
 		return
 	}
-	if len(s.journal.Operations) >= maxOperations {
+	if len(s.journal.Operations) >= maxOperations && name != "sandbox_delete" {
 		s.mu.Unlock()
 		writeError(w, requestID, "CONTROL_QUOTA_EXCEEDED", "demo journal operation limit reached", nil)
 		return
 	}
+	queuedDelete := false
 	var updatedParent *api.Sandbox
 	if source != "" {
 		parent, ok := s.journal.Sandboxes[source]
@@ -404,12 +413,14 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, requestID, "REVISION_CONFLICT", "sandbox revision changed", nil)
 			return
 		}
-		if (parent.State != "ready" && name != "sandbox_delete") || s.busy[source] || (name != "exec_create" && s.starting[source] > 0) {
+		if name != "sandbox_delete" && (parent.State != "ready" || s.busy[source] || (name != "exec_create" && s.starting[source] > 0)) {
 			s.mu.Unlock()
 			writeError(w, requestID, "RESOURCE_IN_USE", "sandbox is not ready or has an in-flight operation", nil)
 			return
 		}
 		if name == "sandbox_delete" {
+			queuedDelete = s.busy[source] || s.starting[source] > 0
+			parent.State = "deleting"
 			parent.Revision++
 			parent.UpdatedAt = timestamp()
 			sb = parent
@@ -453,6 +464,15 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, requestID, "SCOPE_DENIED", "admission exceeds caller authority", nil)
 		return
 	}
+	if name == "sandbox_create" || name == "sandbox_fork" {
+		if err := s.preflight(r.Context(), sb, name == "sandbox_fork"); err != nil {
+			s.mu.Unlock()
+			failure := &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error()}
+			errors.As(err, &failure)
+			writeError(w, requestID, failure.code, failure.message, nil)
+			return
+		}
+	}
 	if updatedParent != nil {
 		s.journal.Sandboxes[source] = *updatedParent
 	}
@@ -487,10 +507,13 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 	s.journal.Operations[id] = &record{Operation: op, Hash: hash, Key: journalKey, Resource: ref, Caller: a}
 	s.keys[journalKey] = id
 	s.done[id] = make(chan struct{})
+	if name == "sandbox_create" || name == "sandbox_fork" {
+		s.busy[sb.Id] = true
+	}
 	if source != "" {
 		if name == "exec_create" {
 			s.starting[source]++
-		} else {
+		} else if !queuedDelete {
 			s.busy[source] = true
 		}
 	}
@@ -500,8 +523,10 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, requestID, "DATA_UNAVAILABLE", "cannot persist operation admission", nil)
 		return
 	}
-	s.wg.Add(1)
-	go s.execute(id, source)
+	if !queuedDelete {
+		s.wg.Add(1)
+		go s.execute(id, source)
+	}
 	s.mu.Unlock()
 	s.respond(w, r, requestID, id, false, wait)
 }
@@ -546,10 +571,6 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id 
 		return
 	}
 	op := rec.Operation
-	if op.Error != nil {
-		send = prepareError(w, requestID, *op.Error)
-		return
-	}
 	result := api.MutationEnvelope{OperationId: id, ResourceIds: []api.ResourceRef{rec.Resource}, RequestId: requestID, Replayed: replayed, Operation: &op}
 	status := 202
 	if op.State == "succeeded" {
@@ -618,6 +639,8 @@ func (s *Service) execute(id, source string) {
 	}
 	rec.Operation.Phase = pointer("worker")
 	rec.Operation.State = "running"
+	rec.Operation.Error = nil
+	rec.Operation.CompletedAt = nil
 	rec.Operation.Revision++
 	rec.Operation.UpdatedAt = timestamp()
 	ref := rec.Resource
@@ -626,6 +649,9 @@ func (s *Service) execute(id, source string) {
 	ex := s.journal.Execs[ref.Id]
 	if ref.Kind == "sandbox" {
 		sb.State = "preparing"
+		if name == "sandbox_delete" {
+			sb.State = "deleting"
+		}
 		sb.Revision++
 		sb.UpdatedAt = timestamp()
 		s.journal.Sandboxes[sb.Id] = sb
@@ -659,7 +685,7 @@ func (s *Service) execute(id, source string) {
 		r := request("allocate", sb.Id, generation)
 		resources := sb.Resources
 		devices, _ := workerDevices(sb.Devices)
-		r.Command = &pb.Request_Allocate{Allocate: &pb.Allocate{Resources: &pb.Resources{Vcpus: uint32(resources.Vcpus), MemoryMib: resources.MemoryMib, DiskGib: resources.DiskGib, PidsMax: resources.PidsMax}, EngineId: value(sb.EngineId), Devices: devices}}
+		r.Command = &pb.Request_Allocate{Allocate: &pb.Allocate{Resources: &pb.Resources{Vcpus: uint32(resources.Vcpus), MemoryMib: resources.MemoryMib, DiskGib: resources.DiskGib, PidsMax: resources.PidsMax}, EngineId: value(sb.EngineId), Devices: devices, SharedDisk: name == "sandbox_fork"}}
 		return s.worker.perform(ctx, r, "allocated")
 	}
 	restore := func(capture string) error {
@@ -731,22 +757,8 @@ func (s *Service) execute(id, source string) {
 			err = start([]string{"/bin/true"}, "/", nil)
 		}
 	case "sandbox_delete":
-		r := request("stop", sb.Id, generation)
-		r.Command = &pb.Request_Stop{Stop: &pb.Stop{Force: true}}
 		stage("cleanup")
-		stopErr := s.worker.perform(ctx, r, "stopped")
-		// Release also tears down the jail, namespace and allocation. A failed
-		// boot can have no stoppable VMM while still holding allocated resources;
-		// it must not prevent the generation-bound release from being attempted.
-		r = request("release", sb.Id, generation)
-		r.Command = &pb.Request_Release{Release: &pb.Release{}}
-		err = s.worker.perform(ctx, r, "released")
-		if workerNotFound(err) {
-			err = nil
-		}
-		if err != nil {
-			err = errors.Join(stopErr, err)
-		}
+		err = s.releaseSandbox(ctx, sb)
 	case "exec_create":
 		var env map[string]string
 		if ex.Env != nil {
@@ -789,6 +801,12 @@ func (s *Service) execute(id, source string) {
 			}
 		}
 	}
+	cleaned := false
+	if err != nil && (name == "sandbox_create" || name == "sandbox_fork") {
+		cleanupCtx, cancelCleanup := context.WithTimeout(s.context(), s.worker.config.Timeout)
+		cleaned = s.releaseSandbox(cleanupCtx, sb) == nil
+		cancelCleanup()
+	}
 	if <-running != nil {
 		s.mu.Lock()
 		s.releaseAdmission(rec, source)
@@ -819,6 +837,9 @@ func (s *Service) execute(id, source string) {
 		}
 		op.Error = &api.ErrorDetail{Code: api.ErrorCode(code), Message: failure.message, Retryable: failure.retryable, OperationId: pointer(id)}
 		op.CleanupState = pointer(api.OperationCleanupStatePending)
+		if cleaned {
+			op.CleanupState = pointer(api.OperationCleanupStateComplete)
+		}
 		if source != "" && (name == "sandbox_fork" || failure.unknown) && !sourceIntact {
 			parent := s.journal.Sandboxes[source]
 			parent.State = "unavailable"
@@ -835,6 +856,11 @@ func (s *Service) execute(id, source string) {
 				}
 			}
 			sb.State = "failed"
+			if name == "sandbox_delete" {
+				sb.State = "deleting"
+				op.State = "running"
+				op.CompletedAt = nil
+			}
 		} else {
 			ex.State = "failed"
 			if failure.unknown {
@@ -843,6 +869,10 @@ func (s *Service) execute(id, source string) {
 		}
 	} else {
 		op.State = "succeeded"
+		op.Error = nil
+		if name == "sandbox_delete" {
+			op.CleanupState = pointer(api.OperationCleanupStateComplete)
+		}
 		var result api.AdapterDocument
 		if ref.Kind == "sandbox" {
 			sb.State = "ready"
@@ -873,7 +903,16 @@ func (s *Service) execute(id, source string) {
 		s.broken = true
 	}
 	s.releaseAdmission(rec, source)
-	close(s.done[id])
+	if ref.Kind == "sandbox" && (sb.State == "deleted" || cleaned) && !s.broken {
+		s.mu.Unlock()
+		if releaseErr := s.releaseGuardAudit(s.context(), sb.Id); releaseErr != nil {
+			log.Print(releaseErr)
+		}
+		s.mu.Lock()
+	}
+	if terminal(op.State) {
+		close(s.done[id])
+	}
 	if name == "exec_create" && err == nil && !s.broken {
 		s.wg.Add(1)
 		go s.observeExec(ex.Id, request("observe", sb.Id, generation).Context, id+".start")

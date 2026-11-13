@@ -86,7 +86,7 @@ def main():
         raise RuntimeError("live session observation did not arrive")
 
     def daemon_start():
-        return start([str(binary / "lampd"), "--socket", str(client_socket), "--state-dir", str(root / "state"), "--identity-file", str(root / "identity.json"), "--sessions-config", str(root / "sessions.json"), "--worker-socket", str(root / "unused.sock"), "--worker-id", "unused-native-demo", "--worker-boot-id", "unused-native-demo", "--worker-uid", str(os.getuid()), "--worker-pid", str(os.getpid()), "--grant-id", "unused-native-demo"], "daemon.log")
+        return start([str(binary / "lampd"), "--socket", str(client_socket), "--state-dir", str(root / "state"), "--identity-file", str(root / "identity.json"), "--sessions-config", str(root / "sessions.json"), "--worker-socket", str(root / "unused.sock"), "--worker-id", "unused-native-demo", "--worker-boot-id", "unused-native-demo", "--worker-uid", str(os.getuid()), "--worker-pid", str(os.getpid()), "--grant-id", "unused-native-demo", "--audit-release", '["/usr/bin/true"]'], "daemon.log")
 
     def text(identity, token=owner_token):
         reply = call("GET", "/v1/sessions/" + identity + "/output", token=token)

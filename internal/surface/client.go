@@ -3,6 +3,7 @@ package surface
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -143,4 +144,18 @@ func expand(v any, seen map[string]bool) any {
 	default:
 		return v
 	}
+}
+
+// MutationFailed keeps the original operation envelope (including its retry
+// identity) while letting CLI and MCP clients report a terminal failure.
+func MutationFailed(data []byte) bool {
+	var reply struct {
+		Operation struct {
+			State string `json:"state"`
+		} `json:"operation"`
+	}
+	if json.Unmarshal(data, &reply) != nil {
+		return false
+	}
+	return reply.Operation.State == "failed" || reply.Operation.State == "outcome_unknown" || reply.Operation.State == "canceled"
 }

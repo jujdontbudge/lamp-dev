@@ -195,6 +195,15 @@ fn recv_exact(sock: RawFd, buf: &mut [u8], fds: &mut Vec<OwnedFd>) -> io::Result
     Ok(())
 }
 
+#[derive(Debug)]
+pub struct RejectedFrame(pub Frame);
+impl std::fmt::Display for RejectedFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("unknown or non-canonical fields")
+    }
+}
+impl std::error::Error for RejectedFrame {}
+
 /// Reads one frame plus every descriptor sent with it. On any error all
 /// received descriptors are closed.
 pub fn recv_frame_with_fds(sock: &impl AsRawFd) -> io::Result<(Frame, Vec<OwnedFd>)> {
@@ -223,7 +232,7 @@ pub fn recv_frame_with_fds(sock: &impl AsRawFd) -> io::Result<(Frame, Vec<OwnedF
     if !crate::wire::equivalent(&frame.encode_to_vec(), &body) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "unknown or non-canonical fields",
+            RejectedFrame(frame),
         ));
     }
     Ok((frame, fds))

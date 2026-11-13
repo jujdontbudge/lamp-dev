@@ -360,7 +360,7 @@ func (s *Service) sandboxCharged(sb api.Sandbox) bool {
 	} // Stop/Release independently confirmed.
 	if sb.State == "failed" {
 		for _, rec := range s.journal.Operations {
-			if rec.Resource.Kind == "sandbox" && rec.Resource.Id == sb.Id && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") && rec.Operation.State == "canceled" && value(rec.Operation.CancelEffect) == "prevented" && value(rec.Operation.CleanupState) == "complete" {
+			if rec.Resource.Kind == "sandbox" && rec.Resource.Id == sb.Id && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") && value(rec.Operation.CleanupState) == "complete" {
 				return false
 			}
 		}

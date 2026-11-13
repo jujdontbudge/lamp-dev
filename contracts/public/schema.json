@@ -13399,6 +13399,10 @@
           "maximum": 25000,
           "format": "uint64",
           "readOnly": true
+        },
+        "include_deleted": {
+          "type": "boolean",
+          "description": "Include deleted records retained for 24 hours after confirmed audit release."
         }
       }
     },

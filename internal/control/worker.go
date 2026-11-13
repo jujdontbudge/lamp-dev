@@ -19,7 +19,8 @@ import (
 // AuthenticateLocal admits the one OS owner of the private public API socket.
 func AuthenticateLocal(conn *net.UnixConn) error { return authenticatePeer(conn, os.Geteuid(), 0) }
 
-// WorkerConfig pins the locally enrolled supervisor, not a caller-supplied address.
+// WorkerConfig identifies the locally enrolled supervisor, not a caller-supplied address.
+// PID is a legacy enrollment hint; connections authenticate UID and Hello identity.
 // GrantID names a supervisor-installed control grant; this client never opens RAM,
 // disk, or hypervisor handles and cannot mint engine authority.
 type WorkerConfig struct {
@@ -34,6 +35,7 @@ type workerClient struct {
 	maximum uint32
 	pending map[string]*workerPending
 	closed  bool
+	epoch   uint64
 }
 type workerFailure struct {
 	code, message string
@@ -101,7 +103,7 @@ func (w *workerClient) connect(ctx context.Context) error {
 			<-stopped
 		}
 	}()
-	if err := authenticatePeer(w.conn, w.config.UID, w.config.PID); err != nil {
+	if err := authenticatePeer(w.conn, w.config.UID, 0); err != nil {
 		w.disconnect()
 		return err
 	}
@@ -122,6 +124,7 @@ func (w *workerClient) connect(ctx context.Context) error {
 		w.disconnect()
 		return errors.New("unassigned worker or incompatible Hello")
 	}
+	w.epoch++
 	w.maximum = got.MaxControlBytes
 	conn.SetDeadline(time.Time{})
 	if w.pending == nil {
@@ -240,4 +243,10 @@ func (w *workerClient) perform(ctx context.Context, r *pb.Request, want string) 
 		}
 	}
 	return nil
+}
+
+func (w *workerClient) connectionState() (uint64, bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.epoch, w.conn != nil
 }

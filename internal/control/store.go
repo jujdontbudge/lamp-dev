@@ -36,12 +36,13 @@ type record struct {
 	Custody   *custodyPlan    `json:"custody,omitempty"`
 }
 type journal struct {
-	Accountability *accountability `json:"accountability,omitempty"`
-	EventSequence  uint64          `json:"event_sequence,omitempty"`
-	EventFloor     uint64          `json:"event_floor,omitempty"`
-	Control        *controlState   `json:"control,omitempty"`
-	Events         []storedEvent   `json:"events,omitempty"`
-	Sequence       uint64          `json:"sequence,omitempty"`
+	PurgedSandboxes []string        `json:"purged_sandboxes,omitempty"`
+	Accountability  *accountability `json:"accountability,omitempty"`
+	EventSequence   uint64          `json:"event_sequence,omitempty"`
+	EventFloor      uint64          `json:"event_floor,omitempty"`
+	Control         *controlState   `json:"control,omitempty"`
+	Events          []storedEvent   `json:"events,omitempty"`
+	Sequence        uint64          `json:"sequence,omitempty"`
 	// LogGeneration names the journal.log instance that follows this
 	// snapshot; every compaction starts a new one (see commitMark).
 	LogGeneration uint64                   `json:"log_generation,omitempty"`
@@ -97,6 +98,7 @@ type Config struct {
 type Service struct {
 	relayConfig           *relayclient.Config
 	relayConnected        atomic.Bool
+	auditMu               sync.Mutex
 	notifyConfig          *NotificationConfig
 	notifyKick            chan struct{}
 	notifyInflight        map[string]bool
@@ -232,8 +234,8 @@ func Open(config Config) (*Service, error) {
 	if (config.Fleet != nil || config.NativeFallback != nil) && w.Socket == "" {
 		w = WorkerConfig{Socket: "/unused-control-only", WorkerID: "control-only", BootID: "control-only", GrantID: "none", UID: os.Geteuid(), PID: os.Getpid()}
 	}
-	if w.Socket == "" || w.WorkerID == "" || w.BootID == "" || w.GrantID == "" || w.UID < 0 || w.PID <= 0 {
-		return nil, errors.New("assigned worker socket, identity, boot, UID, PID and grant are required")
+	if w.Socket == "" || w.WorkerID == "" || w.BootID == "" || w.GrantID == "" || w.UID < 0 || w.PID < 0 {
+		return nil, errors.New("assigned worker socket, identity, boot, UID and grant are required")
 	}
 	if w.Timeout == 0 {
 		w.Timeout = 30 * time.Second
@@ -329,6 +331,9 @@ func Open(config Config) (*Service, error) {
 			for id, sb := range delta.Sandboxes {
 				s.journal.Sandboxes[id] = sb
 			}
+			for _, id := range delta.PurgedSandboxes {
+				delete(s.journal.Sandboxes, id)
+			}
 			for id, ex := range delta.Execs {
 				s.journal.Execs[id] = ex
 			}
@@ -412,6 +417,12 @@ func Open(config Config) (*Service, error) {
 				s.done[id] = ch
 				continue
 			}
+			if value(r.Operation.OperationName) == "sandbox_delete" && !terminal(r.Operation.State) {
+				r.Operation.State = "accepted"
+				r.Operation.Error = nil
+				s.done[id] = ch
+				continue
+			}
 			close(ch)
 			s.done[id] = ch
 			if !terminal(r.Operation.State) {
@@ -437,7 +448,7 @@ func Open(config Config) (*Service, error) {
 				s.bindDefaultTask(a, &sb)
 				s.journal.Sandboxes[id] = sb
 			}
-			if sb.State != "failed" && sb.State != "deleted" && sb.State != "suspended" {
+			if sb.State != "failed" && sb.State != "deleted" && sb.State != "suspended" && sb.State != "deleting" {
 				sb.State = "unavailable"
 				sb.Revision++
 				sb.UpdatedAt = timestamp()
@@ -511,6 +522,8 @@ func Open(config Config) (*Service, error) {
 		s.wg.Add(1)
 		go s.sweepGuardAudit()
 	}
+	s.wg.Add(1)
+	go s.recoverCapacity()
 	s.wg.Add(2)
 	go s.workRecovery()
 	go s.scheduler()
@@ -930,6 +943,9 @@ func (s *Service) prepareDelta(ids ...string) ([]byte, journal, error) {
 	delta.Shares = map[string]api.Share{}
 	delta.Templates = map[string]cleanExport{}
 	for _, id := range ids {
+		if sid, ok := strings.CutPrefix(id, "$purge:"); ok {
+			delta.PurgedSandboxes = append(delta.PurgedSandboxes, sid)
+		}
 		if rec, ok := s.journal.Operations[id]; ok {
 			delta.Operations[id] = rec
 		}
@@ -1134,6 +1150,7 @@ func (s *Service) releaseAdmission(rec *record, source string) {
 			delete(s.starting, source)
 		}
 	} else {
+		delete(s.busy, rec.Resource.Id)
 		delete(s.busy, source)
 	}
 }
