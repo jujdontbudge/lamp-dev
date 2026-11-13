@@ -41,4 +41,11 @@ New review scope begins at `0a1888fc66a758be15bd7a105d2e64bb97ab4f36` and
 covers only Codex custody/Responses, tea, and their release enrollment changes.
 Prior review findings remain resolved. Real follow-up evidence is in README.md.
 No new implementation tests added. `make build`, changed-package `go vet`,
-Python compilation and `git diff --check` passed. Follow-up review verdict pending.
+Python compilation and `git diff --check` passed. Follow-up round 1 at `74ae5bcb17d68d92babde9611796c235686ac191`: APPROVE.
+Reviewer: Codex `gpt-6.1-sol`, verified medium effort, priority service tier.
+No blocker, should or nit findings; no new regression tests warranted. Independent
+changed-package vet, Python syntax and diff checks passed. Live evidence was
+reviewed, not rerun. No files changed or credentials accessed. Usage not exposed.
+Follow-up diff: 16 files, 504 insertions, 39 deletions before this ledger update.
+Stopped after one follow-up round because there were no findings or behavior
+changes. Total MR review: two original rounds plus one follow-up round.
