@@ -199,5 +199,601 @@
     "step": "empty_environment",
     "stdout": "[]\nLinux\n",
     "state": "ready"
+  },
+  {
+    "step": "recovery_host_before",
+    "live_firecracker": 1,
+    "available_mib": 14895
+  },
+  {
+    "step": "supervisor_before_restart",
+    "sandbox": {
+      "id": "sb_3111a108cee7ce3fe89bbeb742d78916",
+      "kind": "sandbox",
+      "fleet_id": "fl_local",
+      "owner_id": "pr_local",
+      "revision": 3,
+      "created_at": "2026-11-13T02:07:56.644829127Z",
+      "updated_at": "2026-11-13T02:07:56.777243086Z",
+      "state": "ready",
+      "labels": {},
+      "visibility": "private",
+      "template_id": "tp_559eca0f3d9db269bd432092e0",
+      "host_id": "hs_local",
+      "boundary": "vm",
+      "resources": {
+        "vcpus": 2,
+        "memory_mib": 512,
+        "disk_gib": 20,
+        "pids_max": 4096
+      },
+      "task_id": "tk_8e2d8b0d62b8a9008d6ff45ceece368c",
+      "generation": 1,
+      "readiness": {
+        "command_started_at": "2026-11-13T02:07:56.777243086Z",
+        "checks": [
+          {
+            "name": "template",
+            "state": "passed"
+          },
+          {
+            "name": "engine",
+            "state": "passed"
+          },
+          {
+            "name": "identity",
+            "state": "passed"
+          },
+          {
+            "name": "network",
+            "state": "skipped"
+          },
+          {
+            "name": "settings",
+            "state": "skipped"
+          },
+          {
+            "name": "kits",
+            "state": "skipped"
+          },
+          {
+            "name": "auth",
+            "state": "skipped"
+          },
+          {
+            "name": "connections",
+            "state": "skipped"
+          },
+          {
+            "name": "command",
+            "state": "passed"
+          },
+          {
+            "name": "agent",
+            "state": "skipped"
+          }
+        ]
+      },
+      "capture_trust": "clean",
+      "effective_policy_revision": 1,
+      "durability": "volatile",
+      "custody_host_ids": [
+        "hs_t33"
+      ]
+    },
+    "stdout": "[]\nLinux\n"
+  },
+  {
+    "step": "supervisor_restart",
+    "pid_changed": true,
+    "old_pid": 1148627,
+    "new_pid": 1150478,
+    "sandbox": {
+      "id": "sb_3111a108cee7ce3fe89bbeb742d78916",
+      "kind": "sandbox",
+      "fleet_id": "fl_local",
+      "owner_id": "pr_local",
+      "revision": 4,
+      "created_at": "2026-11-13T02:07:56.644829127Z",
+      "updated_at": "2026-11-13T02:08:05.158682713Z",
+      "state": "failed",
+      "labels": {},
+      "visibility": "private",
+      "template_id": "tp_559eca0f3d9db269bd432092e0",
+      "host_id": "hs_local",
+      "boundary": "vm",
+      "resources": {
+        "vcpus": 2,
+        "memory_mib": 512,
+        "disk_gib": 20,
+        "pids_max": 4096
+      },
+      "task_id": "tk_8e2d8b0d62b8a9008d6ff45ceece368c",
+      "generation": 1,
+      "suspend_eligibility": {
+        "eligible": false,
+        "reasons": [
+          "accounting_unknown"
+        ],
+        "observed_at": "2026-11-13T02:08:05.158184442Z",
+        "observation_state": "unknown"
+      },
+      "readiness": {
+        "checks": [
+          {
+            "name": "template",
+            "state": "pending"
+          },
+          {
+            "name": "engine",
+            "state": "pending"
+          },
+          {
+            "name": "identity",
+            "state": "pending"
+          },
+          {
+            "name": "network",
+            "state": "skipped"
+          },
+          {
+            "name": "settings",
+            "state": "skipped"
+          },
+          {
+            "name": "kits",
+            "state": "skipped"
+          },
+          {
+            "name": "auth",
+            "state": "skipped"
+          },
+          {
+            "name": "connections",
+            "state": "skipped"
+          },
+          {
+            "name": "command",
+            "state": "pending"
+          },
+          {
+            "name": "agent",
+            "state": "skipped"
+          }
+        ]
+      },
+      "capture_trust": "clean",
+      "effective_policy_revision": 1,
+      "durability": "volatile",
+      "custody_host_ids": [
+        "hs_t33"
+      ]
+    },
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "execs": 0,
+      "memory_mib": 0,
+      "records": 109,
+      "retained_bytes": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "supervisor_lost_guest_deleted",
+    "sandbox": {
+      "id": "sb_3111a108cee7ce3fe89bbeb742d78916",
+      "kind": "sandbox",
+      "fleet_id": "fl_local",
+      "owner_id": "pr_local",
+      "revision": 7,
+      "created_at": "2026-11-13T02:07:56.644829127Z",
+      "updated_at": "2026-11-13T02:08:05.384726219Z",
+      "state": "deleted",
+      "labels": {},
+      "visibility": "private",
+      "template_id": "tp_559eca0f3d9db269bd432092e0",
+      "host_id": "hs_local",
+      "boundary": "vm",
+      "resources": {
+        "vcpus": 2,
+        "memory_mib": 512,
+        "disk_gib": 20,
+        "pids_max": 4096
+      },
+      "task_id": "tk_8e2d8b0d62b8a9008d6ff45ceece368c",
+      "generation": 1,
+      "suspend_eligibility": {
+        "eligible": false,
+        "reasons": [
+          "accounting_unknown"
+        ],
+        "observed_at": "2026-11-13T02:08:05.158184442Z",
+        "observation_state": "unknown"
+      },
+      "capture_trust": "clean",
+      "effective_policy_revision": 1,
+      "durability": "volatile",
+      "custody_host_ids": [
+        "hs_t33"
+      ]
+    },
+    "operation_state": "succeeded",
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "execs": 0,
+      "memory_mib": 0,
+      "records": 110,
+      "retained_bytes": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "fresh_guest_after_supervisor_restart",
+    "stdout": "[]\nLinux\n",
+    "state": "ready"
+  },
+  {
+    "step": "offline_delete_accepted",
+    "sandbox": {
+      "id": "sb_9ede4622597383ee563c1462d2918772",
+      "kind": "sandbox",
+      "fleet_id": "fl_local",
+      "owner_id": "pr_local",
+      "revision": 5,
+      "created_at": "2026-11-13T02:08:06.793481091Z",
+      "updated_at": "2026-11-13T02:08:14.095834197Z",
+      "state": "deleting",
+      "labels": {},
+      "visibility": "private",
+      "template_id": "tp_559eca0f3d9db269bd432092e0",
+      "host_id": "hs_local",
+      "boundary": "vm",
+      "resources": {
+        "vcpus": 2,
+        "memory_mib": 512,
+        "disk_gib": 20,
+        "pids_max": 4096
+      },
+      "task_id": "tk_60de0f1d827da13b9edbd284c9918201",
+      "generation": 1,
+      "suspend_eligibility": {
+        "eligible": false,
+        "reasons": [
+          "accounting_unknown"
+        ],
+        "observed_at": "2026-11-13T02:08:13.993873242Z",
+        "observation_state": "unknown"
+      },
+      "readiness": {
+        "command_started_at": "2026-11-13T02:08:07.220764346Z",
+        "checks": [
+          {
+            "name": "template",
+            "state": "passed"
+          },
+          {
+            "name": "engine",
+            "state": "passed"
+          },
+          {
+            "name": "identity",
+            "state": "passed"
+          },
+          {
+            "name": "network",
+            "state": "skipped"
+          },
+          {
+            "name": "settings",
+            "state": "skipped"
+          },
+          {
+            "name": "kits",
+            "state": "skipped"
+          },
+          {
+            "name": "auth",
+            "state": "skipped"
+          },
+          {
+            "name": "connections",
+            "state": "skipped"
+          },
+          {
+            "name": "command",
+            "state": "passed"
+          },
+          {
+            "name": "agent",
+            "state": "skipped"
+          }
+        ]
+      },
+      "capture_trust": "clean",
+      "effective_policy_revision": 1,
+      "durability": "volatile",
+      "custody_host_ids": [
+        "hs_t33"
+      ]
+    },
+    "operation_state": "accepted"
+  },
+  {
+    "step": "offline_delete_and_daemon_crash",
+    "state": "deleted",
+    "stale_socket_recovered": true,
+    "operation_id_preserved": true,
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "execs": 0,
+      "memory_mib": 0,
+      "records": 115,
+      "retained_bytes": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "create_crash_replay",
+    "same_operation": true,
+    "replayed": true,
+    "sandbox": {
+      "id": "sb_cd405de612fca5f16f3fd70dc58df0bb",
+      "kind": "sandbox",
+      "fleet_id": "fl_local",
+      "owner_id": "pr_local",
+      "revision": 3,
+      "created_at": "2026-11-13T02:08:34.52861607Z",
+      "updated_at": "2026-11-13T02:08:34.890033607Z",
+      "state": "failed",
+      "labels": {},
+      "visibility": "private",
+      "template_id": "tp_559eca0f3d9db269bd432092e0",
+      "host_id": "hs_local",
+      "boundary": "vm",
+      "resources": {
+        "vcpus": 2,
+        "memory_mib": 512,
+        "disk_gib": 20,
+        "pids_max": 4096
+      },
+      "task_id": "tk_cccf8424a47c487b52dbe74ccf6d4115",
+      "generation": 1,
+      "readiness": {
+        "checks": [
+          {
+            "name": "template",
+            "state": "pending"
+          },
+          {
+            "name": "engine",
+            "state": "pending"
+          },
+          {
+            "name": "identity",
+            "state": "pending"
+          },
+          {
+            "name": "network",
+            "state": "skipped"
+          },
+          {
+            "name": "settings",
+            "state": "skipped"
+          },
+          {
+            "name": "kits",
+            "state": "skipped"
+          },
+          {
+            "name": "auth",
+            "state": "skipped"
+          },
+          {
+            "name": "connections",
+            "state": "skipped"
+          },
+          {
+            "name": "command",
+            "state": "pending"
+          },
+          {
+            "name": "agent",
+            "state": "skipped"
+          }
+        ]
+      },
+      "effective_policy_revision": 1,
+      "durability": "volatile",
+      "custody_host_ids": [
+        "hs_local"
+      ]
+    },
+    "stale_socket_recovered": true
+  },
+  {
+    "step": "recovery_final",
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "execs": 0,
+      "memory_mib": 0,
+      "records": 117,
+      "retained_bytes": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    },
+    "visible": 0
+  },
+  {
+    "step": "fork_host_before",
+    "live_firecracker": 0,
+    "available_mib": 15273
+  },
+  {
+    "step": "both_restart_host_before",
+    "live_firecracker": 1,
+    "available_mib": 14187
+  },
+  {
+    "step": "both_restart_before",
+    "state": "ready",
+    "stdout": "[]\nLinux\n"
+  },
+  {
+    "step": "both_processes_restart",
+    "old_pid": 1168929,
+    "new_pid": 1169438,
+    "pid_changed": true,
+    "stale_socket_recovered": true,
+    "sandbox": {
+      "id": "sb_90a362b0fd130f95e46e7547abacf248",
+      "kind": "sandbox",
+      "fleet_id": "fl_local",
+      "owner_id": "pr_local",
+      "revision": 5,
+      "created_at": "2026-11-13T02:11:47.387245064Z",
+      "updated_at": "2026-11-13T02:11:54.57594554Z",
+      "state": "failed",
+      "labels": {},
+      "visibility": "private",
+      "template_id": "tp_559eca0f3d9db269bd432092e0",
+      "host_id": "hs_local",
+      "boundary": "vm",
+      "resources": {
+        "vcpus": 2,
+        "memory_mib": 512,
+        "disk_gib": 20,
+        "pids_max": 4096
+      },
+      "task_id": "tk_fc5bb8bd0269df6c0b02f54fd62a8941",
+      "generation": 1,
+      "readiness": {
+        "checks": [
+          {
+            "name": "template",
+            "state": "pending"
+          },
+          {
+            "name": "engine",
+            "state": "pending"
+          },
+          {
+            "name": "identity",
+            "state": "pending"
+          },
+          {
+            "name": "network",
+            "state": "skipped"
+          },
+          {
+            "name": "settings",
+            "state": "skipped"
+          },
+          {
+            "name": "kits",
+            "state": "skipped"
+          },
+          {
+            "name": "auth",
+            "state": "skipped"
+          },
+          {
+            "name": "connections",
+            "state": "skipped"
+          },
+          {
+            "name": "command",
+            "state": "pending"
+          },
+          {
+            "name": "agent",
+            "state": "skipped"
+          }
+        ]
+      },
+      "capture_trust": "clean",
+      "effective_policy_revision": 1,
+      "durability": "volatile",
+      "custody_host_ids": [
+        "hs_t33"
+      ]
+    },
+    "usage": {
+      "audit_bytes": 25165824,
+      "disk_gib": 0,
+      "execs": 0,
+      "memory_mib": 0,
+      "records": 121,
+      "retained_bytes": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "both_restart_deleted",
+    "state": "deleted",
+    "operation_state": "succeeded",
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "execs": 0,
+      "memory_mib": 0,
+      "records": 122,
+      "retained_bytes": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "both_restart_fresh_execution",
+    "state": "ready",
+    "stdout": "[]\nLinux\n"
+  },
+  {
+    "step": "both_restart_final",
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "execs": 0,
+      "memory_mib": 0,
+      "records": 125,
+      "retained_bytes": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    },
+    "visible": 0
+  },
+  {
+    "step": "fork_host_before",
+    "live_firecracker": 0,
+    "available_mib": 14873
+  },
+  {
+    "step": "memory_fork",
+    "parent": "ready",
+    "child": "ready",
+    "child_stdout": "[]\nLinux\n",
+    "physical_growth_bytes": 0
+  },
+  {
+    "step": "fork_cleanup",
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "execs": 0,
+      "memory_mib": 0,
+      "records": 130,
+      "retained_bytes": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    },
+    "visible": 0,
+    "retained": 62
   }
 ]

@@ -56,7 +56,9 @@ func (s *Service) recoverCapacity() {
 	defer s.wg.Done()
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
-	observedEpoch := uint64(1)
+	// The first connection after lampd restarts also needs observation: the
+	// supervisor may have restarted and reaped its volatile guests meanwhile.
+	observedEpoch := uint64(0)
 	for {
 		epoch, connected := s.worker.connectionState()
 		if epoch > 0 && !connected && s.context().Err() == nil {

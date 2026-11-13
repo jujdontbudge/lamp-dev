@@ -48,7 +48,7 @@ exercised on the owner's service manager in this demonstration.
 
 Local checks: `make build`, selected `go vet`, contracts generation validation,
 clippy for the changed Rust packages, and the existing
-`TestControlCoreInterfacesAndAuthority` smoke passed. No new tests were added.
+`TestControlCoreInterfacesAndAuthority` smoke passed. One regression test from the Sol review was added for its proven restart bug.
 The workspace `cargo fmt --all -- --check` still reports pre-existing wrapping
 in `crates/lamp-guard/src/audit.rs:439`; that unrelated file was not changed.
 
@@ -56,6 +56,57 @@ Limits: no Air or Linux arm64 guest execution was performed. The engine's
 existing restart contract kills volatile guests. T33 reconnects without pinning
 the old supervisor PID and reconciles lost guests rather than leaving ghost
 reservations. It does **not** preserve the same live guest across a supervisor
-restart, so that part of F44's retest remains unmet. Retained operation records
+restart, this is the clean, deletable loss behavior explicitly accepted by the coordinator on 2026-11-12. Retained operation records
 still consume the configured control-record quota; live capacity returning to
 zero does not mean deleting durable history or resetting budget usage.
+
+
+## Recovery demonstration completed
+
+The same `lampd` process reached the restarted supervisor (PID 1148627 became
+1150478). Before restart `sb_3111a108cee7ce3fe89bbeb742d78916` was ready and
+executed `[]` / `Linux`. After restart it was `failed`, with all live and audit
+reservations zero. Deleting it succeeded and returned `deleted`. A fresh guest
+then executed the same command successfully. This demonstrates the accepted
+clean-loss path, not preservation of volatile guest memory.
+
+For an offline delete, the public operation was accepted with sandbox state
+`deleting`, then `lampd` was SIGKILLed before the supervisor returned. Restart
+recovered the stale socket without manual removal. The original delete operation
+completed successfully, with the same ID and state `deleted`.
+
+A create accepted with `wait_ms=0` was interrupted by SIGKILL. Restart recovered
+the stale socket, the same create key returned `replayed:true` and the original
+operation ID, and the sandbox became `failed` and was successfully deleted.
+The final list was empty; CPU, memory, disk, sandbox, command, retained-capture
+and audit usage were all zero. The 117 retained operation records were reported
+separately, not represented as live capacity.
+
+Sol's S1 found a separate first-connection bug when **both** processes restart.
+Observing connection epoch zero now includes the first new connection. The
+reviewer's API regression reproduced `unavailable` with one charged sandbox
+before the fix, and passed after the fix. Its quota comparison was adjusted to
+use the repository decoder's numeric representation.
+
+The real VM demonstration then killed `lampd`, restarted the supervisor (PID
+1168929 became 1169438), and restarted `lampd` without removing its stale socket.
+The previously executing sandbox became `failed` with zero CPU/memory/disk
+charges; a pending 24 MiB audit reservation was released by cleanup. Delete
+succeeded, a fresh guest executed `[]` / `Linux`, and final usage returned to
+zero with no visible sandboxes (125 retained operation records reported).
+
+An attempted fork demonstration initially stopped before fork because the
+shared two-VM limit remained occupied; it released its own guest. A subsequent
+parent create failed readiness with `AUDIT_UNAVAILABLE` and `cleanup_state:
+complete`; the next recovery run deleted that failed record. These attempts
+are retained as failures rather than counted as successful fork evidence.
+
+The final memory fork succeeded on the disposable default-size 28 GiB store:
+both parent and child reported `ready`, and the child executed `[]` / `Linux`.
+The store's `stat -f %a` free-block observation showed zero additional allocated
+bytes at the observation point (btrfs may defer allocation accounting). This is
+not a total-write measurement. Both deletes succeeded. Quota then reported zero
+live resources, audit reservations and retained capture bytes, default lists
+were empty, and `--include-deleted true` showed 62 retained deleted records.
+The 130 operation records remained visible in quota. This specifically proves
+that the temporary fork no longer creates a permanent retained-capture charge.
