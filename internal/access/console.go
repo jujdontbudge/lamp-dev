@@ -162,7 +162,7 @@ func (b backend) shell(s ssh.Session, id string) error {
 			}
 		}()
 	}
-	_, code, err := surface.Terminal(s.Context(), b.client, id, "", s, s, s.Stderr(), sizes)
+	_, code, err := surface.Terminal(s.Context(), b.client, id, "", s, s, s.Stderr(), sizes, pty.Term)
 	if err != nil {
 		return err
 	}

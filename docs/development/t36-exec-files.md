@@ -25,7 +25,8 @@ lamp sandbox file-list sb_example --path /tmp
 lamp sandbox file-stat sb_example --path /tmp/binary
 ```
 
-Shell reconnect reuses the PTY exec and replays retained output. Disconnecting a
+PTY shells use the local or SSH-negotiated TERM, with xterm-256color as the
+default. Shell reconnect reuses the PTY exec and replays retained output. Disconnecting a
 PTY leaves it running; interrupt it explicitly to end it. Guest images must carry
 the matching guest helper. The file infrastructure uses Python 3 in the guest.
 SDK convenience methods are deferred by the owner; the canonical HTTP and MCP

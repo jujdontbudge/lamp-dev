@@ -46,3 +46,9 @@ compiled on the M5, not demonstrated in a VM. No 500 MB transfer, full-disk run,
 ten-minute command, GUI terminal editor, or release latency benchmark is claimed.
 Q3 measurement remains a release task. SDK convenience work remains deferred;
 generated artifacts stay consistent with the canonical contract.
+
+Sol review found that the CLI and SSH shells omitted TERM. The retained reviewer
+regression test failed before the fix and passed afterward. `terminal-type.json`
+records a new disposable VM observation: both CLI and stock SSH passed vt100
+through to the guest, ran `tput clear` successfully and exited 0. The VM was
+deleted after that demonstration.

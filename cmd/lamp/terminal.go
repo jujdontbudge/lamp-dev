@@ -79,7 +79,7 @@ func shell(args []string, stdout, stderr io.Writer) int {
 			}
 		}()
 	}
-	id, code, err := surface.Terminal(ctx, client, *sandbox, *execID, os.Stdin, stdout, stderr, sizes)
+	id, code, err := surface.Terminal(ctx, client, *sandbox, *execID, os.Stdin, stdout, stderr, sizes, os.Getenv("TERM"))
 	if err != nil {
 		fmt.Fprintf(stderr, "terminal %s: %v\n", id, err)
 		return 1

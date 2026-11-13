@@ -19,15 +19,19 @@ func terminalKey() string {
 
 // Terminal uses only the public exec API. Reusing execID reconnects to a PTY;
 // callers retain the returned ID when they want to disconnect and reconnect.
-func Terminal(ctx context.Context, c *Client, sandbox, execID string, input io.Reader, stdout, stderr io.Writer, sizes <-chan [2]uint64) (string, int, error) {
-	return execChannel(ctx, c, sandbox, execID, []string{"/bin/sh", "-i"}, true, input, stdout, stderr, sizes)
+func Terminal(ctx context.Context, c *Client, sandbox, execID string, input io.Reader, stdout, stderr io.Writer, sizes <-chan [2]uint64, terminalTypes ...string) (string, int, error) {
+	terminalType := "xterm-256color"
+	if len(terminalTypes) > 0 && terminalTypes[0] != "" {
+		terminalType = terminalTypes[0]
+	}
+	return execChannel(ctx, c, sandbox, execID, []string{"/bin/sh", "-i"}, true, input, stdout, stderr, sizes, terminalType)
 }
 
 // ExecChannel exposes a binary SSH command channel without allocating a PTY.
 func ExecChannel(ctx context.Context, c *Client, sandbox string, argv []string, input io.Reader, stdout, stderr io.Writer) (string, int, error) {
-	return execChannel(ctx, c, sandbox, "", argv, false, input, stdout, stderr, nil)
+	return execChannel(ctx, c, sandbox, "", argv, false, input, stdout, stderr, nil, "")
 }
-func execChannel(ctx context.Context, c *Client, sandbox, execID string, argv []string, pty bool, input io.Reader, stdout, stderr io.Writer, sizes <-chan [2]uint64) (string, int, error) {
+func execChannel(ctx context.Context, c *Client, sandbox, execID string, argv []string, pty bool, input io.Reader, stdout, stderr io.Writer, sizes <-chan [2]uint64, terminalType string) (string, int, error) {
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -51,7 +55,11 @@ func execChannel(ctx context.Context, c *Client, sandbox, execID string, argv []
 		return m, nil
 	}
 	if execID == "" {
-		m, err := call("exec_create", map[string]any{"sandbox_id": sandbox, "argv": argv, "pty": pty, "stdin_open": !pty})
+		in := map[string]any{"sandbox_id": sandbox, "argv": argv, "pty": pty, "stdin_open": !pty}
+		if pty {
+			in["env"] = map[string]string{"TERM": terminalType}
+		}
+		m, err := call("exec_create", in)
 		if err != nil {
 			return "", 0, err
 		}
