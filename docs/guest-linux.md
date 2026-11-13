@@ -48,3 +48,9 @@ kills are reported as `oom_killed`.
 
 Existing seeds/templates are immutable. Rebuild and import them to receive the
 new tools and sanitized resolver.
+
+Native macOS guests use the same guarded Ethernet transport. Their guest
+helper identifies Lamp's NIC by MAC and registers both its IPv4 service and
+DNS state with SystemConfiguration; `/etc/resolv.conf` alone is insufficient
+for native name lookup. Older owner-built macOS templates need the current
+`lamp-mac-guest-helper` installed inside the guest or a template rebuild.
