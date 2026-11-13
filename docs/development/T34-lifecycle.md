@@ -5,8 +5,9 @@ starts after 300 seconds of observed inactivity; suspended state is kept for
 604800 seconds. Unknown guest accounting counts as busy. Running task processes,
 connections and active execs prevent idle suspension. Countdown timestamps and
 policy survive lampd restarts. Exec, session input and SSH/session attach resume the same sandbox through
-the Wake admission hook. The current public server has no preview exposure
-handler; adding that transport must call Wake after authorizing its request.
+the Wake admission hook. T39 preview ingress runs in a separate worker transport; automatic preview wake
+is not wired to this control-plane hook. A preview request must be authorized
+before any future bridge invokes Wake.
 
 Set or extend a sandbox's policy with `--lifecycle-json` on create or update:
 

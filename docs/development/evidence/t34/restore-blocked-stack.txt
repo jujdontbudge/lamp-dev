@@ -67,4 +67,3 @@ runtime.goexit({})
 	/home/johan/go-sdk/src/runtime/asm_amd64.s:1264 +0x1 fp=0xc146e521fe8 sp=0xc146e521fe0 pc=0x4944e1
 created by lamp.eilmer.si/internal/control.(*Service).lifeStartWith in goroutine 59
 	/home/johan/lamp-t34/src/internal/control/lifehttp.go:217 +0x10ad
-
