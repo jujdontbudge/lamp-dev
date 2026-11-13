@@ -1,0 +1,292 @@
+[
+  {
+    "command": [
+      "sandbox",
+      "create",
+      "--resources",
+      "{\"vcpus\": 2, \"memory_mib\": 2048, \"disk_gib\": 20, \"pids_max\": 4096}",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_1b72e5f354e70d612660a090a45cf9ef",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+        }
+      ],
+      "request_id": "req_a461e3638eb5db9565a98675458d123c",
+      "replayed": false,
+      "operation": {
+        "id": "op_1b72e5f354e70d612660a090a45cf9ef",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T05:26:05.450903293Z",
+        "updated_at": "2026-11-13T05:26:08.169142205Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_create",
+        "request_hash": "40afca43c7345cfec826725cfb74f009ba1329de2e26a0db6a5a9933d031663f",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+          }
+        ],
+        "phase": "command",
+        "accepted_at": "2026-11-13T05:26:05.450903293Z",
+        "completed_at": "2026-11-13T05:26:08.169142205Z",
+        "outcome": {
+          "result": {
+            "sandbox_id": "sb_446c750b4f5d48712a5b3ffd72e418a8",
+            "session_ids": []
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "volatile"
+      },
+      "result": {
+        "sandbox_id": "sb_446c750b4f5d48712a5b3ffd72e418a8",
+        "session_ids": []
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "kit",
+      "sb_446c750b4f5d48712a5b3ffd72e418a8",
+      "--kit",
+      "python",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_8f6a7c05759b68724f144f2a9dab4a8f",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+        }
+      ],
+      "request_id": "req_2ab826b3f4de945145a7a972a947ff8d",
+      "replayed": false,
+      "operation": {
+        "id": "op_8f6a7c05759b68724f144f2a9dab4a8f",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T05:26:08.203629317Z",
+        "updated_at": "2026-11-13T05:31:58.436396852Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_kit",
+        "request_hash": "1ab1ad18a3550b1183ad37fb9a8a74b294511e2e1e82f254373d55f6f1e3e705",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+          }
+        ],
+        "accepted_at": "2026-11-13T05:26:08.203629317Z",
+        "completed_at": "2026-11-13T05:31:58.436396852Z",
+        "outcome": {
+          "result": {
+            "boundary": "vm",
+            "kit": "python",
+            "state": "ready"
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "boundary": "vm",
+        "kit": "python",
+        "state": "ready"
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "run-code",
+      "sb_446c750b4f5d48712a5b3ffd72e418a8",
+      "--code",
+      "x=41; x+1",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b00afd84e29c682ebd9879115fce50d8",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+        }
+      ],
+      "request_id": "req_e4197c6a38299d6b40b0390b6a570936",
+      "replayed": false,
+      "operation": {
+        "id": "op_b00afd84e29c682ebd9879115fce50d8",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T05:31:58.603433575Z",
+        "updated_at": "2026-11-13T05:32:00.549267814Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_run_code",
+        "request_hash": "bfbb8c00e8ddaac4b9e6d0a1045393d18ce74a1bb5d3c20d8fb6dc799eb168c4",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+          }
+        ],
+        "accepted_at": "2026-11-13T05:31:58.603433575Z",
+        "completed_at": "2026-11-13T05:32:00.549267814Z",
+        "outcome": {
+          "result": {
+            "context": "default",
+            "outputs": [],
+            "result": "42",
+            "stderr": "",
+            "stdout": ""
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "context": "default",
+        "outputs": [],
+        "result": "42",
+        "stderr": "",
+        "stdout": ""
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "run-code",
+      "sb_446c750b4f5d48712a5b3ffd72e418a8",
+      "--code",
+      "x+2",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_f86d05b0c194164f471072ff867a1572",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+        }
+      ],
+      "request_id": "req_376ef8bbc37b4e8fc719163933663b47",
+      "replayed": false,
+      "operation": {
+        "id": "op_f86d05b0c194164f471072ff867a1572",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T05:32:00.573678523Z",
+        "updated_at": "2026-11-13T05:32:01.339952947Z",
+        "state": "succeeded",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_run_code",
+        "request_hash": "faa5c8ead9b49c98b13362084ce1249bfc25259b44a955d2a0397e653bafbd6f",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+          }
+        ],
+        "accepted_at": "2026-11-13T05:32:00.573678523Z",
+        "completed_at": "2026-11-13T05:32:01.339952947Z",
+        "outcome": {
+          "result": {
+            "context": "default",
+            "outputs": [],
+            "result": "43",
+            "stderr": "",
+            "stdout": ""
+          }
+        },
+        "cleanup_state": "not_needed",
+        "durability": "local"
+      },
+      "result": {
+        "context": "default",
+        "outputs": [],
+        "result": "43",
+        "stderr": "",
+        "stdout": ""
+      }
+    }
+  },
+  {
+    "command": [
+      "sandbox",
+      "kit",
+      "sb_446c750b4f5d48712a5b3ffd72e418a8",
+      "--kit",
+      "browser",
+      "--wait-ms",
+      "60000"
+    ],
+    "reply": {
+      "operation_id": "op_b226e8fb4f39338945cb412e478cf38d",
+      "resource_ids": [
+        {
+          "kind": "sandbox",
+          "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+        }
+      ],
+      "request_id": "req_9028757f4d45d48858be4151c2b0c68e",
+      "replayed": false,
+      "operation": {
+        "id": "op_b226e8fb4f39338945cb412e478cf38d",
+        "kind": "operation",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 3,
+        "created_at": "2026-11-13T05:32:01.355246343Z",
+        "updated_at": "2026-11-13T05:50:25.036170065Z",
+        "state": "outcome_unknown",
+        "labels": {},
+        "visibility": "private",
+        "operation_name": "sandbox_kit",
+        "request_hash": "4487ee4867bb0435112326d7a7d3b11eb4f044aaf44acf2f1153b102882cbcbf",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_446c750b4f5d48712a5b3ffd72e418a8"
+          }
+        ],
+        "accepted_at": "2026-11-13T05:32:01.355246343Z",
+        "completed_at": "2026-11-13T05:50:25.036170065Z",
+        "error": {
+          "code": "OUTCOME_UNKNOWN",
+          "message": "guest kit runtime result unavailable; job may still run",
+          "retryable": false,
+          "operation_id": "op_b226e8fb4f39338945cb412e478cf38d"
+        },
+        "cleanup_state": "pending",
+        "durability": "local"
+      }
+    }
+  }
+]

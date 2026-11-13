@@ -1,0 +1,2 @@
+{"title": "Example Domain", "url": "https://example.com/"}
+{"path": "/tmp/lamp-sandbox-kits/6fbc038ad2a64e73949160b15899abbf.png", "mime_type": "image/png", "size_bytes": 74622}

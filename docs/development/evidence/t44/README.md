@@ -56,9 +56,10 @@ originally had mode 0600, so guest init now gives it standard 0666 permissions;
 kernel namespace capability checks still control interface creation.
 
 Some runs lost external DNS after the existing network audit heartbeat stopped.
-The implementation does not weaken that enforcement. A suspend/resume restored
-networking and Chromium then navigated successfully. The follow-up diagnoses
-and fixes this failure; its full kit run needs no recovery. The first recovery attempt
+Those initial runs retained the one-second timing fence. A suspend/resume
+restored networking and Chromium then navigated successfully. The follow-up
+replaces that false fence with durable-write backpressure; its full Ubuntu
+kit run needs no recovery. The first recovery attempt
 also exposed a demo grant restricted to generation 1; subsequent disposable
 worker grants explicitly authorized recovery generations.
 

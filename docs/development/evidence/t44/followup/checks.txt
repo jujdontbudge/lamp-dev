@@ -1,0 +1,23 @@
+Reviewed behavior head: f413c5299b936d104c0eecb5601237cf0e937722
+
+make build
+  PASS (Go binaries, SDK generator clean: 342 operations, Rust workspace build).
+go vet ./internal/control ./internal/network ./cmd/lamp-installer
+  PASS.
+rustfmt --check --edition 2024 crates/lamp-guard/src/main.rs
+  PASS.
+rustfmt --check --edition 2024 crates/lamp-engine/src/mac_network.rs
+  PASS (earlier check; file unchanged afterward).
+go test ./internal/control -run '^TestT44Review' -count=1
+  PASS, both retained reviewer regressions.
+git diff --check
+  PASS.
+
+Sol follow-up: five scoped rounds, APPROVE, no findings or new tests.
+Real demonstrations and failed attempts: see README.md and platform artifacts.
+No benchmarks, lint suite, test-all, or new implementation-authored tests ran.
+
+Actual shared bridge subprocess demonstration:
+  Dropped caller, pre-fix: bridge exited 0; next call ConnectionRefusedError.
+  Post-fix: bridge alive; next exec exited 0 and returned 42.
+  Reviewer also checked incomplete request/EOF followed by successful next exec.

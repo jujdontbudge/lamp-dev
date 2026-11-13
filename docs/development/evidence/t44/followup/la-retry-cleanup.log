@@ -1,0 +1,4 @@
+{"at":"2026-11-13T07:19:16Z","data":"deleted","event":"uninstalled","name":"t44-install9","owner_data":"delete"}
+0
+uid-198115328
+Final verification after restoring Lima: Running, 8 GiB memory; root rw, no emergency_ro; 0 Firecracker processes; /var/lib/lamp-i empty; no t44-* paths in the guest home. Mac free space 42 GiB. Failed-install dangling UID lease symlink also removed.
