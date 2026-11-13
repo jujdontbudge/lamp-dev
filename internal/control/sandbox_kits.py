@@ -296,7 +296,7 @@ class Browser:
         if self.browser is None:
             from playwright.sync_api import sync_playwright
             self.pw=sync_playwright().start();self.browser=self.pw.chromium.launch(headless=True,args=['--no-sandbox']);self.page=self.browser.new_page()
-        if q['action']=='navigate':self.page.goto(q['url'],wait_until='domcontentloaded');return {'title':self.page.title(),'url':self.page.url}
+        if q['action']=='navigate':self.page.goto(q['url'],wait_until='domcontentloaded',timeout=120000);return {'title':self.page.title(),'url':self.page.url}
         if q['action']=='evaluate':return {'value':self.page.evaluate(q['expression'])}
         p=output_path('.png');self.page.screenshot(path=str(p));return artifact(p,'image/png')
 
