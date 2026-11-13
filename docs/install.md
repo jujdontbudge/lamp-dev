@@ -113,3 +113,34 @@ and `Image`. They are distinct artifacts. The release signs every seed file,
 including its compressed disk. Installing verifies the release signature and
 the engine verifies the expanded seed before probing the default template.
 A missing engine or seed prevents building an installable sandbox release.
+
+### Update, rollback and remove an install
+
+`lamp-installer update --prefix "$LAMP_PREFIX"` checks
+`https://lamp.eilmer.si/releases/latest.json`, downloads the selected platform
+archive and verifies its index, manifest and payload against the release key
+pinned at installation. It restarts the daemon while preserving state. If the
+current release is already newest, it prints `already up to date`. Use
+`--source https://your-release-service` for a mirror serving the same layout,
+or `--release /path/to/signed-release` to update offline. Explicit rollback is
+`lamp-installer rollback --prefix "$LAMP_PREFIX"`.
+
+`lamp version --json` asks the installed daemon for its release, API version
+and authenticated local supervisor version, and includes `client_version`.
+Without a local daemon it reports the client binary's version. Explicit
+connection flags report connection errors instead. The same authenticated
+information is available at `GET /v1/version` and MCP `version_get`. Older
+supervisors that do not advertise a version report `null`; disconnected engines
+have `connected: false`. `lampd --version`, `lamp-installer --version` and
+`lamp-supervisor --version` identify their own binaries without starting them.
+The served OpenAPI `info.version` is the daemon release, with the contract
+version in `info.x-api-version`.
+
+Uninstall requires an explicit data choice:
+`lamp-installer uninstall --prefix "$LAMP_PREFIX" --data delete --confirm-delete NAME`
+removes that install's services, managed engine, store and Mac worker accounts.
+Find `NAME` with `lamp-installer status --prefix "$LAMP_PREFIX" --json`.
+`--data retain` keeps owner data and its managed engine store/binaries, and
+prints their location; `--data export --export-dir DIR` also exports the control
+state. An independently installed system engine remains independently managed.
+Cleanup failures return an error so a failed removal cannot look successful.

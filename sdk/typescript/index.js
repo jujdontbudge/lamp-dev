@@ -3241,6 +3241,16 @@ export const OPERATIONS = {
   "resultSchema": "UpdateRollbackResult",
   "scope": "update.rollback"
  },
+ "version_get": {
+  "cli": "lamp version",
+  "inputSchema": "VersionGetInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "version_get",
+  "path": "/v1/version",
+  "resultSchema": "VersionGetResult",
+  "scope": "api.describe"
+ },
  "volume_create": {
   "cli": "lamp volume create",
   "inputSchema": "VolumeCreateInput",

@@ -22163,6 +22163,10 @@ pub enum UpdateVisibility {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct VersionGetInput {}
+pub type VersionGetResult = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Volume {
     #[serde(rename = "id")]
     pub id: String,
@@ -26556,6 +26560,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "UpdateRollbackResult",
         authorization: "authenticated_scope",
         mutation: true,
+    },
+    OperationDescriptor {
+        name: "version_get",
+        scope: "api.describe",
+        cli: "lamp version",
+        method: "get",
+        path: "/v1/version",
+        input_schema: "VersionGetInput",
+        result_schema: "VersionGetResult",
+        authorization: "authenticated_scope",
+        mutation: false,
     },
     OperationDescriptor {
         name: "volume_create",

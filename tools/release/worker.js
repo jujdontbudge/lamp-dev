@@ -32,6 +32,9 @@ export default {
     if (url.searchParams.get('go-get') === '1' || url.pathname === '/' || url.pathname === '/index.html') {
       return new Response(page(LATEST), { headers: { 'content-type': 'text/html; charset=utf-8' } });
     }
+    if (url.pathname === '/releases/latest.json') {
+      return Response.json({ version: LATEST }, { headers: { 'cache-control': 'no-store' } });
+    }
     if (url.pathname === '/install.sh') {
       const r = await fetch(`${PACKAGES}/${LATEST}/install.sh`);
       if (!r.ok) return new Response('installer unavailable\n', { status: 502 });

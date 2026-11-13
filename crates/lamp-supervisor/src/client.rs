@@ -38,6 +38,7 @@ impl Client {
                     .map(|s| s.trim().to_string())
                     .unwrap_or_else(|_| "unknown".into()),
                 max_control_bytes: MAX_CONTROL_BYTES as u32,
+                release_version: crate::release_version().into(),
             })),
         };
         write_frame(&mut stream, &hello)?;

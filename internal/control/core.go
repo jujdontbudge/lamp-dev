@@ -21,6 +21,7 @@ import (
 
 	public "lamp.eilmer.si/contracts/public"
 	"lamp.eilmer.si/docs/spec"
+	"lamp.eilmer.si/internal/buildversion"
 	"lamp.eilmer.si/internal/surface"
 	"lamp.eilmer.si/pkg/api"
 )
@@ -402,6 +403,10 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 		prepareJSON(w, 200, map[string]any{"data": s.telemetry(a), "request_id": id})()
 		return
 	}
+	if op.Name == "version_get" {
+		s.versionHTTP(w, id)
+		return
+	}
 	if op.Name == "api_describe" {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
@@ -409,6 +414,10 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 		// complete so references and clients keep a single canonical definition.
 		var doc map[string]any
 		json.Unmarshal(public.OpenAPI, &doc)
+		info := doc["info"].(map[string]any)
+		info["x-api-version"] = info["version"]
+		info["version"] = buildversion.Current()
+		info["x-release-version"] = buildversion.Current()
 		installed := s.installedOperations()
 		paths := doc["paths"].(map[string]any)
 		for path, value := range paths {

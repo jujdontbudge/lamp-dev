@@ -32,6 +32,7 @@ type workerClient struct {
 	config  WorkerConfig
 	mu      sync.Mutex
 	conn    *net.UnixConn
+	version string
 	maximum uint32
 	pending map[string]*workerPending
 	closed  bool
@@ -125,6 +126,7 @@ func (w *workerClient) connect(ctx context.Context) error {
 		return errors.New("unassigned worker or incompatible Hello")
 	}
 	w.epoch++
+	w.version = got.ReleaseVersion
 	w.maximum = got.MaxControlBytes
 	conn.SetDeadline(time.Time{})
 	if w.pending == nil {

@@ -10520,6 +10520,9 @@ const (
 	UpdateVisibilityShared  UpdateVisibility = "shared"
 )
 
+type VersionGetInput struct {
+}
+type VersionGetResult = AdapterDocument
 type Volume struct {
 	Id                      string               `json:"id"`
 	Kind                    VolumeKind           `json:"kind"`
@@ -11249,6 +11252,7 @@ var Operations = []OperationDescriptor{
 	{"update_get", "update.get", "lamp update get", "get", "/v1/updates/{update_id}", "UpdateGetInput", "UpdateGetResult", "authenticated_scope", false},
 	{"update_list", "update.list", "lamp update list", "get", "/v1/updates", "UpdateListInput", "UpdateListResult", "authenticated_scope", false},
 	{"update_rollback", "update.rollback", "lamp update rollback", "post", "/v1/updates/{update_id}:rollback", "UpdateRollbackInput", "UpdateRollbackResult", "authenticated_scope", true},
+	{"version_get", "api.describe", "lamp version", "get", "/v1/version", "VersionGetInput", "VersionGetResult", "authenticated_scope", false},
 	{"volume_create", "volume.create", "lamp volume create", "post", "/v1/volumes", "VolumeCreateInput", "VolumeCreateResult", "authenticated_scope", true},
 	{"volume_delete", "volume.delete", "lamp volume delete", "delete", "/v1/volumes/{volume_id}", "VolumeDeleteInput", "VolumeDeleteResult", "authenticated_scope", true},
 	{"volume_get", "volume.get", "lamp volume get", "get", "/v1/volumes/{volume_id}", "VolumeGetInput", "VolumeGetResult", "authenticated_scope", false},

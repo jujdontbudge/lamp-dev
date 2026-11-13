@@ -8,6 +8,7 @@ message Hello {
   string worker_id = 2;
   string boot_id = 3;
   uint32 max_control_bytes = 4; // <= 1048576
+  string release_version = 5; // optional for older peers; never inferred from the daemon
 }
 message Context {
   string request_id = 1;

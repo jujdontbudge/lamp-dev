@@ -23,6 +23,7 @@ import gzip
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -42,19 +43,19 @@ def sh(cmd, **kw):
     return subprocess.run(list(map(str, cmd)), check=True, **kw)
 
 
-def go_build(goos, goarch, out, names):
+def go_build(goos, goarch, out, names, version):
     env = {**os.environ, 'GOOS': goos, 'GOARCH': goarch, 'CGO_ENABLED': '0'}
     out.mkdir(parents=True, exist_ok=True)
-    sh(['go', 'build', '-trimpath', '-ldflags=-s -w', '-o', str(out) + '/'] + [f'./cmd/{n}' for n in names], cwd=ROOT, env=env)
+    sh(['go', 'build', '-trimpath', f'-ldflags=-s -w -X lamp.eilmer.si/internal/buildversion.Version={version}', '-o', str(out) + '/'] + [f'./cmd/{n}' for n in names], cwd=ROOT, env=env)
 
 
-def linux_engine(host, commit, out, ssh_opts=()):
+def linux_engine(host, commit, out, version, ssh_opts=()):
     """Build lamp-supervisor and lamp-guard on a Linux host from this exact commit."""
     work = f'lamp-release-{commit[:12]}'
     ssh = ['ssh', *ssh_opts, host]
     archive = subprocess.run(['git', 'archive', '--format=tar', commit], cwd=ROOT, capture_output=True, check=True).stdout
     sh(ssh + [f'rm -rf {work} && mkdir {work} && tar -x -C {work}'], input=archive)
-    sh(ssh + [f'cd {work} && . "$HOME/.cargo/env" 2>/dev/null; CARGO_TARGET_DIR=target RUSTFLAGS="--remap-path-prefix=$HOME=/build" cargo build --release --locked -p lamp-supervisor -p lamp-guard'])
+    sh(ssh + [f'cd {work} && . "$HOME/.cargo/env" 2>/dev/null; LAMP_RELEASE_VERSION={version} CARGO_TARGET_DIR=target RUSTFLAGS="--remap-path-prefix=$HOME=/build" cargo build --release --locked -p lamp-supervisor -p lamp-guard'])
     out.mkdir(parents=True, exist_ok=True)
     sh(ssh + [f'cd {work} && cc -O2 -Wall -Wextra -Werror -o lamp-plugin-launcher tools/plugin-launcher.c'])
     sh(['scp', *ssh_opts, f'{host}:{work}/lamp-plugin-launcher', out / 'lamp-plugin-launcher'])
@@ -63,9 +64,9 @@ def linux_engine(host, commit, out, ssh_opts=()):
     sh(ssh + [f'rm -rf {work}'])
 
 
-def mac_engine(out):
+def mac_engine(out, version):
     # Keep build-machine paths (home, cargo registry, checkout) out of the shipped binaries.
-    env = {**os.environ, 'RUSTFLAGS': f'--remap-path-prefix={Path.home()}=/build'}
+    env = {**os.environ, 'LAMP_RELEASE_VERSION': version, 'RUSTFLAGS': f'--remap-path-prefix={Path.home()}=/build'}
     sh(['cargo', 'build', '--release', '--locked', '-p', 'lamp-vz', '-p', 'lamp-supervisor'], cwd=ROOT, env=env)
     target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT / 'target')) / 'release'
     for b in ['lamp-vz', 'lamp-supervisor']:
@@ -178,6 +179,8 @@ def main():
     ap.add_argument('--firecracker-amd64', type=Path, help='directory containing firecracker and jailer to sign into the amd64 release')
     ap.add_argument('--firecracker-arm64', type=Path, help='directory containing firecracker and jailer to sign into the arm64 release')
     a = ap.parse_args()
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", a.version):
+        raise SystemExit("--version must be a.b.c")
     if subprocess.run(['git', 'status', '--porcelain'], cwd=ROOT, capture_output=True, text=True).stdout.strip():
         raise SystemExit('refusing to build a release from a dirty checkout')
     commit = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
@@ -224,14 +227,14 @@ def main():
         if plat not in platforms:
             continue
         lb = scratch / plat
-        go_build('linux', arch, lb, GO_BINS)
+        go_build('linux', arch, lb, GO_BINS, a.version)
         files = [(f'bin/{n}', lb / n) for n in GO_BINS] + common_files() + [
             ('tools/guard-audit-release.py', ROOT / 'tools/guard-audit-release.py'),
             ('infra/linux/install-engine.sh', ROOT / 'infra/linux/install-engine.sh'),
             ('infra/linux/lamp-supervisor.service', ROOT / 'infra/linux/lamp-supervisor.service'),
             ('infra/linux/var-lib-lamp.mount', ROOT / 'infra/linux/var-lib-lamp.mount')]
         if host:
-            linux_engine(host, commit, lb, ssh_opts)
+            linux_engine(host, commit, lb, a.version, ssh_opts)
             files += [('bin/lamp-supervisor', lb / 'lamp-supervisor'), ('bin/lamp-guard', lb / 'lamp-guard'),
                       ('bin/lamp-plugin-launcher', lb / 'lamp-plugin-launcher')]
             fc = getattr(a, 'firecracker_' + arch)
@@ -247,8 +250,8 @@ def main():
     # macOS arm64: control binaries, the VZ engine and supervisor, Developer ID signed.
     if 'darwin-arm64' in platforms:
         mb = scratch / 'darwin-arm64'
-        go_build('darwin', 'arm64', mb, GO_BINS)
-        mac_engine(mb)
+        go_build('darwin', 'arm64', mb, GO_BINS, a.version)
+        mac_engine(mb, a.version)
         sh(['cc', '-O2', '-Wall', '-Wextra', '-Werror', '-o', mb / 'lamp-plugin-launcher', ROOT / 'tools/plugin-launcher.c'])
         mac_bins = [mb / n for n in GO_BINS + ['lamp-vz', 'lamp-supervisor', 'lamp-plugin-launcher']]
         if a.apple_dir:
@@ -266,7 +269,7 @@ def main():
         if (out / f'lamp-relay-{a.version}-{goos}-{goarch}.tar.gz').exists():
             continue
         rb = scratch / f'relay-{goos}-{goarch}'
-        go_build(goos, goarch, rb, ['lamp-relay'])
+        go_build(goos, goarch, rb, ['lamp-relay'], a.version)
         shutil.copy2(ROOT / 'internal/relay/LICENSE', rb / 'LICENSE')
         (rb / 'SOURCE').write_text(f'Corresponding source: https://gitlab.com/johansardar/lamp (built from development commit {commit})\n'
                                    'internal/relay and cmd/lamp-relay are AGPL-3.0-only.\n')
