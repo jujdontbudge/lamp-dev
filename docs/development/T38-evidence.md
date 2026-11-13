@@ -66,3 +66,26 @@ installer daemon/updater processes stopped after the successful update and
 rollback run. [compute-capacity-denied.jsonl](evidence/t38/compute-capacity-denied.jsonl)
 preserves the compute attempt that stopped at the owner's 12 GiB available-memory
 limit (11,118 MiB available); no sandbox was created in that attempt.
+
+## Compute attempt after the network recovered
+
+[compute-guest-protocol-failure.jsonl](evidence/t38/compute-guest-protocol-failure.jsonl)
+records two compute daemons on the Ubuntu laptop, with the existing enrolled
+Firecracker supervisor and a public Debian 13 sample template. Both hosts and
+their engines appeared through the real CLI. The owner capacity guard passed
+(one existing Firecracker process and 14,930 MiB available). A pinned create
+reached hs_two and created its operation there, but guest readiness failed:
+the existing template's helper rejected the `audit` field in the supervisor's
+command protocol. No successful running sandbox, automatic survivor placement
+or real stranded sandbox is claimed from this run. This old template/guest
+protocol mismatch was left unchanged; it is outside the fleet/relay change.
+The run stopped its two daemons and revoked its temporary grant, but its failed
+create path initially missed the demo VM during cleanup. The exact demo sandbox
+was subsequently released through the public supervisor CLI with a temporary
+release-only grant, which was then revoked. A process check confirmed no
+Firecracker process remained for that demo ID. The evidence preserves the
+script’s original incorrect cleanup report and the explicit correction. The outage-reporting regression is covered by
+Sol's focused retained-observation test, not relabeled as a VM success.
+
+Sol approved the current behavior in two rounds. S1 was fixed and its single
+regression test was retained. See the [review ledger](evidence/t38/sol-loop.md).
