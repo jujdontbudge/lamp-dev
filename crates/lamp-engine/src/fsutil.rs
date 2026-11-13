@@ -323,3 +323,24 @@ pub fn now_ns() -> u64 {
         .map(|d| d.as_nanos() as u64)
         .unwrap_or(0)
 }
+
+/// Bounded tail of the engine/guest console, for the owner's sandbox log view.
+pub fn log_tail(path: &Path) -> String {
+    let Ok(mut file) = File::open(path) else {
+        return String::new();
+    };
+    let Ok(size) = file.metadata().map(|m| m.len()) else {
+        return String::new();
+    };
+    if file
+        .seek(SeekFrom::Start(size.saturating_sub(8192)))
+        .is_err()
+    {
+        return String::new();
+    }
+    let mut bytes = Vec::new();
+    if file.take(8192).read_to_end(&mut bytes).is_err() {
+        return String::new();
+    }
+    String::from_utf8_lossy(&bytes).into_owned()
+}

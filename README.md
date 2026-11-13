@@ -66,3 +66,22 @@ Hosts, rolling updates and remote access: [release setup guide](docs/release/fle
 Control setup: [CI enrollment, keys, session shares, approvals and notifications](docs/control-operations.md).
 Sandbox tools are available as built-in [kits](docs/guides/kits.md): headless Chromium, a virtual desktop with recording, guest Docker, toolchains, persistent Python and a TypeScript LSP.
 Templates and storage: [build templates, save tools and mount persistent volumes](docs/templates-and-storage.md).
+
+After installation, open the printed `dashboard_sign_in` file URL, or run
+`lamp dashboard`. Installed clients discover their own prefix; use
+`--socket /path/to/api.sock` to select another local installation.
+The private file signs you into the local dashboard without pasting a token.
+It exchanges a one-use code by POST; the browser session lasts eight hours or
+until daemon restart. `dashboard_url` opens the same page in an already signed-in
+browser. The installer enables a loopback listener on an available port; a
+manually started daemon can enable it with `--dashboard-listen 127.0.0.1:0`.
+
+Each sandbox card shows guest CPU history, memory, disk, network counters and
+recent boot, engine and command logs. The same observations are available with
+`lamp sandbox metrics <id> --limit 60` and `lamp sandbox logs <id> --limit 60`,
+and `GET /v1/sandboxes/{sandbox_id}/metrics` or `/logs` (also through MCP).
+Metrics sample every five seconds, retain up to one hour, and survive daemon
+restart. CPU 100% means one busy core; missing counters are unavailable. Older
+guest templates need rebuilding with the current guest helper to report metrics.
+Logs include retained lifecycle events, engine console tails and completed exec
+output tails; they are bounded recent history, not an unbounded output archive.

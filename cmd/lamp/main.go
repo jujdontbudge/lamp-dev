@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -122,6 +123,28 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(args) > 0 && args[0] == "quota" {
 		args = append([]string{"metric", "list"}, args[1:]...)
+	}
+	if len(args) > 0 && args[0] == "dashboard" {
+		flags := flag.NewFlagSet("lamp dashboard", flag.ContinueOnError)
+		flags.SetOutput(stderr)
+		socket := localconfig.Socket()
+		flags.StringVar(&socket, "socket", socket, "installed lampd Unix socket")
+		jsonOut := flags.Bool("json", false, "machine-readable link")
+		if err := flags.Parse(append(append([]string{}, args[1:]...), globals...)); err != nil || flags.NArg() != 0 {
+			return usage("usage: lamp dashboard [--socket path] [--json]")
+		}
+		file := filepath.Join(filepath.Dir(socket), "dashboard.html")
+		if _, err := os.Stat(file); err != nil {
+			cliError(stderr, "DATA_UNAVAILABLE", "dashboard sign-in file unavailable; start lampd with its dashboard listener enabled", asJSON)
+			return 6
+		}
+		link := "file://" + file
+		if *jsonOut {
+			json.NewEncoder(stdout).Encode(map[string]string{"dashboard_sign_in": link})
+		} else {
+			fmt.Fprintln(stdout, link)
+		}
+		return 0
 	}
 	if len(args) < 2 {
 		return usage("usage: lamp <resource> <action> [flags]")

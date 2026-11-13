@@ -2882,6 +2882,31 @@ finally:
         }
         let (used, cap) = self.macos_slots();
         detail.insert("macos_slots".into(), format!("{used}/{cap}"));
+        if command_operation_id.is_empty() {
+            detail.insert(
+                "boot_log".into(),
+                fsutil::log_tail(&sb.dir.join("console.log"))
+                    + &fsutil::log_tail(&sb.dir.join("worker.log")),
+            );
+        }
+        // Empty Inspect is the read-only telemetry path. Command polling stays cheap.
+        if command_operation_id.is_empty()
+            && sb.state == State::Running
+            && let Some(vsock) = sb.worker.as_ref().map(|w| w.vsock.clone())
+            && let Ok(GuestResponse::Pong(status)) = guest::call(
+                &vsock,
+                &GuestRequest::Ping(Empty {}),
+                Duration::from_secs(2),
+            )
+            && status.sandbox_id == sb.id
+            && status.generation == sb.generation
+        {
+            detail.insert(
+                "metrics".into(),
+                serde_json::to_string(&status.metrics).unwrap(),
+            );
+            detail.insert("metrics_boot_id".into(), status.kernel_boot_id);
+        }
         let command = if command_operation_id.is_empty() {
             None
         } else {

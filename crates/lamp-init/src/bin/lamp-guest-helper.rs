@@ -237,11 +237,72 @@ mod linux {
         }
     }
 
+    // Read kernel counters directly: collecting telemetry never starts a task.
+    fn guest_metrics() -> std::collections::BTreeMap<String, u64> {
+        let mut out = std::collections::BTreeMap::new();
+        if let Ok(cpu) = std::fs::read_to_string("/sys/fs/cgroup/tasks/cpu.stat") {
+            for line in cpu.lines() {
+                if let Some(value) = line
+                    .strip_prefix("usage_usec ")
+                    .and_then(|v| v.parse::<u64>().ok())
+                {
+                    out.insert("cpu_usage_usec".into(), value);
+                }
+            }
+        }
+        if let Ok(mem) = std::fs::read_to_string("/proc/meminfo") {
+            let field = |name: &str| {
+                mem.lines().find_map(|l| {
+                    l.strip_prefix(name)
+                        .and_then(|v| v.split_whitespace().next())
+                        .and_then(|v| v.parse::<u64>().ok())
+                })
+            };
+            if let (Some(total), Some(available)) = (field("MemTotal:"), field("MemAvailable:")) {
+                out.insert(
+                    "memory_used_bytes".into(),
+                    total.saturating_sub(available) * 1024,
+                );
+                out.insert("memory_total_bytes".into(), total * 1024);
+            }
+        }
+        let mut disk: libc::statvfs = unsafe { std::mem::zeroed() };
+        if unsafe { libc::statvfs(c"/".as_ptr(), &mut disk) } == 0 {
+            out.insert(
+                "disk_used_bytes".into(),
+                (disk.f_blocks - disk.f_bfree) * disk.f_frsize,
+            );
+            out.insert("disk_total_bytes".into(), disk.f_blocks * disk.f_frsize);
+        }
+        if let Ok(net) = std::fs::read_to_string("/proc/net/dev") {
+            let (mut rx, mut tx) = (0, 0);
+            for line in net.lines() {
+                if let Some((name, values)) = line.split_once(':') {
+                    if name.trim() == "lo" {
+                        continue;
+                    }
+                    let values: Vec<u64> = values
+                        .split_whitespace()
+                        .filter_map(|v| v.parse().ok())
+                        .collect();
+                    if values.len() >= 9 {
+                        rx += values[0];
+                        tx += values[8];
+                    }
+                }
+            }
+            out.insert("network_rx_bytes".into(), rx);
+            out.insert("network_tx_bytes".into(), tx);
+        }
+        out
+    }
+
     fn handle(request: GuestRequest, state: &Shared) -> GuestResponse {
         match request {
             GuestRequest::Ping(Empty {}) => {
                 let id = state.lock().unwrap();
                 GuestResponse::Pong(Status {
+                    metrics: guest_metrics(),
                     sandbox_id: id.sandbox_id.clone(),
                     generation: id.generation,
                     kernel_boot_id: boot_id(),

@@ -22,3 +22,5 @@ table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:3px 6px;
 img.view{max-width:100%;border:1px solid var(--line);border-radius:6px}
 footer{padding:16px;color:var(--muted);font-size:12px;text-align:center}
 .kv>span,.kv>code,.card p,.card h2{overflow-wrap:anywhere;min-width:0}.kv{grid-template-columns:max-content minmax(0,1fr)}
+
+.cpu-history{display:flex;align-items:flex-end;height:64px;gap:2px;margin:12px 0}.cpu-history i{flex:1;background:var(--accent,#67b8f7);min-width:2px}.sandbox-logs{max-height:220px;overflow:auto;white-space:pre-wrap}

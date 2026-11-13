@@ -316,17 +316,25 @@ func run() error {
 	go func() { defer close(relayDone); service.RunRelay(ctx) }()
 	defer func() { stop(); <-relayDone }()
 	done := make(chan error, 1)
-	go func() { done <- server.Serve(authenticated) }()
 	if *dashboardListen != "" {
 		tcp, err := net.Listen("tcp", *dashboardListen)
 		if err != nil {
 			return err
 		}
 		defer tcp.Close()
-		web := &http.Server{Handler: control.RequireBearer(handler), ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
+		webHandler := control.RequireBearer(handler)
+		host, _, _ := net.SplitHostPort(tcp.Addr().String())
+		if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+			webHandler, err = service.LocalDashboard(handler, tcp.Addr().String(), filepath.Dir(*socket))
+			if err != nil {
+				return err
+			}
+		}
+		web := &http.Server{Handler: webHandler, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
 		go func() { done <- web.Serve(tcp) }()
-		fmt.Fprintln(os.Stderr, "lampd: dashboard listening on", tcp.Addr())
+		fmt.Fprintln(os.Stderr, "lampd: dashboard listening on", "http://"+tcp.Addr().String()+"/dashboard", "(owner sign-in: file://"+filepath.Join(filepath.Dir(*socket), "dashboard.html")+")")
 	}
+	go func() { done <- server.Serve(authenticated) }()
 	fmt.Fprintln(os.Stderr, "lampd: control API listening on", *socket)
 	select {
 	case err := <-done:

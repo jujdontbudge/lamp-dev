@@ -179,6 +179,8 @@ pub enum GuestResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Status {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metrics: BTreeMap<String, u64>,
     pub sandbox_id: String,
     pub generation: u64,
     pub kernel_boot_id: String,
@@ -380,3 +382,6 @@ pub struct Mount {
     pub read_only: bool,
     pub unmount: bool,
 }
+
+#[cfg(target_os = "macos")]
+pub mod mac_metrics;

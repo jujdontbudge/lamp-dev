@@ -105,6 +105,8 @@ type Service struct {
 	relayConfig           *relayclient.Config
 	relayConnected        atomic.Bool
 	auditMu               sync.Mutex
+	metrics               map[string][]metricSample
+	engineLogs            map[string]string
 	notifyConfig          *NotificationConfig
 	notifyKick            chan struct{}
 	notifyInflight        map[string]bool
@@ -563,6 +565,21 @@ func Open(config Config) (*Service, error) {
 		s.wg.Add(1)
 		go s.ciController(pending)
 	}
+	s.metrics = map[string][]metricSample{}
+	if raw, err := os.ReadFile(filepath.Join(s.dir, "metrics.json")); err == nil {
+		var saved observations
+		_ = json.Unmarshal(raw, &saved)
+		s.metrics = saved.Samples
+		s.engineLogs = saved.EngineLogs
+		if s.metrics == nil {
+			s.metrics = map[string][]metricSample{}
+		}
+	}
+	if s.engineLogs == nil {
+		s.engineLogs = map[string]string{}
+	}
+	s.wg.Add(1)
+	go s.observeSandboxes()
 	return s, nil
 }
 func (s *Service) context() context.Context { return s.rootContext }

@@ -1,0 +1,4 @@
+/tmp/lamp-t42-bin/lamp-vz: replacing existing signature
+lamp-supervisor: store open, 0 verified template(s) in 114 ms
+lamp-supervisor: HOST_UNAVAILABLE: probe exec: Error { code: "INVALID_ARGUMENT", message: "unknown field `stdin_path`, expected one of `sandbox_id`, `generation`, `exec_id`, `argv`, `env`, `cwd`, `timeout_ms`, `output_limit`, `audit`" }
+lamp-installer: default template preparation failed: exit status 1

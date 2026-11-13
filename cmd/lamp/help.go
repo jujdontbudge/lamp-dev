@@ -19,6 +19,15 @@ import (
 const exitHelp = "Errors: JSON on stderr with --json. Exit: 0 success, 1 API/operation failure, 2 usage, 3 unauthenticated, 4 scope denied, 5 conflict/expired, 6 transport/timeout."
 
 func help(out io.Writer, words []string, asJSON bool, globals []string) int {
+	if len(words) == 1 && words[0] == "dashboard" {
+		usage := "lamp dashboard [--socket path] [--json]"
+		if asJSON {
+			json.NewEncoder(out).Encode(map[string]any{"usage": usage})
+		} else {
+			fmt.Fprintln(out, "Usage: "+usage+"\nPrint the private sign-in file URL for the local installation.")
+		}
+		return 0
+	}
 	ops := surface.InstalledOperations(strings.HasPrefix(os.Getenv("LAMP_API_URL"), "lamp+fleet:"))
 	if asJSON {
 		flags := flag.NewFlagSet("help", flag.ContinueOnError)
@@ -54,7 +63,7 @@ func help(out io.Writer, words []string, asJSON bool, globals []string) int {
 	fmt.Fprintln(out, "Lamp — isolated workspaces for agents")
 	if len(words) == 0 {
 		fmt.Fprintln(out, "Usage: lamp <resource> <action> [id] [flags]\nCommands:")
-		groups := map[string]bool{}
+		groups := map[string]bool{"dashboard": true}
 		for _, op := range ops {
 			group, _, _ := strings.Cut(strings.TrimPrefix(op.CLI, "lamp "), " ")
 			groups[group] = true

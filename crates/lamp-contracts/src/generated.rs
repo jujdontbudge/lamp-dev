@@ -16824,6 +16824,22 @@ pub struct SandboxListResult {
     #[serde(rename = "request_id")]
     pub request_id: String,
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxLogsInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "limit", default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxLogsResult {
+    #[serde(rename = "items")]
+    pub items: Vec<serde_json::Value>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
 pub type SandboxLspCompletion = AdapterDocument;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16877,6 +16893,22 @@ pub struct SandboxLspResult {
     pub operation: Option<Operation>,
     #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
     pub result: Option<SandboxLspCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxMetricsInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "limit", default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxMetricsResult {
+    #[serde(rename = "items")]
+    pub items: Vec<serde_json::Value>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -18557,6 +18589,10 @@ pub enum ScopeActionsItem {
     SandboxBrowser,
     #[serde(rename = "sandbox.desktop")]
     SandboxDesktop,
+    #[serde(rename = "sandbox.metrics")]
+    SandboxMetrics,
+    #[serde(rename = "sandbox.logs")]
+    SandboxLogs,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -26294,6 +26330,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "sandbox_logs",
+        scope: "sandbox.logs",
+        cli: "lamp sandbox logs",
+        method: "get",
+        path: "/v1/sandboxes/{sandbox_id}/logs",
+        input_schema: "SandboxLogsInput",
+        result_schema: "SandboxLogsResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
         name: "sandbox_lsp",
         scope: "sandbox.lsp",
         cli: "lamp sandbox lsp",
@@ -26303,6 +26350,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "SandboxLspResult",
         authorization: "authenticated_scope",
         mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_metrics",
+        scope: "sandbox.metrics",
+        cli: "lamp sandbox metrics",
+        method: "get",
+        path: "/v1/sandboxes/{sandbox_id}/metrics",
+        input_schema: "SandboxMetricsInput",
+        result_schema: "SandboxMetricsResult",
+        authorization: "authenticated_scope",
+        mutation: false,
     },
     OperationDescriptor {
         name: "sandbox_prepare_fork",

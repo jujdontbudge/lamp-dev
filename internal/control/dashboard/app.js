@@ -4,7 +4,7 @@
 'use strict';
 
 const LISTS = {
-  fleets: '/v1/fleets', hosts: '/v1/hosts', sandboxes: '/v1/sandboxes', sessions: '/v1/sessions',
+  ports: '/v1/ports', fleets: '/v1/fleets', hosts: '/v1/hosts', sandboxes: '/v1/sandboxes', sessions: '/v1/sessions',
   tasks: '/v1/tasks', budgets: '/v1/budgets', approvals: '/v1/approvals', shares: '/v1/shares',
   leases: '/v1/leases', browsers: '/v1/browsers', kits: '/v1/kits', operations: '/v1/operations',
   audit: '/v1/audit-records', sinks: '/v1/notification-sinks', notifications: '/v1/notifications',
@@ -33,7 +33,7 @@ const FEATURES = [
 
 let token = '';
 try { token = sessionStorage.getItem('lamp.token') || ''; } catch (_) {}
-const state = { data: {}, errors: {}, installed: null, events: [], cursor: '', live: false, leases: {}, views: {}, me: '' };
+const state = { data: {}, errors: {}, installed: null, events: [], cursor: '', live: false, leases: {}, views: {}, observations: {}, me: '' };
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const online = (h) => h.state === 'ready' || h.state === 'active';
@@ -54,7 +54,7 @@ async function api(method, path, body, revision) {
     headers['Idempotency-Key'] = crypto.randomUUID();
     if (revision !== undefined) headers['If-Match'] = String(revision);
   }
-  const res = await fetch(path, { method, headers, body: method === 'GET' ? undefined : JSON.stringify(body || {}), cache: 'no-store', credentials: 'omit' });
+  const res = await fetch(path, { method, headers, body: method === 'GET' ? undefined : JSON.stringify(body || {}), cache: 'no-store', credentials: 'same-origin' });
   const who = res.headers.get('X-Lamp-Principal');
   if (who) state.me = who;
   let out = null;
@@ -79,7 +79,7 @@ async function listAll(path) {
 }
 
 async function load() {
-  const keys = Object.keys(LISTS).filter((k) => !(k === 'hosts' && state.installed && !state.installed.host_list));
+  const keys = Object.keys(LISTS).filter((k) => !(['hosts', 'ports'].includes(k) && state.installed && !state.installed[k === 'hosts' ? 'host_list' : 'port_list']));
   await Promise.all(keys.map(async (k) => {
     try { state.data[k] = await listAll(LISTS[k]); delete state.errors[k]; }
     catch (e) {
@@ -87,6 +87,12 @@ async function load() {
       state.errors[k] = e;
       if (e.code === 'NOT_FOUND') state.data[k] = [];
     }
+  }));
+  await Promise.all(items('sandboxes').map(async (s) => {
+    try {
+      const [metrics, logs] = await Promise.all(['metrics', 'logs'].map((kind) => api('GET', `/v1/sandboxes/${encodeURIComponent(s.id)}/${kind}?limit=60`)));
+      state.observations[s.id] = { metrics: metrics.items, logs: logs.items };
+    } catch (e) { state.observations[s.id] = { error: e.message }; }
   }));
   state.loadedAt = new Date();
   $('#who').textContent = state.me ? 'signed in as ' + state.me : '';
@@ -101,7 +107,7 @@ async function signIn() {
     if (e.status === 401 || e.code === 'UNAUTHENTICATED' || e.code === 'SCOPE_DENIED') return signedOut(e.message);
     state.errors.docs = e;
   }
-  $('#signin').hidden = true; $('#signout').hidden = !token;
+  $('#signin').hidden = true; $('#signout').hidden = false;
   await load().catch(() => {});
   if (!state.live) watch();
 }
@@ -265,6 +271,20 @@ function opLine(o) {
     ${o.error ? `<p class="err">${esc(o.error.code)}: ${esc(o.error.message)}</p>` : ''}`;
 }
 
+function observationCard(s) {
+  const o = state.observations[s.id];
+  if (!o) return '<p class="muted">Waiting for metrics and logs…</p>';
+  if (o.error) return `<p class="err">${esc(o.error)}</p>`;
+  const samples = o.metrics || [], m = samples[samples.length - 1], c = m && m.counters || {};
+  const bytes = (v) => v === undefined ? 'unavailable' : (v / 1048576).toFixed(1) + ' MiB';
+  const rows = samples.filter((x) => x.cpu_percent !== undefined);
+  const max = Math.max(100, ...rows.map((x) => x.cpu_percent));
+  return `<h3>Metrics</h3>${m ? `<p class="muted">Observed ${when(m.observed_at)} · every 5 seconds · last hour retained</p>${m.error ? `<p class="warn">${esc(m.error)}</p>` : ''}
+    <div class="kv"><b>CPU</b><span>${m.cpu_percent === undefined ? 'waiting for two CPU samples' : m.cpu_percent.toFixed(1) + '% (100% = one core)'}</span><b>memory used / total</b><span>${bytes(c.memory_used_bytes)} / ${bytes(c.memory_total_bytes)}</span><b>disk used / total</b><span>${bytes(c.disk_used_bytes)} / ${bytes(c.disk_total_bytes)}</span><b>network received / sent</b><span>${bytes(c.network_rx_bytes)} / ${bytes(c.network_tx_bytes)}</span></div>
+    ${rows.length ? `<div class="cpu-history" role="img" aria-label="CPU history, oldest to newest">${rows.map((x) => `<i style="height:${Math.max(1, 100 * x.cpu_percent / max)}%" title="${esc(x.observed_at)}: ${x.cpu_percent.toFixed(1)}%"></i>`).join('')}</div>` : ''}` : '<p class="muted">No samples yet. Metrics begin when the sandbox is ready.</p>'}
+    <h3>Recent logs</h3><pre class="sandbox-logs">${esc((o.logs || []).map((l) => `${l.occurred_at} [${l.source}] ${l.message}${l.data ? ' ' + JSON.stringify(l.data) : ''}`).join('\n') || 'No logs yet.')}</pre>`;
+}
+
 function sandboxCard(s) {
   const r = s.readiness || {}, checks = r.checks || [];
   const idle = s.idle_countdown || {};
@@ -277,6 +297,12 @@ function sandboxCard(s) {
     ${checks.length ? `<h3>Setup</h3><div class="row">${checks.map((c) => `<span class="pill ${cls(c.state === 'passed' ? 'ready' : c.state)}" title="${esc(c.error ? c.error.code + ': ' + c.error.message : '')}">${esc(c.name)}: ${esc(c.state)}</span>`).join('')}</div>${checks.filter((c) => c.error).map((c) => `<p class="err">${esc(c.name)} failed — ${esc(c.error.code)}: ${esc(c.error.message)}</p>`).join('')}` : ''}
     ${r.agent_ready_at ? `<p class="ok">Setup finished; agent ready ${when(r.agent_ready_at)}</p>` : r.command_started_at ? `<p class="ok">Ready; command started ${when(r.command_started_at)}</p>` : ''}
     ${opLine(opFor('sandbox', s.id))}
+    <h3>Resources</h3><p>${esc(s.resources ? `${s.resources.vcpus} vCPU · ${s.resources.memory_mib} MiB RAM · ${s.resources.disk_gib} GiB disk` : 'unavailable')}</p>
+    <h3>Previews</h3><div class="row">${items('ports').filter((p) => p.sandbox_id === s.id && p.state !== 'closed').map((p) => {
+      let safe = false; try { safe = ['http:', 'https:'].includes(new URL(p.origin).protocol); } catch (_) {}
+      return safe ? `<a href="${esc(p.origin)}" target="_blank" rel="noopener noreferrer">Port ${esc(p.port)}</a> ${pill(p.state)}` : `<span>Port ${esc(p.port)} ${pill(p.state)}</span>`;
+    }).join(' ') || '<span class="muted">No open previews.</span>'}</div>
+    ${observationCard(s)}
     <h3>Countdowns</h3><div class="row">
       ${idle.fires_at ? countdown(idle.fires_at, `idle → ${idle.action}`) : `<span class="muted">idle ${esc(idle.action || '')} after ${esc(idle.grace_seconds || '?')} s quiet${elig && !elig.eligible ? ' — busy: ' + esc((elig.reasons || []).join(', ')) : ''}</span>`}
       ${task && task.deadline_at ? countdown(task.deadline_at, 'task budget') : ''}
@@ -464,7 +490,7 @@ function tick() {
 setInterval(tick, 1000);
 // Host liveness has no event of its own (a sleeping peer cannot announce it),
 // so the lists are also re-read every 10 s while signed in.
-setInterval(() => { if (state.live && !document.hidden) load().catch(() => {}); }, 10000);
+setInterval(() => { if (state.live && !document.hidden) load().catch(() => {}); }, 5000);
 
 window.addEventListener('hashchange', () => { state.scrolled = ''; render(); });
 document.addEventListener('DOMContentLoaded', () => {
@@ -474,6 +500,6 @@ document.addEventListener('DOMContentLoaded', () => {
     try { sessionStorage.setItem('lamp.token', token); } catch (_) {}
     signIn();
   });
-  $('#signout').addEventListener('click', () => { token = ''; try { sessionStorage.removeItem('lamp.token'); } catch (_) {} signedOut(); });
+  $('#signout').addEventListener('click', async () => { await fetch('/dashboard/sign-out', { method: 'POST', credentials: 'same-origin' }); token = ''; try { sessionStorage.removeItem('lamp.token'); } catch (_) {} signedOut(); });
   signIn();
 });

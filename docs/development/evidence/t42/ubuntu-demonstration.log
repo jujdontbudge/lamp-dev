@@ -1,0 +1,9 @@
+dashboard signed in through private file
+CLI-created sandbox visible through dashboard API: sb_1f53926168188b2c84f60ebbd8a69933
+CLI metrics busy sample: {"observed_at": "2026-11-13T01:03:27.196991024Z", "generation": 1, "boot_id": "f20dd560-8b96-48ea-9d20-b8d0f5f32fb0", "counters": {"cpu_usage_usec": 8640576, "disk_total_bytes": 20957446144, "disk_used_bytes": 521859072, "memory_total_bytes": 1031806976, "memory_used_bytes": 118472704, "network_rx_bytes": 0, "network_tx_bytes": 586}, "cpu_percent": 99.3535716159428}
+CLI logs: [{"source": "boot/engine", "message": "2026-11-13T01:03:17.574846158 [sb-1f53926168188b2c84f60ebbd8a69933:fc_vcpu 0] Received a VcpuEvent::Resume message with immediate_exit enabled. immediate_exit was disabled before p"}, {"source": "operation", "message": "operation.state_changed"}, {"source": "sandbox", "message": "sandbox.state_changed"}, {"source": "operation", "message": "operation.state_changed"}, {"source": "sandbox", "message": "sandbox.state_changed"}, {"source": "operation", "message": "operation.completed"}, {"source": "sandbox", "message": "sandbox.state_changed"}, {"source": "exec", "message": "exec.state_changed"}, {"source": "exec", "message": "exec.state_changed"}, {"source": "stdout", "message": "T42 exec log\nT42 exec finished\n"}, {"source": "exec", "message": "exec.state_changed"}]
+SSE limit=2: exactly two events, stream closed
+long-poll woke on CLI suspend; dashboard state: suspended
+daemon restart retained 2 metric samples and 15 log entries
+CLI delete visible through dashboard API
+live Firecracker processes after release: 1

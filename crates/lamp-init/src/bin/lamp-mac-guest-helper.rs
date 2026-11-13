@@ -204,6 +204,7 @@ mod mac {
                 GuestRequest::Ping(Empty {}) => {
                     let id = state.lock().unwrap();
                     GuestResponse::Pong(Status {
+                        metrics: mac_metrics::collect(),
                         sandbox_id: id.sandbox_id.clone(),
                         generation: id.generation,
                         kernel_boot_id: boot_id(),
