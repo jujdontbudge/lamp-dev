@@ -1,0 +1,1 @@
+{"step": "dedicated supervisor cleanup", "data": {"grant_revoked": true, "supervisor_stopped": true, "remaining_demo_firecracker_pids": []}}

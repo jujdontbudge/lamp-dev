@@ -89,3 +89,40 @@ Sol's focused retained-observation test, not relabeled as a VM success.
 
 Sol approved the current behavior in two rounds. S1 was fixed and its single
 regression test was retained. See the [review ledger](evidence/t38/sol-loop.md).
+
+## Cross-machine compute follow-up
+
+[compute-cross-machine.jsonl](evidence/t38/compute-cross-machine.jsonl) records a
+successful run across two physical machines: hs_one is this M5 Mac's control
+ingress; hs_two is the Ubuntu laptop's compute host. The CLI discovery document
+contained only the Mac ingress. Fleet peer traffic used mutual TLS over disposable
+SSH port forwards because direct private-network ports timed out. This is real
+cross-machine routing, not two daemons sharing a local worker.
+
+The prior `audit` rejection came from the old November 10 template's guest-helper
+JSON decoder. The current `crates/lamp-init/src/lib.rs` already defines
+`Exec.audit`, and `lamp-guest-helper` runs audited tasks under `lamp-guard`.
+No guest, daemon or exec product patch, and no dependency on T33/T35/T36, was
+needed. A disposable clone of the verified public Debian 13 seed received this
+branch's newly built `lamp-init`, `lamp-guest-helper` and `lamp-guard`, with updated
+seed digests; a dedicated supervisor built template tp_a6a355c1659a92200433d2edbc.
+Neither shared templates nor other tickets' services were modified. The release
+guide now explains immutable template compatibility and short supervisor paths.
+
+With zero existing VMs and 14,619 MiB available at the create guard, the Mac CLI
+created sb_afd37d66f84cdb7fbc24b723c457a7f2_h_hs_two, observed `host_id: hs_two`,
+`boundary: vm` and `state: ready`, then started Python inside it. The exec exited
+0; `exec watch` through the Mac returned `t38-second-host-ok Linux x86_64`.
+`fleet get` reported healthy coordination with no unavailable hosts. The CLI
+deleted the sandbox. Both fleet daemons and the SSH tunnel stopped afterward.
+The [dedicated supervisor cleanup](evidence/t38/compute-worker-cleanup.jsonl)
+confirms its temporary grant was revoked and no demo Firecracker process remained. This follow-up proves
+live compute on the second physical host; it does not claim survivor placement,
+live VM migration, or production remote service enrollment.
+
+[compute-followup-attempts.jsonl](evidence/t38/compute-followup-attempts.jsonl)
+preserves setup failures and demo-script mistakes before that successful run:
+a worker identity mismatch, a Unix-socket path too long for the disposable store,
+a shared-capacity refusal, and assertions that incorrectly expected `running`
+instead of sandbox `ready` or exec completion immediately after start. The old
+protocol failure above remains historical; it has not been relabeled successful.

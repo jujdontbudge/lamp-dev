@@ -71,6 +71,18 @@ lamp engine list --token-file /absolute/private/new-fleet/owner.token --json
 lamp sandbox create --host-id hs_one --template-id tp_EXAMPLE --token-file /absolute/private/new-fleet/owner.token --json
 ```
 
+Compute hosts need templates built with guest binaries compatible with their
+supervisor. Joining a fleet does not upgrade immutable template snapshots.
+If creation reports ``unknown field `audit` ``, the template contains an older
+`lamp-guest-helper`: rebuild the seed with the current `lamp-init`,
+`lamp-guest-helper` and `lamp-guard`, import that seed, then build a new template
+and use its new ID. Updating only the host daemon cannot replace code already
+captured inside a template. Keep protected task auditing enabled. Use a short
+supervisor store path: jail and audit socket paths include the sandbox ID,
+and Linux Unix-socket paths must fit within 107 bytes. A
+`bind audit listener: path must be shorter than SUN_LEN` error requires a
+shorter store path; shortening the daemon state directory alone does not help.
+
 Omit `--host-id` for automatic placement on a compatible available host with
 capacity. Pins are strict. `host list` includes engines and installed release
 versions; `engine list` includes host IDs. `fleet get fl_local` includes
