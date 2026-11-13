@@ -1,0 +1,29 @@
+[
+  {
+    "platform": "darwin-arm64",
+    "manifest_sha256": "997d19119a5300de22b25b2b66628f7fafa2fe07ca76703bd9261ed09324b9d2",
+    "engine": {
+      "lamp-vz_sha256": "5fa3790130fa1c78970a1bc460b61e23f588636af7f4f986746b9148d1c2cd97",
+      "snapshot_format": "1"
+    },
+    "seed": {
+      "lamp-guard": "362fc005f5338562c3a186b8f4b7308791606ef9a320f07aad20a8baac0b097b",
+      "lamp-guest-helper": "f344c4554344d5a44bbfdc986a23949a3fe8954cdd3b37489bad25255ca4c3a7",
+      "lamp-init": "fd8e432c3220168672039f9184f4c6fd555b9ca88b2e737d998bd39e75e79460"
+    }
+  },
+  {
+    "platform": "linux-arm64",
+    "manifest_sha256": "10c3fa6e888355292219a66f6d74a4a1c1ce3726f80e8dba752d19b96c660f8a",
+    "engine": {
+      "firecracker_sha256": "fe726e0b43c04363ac07e358be4dee982c3947c65ed3ae10c770fef5e1cd756c",
+      "jailer_sha256": "4d8d2dd4dfc1d47932b2bd261479181dd0c54f0a2f32714421a7e7f9f07ddec8",
+      "snapshot_format": "1"
+    },
+    "seed": {
+      "lamp-guard": "362fc005f5338562c3a186b8f4b7308791606ef9a320f07aad20a8baac0b097b",
+      "lamp-guest-helper": "f344c4554344d5a44bbfdc986a23949a3fe8954cdd3b37489bad25255ca4c3a7",
+      "lamp-init": "fd8e432c3220168672039f9184f4c6fd555b9ca88b2e737d998bd39e75e79460"
+    }
+  }
+]

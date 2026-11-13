@@ -58,3 +58,8 @@ Final integration rebased onto main 43a941ed (including T32/T33/T38/T39/T41).
 TERM regression passed. Linux supervisor/init/guard and Go rebuilds passed.
 CLI sandbox/shell/copy help was exercised; installed socket and credential
 selection now follow T32. The real VM observations above predate this rebase.
+
+The coordinator's later arm64 runtime follow-up is recorded in
+`platforms/README.md` and its observations. It supersedes the earlier
+compile-only limit for the specific M5/Linux-arm64 checks demonstrated there;
+the earlier x86_64 observations and failed runs remain historical.

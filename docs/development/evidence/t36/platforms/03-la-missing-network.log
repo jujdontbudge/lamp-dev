@@ -1,0 +1,6 @@
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-i/51e65afe/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its template…
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 68 ms
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 814 ms
+lamp-supervisor: HOST_UNAVAILABLE: boot probe: start managed network: No such file or directory (os error 2)
+lamp-installer: default template preparation failed: exit status 1

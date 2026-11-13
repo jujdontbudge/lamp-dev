@@ -38,3 +38,15 @@ run. Fresh `make build`, targeted Go vet, the retained TERM regression, public/
 protobuf generation checks, and Linux supervisor/init/guard plus Go builds passed.
 CLI help was exercised directly for sandbox, shell and copy, including a leading
 global connection flag. No additional VM or tests were added for this rebase.
+
+## Coordinator-requested arm64 follow-up
+
+The M5 and Linux arm64 real runs are in `platforms/README.md`. Linux template
+preparation exposed a T32/T39 integration gap: `lamp-network` was present in
+normal release payloads but omitted from the installer's protected Linux
+component list. Commit 5580cfd adds it alongside lamp-guard (one changed line).
+The failed install is retained in `platforms/03-la-missing-network.log`; after
+the fix the disposable signed install and all five requested runtime checks
+passed. `make build` and installer Go vet passed; no new tests were added.
+A new scoped Sol round reviews only this follow-up delta, as requested by the
+coordinator. The original two-round exec/PTY approval is unchanged.
