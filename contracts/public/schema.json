@@ -568,7 +568,11 @@
               "warm_pool.delete",
               "warm_pool.get",
               "warm_pool.list",
-              "warm_pool.update"
+              "warm_pool.update",
+              "sandbox.file_stat",
+              "sandbox.file_search",
+              "sandbox.file_watch",
+              "sandbox.file_rename"
             ]
           }
         },
@@ -4729,6 +4733,33 @@
         "output_cursor": {
           "type": "string",
           "readOnly": true
+        },
+        "stdout_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stderr_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_truncated": {
+          "type": "boolean"
+        },
+        "timed_out": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Command runtime limit in milliseconds; zero disables the limit."
+        },
+        "failure_reason": {
+          "type": "string",
+          "readOnly": true
+        },
+        "stdin_open": {
+          "type": "boolean",
+          "description": "Keep a binary stdin stream open for exec input; false closes stdin unless a blob is supplied."
         }
       },
       "required": [
@@ -14600,6 +14631,15 @@
           "maximum": 18446744073709551615,
           "format": "uint64",
           "readOnly": true
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Command runtime limit in milliseconds; zero disables the limit."
+        },
+        "stdin_open": {
+          "type": "boolean",
+          "description": "Keep a binary stdin stream open for exec input; false closes stdin unless a blob is supplied."
         }
       },
       "required": [
@@ -26003,22 +26043,18 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 18446744073709551615,
-          "format": "uint64",
-          "readOnly": true
+          "format": "uint64"
         },
         "length_bytes": {
           "type": "integer",
           "minimum": 0,
           "maximum": 18446744073709551615,
-          "format": "uint64",
-          "readOnly": true
+          "format": "uint64"
         }
       },
       "required": [
         "sandbox_id",
-        "path",
-        "offset_bytes",
-        "length_bytes"
+        "path"
       ]
     },
     "SandboxFileReadResult": {
@@ -26215,6 +26251,14 @@
         },
         "path": {
           "type": "string"
+        },
+        "cursor": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
         }
       },
       "required": [
@@ -26540,6 +26584,9 @@
           "maximum": 18446744073709551615,
           "format": "uint64",
           "readOnly": true
+        },
+        "eof": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -33042,6 +33089,216 @@
         "items",
         "request_id"
       ]
+    },
+    "SandboxFileStatInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "path"
+      ]
+    },
+    "SandboxFileStatResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileEntry"
+          }
+        },
+        "next_cursor": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SandboxFileSearchInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "contents": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "path",
+        "query"
+      ]
+    },
+    "SandboxFileSearchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileEntry"
+          }
+        },
+        "next_cursor": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SandboxFileWatchInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "cursor": {
+          "type": "string"
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "path"
+      ]
+    },
+    "SandboxFileWatchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileEntry"
+          }
+        },
+        "next_cursor": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SandboxFileRenameInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "destination": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "path",
+        "idempotency_key",
+        "expected_revision",
+        "destination"
+      ]
+    },
+    "SandboxFileRenameCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SandboxFileRenameResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxFileRenameCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
     }
   },
   "x-lamp-resources": {
@@ -38306,6 +38563,59 @@
       "cli": "lamp relay list",
       "mcp": "relay_list",
       "authorization": "authenticated_scope"
+    },
+    "sandbox_file_stat": {
+      "kind": "sandbox",
+      "action": "file_stat",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:file-stat",
+      "mutation": false,
+      "input_schema": "SandboxFileStatInput",
+      "result_schema": "SandboxFileStatResult",
+      "scope": "sandbox.file_stat",
+      "cli": "lamp sandbox file-stat",
+      "mcp": "sandbox_file_stat",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_file_search": {
+      "kind": "sandbox",
+      "action": "file_search",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:file-search",
+      "mutation": false,
+      "input_schema": "SandboxFileSearchInput",
+      "result_schema": "SandboxFileSearchResult",
+      "scope": "sandbox.file_search",
+      "cli": "lamp sandbox file-search",
+      "mcp": "sandbox_file_search",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_file_watch": {
+      "kind": "sandbox",
+      "action": "file_watch",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:file-watch",
+      "mutation": false,
+      "input_schema": "SandboxFileWatchInput",
+      "result_schema": "SandboxFileWatchResult",
+      "scope": "sandbox.file_watch",
+      "cli": "lamp sandbox file-watch",
+      "mcp": "sandbox_file_watch",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_file_rename": {
+      "kind": "sandbox",
+      "action": "file_rename",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:file-rename",
+      "mutation": true,
+      "input_schema": "SandboxFileRenameInput",
+      "result_schema": "SandboxFileRenameResult",
+      "scope": "sandbox.file_rename",
+      "cli": "lamp sandbox file-rename",
+      "mcp": "sandbox_file_rename",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SandboxFileRenameCompletion"
     }
   },
   "x-lamp-errors": {

@@ -85,7 +85,7 @@ func (s *Service) guestPython(ctx context.Context, sandbox, program string, args
 	argv := append([]string{"python3", "-c", program}, args...)
 	var res guestResult
 	var err error
-	if len(s.sessions.Harnesses) > 0 && (program == pyIdle || program == pyStat || program == pyRead || program == pyAppend) {
+	if program == pyIdle || program == pyStat || program == pyRead || program == pyAppend {
 		res, err = s.guestInfrastructure(ctx, sandbox, argv)
 	} else {
 		res, err = s.guestRun(ctx, sandbox, argv...)

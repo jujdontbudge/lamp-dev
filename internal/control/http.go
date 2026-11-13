@@ -145,6 +145,7 @@ func decodeInput(w http.ResponseWriter, r *http.Request, out any, allowed string
 	}
 	d = json.NewDecoder(bytes.NewReader(data))
 	d.DisallowUnknownFields()
+	d.UseNumber()
 	if err := d.Decode(out); err != nil {
 		return nil, err
 	}
@@ -350,7 +351,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		sb.Durability = pointer(api.SandboxDurability(*in.Durability))
 	case path == "/v1/execs":
 		var in api.ExecCreateInput
-		_, err := decodeInput(w, r, &in, "sandbox_id argv cwd env wait_ms")
+		_, err := decodeInput(w, r, &in, "sandbox_id argv cwd env stdin_blob_id pty timeout_ms stdin_open wait_ms")
 		in.IdempotencyKey = key
 		if err != nil || in.SandboxId == "" || len(in.Argv) == 0 || in.Argv[0] == "" || in.IdempotencyKey == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "exec requires sandbox_id, nonempty argv and Idempotency-Key", nil)
@@ -379,7 +380,11 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		in.WaitMs = nil
 		input = in
 		now := timestamp()
-		ex = api.Exec{Id: s.resourceID("ex"), Kind: "exec", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", SandboxId: pointer(source), Argv: &in.Argv, Cwd: in.Cwd, Env: in.Env}
+		if value(in.StdinBlobId) != "" && (value(in.Pty) || value(in.StdinOpen)) {
+			writeError(w, requestID, "INVALID_ARGUMENT", "stdin_blob_id cannot be combined with pty or stdin_open", nil)
+			return
+		}
+		ex = api.Exec{Id: s.resourceID("ex"), Kind: "exec", FleetId: "fl_local", OwnerId: "pr_local", Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", SandboxId: pointer(source), Argv: &in.Argv, Cwd: in.Cwd, Env: in.Env, StdinBlobId: in.StdinBlobId, Pty: in.Pty, TimeoutMs: in.TimeoutMs, StdinOpen: in.StdinOpen}
 	default:
 		writeError(w, requestID, "NOT_FOUND", "unsupported demo route", nil)
 		return
@@ -625,10 +630,16 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id 
 }
 func (s *Service) execute(id, source string) {
 	defer s.wg.Done()
-	ctx, cancel := context.WithTimeout(s.context(), s.worker.config.Timeout)
+	ctx, cancel := context.WithCancel(s.context())
 	defer cancel()
 	s.mu.Lock()
 	rec := s.journal.Operations[id]
+	timeout := s.worker.config.Timeout
+	if value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork" {
+		timeout = max(timeout, 3*time.Minute)
+	}
+	ctx, deadlineCancel := context.WithTimeout(ctx, timeout)
+	defer deadlineCancel()
 	if s.broken {
 		close(s.done[id])
 		s.mu.Unlock()
@@ -780,7 +791,35 @@ func (s *Service) execute(id, source string) {
 	start := func(argv []string, cwd string, env map[string]string) error {
 		r := request("start", sb.Id, generation)
 		r.Command = &pb.Request_Start{Start: &pb.Start{Argv: argv, Cwd: cwd, Env: env}}
-		return s.worker.perform(ctx, r, "command_started")
+		if name == "exec_create" {
+			start := r.GetStart()
+			start.Pty = value(ex.Pty)
+			start.StdinOpen = value(ex.StdinOpen)
+			start.TimeoutMs = value(ex.TimeoutMs)
+			if ex.StdinBlobId != nil {
+				s.mu.Lock()
+				b, blobErr := s.readyBlob(rec.Caller, *ex.StdinBlobId)
+				var data []byte
+				if blobErr == nil {
+					data, blobErr = s.readObject(textField(b.R, "sha256"))
+				}
+				s.mu.Unlock()
+				if blobErr != nil {
+					return blobErr
+				}
+				start.StdinPath = "/tmp/.lamp-stdin-" + ex.Id
+				if err := s.guestWriteFile(ctx, sb.Id, start.StdinPath, data); err != nil {
+					return err
+				}
+			}
+		}
+		err := s.worker.perform(ctx, r, "command_started")
+		if name == "exec_create" && r.GetStart().StdinPath != "" {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			_, _ = s.guestPython(cleanup, sb.Id, `import os,sys;os.unlink(sys.argv[1])`, r.GetStart().StdinPath)
+			cancel()
+		}
+		return err
 	}
 	var err error
 	phase := "engine"
@@ -867,9 +906,11 @@ func (s *Service) execute(id, source string) {
 			}
 		}
 	}
+	// Boot may have reached the worker despite a request timeout. Preserve
+	// capacity accounting and release it with a fresh cleanup deadline.
 	cleaned := false
 	if err != nil && (name == "sandbox_create" || name == "sandbox_fork") {
-		cleanupCtx, cancelCleanup := context.WithTimeout(s.context(), s.worker.config.Timeout)
+		cleanupCtx, cancelCleanup := context.WithTimeout(context.WithoutCancel(ctx), 90*time.Second)
 		cleaned = s.releaseSandbox(cleanupCtx, sb) == nil
 		cancelCleanup()
 	}
@@ -1017,76 +1058,107 @@ func workerNotFound(err error) bool {
 // while waiting on the supervisor. A lost command cannot fabricate exit zero.
 func (s *Service) observeExec(id string, c *pb.Context, commandID string) {
 	defer s.wg.Done()
-	timeout := s.worker.config.Timeout
-	s.mu.Lock()
-	exec := s.journal.Execs[id]
-	if parent, ok := s.journal.Sandboxes[value(exec.SandboxId)]; ok && value(parent.CaptureTrust) == "owner_private" && admittedSubscriptionExec(exec) {
-		timeout = custodyOperationTimeout
-	}
-	s.mu.Unlock()
-	ctx, cancel := context.WithTimeout(s.context(), timeout)
-	defer cancel()
-	deadline, _ := ctx.Deadline()
-	c.DeadlineMs = uint64(deadline.UnixMilli())
+	ctx := s.context()
 	var command *pb.CommandResult
-	polls := 0
-	for {
-		c.RequestId, c.OperationId = newID("req"), newID("op")
-		receipt, err := s.worker.call(ctx, &pb.Request{Context: c, Command: &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: commandID}}})
-		if err != nil || receipt.Detail["command_state"] == "unknown" {
-			break
-		}
-		if receipt.Command != nil && receipt.Command.FinishedAtUnixNs != 0 {
-			command = receipt.Command
-			break
-		}
-		if receipt.Detail["command_state"] != "running" {
-			break
-		}
-		// 1 ms while the command is young, then 4 ms: short commands are
-		// seen promptly without a 1 kHz RPC stream for long-running ones.
-		polls++
-		delay := time.Millisecond
-		if polls > 50 {
-			delay = 4 * time.Millisecond
-		}
-		timer := time.NewTimer(delay)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-		case <-timer.C:
-		}
-		if ctx.Err() != nil {
-			break
-		}
+	var offsets [2]uint64
+	var truncated bool
+	failure := "command agent stopped reporting its result"
+	output, outputErr := s.openExecOutput(id)
+	if output != nil {
+		defer output.Close()
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	ex := s.journal.Execs[id]
-	ex.State = "outcome_unknown"
-	if command != nil {
-		ex.State = "exited"
-		ex.ExitCode, ex.Signal = pointer(int64(command.ExitCode)), pointer(int64(command.Signal))
-		if command.StartedAtUnixNs != 0 {
-			ex.StartedAt = pointer(time.Unix(0, int64(command.StartedAtUnixNs)).UTC().Format(time.RFC3339Nano))
+	for outputErr == nil {
+		requestCtx, cancel := context.WithTimeout(ctx, s.worker.config.Timeout)
+		c.RequestId, c.OperationId = newID("req"), newID("op")
+		deadline, _ := requestCtx.Deadline()
+		c.DeadlineMs = uint64(deadline.UnixMilli())
+		receipt, err := s.worker.call(requestCtx, &pb.Request{Context: c, Command: &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: commandID}}})
+		cancel()
+		if err != nil {
+			failure = err.Error()
+			break
 		}
-		frames := []api.Frame{}
-		for i, tail := range [][]byte{command.StdoutTail, command.StderrTail} {
-			if len(tail) == 0 {
+		if receipt.Detail["command_state"] == "unknown" {
+			failure = receipt.Detail["command_lost"]
+			break
+		}
+		ioCtx, ioCancel := context.WithTimeout(ctx, s.worker.config.Timeout)
+		chunk, err := s.execIO(ioCtx, c.SandboxId, c.Generation, commandID, map[string]any{"stdout_offset": offsets[0], "stderr_offset": offsets[1]})
+		ioCancel()
+		if err != nil {
+			failure = err.Error()
+			break
+		}
+		truncated, _ = chunk["truncated"].(bool)
+		for i, key := range []string{"stdout_base64", "stderr_base64"} {
+			bytes, err := base64.StdEncoding.DecodeString(textField(chunk, key))
+			if err != nil {
+				outputErr = err
+				break
+			}
+			if len(bytes) == 0 {
 				continue
 			}
 			channel := api.FrameChannelStdout
 			if i == 1 {
 				channel = api.FrameChannelStderr
 			}
-			frames = append(frames, api.Frame{StreamId: id + "." + string(channel), Sequence: 0, Channel: channel, DataBase64: base64.StdEncoding.EncodeToString(tail), ByteOffset: "0", LocationEpoch: 1})
+			frame := api.Frame{StreamId: id + "." + string(channel), Sequence: offsets[i], Channel: channel, DataBase64: base64.StdEncoding.EncodeToString(bytes), ByteOffset: strconv.FormatUint(offsets[i], 10), LocationEpoch: 1}
+			if err := s.appendExecOutput(output, frame); err != nil {
+				outputErr = err
+				break
+			}
+			offsets[i] += uint64(len(bytes))
 		}
-		s.journal.Outputs[id] = frames
+		if outputErr != nil {
+			break
+		}
+		if receipt.Command != nil && receipt.Command.FinishedAtUnixNs != 0 && offsets[0] >= uintField(chunk, "stdout_bytes") && offsets[1] >= uintField(chunk, "stderr_bytes") {
+			command = receipt.Command
+			break
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		if offsets[0] >= uintField(chunk, "stdout_bytes") && offsets[1] >= uintField(chunk, "stderr_bytes") {
+			timer := time.NewTimer(20 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+			case <-timer.C:
+			}
+		}
+	}
+	if output != nil && output.Sync() != nil {
+		command = nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ex := s.journal.Execs[id]
+	ex.State = "outcome_unknown"
+	if command == nil {
+		ex.FailureReason = pointer("Sandbox command result unavailable: " + failure)
+		ex.OutputTruncated = pointer(true)
+		sb := s.journal.Sandboxes[value(ex.SandboxId)]
+		sb.State = "unavailable"
+		sb.Revision++
+		sb.UpdatedAt = timestamp()
+		s.journal.Sandboxes[sb.Id] = sb
+	}
+	if command != nil {
+		ex.State = "exited"
+		ex.ExitCode, ex.Signal = pointer(int64(command.ExitCode)), pointer(int64(command.Signal))
+		if command.StartedAtUnixNs != 0 {
+			ex.StartedAt = pointer(time.Unix(0, int64(command.StartedAtUnixNs)).UTC().Format(time.RFC3339Nano))
+		}
+		ex.StdoutBytes, ex.StderrBytes = &offsets[0], &offsets[1]
+		ex.OutputTruncated, ex.TimedOut = &truncated, &command.TimedOut
+
 	}
 	ex.Revision++
 	ex.UpdatedAt = timestamp()
 	s.journal.Execs[id] = ex
-	if err := s.saveConcurrent(id); err != nil {
+	if err := s.saveConcurrent(id, value(ex.SandboxId)); err != nil {
 		s.broken = true
 	}
 }
@@ -1145,6 +1217,11 @@ func (s *Service) watchOutput(w http.ResponseWriter, r *http.Request, requestID 
 			return
 		}
 		frames := s.journal.Outputs[id]
+		if _, exists := s.execOutputPath(id); exists {
+			s.mu.Unlock()
+			s.watchExecSpool(w, r, requestID, id, offset, limit, until)
+			return
+		}
 		if offset > uint64(len(frames)) {
 			s.mu.Unlock()
 			writeError(w, requestID, "INVALID_ARGUMENT", "cursor exceeds available output", nil)

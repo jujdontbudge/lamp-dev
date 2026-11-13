@@ -30,6 +30,7 @@ pub enum GuestRequest {
     /// resets the guest's vsock connections never loses a completion.
     Wait(Wait),
     SessionCall(SessionCall),
+    ExecIo(ExecIo),
     /// Freezes every task process (the `tasks` cgroup) before a capture, so
     /// nothing runs between the copy and the copy's own identity barrier.
     Freeze(Empty),
@@ -98,6 +99,12 @@ pub struct Exec {
     /// Kill the command's process group after this long; 0 means never.
     pub timeout_ms: u64,
     pub output_limit: usize,
+    #[serde(default)]
+    pub stdin_path: String,
+    #[serde(default)]
+    pub pty: bool,
+    #[serde(default)]
+    pub stdin_open: bool,
     /// When set, the command runs only under the protected task collector
     /// (`lamp-guard collect vsock:PORT TASK_UID -- argv`), which streams its
     /// process records to the host before releasing each effect.
@@ -336,3 +343,27 @@ pub fn validate_barrier(b: &Barrier) -> Result<(), String> {
         _ => Err("entropy_hex must carry at least 64 bytes".into()),
     }
 }
+
+/// Incremental command I/O. Identity is checked before looking up the command.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExecIo {
+    pub sandbox_id: String,
+    pub generation: u64,
+    pub exec_id: String,
+    #[serde(default)]
+    pub stdout_offset: u64,
+    #[serde(default)]
+    pub stderr_offset: u64,
+    #[serde(default)]
+    pub signal: i32,
+    #[serde(default)]
+    pub input_b64: String,
+    #[serde(default)]
+    pub input_eof: bool,
+    #[serde(default)]
+    pub rows: u16,
+    #[serde(default)]
+    pub columns: u16,
+}
+pub mod command_io;

@@ -123,6 +123,14 @@ pub struct Start {
     #[prost(map = "string, string", tag = "3")]
     pub env:
         ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(string, tag = "4")]
+    pub stdin_path: ::prost::alloc::string::String,
+    #[prost(bool, tag = "5")]
+    pub pty: bool,
+    #[prost(uint64, tag = "6")]
+    pub timeout_ms: u64,
+    #[prost(bool, tag = "7")]
+    pub stdin_open: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct NetworkCall {

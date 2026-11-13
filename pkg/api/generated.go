@@ -3308,28 +3308,35 @@ const (
 )
 
 type Exec struct {
-	Id           string         `json:"id"`
-	Kind         ExecKind       `json:"kind"`
-	FleetId      string         `json:"fleet_id"`
-	OwnerId      string         `json:"owner_id"`
-	Revision     uint64         `json:"revision"`
-	CreatedAt    string         `json:"created_at"`
-	UpdatedAt    string         `json:"updated_at"`
-	State        ExecState      `json:"state"`
-	Labels       StringMap      `json:"labels"`
-	Visibility   ExecVisibility `json:"visibility"`
-	SandboxId    *string        `json:"sandbox_id,omitempty"`
-	SessionId    *string        `json:"session_id,omitempty"`
-	TaskId       *string        `json:"task_id,omitempty"`
-	Argv         *[]string      `json:"argv,omitempty"`
-	Cwd          *string        `json:"cwd,omitempty"`
-	Env          *StringMap     `json:"env,omitempty"`
-	StdinBlobId  *string        `json:"stdin_blob_id,omitempty"`
-	Pty          *bool          `json:"pty,omitempty"`
-	StartedAt    *string        `json:"started_at,omitempty"`
-	ExitCode     *int64         `json:"exit_code,omitempty"`
-	Signal       *int64         `json:"signal,omitempty"`
-	OutputCursor *string        `json:"output_cursor,omitempty"`
+	Id              string         `json:"id"`
+	Kind            ExecKind       `json:"kind"`
+	FleetId         string         `json:"fleet_id"`
+	OwnerId         string         `json:"owner_id"`
+	Revision        uint64         `json:"revision"`
+	CreatedAt       string         `json:"created_at"`
+	UpdatedAt       string         `json:"updated_at"`
+	State           ExecState      `json:"state"`
+	Labels          StringMap      `json:"labels"`
+	Visibility      ExecVisibility `json:"visibility"`
+	SandboxId       *string        `json:"sandbox_id,omitempty"`
+	SessionId       *string        `json:"session_id,omitempty"`
+	TaskId          *string        `json:"task_id,omitempty"`
+	Argv            *[]string      `json:"argv,omitempty"`
+	Cwd             *string        `json:"cwd,omitempty"`
+	Env             *StringMap     `json:"env,omitempty"`
+	StdinBlobId     *string        `json:"stdin_blob_id,omitempty"`
+	Pty             *bool          `json:"pty,omitempty"`
+	StartedAt       *string        `json:"started_at,omitempty"`
+	ExitCode        *int64         `json:"exit_code,omitempty"`
+	Signal          *int64         `json:"signal,omitempty"`
+	OutputCursor    *string        `json:"output_cursor,omitempty"`
+	StdoutBytes     *uint64        `json:"stdout_bytes,omitempty"`
+	StderrBytes     *uint64        `json:"stderr_bytes,omitempty"`
+	OutputTruncated *bool          `json:"output_truncated,omitempty"`
+	TimedOut        *bool          `json:"timed_out,omitempty"`
+	TimeoutMs       *uint64        `json:"timeout_ms,omitempty"`
+	FailureReason   *string        `json:"failure_reason,omitempty"`
+	StdinOpen       *bool          `json:"stdin_open,omitempty"`
 }
 type ExecCreateCompletion struct {
 	ExecId string `json:"exec_id"`
@@ -3351,6 +3358,8 @@ type ExecCreateInput struct {
 	Visibility     *ExecCreateInputVisibility `json:"visibility,omitempty"`
 	IdempotencyKey string                     `json:"idempotency_key"`
 	WaitMs         *uint64                    `json:"wait_ms,omitempty"`
+	TimeoutMs      *uint64                    `json:"timeout_ms,omitempty"`
+	StdinOpen      *bool                      `json:"stdin_open,omitempty"`
 }
 type ExecCreateInputVisibility string
 
@@ -3399,6 +3408,7 @@ type ExecInputInput struct {
 	IdempotencyKey   string  `json:"idempotency_key"`
 	WaitMs           *uint64 `json:"wait_ms,omitempty"`
 	ExpectedRevision uint64  `json:"expected_revision"`
+	Eof              *bool   `json:"eof,omitempty"`
 }
 type ExecInputResult struct {
 	OperationId string               `json:"operation_id"`
@@ -7709,8 +7719,10 @@ type SandboxFileDeleteResult struct {
 	Result      *SandboxFileDeleteCompletion `json:"result,omitempty"`
 }
 type SandboxFileListInput struct {
-	SandboxId string `json:"sandbox_id"`
-	Path      string `json:"path"`
+	SandboxId string  `json:"sandbox_id"`
+	Path      string  `json:"path"`
+	Cursor    *string `json:"cursor,omitempty"`
+	Limit     *uint64 `json:"limit,omitempty"`
 }
 type SandboxFileListResult struct {
 	Items      []FileEntry `json:"items"`
@@ -7718,12 +7730,51 @@ type SandboxFileListResult struct {
 	RequestId  string      `json:"request_id"`
 }
 type SandboxFileReadInput struct {
-	SandboxId   string `json:"sandbox_id"`
-	Path        string `json:"path"`
-	OffsetBytes uint64 `json:"offset_bytes"`
-	LengthBytes uint64 `json:"length_bytes"`
+	SandboxId   string  `json:"sandbox_id"`
+	Path        string  `json:"path"`
+	OffsetBytes *uint64 `json:"offset_bytes,omitempty"`
+	LengthBytes *uint64 `json:"length_bytes,omitempty"`
 }
 type SandboxFileReadResult = FileReadResult
+type SandboxFileRenameCompletion struct {
+}
+type SandboxFileRenameInput struct {
+	SandboxId        string  `json:"sandbox_id"`
+	Path             string  `json:"path"`
+	IdempotencyKey   string  `json:"idempotency_key"`
+	WaitMs           *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision uint64  `json:"expected_revision"`
+	Destination      string  `json:"destination"`
+}
+type SandboxFileRenameResult struct {
+	OperationId string                       `json:"operation_id"`
+	ResourceIds []ResourceRef                `json:"resource_ids"`
+	RequestId   string                       `json:"request_id"`
+	Replayed    bool                         `json:"replayed"`
+	Operation   *Operation                   `json:"operation,omitempty"`
+	Result      *SandboxFileRenameCompletion `json:"result,omitempty"`
+}
+type SandboxFileSearchInput struct {
+	SandboxId string `json:"sandbox_id"`
+	Path      string `json:"path"`
+	Query     string `json:"query"`
+	Contents  *bool  `json:"contents,omitempty"`
+}
+type SandboxFileSearchResult struct {
+	Items      []FileEntry `json:"items"`
+	NextCursor *string     `json:"next_cursor,omitempty"`
+	RequestId  string      `json:"request_id"`
+	Truncated  *bool       `json:"truncated,omitempty"`
+}
+type SandboxFileStatInput struct {
+	SandboxId string `json:"sandbox_id"`
+	Path      string `json:"path"`
+}
+type SandboxFileStatResult struct {
+	Items      []FileEntry `json:"items"`
+	NextCursor *string     `json:"next_cursor,omitempty"`
+	RequestId  string      `json:"request_id"`
+}
 type SandboxFileTransferCompletion struct {
 	BlobId *string `json:"blob_id,omitempty"`
 }
@@ -7750,6 +7801,17 @@ type SandboxFileTransferResult struct {
 	Replayed    bool                           `json:"replayed"`
 	Operation   *Operation                     `json:"operation,omitempty"`
 	Result      *SandboxFileTransferCompletion `json:"result,omitempty"`
+}
+type SandboxFileWatchInput struct {
+	SandboxId string  `json:"sandbox_id"`
+	Path      string  `json:"path"`
+	Cursor    *string `json:"cursor,omitempty"`
+	WaitMs    *uint64 `json:"wait_ms,omitempty"`
+}
+type SandboxFileWatchResult struct {
+	Items      []FileEntry `json:"items"`
+	NextCursor *string     `json:"next_cursor,omitempty"`
+	RequestId  string      `json:"request_id"`
 }
 type SandboxFileWriteCompletion struct {
 }
@@ -8604,6 +8666,10 @@ const (
 	ScopeActionsItemWarmPoolGet                ScopeActionsItem = "warm_pool.get"
 	ScopeActionsItemWarmPoolList               ScopeActionsItem = "warm_pool.list"
 	ScopeActionsItemWarmPoolUpdate             ScopeActionsItem = "warm_pool.update"
+	ScopeActionsItemSandboxFileStat            ScopeActionsItem = "sandbox.file_stat"
+	ScopeActionsItemSandboxFileSearch          ScopeActionsItem = "sandbox.file_search"
+	ScopeActionsItemSandboxFileWatch           ScopeActionsItem = "sandbox.file_watch"
+	ScopeActionsItemSandboxFileRename          ScopeActionsItem = "sandbox.file_rename"
 )
 
 type SecurityRevocation struct {
@@ -11098,7 +11164,11 @@ var Operations = []OperationDescriptor{
 	{"sandbox_file_delete", "sandbox.file_delete", "lamp sandbox file-delete", "post", "/v1/sandboxes/{sandbox_id}:file-delete", "SandboxFileDeleteInput", "SandboxFileDeleteResult", "authenticated_scope", true},
 	{"sandbox_file_list", "sandbox.file_list", "lamp sandbox file-list", "post", "/v1/sandboxes/{sandbox_id}:file-list", "SandboxFileListInput", "SandboxFileListResult", "authenticated_scope", false},
 	{"sandbox_file_read", "sandbox.file_read", "lamp sandbox file-read", "post", "/v1/sandboxes/{sandbox_id}:file-read", "SandboxFileReadInput", "SandboxFileReadResult", "authenticated_scope", false},
+	{"sandbox_file_rename", "sandbox.file_rename", "lamp sandbox file-rename", "post", "/v1/sandboxes/{sandbox_id}:file-rename", "SandboxFileRenameInput", "SandboxFileRenameResult", "authenticated_scope", true},
+	{"sandbox_file_search", "sandbox.file_search", "lamp sandbox file-search", "post", "/v1/sandboxes/{sandbox_id}:file-search", "SandboxFileSearchInput", "SandboxFileSearchResult", "authenticated_scope", false},
+	{"sandbox_file_stat", "sandbox.file_stat", "lamp sandbox file-stat", "post", "/v1/sandboxes/{sandbox_id}:file-stat", "SandboxFileStatInput", "SandboxFileStatResult", "authenticated_scope", false},
 	{"sandbox_file_transfer", "sandbox.file_transfer", "lamp sandbox file-transfer", "post", "/v1/sandboxes/{sandbox_id}:file-transfer", "SandboxFileTransferInput", "SandboxFileTransferResult", "authenticated_scope", true},
+	{"sandbox_file_watch", "sandbox.file_watch", "lamp sandbox file-watch", "post", "/v1/sandboxes/{sandbox_id}:file-watch", "SandboxFileWatchInput", "SandboxFileWatchResult", "authenticated_scope", false},
 	{"sandbox_file_write", "sandbox.file_write", "lamp sandbox file-write", "post", "/v1/sandboxes/{sandbox_id}:file-write", "SandboxFileWriteInput", "SandboxFileWriteResult", "authenticated_scope", true},
 	{"sandbox_fork", "sandbox.fork", "lamp sandbox fork", "post", "/v1/sandboxes/{sandbox_id}:fork", "SandboxForkInput", "SandboxForkResult", "authenticated_scope", true},
 	{"sandbox_get", "sandbox.get", "lamp sandbox get", "get", "/v1/sandboxes/{sandbox_id}", "SandboxGetInput", "SandboxGetResult", "authenticated_scope", false},

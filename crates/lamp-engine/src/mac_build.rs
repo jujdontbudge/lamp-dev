@@ -67,6 +67,9 @@ fn exec(engine: &Engine, sb: &Sandbox, argv: &[&str], log: &mut String) -> Resul
             cwd: String::new(),
             timeout_ms: 120_000,
             output_limit: 64 << 10,
+            stdin_path: String::new(),
+            pty: false,
+            stdin_open: false,
             audit: None,
         }),
     )?;

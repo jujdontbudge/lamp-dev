@@ -697,6 +697,10 @@ type Start struct {
 	Argv          []string               `protobuf:"bytes,1,rep,name=argv,proto3" json:"argv,omitempty"`
 	Cwd           string                 `protobuf:"bytes,2,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	Env           map[string]string      `protobuf:"bytes,3,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	StdinPath     string                 `protobuf:"bytes,4,opt,name=stdin_path,json=stdinPath,proto3" json:"stdin_path,omitempty"`
+	Pty           bool                   `protobuf:"varint,5,opt,name=pty,proto3" json:"pty,omitempty"`
+	TimeoutMs     uint64                 `protobuf:"varint,6,opt,name=timeout_ms,json=timeoutMs,proto3" json:"timeout_ms,omitempty"`
+	StdinOpen     bool                   `protobuf:"varint,7,opt,name=stdin_open,json=stdinOpen,proto3" json:"stdin_open,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -750,6 +754,34 @@ func (x *Start) GetEnv() map[string]string {
 		return x.Env
 	}
 	return nil
+}
+
+func (x *Start) GetStdinPath() string {
+	if x != nil {
+		return x.StdinPath
+	}
+	return ""
+}
+
+func (x *Start) GetPty() bool {
+	if x != nil {
+		return x.Pty
+	}
+	return false
+}
+
+func (x *Start) GetTimeoutMs() uint64 {
+	if x != nil {
+		return x.TimeoutMs
+	}
+	return 0
+}
+
+func (x *Start) GetStdinOpen() bool {
+	if x != nil {
+		return x.StdinOpen
+	}
+	return false
 }
 
 type NetworkCall struct {
@@ -1944,11 +1976,18 @@ const file_worker_proto_rawDesc = "" +
 	"\vtemplate_id\x18\x06 \x01(\tR\n" +
 	"templateId\x12\x1f\n" +
 	"\vshared_disk\x18\a \x01(\bR\n" +
-	"sharedDisk\"\x97\x01\n" +
+	"sharedDisk\"\x86\x02\n" +
 	"\x05Start\x12\x12\n" +
 	"\x04argv\x18\x01 \x03(\tR\x04argv\x12\x10\n" +
 	"\x03cwd\x18\x02 \x01(\tR\x03cwd\x120\n" +
-	"\x03env\x18\x03 \x03(\v2\x1e.lamp.worker.v1.Start.EnvEntryR\x03env\x1a6\n" +
+	"\x03env\x18\x03 \x03(\v2\x1e.lamp.worker.v1.Start.EnvEntryR\x03env\x12\x1d\n" +
+	"\n" +
+	"stdin_path\x18\x04 \x01(\tR\tstdinPath\x12\x10\n" +
+	"\x03pty\x18\x05 \x01(\bR\x03pty\x12\x1d\n" +
+	"\n" +
+	"timeout_ms\x18\x06 \x01(\x04R\ttimeoutMs\x12\x1d\n" +
+	"\n" +
+	"stdin_open\x18\a \x01(\bR\tstdinOpen\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"0\n" +

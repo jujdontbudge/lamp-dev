@@ -331,6 +331,9 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
                     cwd: step.cwd.clone().unwrap_or_default(),
                     timeout_ms,
                     output_limit: lamp_init::DEFAULT_OUTPUT_LIMIT,
+                    stdin_path: String::new(),
+                    pty: false,
+                    stdin_open: false,
                     audit: None,
                 }),
             )?;

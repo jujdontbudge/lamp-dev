@@ -1,0 +1,94 @@
+[
+  {
+    "step": "capacity",
+    "live_firecracker": 0,
+    "available_mib": 14006
+  },
+  {
+    "step": "sandbox",
+    "sandbox_id": "sb_a552e8d2f662a86ff541b9087cde535a",
+    "state": "ready"
+  },
+  {
+    "step": "env-cwd-separate-failure-streams",
+    "stdout": "disposable::/tmp",
+    "stderr": "err",
+    "exit_code": 7
+  },
+  {
+    "step": "full-output",
+    "stdout_bytes": 8388608,
+    "stderr_bytes": 8388608,
+    "stdout_sha256": "0c77bc0a0795a93612d45256897456d0fcb24f151c44c150d07ecd03f4ef5168",
+    "stderr_sha256": "955a11ec895891b769195ad76e719d4e47b7cdac3b172e59fe770bad50bd6f7c",
+    "truncated": false
+  },
+  {
+    "step": "long-command",
+    "runtime_seconds": 5,
+    "worker_request_timeout_seconds": 3,
+    "state": "exited",
+    "exit_code": 0
+  },
+  {
+    "step": "per-command-timeout",
+    "timed_out": true,
+    "signal": 9
+  },
+  {
+    "step": "interrupt",
+    "state": "exited",
+    "signal": 2
+  },
+  {
+    "step": "stdin-blob",
+    "bytes": 19,
+    "sha256": "86fec320ea81197d9fba5e5cfa1389d2c986227f172ec74d8d7539bc4a9073cf"
+  },
+  {
+    "step": "mount-namespace-command",
+    "stdout": "namespace-result=0\n",
+    "exit_code": 0,
+    "sandbox_state": "ready"
+  },
+  {
+    "step": "exec-after-unshare",
+    "stdout": "still-ok",
+    "exit_code": 0
+  },
+  {
+    "step": "cli-binary-copy",
+    "bytes": 16777216,
+    "sha256": "3d8a8fc91440454a564c4cc92bccdf7aded17b78c0c29c724978b1fe3509fd27"
+  },
+  {
+    "step": "files-read-list-stat",
+    "read_sha256": "258ffdcb723e8bc5f44af13ec9fbfcde991a8868fb3d7791a00f9b5758bbd08a",
+    "binary_size": 16777216
+  },
+  {
+    "step": "file-search-and-errors",
+    "matches": [
+      "\u2603 space.txt"
+    ],
+    "missing": "NOT_FOUND",
+    "invalid": "INVALID_ARGUMENT"
+  },
+  {
+    "step": "pty",
+    "output": "# stty -echo;test -t 0 && echo TTY_OK;stty size\r\nTTY_OK\r\n24 80\r\n# 40 100\r\n\r\n# RECONNECTED\r\n/tmp\r\n/bin/sh: 3: Cannot set tty process group (No such process)\r\n",
+    "exit_code": 2
+  },
+  {
+    "step": "restart-output",
+    "stdout": "long-command-done",
+    "state": "exited"
+  },
+  {
+    "step": "completed"
+  },
+  {
+    "step": "sandbox-released",
+    "state": "deleted"
+  }
+]

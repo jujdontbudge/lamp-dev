@@ -68,7 +68,8 @@ func New(c Config) (*Service, error) {
 	s := &Service{config: c, userCA: ca, connections: make(chan struct{}, 64)}
 	s.initOIDC()
 	s.ssh = &ssh.Server{HostSigners: []ssh.Signer{signer}, Handler: s.console, PublicKeyHandler: s.authenticate, IdleTimeout: 10 * time.Minute, MaxTimeout: 4 * time.Hour,
-		ChannelHandlers: map[string]ssh.ChannelHandler{"session": ssh.DefaultSessionHandler}, RequestHandlers: map[string]ssh.RequestHandler{},
+		SubsystemHandlers: map[string]ssh.SubsystemHandler{"sftp": s.sftp},
+		ChannelHandlers:   map[string]ssh.ChannelHandler{"session": ssh.DefaultSessionHandler, "direct-tcpip": s.guestTCP}, RequestHandlers: map[string]ssh.RequestHandler{},
 		LocalPortForwardingCallback: func(ssh.Context, string, uint32) bool { return false }, ReversePortForwardingCallback: func(ssh.Context, string, uint32) bool { return false },
 	}
 	return s, nil

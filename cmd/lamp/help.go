@@ -68,9 +68,13 @@ func help(out io.Writer, words []string, asJSON bool, globals []string) int {
 			fmt.Fprintf(out, "  %-24s %s\n", strings.TrimPrefix(op.CLI, "lamp "+words[0]+" "), describe(op))
 		}
 		if words[0] == "sandbox" {
-			fmt.Fprintln(out, "  run                      Create a default VM, run COMMAND, then delete it\n  exec                     Run COMMAND in an existing sandbox\n  wait                     Wait for a sandbox state (default ready)")
+			fmt.Fprintln(out, "  run                      Create a default VM, run COMMAND, then delete it\n  exec                     Run COMMAND in an existing sandbox\n  wait                     Wait for a sandbox state (default ready)\n  cp                       Copy a local file to/from sandbox_id:/path\n  shell                    Open or reconnect to a guest PTY")
 		}
 		fmt.Fprintf(out, "Example: lamp %s list --json\n", words[0])
+	} else if prefix == "sandbox_cp" {
+		fmt.Fprintln(out, "Usage: lamp sandbox cp ./local sandbox_id:/absolute/path (or the reverse)\nCopy a binary file using authenticated, verified transfers.")
+	} else if prefix == "sandbox_shell" {
+		fmt.Fprintln(out, "Usage: lamp sandbox shell <sandbox_id> [--exec-id ID]\nOpen a guest PTY or reconnect to an existing PTY exec.")
 	} else if prefix == "sandbox_wait" {
 		fmt.Fprintln(out, "Usage: lamp sandbox wait [id] --sandbox-id ID [--state ready] [--timeout 60s]\nWait until the sandbox reaches the state; fail on failed/deleted/unavailable.\nExample: lamp sandbox wait sb_example --timeout 60s")
 	} else if op, ok := surface.ByName[prefix]; ok {
