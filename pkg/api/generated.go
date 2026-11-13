@@ -3696,6 +3696,8 @@ type Fleet struct {
 	CoordinationState      *FleetCoordinationState `json:"coordination_state,omitempty"`
 	Limits                 *Limits                 `json:"limits,omitempty"`
 	UpdatePolicy           *UpdatePolicy           `json:"update_policy,omitempty"`
+	UnavailableHostIds     *[]string               `json:"unavailable_host_ids,omitempty"`
+	StrandedSandboxIds     *[]string               `json:"stranded_sandbox_ids,omitempty"`
 }
 type FleetCoordinationState string
 
@@ -4058,6 +4060,7 @@ type Host struct {
 	EngineIds          *[]string        `json:"engine_ids,omitempty"`
 	CredentialOwnerIds *[]string        `json:"credential_owner_ids,omitempty"`
 	HeartbeatAt        *string          `json:"heartbeat_at,omitempty"`
+	Version            *string          `json:"version,omitempty"`
 }
 type HostBenchCompletion struct {
 }
@@ -7329,6 +7332,57 @@ const (
 	RecipeVisibilityShared  RecipeVisibility = "shared"
 )
 
+type Relay struct {
+	Id         string          `json:"id"`
+	Kind       RelayKind       `json:"kind"`
+	FleetId    string          `json:"fleet_id"`
+	OwnerId    string          `json:"owner_id"`
+	Revision   uint64          `json:"revision"`
+	CreatedAt  string          `json:"created_at"`
+	UpdatedAt  string          `json:"updated_at"`
+	State      RelayState      `json:"state"`
+	Labels     StringMap       `json:"labels"`
+	Visibility RelayVisibility `json:"visibility"`
+	HostId     *string         `json:"host_id,omitempty"`
+	Origin     *string         `json:"origin,omitempty"`
+}
+type RelayGetInput struct {
+	RelayId string `json:"relay_id"`
+}
+type RelayGetResult struct {
+	Data      Relay  `json:"data"`
+	RequestId string `json:"request_id"`
+}
+type RelayKind string
+
+const (
+	RelayKindRelay RelayKind = "relay"
+)
+
+type RelayListInput struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *uint64 `json:"limit,omitempty"`
+	WaitMs *uint64 `json:"wait_ms,omitempty"`
+}
+type RelayListResult struct {
+	Items      []Relay `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+	RequestId  string  `json:"request_id"`
+}
+type RelayState string
+
+const (
+	RelayStateConnected    RelayState = "connected"
+	RelayStateDisconnected RelayState = "disconnected"
+)
+
+type RelayVisibility string
+
+const (
+	RelayVisibilityPrivate RelayVisibility = "private"
+	RelayVisibilityShared  RelayVisibility = "shared"
+)
+
 type ReplicaReceipt struct {
 	HostId            *string `json:"host_id,omitempty"`
 	ManifestDigest    *string `json:"manifest_digest,omitempty"`
@@ -10298,6 +10352,7 @@ type UpdateCreateInput struct {
 	Visibility     *UpdateCreateInputVisibility `json:"visibility,omitempty"`
 	IdempotencyKey string                       `json:"idempotency_key"`
 	WaitMs         *uint64                      `json:"wait_ms,omitempty"`
+	Version        *string                      `json:"version,omitempty"`
 }
 type UpdateCreateInputVisibility string
 
@@ -11029,6 +11084,8 @@ var Operations = []OperationDescriptor{
 	{"recipe_get", "recipe.get", "lamp recipe get", "get", "/v1/recipes/{recipe_id}", "RecipeGetInput", "RecipeGetResult", "authenticated_scope", false},
 	{"recipe_list", "recipe.list", "lamp recipe list", "get", "/v1/recipes", "RecipeListInput", "RecipeListResult", "authenticated_scope", false},
 	{"recipe_update", "recipe.update", "lamp recipe update", "patch", "/v1/recipes/{recipe_id}", "RecipeUpdateInput", "RecipeUpdateResult", "authenticated_scope", true},
+	{"relay_get", "relay.get", "lamp relay get", "get", "/v1/relays/{relay_id}", "RelayGetInput", "RelayGetResult", "authenticated_scope", false},
+	{"relay_list", "relay.list", "lamp relay list", "get", "/v1/relays", "RelayListInput", "RelayListResult", "authenticated_scope", false},
 	{"sandbox_create", "sandbox.create", "lamp sandbox create", "post", "/v1/sandboxes", "SandboxCreateInput", "SandboxCreateResult", "authenticated_scope", true},
 	{"sandbox_delete", "sandbox.delete", "lamp sandbox delete", "delete", "/v1/sandboxes/{sandbox_id}", "SandboxDeleteInput", "SandboxDeleteResult", "authenticated_scope", true},
 	{"sandbox_device_input", "sandbox.device_input", "lamp sandbox device-input", "post", "/v1/sandboxes/{sandbox_id}:device-input", "SandboxDeviceInputInput", "SandboxDeviceInputResult", "authenticated_scope", true},

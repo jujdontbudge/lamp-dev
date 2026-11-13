@@ -2417,6 +2417,8 @@ export interface Fleet {
   "coordination_state"?: "healthy" | "degraded" | "unavailable";
   "limits"?: Limits;
   "update_policy"?: UpdatePolicy;
+  readonly "unavailable_host_ids"?: Array<string>;
+  readonly "stranded_sandbox_ids"?: Array<string>;
 }
 export interface FleetGetInput {
   "fleet_id": string;
@@ -2667,6 +2669,7 @@ export interface Host {
   "engine_ids"?: Array<string>;
   "credential_owner_ids"?: Array<string>;
   readonly "heartbeat_at"?: string;
+  readonly "version"?: string;
 }
 export interface HostBenchCompletion {
 }
@@ -4843,6 +4846,37 @@ export interface RecipeUpdateResult {
   "operation"?: Operation;
   "result"?: RecipeUpdateCompletion;
 }
+export interface Relay {
+  readonly "id": string;
+  readonly "kind": "relay";
+  readonly "fleet_id": string;
+  "owner_id": string;
+  readonly "revision": number;
+  readonly "created_at": string;
+  readonly "updated_at": string;
+  readonly "state": "connected" | "disconnected";
+  "labels": StringMap;
+  "visibility": "private" | "shared";
+  "host_id"?: string;
+  "origin"?: string;
+}
+export interface RelayGetInput {
+  "relay_id": string;
+}
+export interface RelayGetResult {
+  "data": Relay;
+  "request_id": string;
+}
+export interface RelayListInput {
+  "cursor"?: string;
+  readonly "limit"?: number;
+  readonly "wait_ms"?: number;
+}
+export interface RelayListResult {
+  "items": Array<Relay>;
+  "next_cursor"?: string;
+  "request_id": string;
+}
 export interface ReplicaReceipt {
   "host_id"?: string;
   "manifest_digest"?: string;
@@ -6678,6 +6712,7 @@ export interface UpdateCreateInput {
   "visibility"?: "private" | "shared";
   "idempotency_key": string;
   readonly "wait_ms"?: number;
+  "version"?: string;
 }
 export interface UpdateCreateResult {
   "operation_id": string;
@@ -7480,6 +7515,10 @@ export declare class LampClient {
   recipeList(input: RecipeListInput): Promise<RecipeListResult>;
   /** `lamp recipe update` — PATCH /v1/recipes/{recipe_id} (scope recipe.update) */
   recipeUpdate(input: RecipeUpdateInput): Promise<RecipeUpdateResult>;
+  /** `lamp relay get` — GET /v1/relays/{relay_id} (scope relay.get) */
+  relayGet(input: RelayGetInput): Promise<RelayGetResult>;
+  /** `lamp relay list` — GET /v1/relays (scope relay.list) */
+  relayList(input: RelayListInput): Promise<RelayListResult>;
   /** `lamp sandbox create` — POST /v1/sandboxes (scope sandbox.create) */
   sandboxCreate(input: SandboxCreateInput): Promise<SandboxCreateResult>;
   /** `lamp sandbox delete` — DELETE /v1/sandboxes/{sandbox_id} (scope sandbox.delete) */

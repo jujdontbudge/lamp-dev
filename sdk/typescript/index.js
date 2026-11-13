@@ -2301,6 +2301,26 @@ export const OPERATIONS = {
   "resultSchema": "RecipeUpdateResult",
   "scope": "recipe.update"
  },
+ "relay_get": {
+  "cli": "lamp relay get",
+  "inputSchema": "RelayGetInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "relay_get",
+  "path": "/v1/relays/{relay_id}",
+  "resultSchema": "RelayGetResult",
+  "scope": "relay.get"
+ },
+ "relay_list": {
+  "cli": "lamp relay list",
+  "inputSchema": "RelayListInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "relay_list",
+  "path": "/v1/relays",
+  "resultSchema": "RelayListResult",
+  "scope": "relay.list"
+ },
  "sandbox_create": {
   "cli": "lamp sandbox create",
   "inputSchema": "SandboxCreateInput",

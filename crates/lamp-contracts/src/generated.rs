@@ -7939,6 +7939,18 @@ pub struct Fleet {
         skip_serializing_if = "Option::is_none"
     )]
     pub update_policy: Option<UpdatePolicy>,
+    #[serde(
+        rename = "unavailable_host_ids",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub unavailable_host_ids: Option<Vec<String>>,
+    #[serde(
+        rename = "stranded_sandbox_ids",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stranded_sandbox_ids: Option<Vec<String>>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FleetCoordinationState {
@@ -8712,6 +8724,8 @@ pub struct Host {
         skip_serializing_if = "Option::is_none"
     )]
     pub heartbeat_at: Option<String>,
+    #[serde(rename = "version", default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -15241,6 +15255,91 @@ pub enum RecipeVisibility {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct Relay {
+    #[serde(rename = "id")]
+    pub id: String,
+    #[serde(rename = "kind")]
+    pub kind: RelayKind,
+    #[serde(rename = "fleet_id")]
+    pub fleet_id: String,
+    #[serde(rename = "owner_id")]
+    pub owner_id: String,
+    #[serde(rename = "revision")]
+    pub revision: u64,
+    #[serde(rename = "created_at")]
+    pub created_at: String,
+    #[serde(rename = "updated_at")]
+    pub updated_at: String,
+    #[serde(rename = "state")]
+    pub state: RelayState,
+    #[serde(rename = "labels")]
+    pub labels: StringMap,
+    #[serde(rename = "visibility")]
+    pub visibility: RelayVisibility,
+    #[serde(rename = "host_id", default, skip_serializing_if = "Option::is_none")]
+    pub host_id: Option<String>,
+    #[serde(rename = "origin", default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelayGetInput {
+    #[serde(rename = "relay_id")]
+    pub relay_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelayGetResult {
+    #[serde(rename = "data")]
+    pub data: Relay,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RelayKind {
+    #[serde(rename = "relay")]
+    Relay,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelayListInput {
+    #[serde(rename = "cursor", default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(rename = "limit", default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelayListResult {
+    #[serde(rename = "items")]
+    pub items: Vec<Relay>,
+    #[serde(
+        rename = "next_cursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RelayState {
+    #[serde(rename = "connected")]
+    Connected,
+    #[serde(rename = "disconnected")]
+    Disconnected,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RelayVisibility {
+    #[serde(rename = "private")]
+    Private,
+    #[serde(rename = "shared")]
+    Shared,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReplicaReceipt {
     #[serde(rename = "host_id", default, skip_serializing_if = "Option::is_none")]
     pub host_id: Option<String>,
@@ -21679,6 +21778,8 @@ pub struct UpdateCreateInput {
     pub idempotency_key: String,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(rename = "version", default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UpdateCreateInputVisibility {
@@ -25213,6 +25314,28 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "RecipeUpdateResult",
         authorization: "authenticated_scope",
         mutation: true,
+    },
+    OperationDescriptor {
+        name: "relay_get",
+        scope: "relay.get",
+        cli: "lamp relay get",
+        method: "get",
+        path: "/v1/relays/{relay_id}",
+        input_schema: "RelayGetInput",
+        result_schema: "RelayGetResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
+        name: "relay_list",
+        scope: "relay.list",
+        cli: "lamp relay list",
+        method: "get",
+        path: "/v1/relays",
+        input_schema: "RelayListInput",
+        result_schema: "RelayListResult",
+        authorization: "authenticated_scope",
+        mutation: false,
     },
     OperationDescriptor {
         name: "sandbox_create",

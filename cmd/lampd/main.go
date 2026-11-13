@@ -22,6 +22,7 @@ import (
 
 	"lamp.eilmer.si/internal/ci"
 	"lamp.eilmer.si/internal/control"
+	"lamp.eilmer.si/internal/relayclient"
 	kitruntime "lamp.eilmer.si/kits"
 )
 
@@ -37,6 +38,7 @@ func run() error {
 	ciFile := flags.String("ci-config", "", "private host-enrolled GitHub CI policy JSON")
 	auditReader := flags.String("audit-reader", "", "trusted absolute executable reading guard audit for sandbox ID and generation")
 	quotaFile := flags.String("quota-file", "", "host admission quota JSON")
+	relayFile := flags.String("relay-config", "", "private outbound relay carrier configuration JSON")
 	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
 	sessionsFile := flags.String("sessions-config", "", "owner-enrolled harnesses and native session runner locations")
@@ -229,7 +231,14 @@ func run() error {
 			return err
 		}
 	}
-	service, err := control.Open(control.Config{Notifications: notifications, KitsSocket: *kitsSocket, AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
+	var relayConfig *relayclient.Config
+	if *relayFile != "" {
+		relayConfig, err = relayclient.LoadConfig(*relayFile)
+		if err != nil {
+			return err
+		}
+	}
+	service, err := control.Open(control.Config{Relay: relayConfig, Notifications: notifications, KitsSocket: *kitsSocket, AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
 	if err != nil {
 		return err
 	}
@@ -265,6 +274,9 @@ func run() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	relayDone := make(chan struct{})
+	go func() { defer close(relayDone); service.RunRelay(ctx) }()
+	defer func() { stop(); <-relayDone }()
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(authenticated) }()
 	if *dashboardListen != "" {

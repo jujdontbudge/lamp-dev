@@ -17,6 +17,7 @@ func init() {
 		"exec_create", "exec_get", "exec_list", "exec_watch",
 		"operation_get", "operation_list", "operation_wait", "operation_cancel",
 		"fleet_get", "fleet_list", "fleet_update",
+		"host_get", "host_list", "engine_get", "engine_list", "relay_get", "relay_list",
 		"update_create", "update_get", "update_list", "update_delete", "update_rollback",
 		"principal_create", "principal_get", "principal_list", "principal_update", "principal_delete",
 		"membership_create", "membership_get", "membership_list", "membership_update", "membership_delete",
