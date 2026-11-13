@@ -1,0 +1,187 @@
+[
+  {
+    "step": "local-forge",
+    "system": "Forgejo native binary",
+    "disposable_account": "demo",
+    "public_source": "gitlab-examples/ci-debug-trace",
+    "owner_accounts_used": false,
+    "docker_used": false
+  },
+  {
+    "step": "plugins",
+    "shipped": 10,
+    "adapters": 10,
+    "forgejo_provider_probe": "passed"
+  },
+  {
+    "step": "capacity",
+    "firecracker": 0,
+    "available_mib": 14175
+  },
+  {
+    "step": "real-sandbox",
+    "state": "ready",
+    "generation": 1,
+    "engine": "Firecracker",
+    "copied_template": true
+  },
+  {
+    "step": "one-use-approval",
+    "effect": {
+      "message": "t37-approved-effect"
+    },
+    "replay": "APPROVAL_REQUIRED",
+    "durable_restart": true
+  },
+  {
+    "step": "second-principal",
+    "owner_issued_scoped_key": true,
+    "watch_only_denies_input": true,
+    "typing_observed": true,
+    "share_revoked_status": 404,
+    "key_revoked": "UNAUTHENTICATED",
+    "revocation": {
+      "enforcers": [
+        {
+          "host_id": "hs_local",
+          "enforcer": "supervisor",
+          "acknowledgment": "acknowledged"
+        }
+      ],
+      "complete": true
+    }
+  },
+  {
+    "step": "notifications",
+    "delivered_event_types": [
+      "task.done",
+      "task.needs_decision",
+      "task.stuck"
+    ],
+    "signed_deliveries": 3
+  },
+  {
+    "step": "capacity",
+    "firecracker": 0,
+    "available_mib": 13726
+  },
+  {
+    "step": "cleanup",
+    "live_firecracker": 0,
+    "forgejo_stopped": true
+  },
+  {
+    "step": "cleanup",
+    "live_firecracker": 1,
+    "forgejo_stopped": true
+  },
+  {
+    "step": "capacity",
+    "firecracker": 0,
+    "available_mib": 15193
+  },
+  {
+    "step": "ci-job",
+    "state": "failed",
+    "result": null,
+    "trust_class": "public_pr",
+    "artifacts": [
+      "ar_405968d0233bb0ca3c2b93bc72f6c445"
+    ],
+    "labels": {
+      "lamp.error": "runner exited before native job completion (exit 70, signal 0)",
+      "route": "workflow"
+    }
+  },
+  {
+    "step": "cleanup",
+    "live_firecracker": 1,
+    "forgejo_stopped": true
+  },
+  {
+    "step": "capacity",
+    "firecracker": 1,
+    "available_mib": 14778
+  },
+  {
+    "step": "ci-job",
+    "state": "failed",
+    "result": null,
+    "trust_class": "public_pr",
+    "artifacts": [
+      "ar_a41001f3550b967ce25d61e532a0b36e"
+    ],
+    "labels": {
+      "lamp.error": "runner exited before native job completion (exit 1, signal 0)",
+      "route": "workflow"
+    }
+  },
+  {
+    "step": "cleanup",
+    "live_firecracker": 1,
+    "forgejo_stopped": true
+  },
+  {
+    "step": "capacity",
+    "firecracker": 1,
+    "available_mib": 14198
+  },
+  {
+    "step": "ci-job",
+    "state": "failed",
+    "result": null,
+    "trust_class": "public_pr",
+    "artifacts": [
+      "ar_54ab53d1650fc76e14830bb84800808f"
+    ],
+    "labels": {
+      "lamp.error": "runner exited before native job completion (exit 1, signal 0)",
+      "route": "workflow"
+    }
+  },
+  {
+    "step": "cleanup",
+    "live_firecracker": 0,
+    "forgejo_stopped": true
+  },
+  {
+    "step": "capacity",
+    "firecracker": 0,
+    "available_mib": 14498
+  },
+  {
+    "step": "ci-job",
+    "state": "completed",
+    "result": "success",
+    "trust_class": "public_pr",
+    "artifacts": [
+      "ar_9b0f9017c6cada0d47d18984cae8029c"
+    ],
+    "labels": {
+      "route": "workflow"
+    }
+  },
+  {
+    "step": "ci-cleanup",
+    "sandbox_state": "deleted",
+    "remaining_forge_runners": 0
+  },
+  {
+    "step": "interface-parity",
+    "cli": 203,
+    "http": 203,
+    "mcp": 203,
+    "installed": 203,
+    "names_equal": true
+  },
+  {
+    "step": "grant-revocation",
+    "persisted_after_restart": true,
+    "new_execution": "SCOPE_DENIED"
+  },
+  {
+    "step": "cleanup",
+    "live_firecracker": 1,
+    "forgejo_stopped": true
+  }
+]

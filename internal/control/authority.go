@@ -36,6 +36,9 @@ type storedKey struct {
 	SHA256 string  `json:"sha256"`
 }
 type controlState struct {
+	Configurations   map[string]api.Configuration `json:"configurations,omitempty"`
+	Plugins          map[string]map[string]any    `json:"plugins,omitempty"`
+	Grants           map[string]api.Grant         `json:"grants,omitempty"`
 	OwnerID          string                       `json:"owner_id"`
 	Credentialed     bool                         `json:"credentialed"`
 	CursorSecret     string                       `json:"cursor_secret"`
@@ -206,6 +209,12 @@ func (s *Service) scopes(a caller) []api.Scope {
 	return []api.Scope{*k.Key.Scope}
 }
 func (s *Service) can(a caller, action string) bool {
+	if s.controlGrantRevoked() {
+		switch action {
+		case "sandbox.create", "sandbox.fork", "sandbox.resume", "exec.create", "snapshot.create", "connection.invoke":
+			return false
+		}
+	}
 	if !s.current(a) {
 		return false
 	}
@@ -453,7 +462,9 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s.readLock()
 	a, authenticated := s.authenticate(r)
-	allowed := authenticated && s.can(a, op.Scope)
+	// Installed handler names contain no resource data or execution authority.
+	discovery := op.Name == "docs_read" && r.URL.Query().Get("topic") == "operations"
+	allowed := authenticated && (s.can(a, op.Scope) || discovery)
 	broken := s.broken
 	s.mu.Unlock()
 	if broken {
@@ -479,10 +490,6 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
 	// The dashboard shows who is signed in without guessing from lists.
 	w.Header().Set("X-Lamp-Principal", a.Principal)
-	if op.Name == "plugin_get" && ciPluginID(textField(selectors, "plugin_id")) {
-		s.ciPluginHTTP(w, r, id, textField(selectors, "plugin_id"))
-		return
-	}
 	if kitOperation(op.Name) {
 		s.kitsHTTP(w, r, id, op, selectors)
 		return
@@ -496,7 +503,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.fileReadHTTP(w, r, id, op, selectors)
 		return
 	}
-	if lifeOperation(op.Name) {
+	sharedControl := strings.HasPrefix(op.Name, "configuration_") || strings.HasPrefix(op.Name, "grant_")
+	if lifeOperation(op.Name) && !sharedControl {
 		s.lifeHTTP(w, r, id, op, selectors)
 		return
 	}

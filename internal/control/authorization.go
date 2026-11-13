@@ -75,7 +75,7 @@ func (s *Service) authorizePublicRequest(ctx context.Context, method, path strin
 		return false
 	}
 	for id, share := range s.journal.Shares {
-		if share.State != "active" || share.SubjectId == nil || *share.SubjectId != peer.principal || share.ResourceKind == nil || *share.ResourceKind != "template" || share.ResourceId == nil {
+		if share.State != "active" || expired(share.ExpiresAt) || share.SubjectId == nil || *share.SubjectId != peer.principal || share.ResourceKind == nil || *share.ResourceKind != "template" || share.ResourceId == nil {
 			continue
 		}
 		template, ok := s.journal.Templates[*share.ResourceId]

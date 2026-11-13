@@ -384,6 +384,7 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	s.initControlGrant()
 	if err := s.initSessions(config.Sessions); err != nil {
 		lock.Close()
 		return nil, err

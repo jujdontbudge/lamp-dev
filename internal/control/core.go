@@ -128,6 +128,23 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			writeError(w, id, "INVALID_ARGUMENT", "wait_ms limit is 60000", nil)
 			return
 		}
+		// Network and CI/control adapters share canonical configuration and grant
+		// operations. Preserve the lifecycle handler for network-owned resources.
+		s.readLock()
+		networkControl := op.Name == "configuration_create" && textField(in, "adapter_id") == "lamp.network/1"
+		if op.Name == "grant_delete" || op.Name == "grant_revoke" {
+			_, networkControl = s.life.Networks[textField(in, "grant_id")]
+		}
+		s.mu.Unlock()
+		if networkControl {
+			selectors := map[string]any{}
+			if grant := textField(in, "grant_id"); grant != "" {
+				selectors["grant_id"] = grant
+			}
+			r.Body = io.NopCloser(bytes.NewReader(data))
+			s.lifeHTTP(w, r, id, op, selectors)
+			return
+		}
 		if strings.HasPrefix(op.Scope, "change_set.") {
 			s.readLock()
 			legacy := strings.HasPrefix(textField(in, "source_session_id"), "sb_") || s.life.ChangeSets[textField(in, "change_set_id")] != nil
@@ -153,6 +170,16 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			code := "DATA_UNAVAILABLE"
 			if errors.As(err, &denied) {
 				code = denied.code
+			}
+			writeError(w, id, code, err.Error(), nil)
+			return
+		}
+	}
+	if op.Name == "plugin_test" {
+		if err := s.checkCIPlugin(r.Context(), requestCaller(r), in); err != nil {
+			code := "AUTH_TRANSPORT_UNSUPPORTED"
+			if ce, ok := err.(*coreError); ok {
+				code = ce.code
 			}
 			writeError(w, id, code, err.Error(), nil)
 			return
@@ -191,7 +218,8 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		return
 	}
 	a := requestCaller(r)
-	if !s.can(a, op.Scope) {
+	discovery := op.Name == "docs_read" && textField(in, "topic") == "operations" && s.current(a)
+	if !s.can(a, op.Scope) && !discovery {
 		writeError(w, id, "SCOPE_DENIED", "authority changed", nil)
 		return
 	}
@@ -402,6 +430,24 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 	}
 	if op.Name == "docs_read" {
 		topic := textField(in, "topic")
+		if topic == "operations" {
+			prepareJSON(w, 200, map[string]any{"topic": topic, "installed_operations": s.installedOperations(), "request_id": id})()
+			return
+		}
+		if topic == "approval-actions" {
+			plans := []BoundAction{}
+			for _, adapter := range s.protected {
+				if adapter.Describe == nil {
+					continue
+				}
+				b := adapter.Describe()
+				if b.Plan.ResourceRef != nil && s.protectedScope(a, b) && s.resourceAllowed(a, *b.Plan.ResourceRef) {
+					plans = append(plans, b)
+				}
+			}
+			prepareJSON(w, 200, map[string]any{"topic": topic, "actions": plans, "installed_operations": s.installedOperations(), "request_id": id})()
+			return
+		}
 		var content string
 		switch topic {
 		case "", "requirements":
@@ -500,6 +546,22 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	case "engine":
 		if engine, _, err := s.localEngine(); err == nil {
 			items = append(items, engine)
+		}
+	case "configuration":
+		items = append(items, s.lifeItems(a, kind)...)
+		if s.role(a) == "owner" {
+			for _, config := range c.Configurations {
+				items = append(items, object(config))
+			}
+		}
+	case "plugin", "adapter":
+		items = append(items, s.pluginResources(kind)...)
+	case "grant":
+		items = append(items, s.lifeItems(a, kind)...)
+		if s.role(a) == "owner" {
+			for _, g := range c.Grants {
+				items = append(items, object(g))
+			}
 		}
 	case "change_set":
 		for _, change := range c.ChangeSets {
@@ -628,6 +690,18 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 		return ref, nil, nil, nil, reject(code, message)
 	}
 	kind, verb, _ := strings.Cut(op.Scope, ".")
+	if kind == "configuration" {
+		return s.configurationMutation(a, op, in)
+	}
+	if op.Name == "share_update" {
+		return s.updateControlShare(a, in)
+	}
+	if kind == "plugin" {
+		return s.pluginMutation(a, op, in)
+	}
+	if kind == "grant" {
+		return s.grantMutation(a, op, in)
+	}
 	if kind == "change_set" || kind == "session" && (verb == "spawn" || verb == "teleport" || verb == "checkpoint") {
 		return s.sessionTransferMutation(a, op, in)
 	}
@@ -844,8 +918,8 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 			if p := textField(in, "principal_id"); p != "" {
 				principal = p
 			}
-			if principal != a.Principal {
-				return fail("SCOPE_DENIED", "cannot issue another principal's key")
+			if principal != a.Principal && s.role(a) != "owner" {
+				return fail("SCOPE_DENIED", "only the owner can issue another principal's key")
 			}
 			if _, ok := in["parent_key_id"]; ok && textField(in, "parent_key_id") != parent {
 				return fail("SCOPE_DENIED", "parent must be authenticated issuer key")

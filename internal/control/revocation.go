@@ -18,7 +18,7 @@ func (s *Service) authorityEnforced() bool {
 }
 func (s *Service) revocationOperation(op api.Operation) api.Operation {
 	name := value(op.OperationName)
-	if !(name == "key_delete" || name == "key_rotate" || strings.HasPrefix(name, "membership_") || name == "principal_delete" || name == "principal_update") {
+	if !(name == "grant_delete" || name == "grant_revoke" || name == "key_delete" || name == "key_rotate" || strings.HasPrefix(name, "membership_") || name == "principal_delete" || name == "principal_update") {
 		return op
 	}
 	complete := true

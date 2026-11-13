@@ -1,0 +1,12 @@
+{
+  "cli": 203,
+  "http": 203,
+  "mcp": 203,
+  "installed": 203,
+  "names_equal": true,
+  "session_scoped_mcp_discovery": true,
+  "documentation_still_scope_denied": true,
+  "grant_revocation_persisted": true,
+  "execution_after_revoke": "SCOPE_DENIED",
+  "vm_execution_claimed": false
+}

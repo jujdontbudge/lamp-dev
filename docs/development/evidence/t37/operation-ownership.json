@@ -1,0 +1,120 @@
+{
+  "schema_operations": 336,
+  "installed_operations": 255,
+  "remaining_operations": 81,
+  "newly_installed_t37": [
+    "approval_delete",
+    "artifact_update",
+    "configuration_create",
+    "configuration_delete",
+    "configuration_get",
+    "configuration_list",
+    "job_delete",
+    "plugin_disable",
+    "plugin_enable",
+    "plugin_trust",
+    "share_update",
+    "task_update"
+  ],
+  "remaining_by_ticket": {
+    "T34 \u2014 snapshots and lifecycle": [
+      "backup_export",
+      "sandbox_prepare_fork",
+      "sandbox_restore",
+      "snapshot_delete",
+      "snapshot_list"
+    ],
+    "T36 \u2014 exec, files and terminal": [
+      "exec_delete"
+    ],
+    "T38 \u2014 hosts, fleets and admission": [
+      "fleet_recover",
+      "fleet_transfer_owner",
+      "host_bench",
+      "host_create",
+      "host_delete",
+      "host_drain",
+      "host_enroll",
+      "host_update",
+      "invitation_accept",
+      "invitation_create",
+      "invitation_delete",
+      "invitation_get",
+      "invitation_list"
+    ],
+    "T39 \u2014 ports and network": [
+      "access_route_create",
+      "access_route_delete",
+      "access_route_get",
+      "access_route_list",
+      "access_route_update",
+      "exposure_activate",
+      "exposure_create",
+      "exposure_delete",
+      "exposure_get",
+      "exposure_list",
+      "exposure_revoke",
+      "network_attachment_test",
+      "network_attachment_update"
+    ],
+    "T40 \u2014 templates and storage": [
+      "attachment_update",
+      "cache_update",
+      "template_build",
+      "template_create",
+      "template_update",
+      "template_validate",
+      "volume_recover",
+      "volume_snapshot",
+      "volume_update"
+    ],
+    "T43 \u2014 broker, sign-in, harnesses and sessions": [
+      "auth_flow_complete",
+      "auth_flow_create",
+      "auth_flow_delete",
+      "auth_flow_get",
+      "auth_flow_list",
+      "connection_test",
+      "connection_update",
+      "credential_source_create",
+      "credential_source_delete",
+      "credential_source_get",
+      "credential_source_list",
+      "credential_source_update",
+      "identity_provider_create",
+      "identity_provider_delete",
+      "identity_provider_get",
+      "identity_provider_list",
+      "identity_provider_update",
+      "settings_change_apply",
+      "settings_change_create",
+      "settings_change_delete",
+      "settings_change_get",
+      "settings_change_list",
+      "settings_change_reject",
+      "settings_source_create",
+      "settings_source_delete",
+      "settings_source_get",
+      "settings_source_list",
+      "settings_source_update"
+    ],
+    "T44 \u2014 kits, browser and desktop": [
+      "browser_update",
+      "kit_update",
+      "sandbox_device_input",
+      "sandbox_device_watch"
+    ],
+    "T45 \u2014 update": [],
+    "T46 \u2014 agent workflow, teleport and bridges": [
+      "message_create",
+      "message_get",
+      "message_list",
+      "native_execution_grant_create",
+      "native_execution_grant_delete",
+      "native_execution_grant_get",
+      "native_execution_grant_list",
+      "session_interrupt"
+    ]
+  },
+  "unassigned": []
+}

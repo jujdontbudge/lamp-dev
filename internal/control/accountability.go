@@ -269,7 +269,23 @@ func (s *Service) accountMutation(a caller, op api.OperationDescriptor, in map[s
 		assign(m, &b)
 		c.Budgets[ref.Id] = b
 	} else if kind == "task" {
-		if verb == "create" {
+		if verb == "update" {
+			if err := acceptFields(in, "task_id deadline_at labels"); err != nil {
+				return ref, nil, nil, nil, err
+			}
+			if textField(m, "state") != "running" {
+				return fail("RESOURCE_IN_USE", "only running tasks may be updated")
+			}
+			if raw, ok := in["deadline_at"]; ok {
+				deadline := fmt.Sprint(raw)
+				when, err := time.Parse(time.RFC3339Nano, deadline)
+				if err != nil || !s.enforcementNow().Before(when) || earlier(textField(m, "deadline_at"), deadline) {
+					return fail("INVALID_ARGUMENT", "task deadline may only be shortened into the future")
+				}
+				m["deadline_at"] = deadline
+			}
+			applyLabels(m, in)
+		} else if verb == "create" {
 			for _, k := range []string{"parent_task_id", "budget_id", "deadline_at", "labels", "visibility"} {
 				if v, ok := in[k]; ok {
 					m[k] = v
@@ -357,6 +373,9 @@ func (s *Service) taskStopRequired(t api.Task, checkAuthority bool) bool {
 	return true
 }
 func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error {
+	if name != "sandbox_delete" && s.controlGrantRevoked() {
+		return reject("SCOPE_DENIED", "host control grant revoked; enroll a new supervisor grant")
+	}
 	retains := name == "snapshot_create" || name == "sandbox_suspend" || name == "share_create"
 	if name == "sandbox_delete" {
 		return nil
@@ -508,6 +527,9 @@ func (s *Service) operationBudget(r *record) string {
 	return ""
 }
 func (s *Service) sandboxStopRequired(sb api.Sandbox, checkAuthority bool) bool {
+	if checkAuthority && sb.State != "suspended" && s.controlGrantRevoked() {
+		return true
+	}
 	// Suspended captures are inert encrypted state, not task execution. Ending
 	// the old Task must not erase an explicitly retained CI inspection capture.
 	// Resume separately requires current (and, for ended jobs, new) Task authority.

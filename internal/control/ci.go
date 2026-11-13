@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,6 +42,7 @@ type ciJob struct {
 func init() {
 	lifeKinds["job"] = true
 	lifeHandlers["job_create"] = (*Service).planJobCreate
+	lifeHandlers["job_delete"] = (*Service).planJobDelete
 	lifeHandlers["job_cancel"] = (*Service).planJobCancel
 	lifeHandlers["job_reconcile"] = (*Service).planJobReconcile
 }
@@ -124,7 +124,7 @@ func (s *Service) planJobCreate(a caller, in map[string]any) (lifePlan, error) {
 		return lifePlan{}, err
 	}
 	plugin := textField(in, "plugin_id")
-	if s.forges[plugin] == nil {
+	if !s.ciEnabled(plugin) {
 		return lifePlan{}, reject("AUTH_TRANSPORT_UNSUPPORTED", "CI_PLUGIN_INCOMPATIBLE: CI adapter is not installed or enrolled")
 	}
 	external := textField(in, "external_id")
@@ -137,7 +137,7 @@ func (s *Service) planJobCreate(a caller, in map[string]any) (lifePlan, error) {
 	if err != nil || id <= 0 {
 		return lifePlan{}, reject("INVALID_ARGUMENT", "invalid forge job id")
 	}
-	if _, ok := s.ciRepo(plugin, name); !ok {
+	if _, ok := s.ciRepo(plugin, name); !ok || !s.ciConfiguredRepository(plugin, name) {
 		return lifePlan{}, reject("SCOPE_DENIED", "repository is not enrolled")
 	}
 	for _, j := range s.life.Jobs {
@@ -260,7 +260,19 @@ func (s *Service) ciController(pending []string) {
 			return
 		case <-timer.C:
 			for plugin, f := range s.forges {
+				s.readLock()
+				enabled := s.ciEnabled(plugin)
+				s.mu.Unlock()
+				if !enabled {
+					continue
+				}
 				for _, r := range f.Repos() {
+					s.readLock()
+					selected := s.ciConfiguredRepository(plugin, r.Name)
+					s.mu.Unlock()
+					if !selected {
+						continue
+					}
 					ctx, cancel := context.WithTimeout(s.context(), time.Minute)
 					jobs, e := f.Queued(ctx, r)
 					cancel()
@@ -954,36 +966,6 @@ func (s *Service) collectCIOutputs(ctx context.Context, id string, forge ci.Forg
 func mustJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
-}
-
-// ciPluginHTTP is intentionally a host adapter descriptor, not a simulated
-// installed worker or a claim about vendor-cloud placement.
-func (s *Service) ciPluginHTTP(w http.ResponseWriter, r *http.Request, id, plugin string) {
-	s.readLock()
-	defer s.mu.Unlock()
-	if !s.can(requestCaller(r), "plugin.get") || !s.resourceAllowed(requestCaller(r), lifeRef("plugin", plugin)) {
-		writeError(w, id, "NOT_FOUND", "plugin not found", nil)
-		return
-	}
-	system := "github-actions"
-	for _, v := range ci.Systems {
-		if ciPluginFor(v) == plugin {
-			system = v
-		}
-	}
-	m := newResource("plugin", s.journal.Control.OwnerID)
-	m["id"] = plugin
-	m["created_at"] = s.journal.Control.Fleet.CreatedAt
-	m["updated_at"] = s.journal.Control.Fleet.CreatedAt
-	m["type"] = "ci"
-	m["state"] = "disabled"
-	if s.forges[plugin] != nil {
-		m["state"] = "enabled"
-	}
-	m["version"] = "1"
-	m["adapter_ids"] = []string{strings.ReplaceAll(system, "-", "_")}
-	m["labels"] = map[string]string{"runner_mode": ciRunnerMode[system], "system": system}
-	prepareJSON(w, 200, map[string]any{"data": m, "request_id": id})()
 }
 
 // ciRunnerMode names each system's native one-job contract.

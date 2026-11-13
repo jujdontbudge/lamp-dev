@@ -41,7 +41,8 @@ func run() error {
 		flags.PrintDefaults()
 	}
 	auditReservation := flags.Uint64("audit-reservation-bytes", 24<<20, "trusted per-sandbox retained audit reservation, matching the supervisor policy")
-	ciFile := flags.String("ci-config", "", "private host-enrolled GitHub CI policy JSON")
+	approvalFile := flags.String("approval-actions-config", "", "private owner-enrolled exact webhook actions for one-use approvals")
+	ciFile := flags.String("ci-config", "", "private host-enrolled CI policy JSON (GitLab and other shipped systems)")
 	auditReader := flags.String("audit-reader", "", "trusted absolute executable reading guard audit for sandbox ID and generation")
 	quotaFile := flags.String("quota-file", "", "host admission quota JSON")
 	relayFile := flags.String("relay-config", "", "private outbound relay carrier configuration JSON")
@@ -251,7 +252,14 @@ func run() error {
 			return err
 		}
 	}
-	service, err := control.Open(control.Config{Relay: relayConfig, Notifications: notifications, KitsSocket: *kitsSocket, AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
+	var protected map[string]control.ProtectedAction
+	if *approvalFile != "" {
+		protected, err = control.LoadApprovalWebhooks(*approvalFile)
+		if err != nil {
+			return err
+		}
+	}
+	service, err := control.Open(control.Config{ProtectedActions: protected, Relay: relayConfig, Notifications: notifications, KitsSocket: *kitsSocket, AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
 	if err != nil {
 		return err
 	}

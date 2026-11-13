@@ -1,0 +1,7 @@
+2026-11-13T02:13:13.2084607Z Runner dd0bb5c0-7e5c-4aff-9a56-178f930f1efb (version:v13.2.1) received task 1 of job build, triggered by event: workflow_dispatch
+2026-11-13T02:13:13.2094727Z workflow prepared
+2026-11-13T02:13:13.2097338Z ⭐ Run Main fresh public machine
+2026-11-13T02:13:13.3095344Z fresh-vm-no-model-secret
+2026-11-13T02:13:13.3590634Z Cloning into 'src'...
+2026-11-13T02:13:23.6543665Z public-source-job-success
+2026-11-13T02:13:23.6550490Z 🏁  Job succeeded

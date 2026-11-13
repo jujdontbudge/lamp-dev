@@ -1,0 +1,12 @@
+{
+  "cli": 210,
+  "http": 210,
+  "mcp": 210,
+  "installed": 210,
+  "names_equal": true,
+  "session_scoped_mcp_discovery": true,
+  "documentation_still_scope_denied": true,
+  "grant_revocation_persisted": true,
+  "execution_after_revoke": "SCOPE_DENIED",
+  "vm_execution_claimed": false
+}

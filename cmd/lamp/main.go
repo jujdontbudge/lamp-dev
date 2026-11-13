@@ -122,6 +122,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return usage("usage: lamp <resource> <action> [flags]")
 	}
 	name := strings.ReplaceAll(args[0], "-", "_") + "_" + strings.ReplaceAll(args[1], "-", "_")
+	if name == "key_revoke" {
+		name = "key_delete"
+	}
 	waitingSandbox := name == "sandbox_wait"
 	lookup := name
 	if waitingSandbox {
