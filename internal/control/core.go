@@ -201,7 +201,8 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		return
 	}
 	a := requestCaller(r)
-	if !s.can(a, op.Scope) {
+	discovery := op.Name == "docs_read" && textField(in, "topic") == "operations" && s.current(a)
+	if !s.can(a, op.Scope) && !discovery {
 		writeError(w, id, "SCOPE_DENIED", "authority changed", nil)
 		return
 	}
@@ -412,6 +413,10 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 	}
 	if op.Name == "docs_read" {
 		topic := textField(in, "topic")
+		if topic == "operations" {
+			prepareJSON(w, 200, map[string]any{"topic": topic, "installed_operations": s.installedOperations(), "request_id": id})()
+			return
+		}
 		if topic == "approval-actions" {
 			plans := []BoundAction{}
 			for _, adapter := range s.protected {

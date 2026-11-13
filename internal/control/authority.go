@@ -461,7 +461,9 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s.readLock()
 	a, authenticated := s.authenticate(r)
-	allowed := authenticated && s.can(a, op.Scope)
+	// Installed handler names contain no resource data or execution authority.
+	discovery := op.Name == "docs_read" && r.URL.Query().Get("topic") == "operations"
+	allowed := authenticated && (s.can(a, op.Scope) || discovery)
 	broken := s.broken
 	s.mu.Unlock()
 	if broken {

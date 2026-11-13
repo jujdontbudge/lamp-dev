@@ -4,7 +4,9 @@
 an available daemon it lists the binary's compiled handlers. `lamp api describe`
 returns OpenAPI paths for those installed handlers; MCP `tools/list` discovers
 the same daemon set. The full versioned schema remains in `contracts/public`.
-Installed operations can still require owner enrollment (for example a VM
+Discovery uses `docs read --topic operations` and requires a valid caller
+credential, with no unrelated documentation scope. Individual calls still
+require their operation scopes. Installed operations can still require owner enrollment (for example a VM
 supervisor, a session harness, CI credentials, or notification destinations).
 An unavailable subsystem is not installed merely to inflate the catalogue.
 

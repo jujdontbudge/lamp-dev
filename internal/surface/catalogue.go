@@ -21,7 +21,7 @@ func Catalogue(installed map[string]bool) []api.OperationDescriptor {
 
 // Installed discovers the connected daemon's handlers, including fleet additions.
 func (c *Client) Installed(ctx context.Context) (map[string]bool, error) {
-	raw, status, err := c.Call(ctx, ByName["docs_read"], map[string]any{"topic": "requirements"})
+	raw, status, err := c.Call(ctx, ByName["docs_read"], map[string]any{"topic": "operations"})
 	if err != nil {
 		return nil, err
 	}
