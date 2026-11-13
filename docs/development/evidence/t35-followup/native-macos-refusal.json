@@ -1,0 +1,25 @@
+[
+  {
+    "step": "confined managed helper ready",
+    "report": {
+      "state": "ready"
+    }
+  },
+  {
+    "step": "host admission",
+    "observation": {
+      "physical_mib": 24576,
+      "available_mib": 4871,
+      "host_reserve_mib": 2048,
+      "available_reserve_mib": 1217
+    }
+  },
+  {
+    "step": "native macOS boot refused",
+    "guest_memory_mib": 4096,
+    "reason": "NO_CAPACITY: requested 4096 MiB plus 256 MiB VMM allowance; physical=24576 MiB, available=4850 MiB, host reserve=2048 MiB, available headroom=1212 MiB, reservations=0 MiB, pending=0 MiB; retry when memory is available or use a smaller guest or another host",
+    "dns_https_verified": false,
+    "template_modified": false,
+    "cleanup": "Disposable cloned disk and auxiliary storage removed; worker exited before VM creation; helper stopped."
+  }
+]

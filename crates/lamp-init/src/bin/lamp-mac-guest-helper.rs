@@ -103,43 +103,51 @@ mod mac {
     }
 
     fn configure_network() {
-        // This code runs only inside the guest, under its launchd daemon.
-        let devices = Command::new("/sbin/ifconfig").arg("-l").output();
-        if let Ok(devices) = devices {
-            for interface in String::from_utf8_lossy(&devices.stdout)
-                .split_whitespace()
-                .filter(|name| name.starts_with("en"))
-            {
-                let _ = Command::new("/sbin/ifconfig")
-                    .args([
-                        interface,
-                        "inet",
-                        GUEST_ADDR,
-                        "netmask",
-                        "255.255.255.252",
-                        "up",
-                    ])
-                    .status();
-                let _ = Command::new("/sbin/route")
-                    .args(["-n", "add", "default", GUEST_GATEWAY])
-                    .status();
-                let _ = std::fs::write("/etc/resolv.conf", format!("nameserver {GUEST_GATEWAY}\n"));
-                // SystemConfiguration owns the native resolver configuration.
-                if let Ok(mut child) = Command::new("/usr/sbin/scutil")
-                    .stdin(Stdio::piped())
-                    .spawn()
-                {
-                    use std::io::Write;
-                    if let Some(mut input) = child.stdin.take() {
-                        let _ = write!(
-                            input,
-                            "d.init\nd.add ServerAddresses * {GUEST_GATEWAY}\nset State:/Network/Service/Lamp/DNS\nquit\n"
-                        );
-                    }
-                    let _ = child.wait();
-                }
-                break;
+        // This runs only inside the guest. macOS preserves interface numbering
+        // from its template, so the Lamp NIC is not necessarily the first en*.
+        // Bind setup to the MAC assigned by the VZ worker, never an old service.
+        let Ok(devices) = Command::new("/sbin/ifconfig").arg("-l").output() else {
+            return;
+        };
+        for interface in String::from_utf8_lossy(&devices.stdout)
+            .split_whitespace()
+            .filter(|name| name.starts_with("en"))
+        {
+            let Ok(info) = Command::new("/sbin/ifconfig").arg(interface).output() else {
+                continue;
+            };
+            if !String::from_utf8_lossy(&info.stdout).contains("ether 02:4c:41:4d:50:01") {
+                continue;
             }
+            let _ = Command::new("/sbin/ifconfig")
+                .args([
+                    interface,
+                    "inet",
+                    GUEST_ADDR,
+                    "netmask",
+                    "255.255.255.252",
+                    "up",
+                ])
+                .status();
+            let _ = Command::new("/sbin/route")
+                .args(["-n", "add", "default", GUEST_GATEWAY])
+                .status();
+            // Native DNS needs an active IPv4 service, not only a DNS key or
+            // /etc/resolv.conf. Publish this guest-owned link and its resolver
+            // together so configd can choose the service for default lookups.
+            if let Ok(mut child) = Command::new("/usr/sbin/scutil")
+                .stdin(Stdio::piped())
+                .spawn()
+            {
+                if let Some(mut input) = child.stdin.take() {
+                    let _ = write!(
+                        input,
+                        "d.init\nd.add InterfaceName {interface}\nd.add Addresses * {GUEST_ADDR}\nd.add SubnetMasks * 255.255.255.252\nd.add Router {GUEST_GATEWAY}\nset State:/Network/Service/Lamp/IPv4\nd.init\nd.add ServerAddresses * {GUEST_GATEWAY}\nset State:/Network/Service/Lamp/DNS\nquit\n"
+                    );
+                }
+                let _ = child.wait();
+            }
+            break;
         }
     }
 

@@ -1,32 +1,61 @@
-# T35 follow-up: native macOS admission and the 8 GB Air
+# T35 follow-up: native macOS DNS and the 8 GB Air
 
-This follows merged T35 (`011618e`). No product behavior is changed and no new
-test is added. The owner's everyday apps and existing Lamp installs remain
-untouched. Demonstrations use disposable copies and headless, confined VZ
-workers with the real managed network helper; they do not run the privileged
-supervisor or public control API.
+This follows merged T35 (`011618e`). Native macOS DNS required a small guest
+helper fix: an isolated DNS dynamic-store key did not create a reachable
+resolver. The helper now selects Lamp's assigned MAC and publishes the link's
+IPv4 service state alongside its DNS state. No automated tests were added.
+
+The demonstrations use disposable copies and headless, confined VZ workers
+with the real managed network helper, through the authenticated guest vsock
+channel. They do not exercise the privileged supervisor or public control API.
+The owner's apps and existing Lamp installs remained untouched.
 
 ## Native macOS on the M5
 
-[`native-macos.json`](native-macos.json) records an actual `lamp-vz worker`
-attempt using a disposable APFS clone of the existing owner-built macOS
-26.6.2 template. Its published minimum is 2 vCPUs, 4096 MiB and 48 GiB. The
-managed network helper became ready, then the VMM refused before boot:
+[`native-macos.json`](native-macos.json) records a fresh disposable APFS clone
+of the owner-built macOS 26.6.2 template, with 2 vCPUs and 4096 MiB. Its initial
+available host memory was 6617 MiB, with 1654 MiB available headroom and the
+unchanged 2048 MiB physical reserve. The coordinator stopped the idle 8 GiB
+`lamp-la` Lima VM to free headroom; after the demonstration, it was restarted
+with `limactl start lamp-la` and confirmed **Running**.
 
-```text
-NO_CAPACITY: requested 4096 MiB plus 256 MiB VMM allowance;
-physical=24576 MiB, available=4850 MiB, host reserve=2048 MiB,
-available headroom=1212 MiB, reservations=0 MiB, pending=0 MiB;
-retry when memory is available or use a smaller guest or another host
-```
+The old template predates the new helper. Only the disposable guest's helper
+was upgraded, by transferring the locally built ad-hoc-signed binary through
+its existing vsock exec channel. Only its guest LaunchDaemon was restarted;
+no host launch item or Keychain was touched. The final helper SHA-256 is
+`13ef9f1db06d1e0a149a13b2f3528881eb3ca599ff057b3be0587907fe6c55c0`.
+The original template was never changed or mounted as a guest-written image.
 
-Thus native macOS DNS/HTTPS is **not verified**. This is a current host-memory
-refusal, not a claim that native macOS networking is unsupported. The current guest helper includes native interface, gateway and resolver
-setup; that code was not reached in this attempt. The existing template predates that helper; the planned
-helper update would have affected only the disposable guest copy. It did not
-run because admission refused the VM. No memory check was relaxed or owner
-app stopped. Both cloned disk files were removed, the worker exited before
-VM creation and the helper was stopped.
+The final fresh-clone run made **no manual guest network changes**. It shows:
+
+- Lamp's MAC on `en1`, address `198.18.240.2/30`, gateway `198.18.240.1`.
+- `scutil --dns`: resolver `198.18.240.1`, Reachable and Directly Reachable.
+- `dscacheutil -q host -a name example.com`: public IPv4 and IPv6 answers.
+- `curl -4 --noproxy '*' -fsSI --max-time 20 https://example.com`: HTTP/2 200.
+
+The combined OS/DNS/HTTPS command exited 0 with no stderr, timeout or truncation.
+The worker was asked to exit through its API before process fallback; both
+cloned disks were removed, the helper stopped and the disposable host directory
+was removed. Shared `lamp-la` was then restored as described above.
+
+Earlier outcomes remain historical:
+
+- [`native-macos-refusal.json`](native-macos-refusal.json): the **M5**, while busy,
+  refused 4096 MiB plus the 256 MiB allowance with only 4850 MiB available and
+  1212 MiB headroom. This was not an Air result or an unsupported-network claim.
+- [`native-macos-failed-network.json`](native-macos-failed-network.json): the
+  initial fixture's guest `nohup` restart failed. After a corrected restart of
+  the original T35 helper, the interface had an address but native DNS still
+  failed; isolated curl exited 6 (`Could not resolve host`).
+- [`native-macos-investigation.json`](native-macos-investigation.json): live
+  diagnosis, including an abandoned preferences-based setup and manual state
+  publication. Its manual repair established the missing IPv4 service state;
+  it is **not** the final demonstration. The separate final run above uses
+  only the updated helper on a fresh copy.
+
+Existing owner-built native templates need this helper upgraded inside the
+guest or a rebuild. Merely updating the host worker does not replace an older
+guest binary.
 
 ## Air
 
@@ -59,10 +88,12 @@ Ethernet helper as the M5 run. No host resolver repair, guest network repair,
 password, sudo, desktop automation or owner-app shutdown was used. Cleanup
 confirmed zero `lamp-vz` and `lamp-network` processes and removed the entire
 Air disposable directory, including the transferred seed. The M5 disposable
-directory was also removed. No account or system service was created.
+directory was also removed. No host account or system service was created.
 
 ## Verification and review
 
 `make build` passed (Go build, generated SDK consistency, Rust workspace).
+`cargo clippy --locked -p lamp-init --bin lamp-mac-guest-helper -- -D warnings`
+and `git diff --check` passed.
 Sol review is limited to this follow-up's evidence and documentation; see
 [`sol-review.md`](sol-review.md).
