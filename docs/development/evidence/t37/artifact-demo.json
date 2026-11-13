@@ -1,0 +1,24 @@
+{
+  "job": {
+    "id": "jb_c05c67429fb3a2484d21bf19334ec24d",
+    "state": "completed",
+    "result": "success",
+    "trust_class": "public_pr",
+    "sandbox_id": "sb_b13f7594db98d7e0fdd2e6be3e21c4c5",
+    "artifact_ids": [
+      "ar_9b0f9017c6cada0d47d18984cae8029c"
+    ]
+  },
+  "artifact": {
+    "id": "ar_9b0f9017c6cada0d47d18984cae8029c",
+    "state": "complete",
+    "present_bytes": 478,
+    "expected_bytes": 478
+  },
+  "blob": {
+    "sha256": "5bafc2c68cefbf7d5047f79d8c550f315c934e072d185fe4f06a837c8282f546",
+    "size_bytes": 478,
+    "state": "ready"
+  },
+  "model_grant_issued": false
+}
