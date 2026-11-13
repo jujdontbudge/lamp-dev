@@ -100,7 +100,7 @@ func (c Config) Validate() error {
 			if u.Scheme != "https" && !(v.Kind == "service" && u.Scheme == "http" && (u.Hostname() == "127.0.0.1" || u.Hostname() == "::1")) {
 				return errors.New("upstreams require HTTPS; local services may use loopback HTTP")
 			}
-			if v.Kind != "service" && len(v.CredentialCommand) == 0 {
+			if v.Kind == "model" && len(v.CredentialCommand) == 0 {
 				return errors.New("authenticated upstream requires host credential reader")
 			}
 			if v.Kind == "model" && len(v.Models) == 0 {

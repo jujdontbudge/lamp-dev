@@ -104,6 +104,9 @@ func (s *Service) initAuthority(config Config) error {
 }
 func bearerHash(v string) string { sum := sha256.Sum256([]byte(v)); return hex.EncodeToString(sum[:]) }
 func (s *Service) authenticate(r *http.Request) (caller, bool) {
+	if a, ok := r.Context().Value(agentCallerKey{}).(caller); ok {
+		return a, s.current(a)
+	}
 	c := s.journal.Control
 	values := r.Header.Values("Authorization")
 	if len(values) == 0 && !c.Credentialed {
@@ -490,6 +493,18 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
 	// The dashboard shows who is signed in without guessing from lists.
 	w.Header().Set("X-Lamp-Principal", a.Principal)
+	if op.Name == "auth_flow_complete" {
+		s.agentAuthCompleteHTTP(w, r, id, textField(selectors, "auth_flow_id"))
+		return
+	}
+	if op.Name == "secret_request" {
+		s.secretRequestHTTP(w, r, id, nil)
+		return
+	}
+	if op.Name == "secret_set" {
+		s.secretSetHTTP(w, r, id)
+		return
+	}
 	if kitOperation(op.Name) {
 		s.kitsHTTP(w, r, id, op, selectors)
 		return

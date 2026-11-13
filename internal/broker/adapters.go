@@ -408,3 +408,14 @@ func secretForms(secret []byte) []string {
 	quoted, _ := json.Marshal(string(secret))
 	return append(forms, string(quoted[1:len(quoted)-1]))
 }
+
+// RedactSecrets is shared by the release placeholder proxy and typed broker.
+// Encoded forms are covered too, so an echo service cannot return a usable key.
+func RedactSecrets(data []byte, secrets [][]byte) []byte {
+	for _, secret := range secrets {
+		for _, form := range secretForms(secret) {
+			data = bytes.ReplaceAll(data, []byte(form), []byte("[REDACTED]"))
+		}
+	}
+	return data
+}

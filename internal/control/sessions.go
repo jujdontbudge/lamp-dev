@@ -61,6 +61,7 @@ type SessionHarness struct {
 }
 
 type NativeHarness struct {
+	Managed        bool     `json:"managed,omitempty"`
 	Kind           string   `json:"kind"`
 	Binary         string   `json:"binary"`
 	Model          string   `json:"model,omitempty"`
@@ -249,7 +250,7 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 	switch kind {
 	case "session":
 		if verb == "create" {
-			if err := acceptFields(in, "sandbox_id harness_id auth_mode task_id parent_session_id agent_mode location"); err != nil {
+			if err := acceptFields(in, "sandbox_id harness_id auth_mode task_id parent_session_id agent_mode location prompt"); err != nil {
 				return api.ResourceRef{}, nil, nil, nil, err
 			}
 			if parent := textField(in, "parent_session_id"); parent != "" {
@@ -264,6 +265,9 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 			auth := textField(in, "auth_mode")
 			if auth == "" {
 				auth = "none"
+				if harness.Native != nil && harness.Native.Managed && s.life.Agents[textField(in, "harness_id")].Source != "" {
+					auth = "api_key"
+				}
 			}
 			if auth != "none" && harness.Native == nil {
 				return fail("AUTH_TRANSPORT_UNSUPPORTED", "model authentication requires a dedicated broker or native custody adapter, not a general PTY")
@@ -349,6 +353,12 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 				return fail("SCOPE_DENIED", "new session is outside key selectors")
 			}
 			work = &managedSession{Resource: m, Next: map[string]uint64{}, Frames: []api.Frame{}, Pending: []sessionWork{{ID: newID("dispatch"), Action: "start"}}}
+			if prompt := textField(in, "prompt"); prompt != "" {
+				if !s.can(a, "session.input") || len(prompt) > 32768 {
+					return fail("SCOPE_DENIED", "initial prompt requires session.input authority and at most 32768 bytes")
+				}
+				work.Pending = append(work.Pending, sessionWork{ID: newID("dispatch"), Action: "input", Lease: "initial-prompt", Data: base64.StdEncoding.EncodeToString([]byte(prompt))})
+			}
 			c.Sessions[textField(m, "id")] = work
 			result["session_id"], result["sandbox_id"] = m["id"], sbID
 			break
@@ -633,6 +643,13 @@ func (s *Service) driveSessions() {
 		case <-ticker.C:
 		}
 		s.readLock()
+		for id, runtime := range s.agentRuntimes {
+			session := s.journal.Control.Sessions[id]
+			if session == nil || textField(session.Resource, "state") == "ended" || textField(session.Resource, "state") == "failed" {
+				runtime.cancel()
+				delete(s.agentRuntimes, id)
+			}
+		}
 		ids := []string{}
 		for id, work := range s.journal.Control.Sessions {
 			if s.fleetEnabled && (s.fleet == nil || resourceHome(id) != s.hostID() || !s.fleet.leaseValid()) {
@@ -776,10 +793,20 @@ func (s *Service) driveSession(id string) {
 			request["native"], request["native_source"] = config, nativeHarness
 		}
 	}
+	ctx, cancel := context.WithTimeout(s.context(), 30*time.Second)
+	defer cancel()
+	if !native && harness.Native != nil && harness.Native.Managed {
+		config, _ := request["native"].(map[string]any)
+		if config == nil {
+			config = map[string]any{}
+		}
+		if err := s.prepareAgent(ctx, id, sb, config); err != nil {
+			s.failSession(id, err.Error())
+			return
+		}
+	}
 	raw, _ := json.Marshal(request)
 	encoded := base64.StdEncoding.EncodeToString(raw)
-	ctx, cancel := context.WithTimeout(s.context(), 10*time.Second)
-	defer cancel()
 	var reply map[string]any
 	var err error
 	if native && host.Socket != "" {

@@ -555,6 +555,9 @@ func (s *Service) privateMember(a caller, sandbox string) *lifeNetwork {
 	return nil
 }
 func (s *Service) planNetworkConnection(a caller, in map[string]any) (lifePlan, error) {
+	if textField(in, "type") == "mcp" || textField(in, "type") == "cli" {
+		return s.planAgentConnection(a, in)
+	}
 	if textField(in, "type") == "service" {
 		return s.planHostService(a, in)
 	}
@@ -624,6 +627,11 @@ func (s *Service) planNetworkDisconnect(a caller, in map[string]any) (lifePlan, 
 	}
 	if e = lifeRevision(n.R, in); e != nil {
 		return lifePlan{}, e
+	}
+	if n.Runtime == "agent" {
+		n.R["state"] = "revoked"
+		editResource(n.R)
+		return lifePlan{ref: lifeRef("connection", textField(n.R, "id")), result: map[string]any{"connection_id": n.R["id"]}}, nil
 	}
 	source, ok := s.journal.Sandboxes[n.Source]
 	if !ok {

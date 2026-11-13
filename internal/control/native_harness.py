@@ -251,6 +251,10 @@ class OpenCode:
             state["session_id"] = e["sessionID"]
         if part.get("sessionID"):
             state["session_id"] = part["sessionID"]
+        if e.get("type") == "tool_use" and part.get("type") == "tool":
+            tool = part.get("state") or {}
+            if tool.get("status") in ("completed", "error"):
+                return "[" + str(part.get("tool", "tool")) + "] " + str(tool.get("title", "")) + "\n" + str(tool.get("output") or tool.get("error") or ""), None
         if e.get("type") == "text":
             return part.get("text", ""), None
         if e.get("type") == "step_finish" and part.get("reason") not in ("tool-calls", "tool_calls"):
@@ -637,6 +641,36 @@ def load_state(path):
 
 def main():
     config = json.loads(Path(sys.argv[1]).read_text())
+    if config.get("managed") and config["kind"] == "opencode":
+        if not Path(config["binary"]).is_file():
+            print("lamp: installing opencode 1.19.5 in the sandbox…", flush=True)
+            subprocess.run(["npm", "install", "-g", "--no-audit", "--no-fund", "--progress=false", "--loglevel=error", "opencode-ai@1.19.5"], check=True)
+        if token := config.pop("transport_token", None):
+            write_private(Path(config["credential_file"]), token)
+    if cli_source := config.pop("guest_cli_source", None):
+        cli = Path(config["credential_file"]).parent / "lamp.py"
+        write_private(cli, cli_source)
+        cli.chmod(0o700)
+        # Guest-only executable; HOME never changes on the host.
+        link = Path("/usr/local/bin/lamp")
+        if not link.exists():
+            link.symlink_to(cli)
+        os.environ["LAMP_API_URL"] = config["gateway"]
+        os.environ["LAMP_TOKEN_FILE"] = config["credential_file"]
+        os.environ.update(config.get("secret_placeholders", {}))
+        os.environ["LAMP_MCP_TOOLS"] = json.dumps(config.get("gateway_tools", []))
+        if config.get("gateway_tools"):
+            config["mcp_command"] = [sys.executable, str(cli), "mcp"]
+        for source in config.get("settings_sources") or []:
+            import urllib.request
+            req = urllib.request.Request(config["gateway"] + "/v1/settings/" + source + "/copy", data=b"{}", headers={"Authorization": "Bearer " + Path(config["credential_file"]).read_text().strip()})
+            with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req) as response:
+                snapshot = json.load(response)
+            for relative, content in snapshot["files"].items():
+                path = Path.cwd() / relative
+                if path.is_absolute() and path.resolve().is_relative_to(Path.cwd().resolve()):
+                    write_private(path, content)
+            write_private(Path(config["credential_file"]).parent / (source + ".settings.json"), snapshot)
     adapter = ADAPTERS[config["kind"]]()
     home = Path(os.environ["HOME"])
     home.mkdir(mode=0o700, parents=True, exist_ok=True)

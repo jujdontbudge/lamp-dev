@@ -57,7 +57,8 @@ type journal struct {
 	Templates     map[string]cleanExport   `json:"templates,omitempty"`
 }
 type Config struct {
-	Relay *relayclient.Config
+	APISocket string
+	Relay     *relayclient.Config
 	// Trusted upper bound for one namespace's retained network/process audit
 	// spools. Match the enrolled supervisor policy; zero keeps the 24 MiB default.
 	AuditReservationBytes uint64
@@ -97,6 +98,10 @@ type Config struct {
 	InstallDir string
 }
 type Service struct {
+	secretMu              sync.RWMutex
+	agentEntries          chan struct{}
+	agentSocket           string
+	agentRuntimes         map[string]*agentRuntime
 	relayConfig           *relayclient.Config
 	relayConnected        atomic.Bool
 	auditMu               sync.Mutex
@@ -492,6 +497,11 @@ func Open(config Config) (*Service, error) {
 	if err := s.initLifecycle(config.StateAdmin); err != nil {
 		s.cancel()
 		lock.Close()
+		return nil, err
+	}
+	s.agentSocket = config.APISocket
+	if err := s.initAgents(); err != nil {
+		s.Close()
 		return nil, err
 	}
 	if err := s.initCI(config.CI); err != nil {
@@ -928,6 +938,9 @@ func removeCommitTemps(dir string) error {
 func (s *Service) Close() error {
 	s.readLock()
 	s.broken = true
+	for _, rt := range s.agentRuntimes {
+		rt.cancel()
+	}
 	if s.cancel != nil {
 		s.cancel()
 	}

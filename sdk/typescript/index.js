@@ -1211,6 +1211,16 @@ export const OPERATIONS = {
   "resultSchema": "GrantRevokeResult",
   "scope": "grant.revoke"
  },
+ "harness_enroll": {
+  "cli": "lamp harness enroll",
+  "inputSchema": "HarnessEnrollInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "harness_enroll",
+  "path": "/v1/harnesses:enroll",
+  "resultSchema": "HarnessEnrollResult",
+  "scope": "harness.enroll"
+ },
  "harness_get": {
   "cli": "lamp harness get",
   "inputSchema": "HarnessGetInput",
@@ -2671,6 +2681,26 @@ export const OPERATIONS = {
   "resultSchema": "ScheduleUpdateResult",
   "scope": "schedule.update"
  },
+ "secret_request": {
+  "cli": "lamp secret request",
+  "inputSchema": "SecretRequestInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "secret_request",
+  "path": "/v1/secrets:request",
+  "resultSchema": "SecretRequestResult",
+  "scope": "secret.request"
+ },
+ "secret_set": {
+  "cli": "lamp secret set",
+  "inputSchema": "SecretSetInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "secret_set",
+  "path": "/v1/secrets:set",
+  "resultSchema": "SecretSetResult",
+  "scope": "secret.set"
+ },
  "session_attach": {
   "cli": "lamp session attach",
   "inputSchema": "SessionAttachInput",
@@ -2870,6 +2900,16 @@ export const OPERATIONS = {
   "path": "/v1/settings-changes/{settings_change_id}:reject",
   "resultSchema": "SettingsChangeRejectResult",
   "scope": "settings_change.reject"
+ },
+ "settings_source_apply": {
+  "cli": "lamp settings-source apply",
+  "inputSchema": "SettingsSourceApplyInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "settings_source_apply",
+  "path": "/v1/settings-sources/{settings_source_id}:apply",
+  "resultSchema": "SettingsSourceApplyResult",
+  "scope": "settings_source.apply"
  },
  "settings_source_create": {
   "cli": "lamp settings-source create",
