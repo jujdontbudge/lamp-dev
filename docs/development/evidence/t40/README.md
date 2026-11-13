@@ -87,3 +87,17 @@ After S5: `go test ./internal/control -run
 confirmed main remained at `03944fbdc30e28f1062700af7ceca4d736258a89`.
 The runtime demonstration result remains the successful runs documented above;
 no fresh VM demonstration is claimed for the final S5 change.
+
+## T41 integration
+
+Rebased again onto main `c34fabd` (T41). CLI conflicts retain T41 wait commands,
+automatic revision lookup, human/error output and conflicting-resource flag
+validation, together with T40 template-file builds and storage attachment
+creation. Omitted resources remain omitted so recipe/template defaults apply.
+HTTP retains T41 field-specific validation and T40 engine-template checks.
+
+`make build`, `go vet ./cmd/lamp ./internal/control`, the three existing
+`cmd/lamp` canonical-header/T41 reviewer tests, and all three T40 reviewer tests
+passed after this integration. No tests were added for the rebase. The runtime
+demonstration above was not repeated after T41; Sol's recorded verdict remains
+CHANGES with all findings fixed and the final storage fix not re-reviewed.
