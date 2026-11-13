@@ -26,6 +26,15 @@ guard and Go builds also passed. No additional VM was needed for conflict
 resolution. Post-fix/rebase diff: 47 files, 6527 insertions, 2386 deletions (before
 this ledger note).
 
-Round 2 approved a9df402. Final documentation records that approval; no product
-code changed afterward. Two rounds total with gpt-6.1-sol on medium reasoning.
+Round 2 approved a9df402. The approval covers the TERM fix and integration at that head. Two rounds total with gpt-6.1-sol on medium reasoning.
 One agreed finding fixed, none declined, one reviewer-written test retained.
+
+Subsequent coordinator-requested integration rebased onto main 43a941ed
+(T32, T33, T38, T39 and T41 included). CLI dispatch retains preview, quickstart,
+global flags and help; shell/copy use T32 installation socket and endpoint-aware
+credential discovery. Worker bindings retain NetworkCall and the extended Start.
+The existing two-round approval predates this integration; no third review was
+run. Fresh `make build`, targeted Go vet, the retained TERM regression, public/
+protobuf generation checks, and Linux supervisor/init/guard plus Go builds passed.
+CLI help was exercised directly for sandbox, shell and copy, including a leading
+global connection flag. No additional VM or tests were added for this rebase.

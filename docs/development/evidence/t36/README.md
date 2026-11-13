@@ -52,3 +52,9 @@ regression test failed before the fix and passed afterward. `terminal-type.json`
 records a new disposable VM observation: both CLI and stock SSH passed vt100
 through to the guest, ran `tput clear` successfully and exited 0. The VM was
 deleted after that demonstration.
+
+Final integration rebased onto main 43a941ed (including T32/T33/T38/T39/T41).
+`make build`, targeted Go vet, public/protobuf generation checks and the retained
+TERM regression passed. Linux supervisor/init/guard and Go rebuilds passed.
+CLI sandbox/shell/copy help was exercised; installed socket and credential
+selection now follow T32. The real VM observations above predate this rebase.

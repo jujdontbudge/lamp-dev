@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"golang.org/x/term"
 	"io"
+	"lamp.eilmer.si/internal/localconfig"
 	"lamp.eilmer.si/internal/surface"
 	"os"
 	"os/signal"
@@ -16,7 +17,7 @@ import (
 func shell(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("lamp sandbox shell", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	socket := surface.DefaultSocket()
+	socket := localconfig.Socket()
 	flags.StringVar(&socket, "socket", socket, "lampd socket")
 	origin := flags.String("api-url", os.Getenv("LAMP_API_URL"), "API origin")
 	tokenFile := flags.String("token-file", "", "private token file")
@@ -33,7 +34,7 @@ func shell(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "sandbox ID required")
 		return 2
 	}
-	token, err := surface.Credential(*tokenFile)
+	token, err := localconfig.Token(*tokenFile, socket, *origin)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 3
