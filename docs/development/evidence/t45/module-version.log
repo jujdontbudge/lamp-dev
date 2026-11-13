@@ -1,0 +1,4 @@
+go install lamp.eilmer.si/cmd/lamp@v0.1.2 using disposable local module proxy, no ldflags
+go: downloading lamp.eilmer.si v0.1.2
+{"protocol":"lamp.worker/2","version":"0.1.2"}
+
