@@ -21,4 +21,15 @@ Head: `b8a014ea5351707c532191112b7b9968faafe049`. Verdict: CHANGES.
   the Claude, signed-in third-party CLI and Linux capability gaps in README.md.
 
 Diff before review: 31 files, 4382 insertions, 144 deletions.
-Round 2 verdict and final diff size pending.
+
+## Round 2
+
+Head: `a7fbab14d99bcdef71bc809a0fb7149d459a1a61`. Verdict: APPROVE.
+S1 resolved; no remaining findings. The reviewer independently ran the targeted
+regression: PASS (`ok lamp.eilmer.si/cmd/lamp 0.604s`). No files changed by review.
+Usage was not exposed. No findings declined.
+
+Reviewed diff: 33 files, 4487 insertions, 144 deletions (before this ledger update).
+The review added one regression and the one-line drain fix. Two rounds with
+`gpt-6.1-sol` on verified medium effort. Final delivery pushes the approved
+behavior plus this documentation update; T43 remains explicitly incomplete.
