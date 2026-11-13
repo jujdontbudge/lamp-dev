@@ -16,3 +16,10 @@ Round 2 will review these changes and any demonstration fixes only.
 
 Round 1 diff: 28 files, 1321 insertions, 136 deletions (includes generated
 contracts, documentation and historical demonstration evidence).
+
+Final review base after rebasing T33/T38/T41: `c34fabda778bb34ff1b0f1da5e3bdc42882046b3`.
+The recovery continuation also required sparse disk extraction (see the retained
+blocked stack and successful attempt 14). Rebase integration preserves T33
+capacity cleanup, T38 behavior, and T41 help/error guidance. Post-rebase
+`make build`, targeted Go vet, both reviewer tests, and human/JSON lifecycle
+help checks passed. Round 2 covers those changes and S1/S2.

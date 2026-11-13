@@ -25,7 +25,10 @@ continuation from the completed encrypted archives. It is not a benchmark.
 
 The final continuation ran the rebased T33/T38 implementation plus the sparse
 extraction fix, using the same built guard as the supervisor. Mac and Ubuntu
-`make build` passed. The only new automated tests are the reviewer's two
+`make build` passed. The final T41 rebase also passed `make build`, targeted
+Go vet, both reviewer regressions, and direct human/JSON CLI help checks;
+lifecycle defaults remain visible alongside T41 discovery and resource help.
+The only new automated tests are the reviewer's two
 regressions, both reproduced failing before their fixes and passing afterward.
 
 Run on the enrolled Ubuntu host, after building:

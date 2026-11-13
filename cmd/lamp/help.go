@@ -201,9 +201,6 @@ func humanResult(out io.Writer, raw []byte) {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", display(row["id"]), display(row["template_id"]), display(row["state"]), display(res["vcpus"]), display(res["memory_mib"]), labels)
 		}
 		w.Flush()
-		if prefix == "sandbox_create" || prefix == "sandbox_update" {
-			fmt.Fprintln(out, "Lifecycle defaults: suspend after 300 idle seconds; retain suspended state for 604800 seconds; no maximum age (task budgets still apply).")
-		}
 		return
 	}
 	if op, ok := m["operation"].(map[string]any); ok {
