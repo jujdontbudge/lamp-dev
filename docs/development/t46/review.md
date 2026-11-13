@@ -19,5 +19,12 @@ ledger account for the review's additional lines.
 
 ## Round 2
 
-Pending review of S1's fix and any integration changes only. No approval is
-claimed while this round is pending.
+Reviewed behavior head `2009932ed862127c69143eb1c9b0571b345cefca`.
+Verdict: **APPROVE**. S1 is resolved, the focused regression passed, and no
+new blocker or should was found in the changed behavior. No extra tests or
+product edits were requested. The only subsequent changes record this verdict
+and update MR metadata.
+
+Two rounds total; one fixed finding, none declined; one regression retained.
+Final diff size: 32 files changed, 3237 insertions(+), 126 deletions(-). Both implementation and review fixes are pushed
+to the ticket branch. No merge or monitoring was performed.
