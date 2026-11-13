@@ -186,6 +186,12 @@ func (s *Service) loadLife() error {
 			return err
 		}
 	}
+	// Admission locks belong to the previous daemon. Its interrupted
+	// operations are outcome_unknown, and no network effects are replayed.
+	// Fresh owner requests must still be able to revoke surviving access.
+	for _, n := range st.Networks {
+		n.Pending = false
+	}
 	s.life = st
 	return nil
 }

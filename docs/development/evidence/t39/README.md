@@ -51,7 +51,7 @@ observation, not a certified timing result. No performance claim is made.
 
 Local validation: `CGO_ENABLED=0 make build`, scoped `go vet` for control,
 network and both changed commands, and `git diff --check` passed. The updated
-Linux supervisor and guest init also built on Ubuntu. No new tests or broad
-smoke suites were added. Native macOS VZ still has no guest data NIC and rejects
+Linux supervisor and guest init also built on Ubuntu. Implementation added no tests or broad smoke suites. Sol review then added
+one targeted crash-recovery regression; see `sol-review.md`. Native macOS VZ still has no guest data NIC and rejects
 managed network calls; the Mac served only as an owner-enrolled outbound exit.
 See [the usage notes](../../t39-network.md) for commands and limitations.
