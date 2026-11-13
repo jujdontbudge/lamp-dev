@@ -191,3 +191,26 @@ passes. Workspace formatting has existing differences in lamp-guard audit,
 lamp-supervisor main and lamp-vz admission; those unrelated files were not
 changed. No new tests were added. The M5 runtime evidence above predates this
 last integration; a further M5 runtime run is not claimed.
+
+## Final scoped Sol verdict
+
+Mac round 3 reviewed `6886626bba1066b9bee1ae933bd80588577c990a` and returned
+**APPROVE**, with no blocker, should or nit findings. It confirmed staging
+traversal, mounted-root growth, Darwin ownership and noninteractive template
+Exec defaults. The reviewer inspected the supplied M5 runtime transcripts;
+it did not repeat the runtime demonstration. Its scoped vet and diff checks
+passed; checkout unchanged, no VMs and no new tests. Usage was not exposed.
+
+Mac ledger: round-1 S1 blocker (fixed build receipt) is resolved; round 2
+approved the receipt fix; round 3 approved the subsequent runtime fixes and
+T36 Exec defaults. The final reviewed delta is three files, 35 insertions and
+3 deletions; review requested no further changes, so its size is unchanged.
+The earlier Linux two-round CHANGES verdict remains historical: all S1–S5
+were fixed, with three reviewer tests retained, and the coordinator explicitly
+accepted S5's passing reproduction. No findings were declined. Thus five
+review rounds total were used across the original Linux scope and Mac follow-up.
+
+Final fetch confirms main remains `21e06f7`. Final delivery adds only this
+review ledger after the approved behavior head. All own Mac state was removed;
+Linux demonstration VMs and services are stopped. No online Mac template-build
+networking demonstration or native macOS guest mount support is claimed.
