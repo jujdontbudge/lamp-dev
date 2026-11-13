@@ -60,7 +60,10 @@ func TestT32HTTPDefaultTemplateWithLifecycle(t *testing.T) {
 	req.Header.Set("Idempotency-Key", "review-default-lifecycle")
 	response := httptest.NewRecorder()
 	s.ServeHTTP(response, req)
-	if response.Code != 202 && response.Code != 200 {
-		t.Fatalf("default-template create with lifecycle rejected: HTTP %d: %s", response.Code, response.Body.String())
+	// T33 now probes capacity before accepting a create. This fixture has no
+	// worker: reaching that boundary proves the default-template rewrite was
+	// valid, while the original bug fails earlier with template_id required.
+	if response.Code != 503 || !strings.Contains(response.Body.String(), "HOST_UNAVAILABLE") || !strings.Contains(response.Body.String(), "/unused") {
+		t.Fatalf("default-template create did not reach worker admission: HTTP %d: %s", response.Code, response.Body.String())
 	}
 }
