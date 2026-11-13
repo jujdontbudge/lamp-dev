@@ -357,7 +357,7 @@ if __name__=='__main__':
     elif sys.argv[1]=='--job':
         job=ROOT/sys.argv[2]
         try:result=relay(json.loads(job.with_suffix('.request').read_text()))
-        except BaseException as e:result={'error':type(e).__name__,'message':str(e)[:1000]}
+        except BaseException as e:result={'outcome_unknown':True,'error':type(e).__name__,'message':str(e)[:1000]}
         tmp=job.with_suffix('.new');tmp.write_text(json.dumps(result));tmp.replace(job.with_suffix('.result'))
     else:
         ROOT.mkdir(mode=0o700,exist_ok=True)

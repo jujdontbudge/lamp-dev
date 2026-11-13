@@ -113,6 +113,10 @@ func (s *Service) sandboxKitCall(ctx context.Context, sandbox string, in map[str
 			s.mu.Unlock()
 			return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "sandbox changed while guest kit job may still be running: " + job, unknown: true}
 		}
+		if s.sandboxStopRequired(current, true) {
+			s.mu.Unlock()
+			return nil, &workerFailure{code: "SCOPE_DENIED", message: "kit task stopped or expired"}
+		}
 		s.lifeSB(sandbox).activity = time.Now()
 		s.mu.Unlock()
 		result, err = s.kitRelayExec(ctx, sandbox, generation, []string{"python3", client, "--poll", job})
@@ -160,6 +164,9 @@ func (s *Service) kitRelayExec(ctx context.Context, sandbox string, generation u
 	var result map[string]any
 	if json.Unmarshal(output, &result) != nil {
 		return nil, fmt.Errorf("guest kit failed (exit %d)", reply.Exit)
+	}
+	if unknown, _ := result["outcome_unknown"].(bool); unknown {
+		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit runtime result unavailable; job may still run", unknown: true}
 	}
 	if code := textField(result, "error"); code != "" {
 		return nil, reject("INVALID_ARGUMENT", code+": "+textField(result, "message"))

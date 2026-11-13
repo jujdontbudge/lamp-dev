@@ -698,8 +698,12 @@ func (s *Service) execute(id, source string) {
 		s.mu.Unlock()
 		return
 	}
-	if source != "" {
-		sb := s.journal.Sandboxes[source]
+	deadlineSandbox := source
+	if value(rec.Operation.OperationName) == "sandbox_create" {
+		deadlineSandbox = rec.Resource.Id
+	}
+	if deadlineSandbox != "" {
+		sb := s.journal.Sandboxes[deadlineSandbox]
 		if sb.TaskId != nil {
 			t := s.journal.Accountability.Tasks[*sb.TaskId]
 			if t.DeadlineAt != nil {

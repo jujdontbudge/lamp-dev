@@ -70,7 +70,8 @@ view returned 200 for both `/` and `/screen.png?t=proof`. See `preview.json` and
 
 `make build`, focused `go vet ./internal/control ./cmd/lamp ./internal/surface`,
 Python compilation, public generator checks, SDK generator checks, and
-`git diff --check` passed. No new automated tests or benchmark runs were added.
+`git diff --check` passed. Sol review subsequently added two focused regression tests; no benchmark
+runs were added. See `sol-review.md` for the review fixes and checks.
 The earlier contracts check reports unrelated existing fleet field drift for
 `unavailable_host_ids` and `stranded_sandbox_ids`; it is not called a pass here.
 
