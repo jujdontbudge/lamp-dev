@@ -3,6 +3,12 @@
 Evidence from the M5 on 2026-11-12 (timestamps in transcripts are UTC).
 These are locally signed 0.1.1 and 0.1.2 candidates, not published releases.
 
+The coordinator-requested [Ubuntu follow-up](ubuntu/README.md) also completed
+update, rollback and uninstall with a real VM and systemd units. All disposable
+engine files, store, units, mounts and network processes were removed; the
+existing system engine remained active at the same PID with unchanged binaries,
+unit, store identity/mount and host network rules.
+
 The real engine run in [m5-maintenance.log](m5-maintenance.log) installed a
 prefix-scoped engine at `/tmp/l45`, with `--service process`. It used `sudo -n`
 for that disposable engine only; it did not bootstrap a system launch item,
