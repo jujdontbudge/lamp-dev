@@ -68,7 +68,7 @@ func (c *Client) Operations(ctx context.Context) []api.OperationDescriptor {
 	ops := InstalledOperations(strings.HasPrefix(c.URL, "lamp+fleet:"))
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	raw, status, err := c.Call(ctx, ByName["docs_read"], map[string]any{})
+	raw, status, err := c.Call(ctx, ByName["docs_read"], map[string]any{"topic": "operations"})
 	if err != nil || status != 200 {
 		return ops
 	}

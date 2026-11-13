@@ -157,3 +157,12 @@ attempt without a worker returned 503 and is not successful approval evidence.
 `make build`, targeted Go vet and the existing scoped MCP discovery regression
 passed for the expansion. No tests were added for these twelve operations;
 they were demonstrated using the actual binaries.
+
+### T41 integration
+
+Rebased onto `c34fabd`. Retained T41's `Client.Operations`, CLI help and
+served OpenAPI filtering. Its shared discovery request now uses the narrow
+`operations` topic so scoped keys retain authenticated inventory access.
+Removed T37's duplicate discovery helpers. Rebuilt all three binaries and
+repeated the disposable completion demonstration: all eleven operations passed
+and CLI/HTTP/MCP still exposed 222 identical names. `make build` passed.
