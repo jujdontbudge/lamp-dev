@@ -123,7 +123,7 @@ enabled through `fleet update --update-policy-json`.
 All choices use `lamp-access` against the existing private daemon socket. Create
 two distinct private SSH CAs with `lamp-access init-ca --out /absolute/host-ca`
 and `lamp-access init-ca --out /absolute/user-ca`. Use the complete base config
-and SSH trust setup in [owner-run access](../development/access.md). Its users map
+and SSH trust setup in [owner-run access](../access.md). Its users map
 to private token files; plaintext HTTP may bind only numeric loopback.
 
 * **Tailscale:** add a `tailscale` block to that config, e.g.
@@ -144,7 +144,7 @@ to private token files; plaintext HTTP may bind only numeric loopback.
   private credential file. Generate its manifest with
   `lamp-access cloudflare-manifest --plugin /absolute/bin/lamp-access-cloudflare --out /absolute/private/cloudflare-manifest.json`.
   Fill in the `cloudflare` block, pinned executable/manifest digests and launcher
-  from [the Cloudflare configuration](../development/access.md#cloudflare-tunnel-access-plugin).
+  from [the Cloudflare configuration](../access.md#cloudflare-tunnel-access-plugin).
   Start `lamp-access serve --config /absolute/private/access.json`. Linux uses
   the compiled `lamp-plugin-launcher`; macOS wraps `/usr/bin/sandbox-exec` with
   that same launcher and requires explicit `diagnostic_soft_limits: true`. Engine
@@ -152,7 +152,7 @@ to private token files; plaintext HTTP may bind only numeric loopback.
   compile it with `cc -O2 -Wall -Wextra -Werror -o lamp-plugin-launcher tools/plugin-launcher.c`.
 * **Self-hosted relay:** extract the separate relay archive and run
   `lamp-relay --config /absolute/private/relay.json`. Provision enrolled fleets,
-  TLS and account trust following [the relay configuration](../development/hosted.md#relay-configuration-and-native-access).
+  TLS and account trust following [the relay configuration](../hosted.md#relay-configuration-and-native-access).
   Production uses the existing Eilmer account issuer; this is not an anonymous
   public proxy. The relay holds routing metadata and forwards ciphertext.
 

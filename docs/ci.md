@@ -7,8 +7,9 @@ same-repository PR. The disposable fixture remains **private**. Coding-agent
 inference was not demonstrated: Copilot's effective repository firewall setting
 blocked it, no usable Claude credential was located, and Codex's existing
 subscription experiment failed before inference. A real stranger's fork PR
-remains open evidence. See [T26 evidence](development/T26-evidence.md); do not
-advertise these unobserved routes as validated.
+remains unobserved. Do not advertise these routes as validated. Current
+[CI enrollment](control-operations.md#connect-ci) also covers native Forgejo;
+its fresh-VM job was demonstrated separately.
 
 ## Connect a controller
 

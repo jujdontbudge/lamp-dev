@@ -2,86 +2,91 @@
 
 # Lamp
 
-Lamp runs coding agents, harnesses and CI jobs in fast, isolated sandboxes on
-machines you own. Each sandbox is its own virtual machine: Firecracker on Linux,
-Virtualization.framework on Apple Silicon Macs. Agents get to use your model
-keys, logins and tools through a broker without being handed the secrets.
+Lamp runs Linux sandboxes on machines you own: Firecracker on Linux with KVM,
+and Virtualization.framework on Apple Silicon Macs. This is a developer preview.
+The 0.1.2 release adds an installed engine and default Linux template to the
+control-only 0.1.1 installer.
 
 Created in [T3 Code](https://t3.codes).
 
 ## Install and run code
+
+On Linux amd64/arm64 with KVM, or Apple Silicon macOS 26+ with noninteractive
+administrator access:
 
 ```sh
 curl -fsSL https://lamp.eilmer.si/install.sh | sh
 "$HOME/.local/lamp/current/bin/lamp" sandbox run -- python3 -c 'print("hello from Lamp")'
 ```
 
-The next release's installer sets up the engine, private owner credential and
-an included Linux template. `run` creates a VM, runs the command, then deletes
-it. **The published 0.1.1 installer predates this flow**; the coordinator must
-publish a release containing the new installer before these two lines work
-from the public URL. See [installation](docs/install.md) for prerequisites,
-PATH, persistent sandboxes, locations and a second install. Linux needs KVM;
-Apple Silicon needs macOS 26+ and administrator access. No password prompts
-are opened. Signed local candidates have demonstrated this path on Ubuntu
-amd64, the M5, the 8 GB M2 Air with everyday apps open, and Linux arm64.
-Mac default memory adapts to available host
-memory; `lamp template list` shows the selected resources. Mac networking
-requires separate validation. See the [implementation evidence](docs/development/evidence/t32/README.md)
-for observed results and limits.
+The command creates a VM, runs Python and deletes the VM. The installer prints
+its binary directory, PATH instruction and private dashboard sign-in file.
+See [installation and engine setup](docs/install.md#engine-setup) for host
+packages, memory/disk requirements, credentials and a persistent sandbox;
+[update, rollback and uninstall](docs/install.md#update-rollback-and-remove-an-install)
+use the same prefix. macOS memory defaults adapt to available memory.
 
-The default install enrolls the local sandbox engine and control API. Sessions,
-model custody, fleets, CI adapters and relay require their own enrollment; the
-presence of a binary or schema operation does not configure those features.
-The owner has deferred SDK work. Use the CLI, MCP or HTTP API.
+## What you can use
+
+The CLI, MCP and HTTP API are the supported interfaces. Installed discovery
+(`lamp --help --json`, MCP `tools/list`, served OpenAPI) describes this daemon's
+handlers; enrollment and host capability can still be required.
+
+- [Guest tools and devices](docs/guest-linux.md): Python, Node, git and compiler
+  tools; Linux Firecracker has no display, audio or GPU devices.
+- [Sleep, snapshots, budgets and encrypted recovery](docs/lifecycle-and-recovery.md):
+  `lamp snapshot list`, `lamp budget list`, `lamp backup list`.
+- [Templates and storage](docs/templates-and-storage.md): `lamp template list`,
+  template builds, saved tools, persistent volumes and caches.
+- [Networking](docs/networking.md): `lamp port expose` for loopback previews,
+  private share links and live transport policy. Public preview access does not
+  expose a host listener to the Internet.
+- [Agents and model custody](docs/agents.md): `lamp harness list`; managed
+  OpenCode and explicitly enrolled Codex. Codex subscription import keeps the
+  upstream sign-in on the host. Claude subscription custody is unsupported.
+- [Agent workflow](docs/agent-workflow.md): children, returned git changes,
+  side chats, host/VM moves and T3 Code/Herdr bridges need the documented session
+  enrollment. Host execution is off by default.
+- [Sandbox kits](docs/guides/kits.md): `lamp kit list`; Python, Chromium,
+  guest Docker, TypeScript LSP and a virtual desktop. On Linux arm64 hosts,
+  Docker, LSP and desktop are unverified.
+- [Dashboard](docs/dashboard.md): `lamp dashboard`; local sign-in, sandbox
+  metrics and bounded recent logs.
+- [Control operations](docs/control-operations.md) and
+  [fleets and remote access](docs/release/fleets-and-access.md) require private
+  owner enrollment. CI is not configured by installation. A native Forgejo
+  fresh-VM job was demonstrated; the adapter catalogue is not a claim that
+  every CI service was demonstrated.
+
+The owner deferred SDK work. The generated TypeScript package is unchanged in
+scope and is not a supported 0.1.2 workflow; there is no Python SDK or npm release.
+Eleven ready-to-run agents, automatic gVisor fallback, hosted self-service
+sign-ups and automatic recovery of private VM state onto a surviving host are
+not offered by this release. See all [release limits](docs/release/0.1.2.md).
+
+## Measured results
+
+Ubuntu amd64 install through code and cleanup took **165.473 s** on a T32 signed
+development candidate using a local HTTP origin, exceeding the two-minute goal.
+This is not a public-download timing. Mac and nested Linux arm64 observations,
+and the older 0.1.0 create/fork/native-speed results with their platform names,
+are in [measurements](docs/release/measurements.md). No fresh 0.1.2 speed or
+complete zero-leak result is claimed before release measurements are taken.
 
 ## Build from source
 
 ```sh
 git clone https://gitlab.com/johansardar/lamp.git && cd lamp
-make build              # Go, Rust and the plugin launcher
+make build
 ```
 
 You need Go, Rust (see `rust-toolchain.toml`), a C compiler and Python 3.
-
-## Documentation
-
-- [Linux guest tools, networking and device support](docs/guest-linux.md)
-
-- [Release notes](docs/release/0.1.1.md) and [release measurements](docs/release/measurements.md)
-- [Specification](docs/spec/brief.md), [requirements](docs/spec/requirements.md) and [architecture](docs/spec/architecture.md)
-- [Public API schema](contracts/public/schema.json) and [OpenAPI](contracts/public/openapi.json)
-- [Development evidence](docs/development/README.md): what each feature was shown doing, failures included
-- [Glossary](GLOSSARY.md)
+The [public schema](contracts/public/schema.json) is the complete vocabulary;
+use the installed daemon's OpenAPI for its available operations.
 
 ## Licence
 
-Lamp's host code, CLI, SDKs and first-party plugins are licensed under
+Host code, CLI, generated SDKs and first-party plugins are
 [Apache-2.0](LICENSE). The optional relay server (`internal/relay`,
-`cmd/lamp-relay`) is [AGPL-3.0-only](internal/relay/LICENSE). Dependencies keep
-their own licences; see [THIRD_PARTY.md](THIRD_PARTY.md).
-
-Hosts, rolling updates and remote access: [release setup guide](docs/release/fleets-and-access.md).
-
-Control setup: [CI enrollment, keys, session shares, approvals and notifications](docs/control-operations.md).
-Sandbox tools are available as built-in [kits](docs/guides/kits.md): headless Chromium, a virtual desktop with recording, guest Docker, toolchains, persistent Python and a TypeScript LSP.
-Templates and storage: [build templates, save tools and mount persistent volumes](docs/templates-and-storage.md).
-
-After installation, open the printed `dashboard_sign_in` file URL, or run
-`lamp dashboard`. Installed clients discover their own prefix; use
-`--socket /path/to/api.sock` to select another local installation.
-The private file signs you into the local dashboard without pasting a token.
-It exchanges a one-use code by POST; the browser session lasts eight hours or
-until daemon restart. `dashboard_url` opens the same page in an already signed-in
-browser. The installer enables a loopback listener on an available port; a
-manually started daemon can enable it with `--dashboard-listen 127.0.0.1:0`.
-
-Each sandbox card shows guest CPU history, memory, disk, network counters and
-recent boot, engine and command logs. The same observations are available with
-`lamp sandbox metrics <id> --limit 60` and `lamp sandbox logs <id> --limit 60`,
-and `GET /v1/sandboxes/{sandbox_id}/metrics` or `/logs` (also through MCP).
-Metrics sample every five seconds, retain up to one hour, and survive daemon
-restart. CPU 100% means one busy core; missing counters are unavailable. Older
-guest templates need rebuilding with the current guest helper to report metrics.
-Logs include retained lifecycle events, engine console tails and completed exec
-output tails; they are bounded recent history, not an unbounded output archive.
+`cmd/lamp-relay`) is [AGPL-3.0-only](internal/relay/LICENSE).
+See [THIRD_PARTY.md](THIRD_PARTY.md) for dependency licences.

@@ -1,0 +1,2 @@
+{"at":"2026-11-13T15:48:36Z","automatic_updates":false,"dashboard_sign_in":"file:///tmp/t47i/run/dashboard.html","dashboard_url":"http://127.0.0.1:49539/dashboard","event":"installed","prefix":"/tmp/t47i","service":"process","version":"0.1.2"}
+{"at":"2026-11-13T15:49:09Z","data":"deleted","event":"uninstalled","name":"default","owner_data":"delete"}

@@ -8,7 +8,7 @@
 const MODULE = 'lamp.eilmer.si';
 const REPO = 'https://gitlab.com/johansardar/lamp';
 const PACKAGES = 'https://gitlab.com/api/v4/projects/88830487/packages/generic/lamp';
-const LATEST = '0.1.1';
+const LATEST = '0.1.2';
 
 function page(version) {
   return `<!doctype html>
@@ -18,10 +18,11 @@ function page(version) {
 <title>Lamp</title></head>
 <body style="font-family:system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem">
 <h1>Lamp</h1>
-<p>Fast, isolated sandboxes for agents, harnesses and CI on your own machines.</p>
+<p>Developer preview: Linux virtual machines on Linux with KVM and Apple Silicon macOS 26+. Optional agents, fleets and CI require owner enrollment.</p>
 <pre>curl -fsSL https://${MODULE}/install.sh | sh</pre>
 <p><a href="${REPO}">Source on GitLab</a> &middot; <a href="${REPO}/-/releases/v${version}">Release ${version}</a>
-&middot; <a href="/releases/v${version}/SHA256SUMS">SHA256SUMS</a></p>
+&middot; <a href="/releases/v${version}/SHA256SUMS">SHA256SUMS</a>
+&middot; <a href="${REPO}/-/blob/v${version}/docs/install.md#engine-setup">Install and engine setup</a></p>
 </body></html>
 `;
 }
@@ -29,6 +30,9 @@ function page(version) {
 export default {
   async fetch(request) {
     const url = new URL(request.url);
+    if (url.hostname === 'account.eilmer.si') {
+      return new Response('<!doctype html><html lang="en"><meta charset="utf-8"><title>Lamp accounts</title><h1>Lamp accounts</h1><p>Hosted sign-ups are unavailable. Accounts are invite-only.</p><p><a href="https://lamp.eilmer.si">Install Lamp on your own machines</a>.</p></html>', { headers: { 'content-type': 'text/html; charset=utf-8' } });
+    }
     if (url.searchParams.get('go-get') === '1' || url.pathname === '/' || url.pathname === '/index.html') {
       return new Response(page(LATEST), { headers: { 'content-type': 'text/html; charset=utf-8' } });
     }

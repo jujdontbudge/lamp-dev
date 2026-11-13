@@ -1,0 +1,3 @@
+Real lamp-installer build refused the documentation-only payload:
+lamp-installer: release needs bin/lampd
+The subsequent candidate included the required real control binaries.

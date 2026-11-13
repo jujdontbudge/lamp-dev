@@ -1,0 +1,11 @@
+{
+  "scope": "signed control-only candidate at a fresh disposable prefix; no VM engine or public download",
+  "client_version": "0.1.2",
+  "daemon_version": "0.1.2",
+  "openapi_version": "0.1.2",
+  "mcp_version": "0.1.2",
+  "contract_version": "1.0.0",
+  "cli_mcp_catalogue_equal": true,
+  "installed_operation_count": 291,
+  "engine": "unenrolled; not presented as VM success"
+}
