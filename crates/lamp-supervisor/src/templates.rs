@@ -142,7 +142,7 @@ pub fn dispatch(engine: &Engine, request: &Template) -> Result<Outcome> {
                 engine.build_linux_definition(&dir, &def)?
             };
             #[cfg(target_os = "macos")]
-            out.detail.insert("fixed_resources".into(), "true".into());
+            out.detail.insert("fixed_resources".into(), "false".into());
             out.state = "built".into();
             let t = engine.template(&report.template_id)?;
             out.detail.insert("arch".into(), t.manifest.arch.clone());
