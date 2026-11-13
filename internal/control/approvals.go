@@ -25,6 +25,7 @@ type BoundAction struct {
 // Validators must derive exact effects and destinations from immutable adapter
 // state. Execute must perform that bound effect without changing the plan.
 type ProtectedAction struct {
+	Describe           func() BoundAction
 	ValidateApproval   func(api.ApprovalCreateInput) (BoundAction, error)
 	ValidateInvocation func(api.ConnectionInvokeInput) (BoundAction, error)
 	Execute            func(context.Context, BoundAction) (api.AdapterDocument, error)

@@ -62,3 +62,5 @@ Lamp's host code, CLI, SDKs and first-party plugins are licensed under
 their own licences; see [THIRD_PARTY.md](THIRD_PARTY.md).
 
 Hosts, rolling updates and remote access: [release setup guide](docs/release/fleets-and-access.md).
+
+Control setup: [CI enrollment, keys, session shares, approvals and notifications](docs/control-operations.md).

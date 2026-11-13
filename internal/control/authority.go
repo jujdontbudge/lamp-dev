@@ -36,6 +36,8 @@ type storedKey struct {
 	SHA256 string  `json:"sha256"`
 }
 type controlState struct {
+	Plugins          map[string]map[string]any    `json:"plugins,omitempty"`
+	Grants           map[string]api.Grant         `json:"grants,omitempty"`
 	OwnerID          string                       `json:"owner_id"`
 	Credentialed     bool                         `json:"credentialed"`
 	CursorSecret     string                       `json:"cursor_secret"`
@@ -206,6 +208,12 @@ func (s *Service) scopes(a caller) []api.Scope {
 	return []api.Scope{*k.Key.Scope}
 }
 func (s *Service) can(a caller, action string) bool {
+	if s.controlGrantRevoked() {
+		switch action {
+		case "sandbox.create", "sandbox.fork", "sandbox.resume", "exec.create", "snapshot.create", "connection.invoke":
+			return false
+		}
+	}
 	if !s.current(a) {
 		return false
 	}
@@ -479,10 +487,6 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
 	// The dashboard shows who is signed in without guessing from lists.
 	w.Header().Set("X-Lamp-Principal", a.Principal)
-	if op.Name == "plugin_get" && ciPluginID(textField(selectors, "plugin_id")) {
-		s.ciPluginHTTP(w, r, id, textField(selectors, "plugin_id"))
-		return
-	}
 	if kitOperation(op.Name) {
 		s.kitsHTTP(w, r, id, op, selectors)
 		return

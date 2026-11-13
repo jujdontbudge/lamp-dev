@@ -357,6 +357,9 @@ func (s *Service) taskStopRequired(t api.Task, checkAuthority bool) bool {
 	return true
 }
 func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error {
+	if name != "sandbox_delete" && s.controlGrantRevoked() {
+		return reject("SCOPE_DENIED", "host control grant revoked; enroll a new supervisor grant")
+	}
 	retains := name == "snapshot_create" || name == "sandbox_suspend" || name == "share_create"
 	if name == "sandbox_delete" {
 		return nil
@@ -508,6 +511,9 @@ func (s *Service) operationBudget(r *record) string {
 	return ""
 }
 func (s *Service) sandboxStopRequired(sb api.Sandbox, checkAuthority bool) bool {
+	if checkAuthority && sb.State != "suspended" && s.controlGrantRevoked() {
+		return true
+	}
 	// Suspended captures are inert encrypted state, not task execution. Ending
 	// the old Task must not erase an explicitly retained CI inspection capture.
 	// Resume separately requires current (and, for ended jobs, new) Task authority.

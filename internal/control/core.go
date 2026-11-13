@@ -158,6 +158,16 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			return
 		}
 	}
+	if op.Name == "plugin_test" {
+		if err := s.checkCIPlugin(r.Context(), requestCaller(r), in); err != nil {
+			code := "AUTH_TRANSPORT_UNSUPPORTED"
+			if ce, ok := err.(*coreError); ok {
+				code = ce.code
+			}
+			writeError(w, id, code, err.Error(), nil)
+			return
+		}
+	}
 	var guardRecords []any
 	if op.Name == "audit_record_export" {
 		var err error
@@ -402,6 +412,20 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 	}
 	if op.Name == "docs_read" {
 		topic := textField(in, "topic")
+		if topic == "approval-actions" {
+			plans := []BoundAction{}
+			for _, adapter := range s.protected {
+				if adapter.Describe == nil {
+					continue
+				}
+				b := adapter.Describe()
+				if b.Plan.ResourceRef != nil && s.protectedScope(a, b) && s.resourceAllowed(a, *b.Plan.ResourceRef) {
+					plans = append(plans, b)
+				}
+			}
+			prepareJSON(w, 200, map[string]any{"topic": topic, "actions": plans, "installed_operations": s.installedOperations(), "request_id": id})()
+			return
+		}
 		var content string
 		switch topic {
 		case "", "requirements":
@@ -500,6 +524,14 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	case "engine":
 		if engine, _, err := s.localEngine(); err == nil {
 			items = append(items, engine)
+		}
+	case "plugin", "adapter":
+		items = append(items, s.pluginResources(kind)...)
+	case "grant":
+		if s.role(a) == "owner" {
+			for _, g := range c.Grants {
+				items = append(items, object(g))
+			}
 		}
 	case "change_set":
 		for _, change := range c.ChangeSets {
@@ -628,6 +660,12 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 		return ref, nil, nil, nil, reject(code, message)
 	}
 	kind, verb, _ := strings.Cut(op.Scope, ".")
+	if kind == "plugin" {
+		return s.pluginMutation(a, op, in)
+	}
+	if kind == "grant" {
+		return s.grantMutation(a, op, in)
+	}
 	if kind == "change_set" || kind == "session" && (verb == "spawn" || verb == "teleport" || verb == "checkpoint") {
 		return s.sessionTransferMutation(a, op, in)
 	}
@@ -844,8 +882,8 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 			if p := textField(in, "principal_id"); p != "" {
 				principal = p
 			}
-			if principal != a.Principal {
-				return fail("SCOPE_DENIED", "cannot issue another principal's key")
+			if principal != a.Principal && s.role(a) != "owner" {
+				return fail("SCOPE_DENIED", "only the owner can issue another principal's key")
 			}
 			if _, ok := in["parent_key_id"]; ok && textField(in, "parent_key_id") != parent {
 				return fail("SCOPE_DENIED", "parent must be authenticated issuer key")
