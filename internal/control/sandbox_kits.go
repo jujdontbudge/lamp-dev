@@ -71,9 +71,7 @@ func (s *Service) planSandboxKit(a caller, in map[string]any) (lifePlan, error) 
 			s.mu.Unlock()
 			return nil, reject("RESOURCE_IN_USE", "sandbox changed before kit execution")
 		}
-		s.starting[sb.Id]++
 		s.mu.Unlock()
-		defer func() { s.mu.Lock(); s.starting[sb.Id]--; s.mu.Unlock() }()
 		return s.sandboxKitCall(ctx, sb.Id, request)
 	}}, nil
 }
@@ -82,29 +80,47 @@ func (s *Service) sandboxKitCall(ctx context.Context, sandbox string, in map[str
 	// The existing audited session bridge owns long-lived children. Nothing runs
 	// on the host and a daemon restart reconnects to the guest-held contexts.
 	request, _ := json.Marshal(in)
-	program := "import base64;SOURCE=base64.b64decode(" + fmt.Sprintf("%q", base64.StdEncoding.EncodeToString([]byte(sandboxKits))) + ").decode();exec(compile(SOURCE,'<lamp-kits>','exec'))"
-	argv := []string{"python3", "-c", program, string(request)}
-
-	result, err := s.kitRelayExec(ctx, sandbox, argv)
+	generation := s.sandboxGeneration(sandbox)
+	const client = "/tmp/lamp-sandbox-kits/client.py"
+	probe := `import os,json;print(json.dumps({'installed':os.path.isfile('/tmp/lamp-sandbox-kits/client.py')}))`
+	result, err := s.kitRelayExec(ctx, sandbox, generation, []string{"python3", "-c", probe})
+	if err != nil {
+		return nil, err
+	}
+	if installed, _ := result["installed"].(bool); !installed {
+		program := "import base64;SOURCE=base64.b64decode(" + fmt.Sprintf("%q", base64.StdEncoding.EncodeToString([]byte(sandboxKits))) + ").decode();exec(compile(SOURCE,'<lamp-kits>','exec'))"
+		if _, err = s.kitRelayExec(ctx, sandbox, generation, []string{"python3", "-c", program, "--install"}); err != nil {
+			return nil, err
+		}
+	}
+	result, err = s.kitRelayExec(ctx, sandbox, generation, []string{"python3", client, string(request)})
 	if err != nil {
 		return nil, err
 	}
 	job := textField(result, "job")
 	if len(job) != 32 {
-		return nil, reject("OUTCOME_UNKNOWN", "guest kit job not acknowledged")
+		return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit job not acknowledged", unknown: true}
 	}
 	for _, c := range job {
 		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
 			return nil, reject("DATA_UNAVAILABLE", "invalid guest job identity")
 		}
 	}
-	poll := `import pathlib,sys
-p=pathlib.Path('/tmp/lamp-sandbox-kits')/(sys.argv[1]+'.result')
-print(p.read_text() if p.exists() else '{"pending":true}')`
 	for {
-		result, err = s.kitRelayExec(ctx, sandbox, []string{"python3", "-c", poll, job})
+		s.readLock()
+		current := s.journal.Sandboxes[sandbox]
+		if value(current.Generation) != generation || (current.State != "ready" && current.State != "preparing") {
+			s.mu.Unlock()
+			return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "sandbox changed while guest kit job may still be running: " + job, unknown: true}
+		}
+		s.lifeSB(sandbox).activity = time.Now()
+		s.mu.Unlock()
+		result, err = s.kitRelayExec(ctx, sandbox, generation, []string{"python3", client, "--poll", job})
 		if err != nil {
-			return nil, err
+			if refusal, ok := err.(*coreError); ok && refusal.code == "INVALID_ARGUMENT" {
+				return nil, err // The completed guest job reported its own failure.
+			}
+			return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit job result unavailable: " + job, unknown: true}
 		}
 		if pending, _ := result["pending"].(bool); !pending {
 			return result, nil
@@ -119,9 +135,9 @@ print(p.read_text() if p.exists() else '{"pending":true}')`
 	}
 }
 
-func (s *Service) kitRelayExec(ctx context.Context, sandbox string, argv []string) (map[string]any, error) {
+func (s *Service) kitRelayExec(ctx context.Context, sandbox string, generation uint64, argv []string) (map[string]any, error) {
 	data, _ := json.Marshal(map[string]any{"action": "exec", "argv": argv, "timeout_ms": 5000})
-	r := s.workerRequest(ctx, "kit", sandbox, s.sandboxGeneration(sandbox))
+	r := s.workerRequest(ctx, "kit", sandbox, generation)
 	r.Command = &pb.Request_SessionCall{SessionCall: &pb.SessionCall{RequestJson: data, BridgeSource: sessionRunner}}
 	receipt, err := s.worker.call(ctx, r)
 	if err != nil {

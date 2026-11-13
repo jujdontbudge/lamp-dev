@@ -15,13 +15,16 @@ import time
 import traceback
 import uuid
 
+# A traced vfork child can hold the thread that must drain its audit events.
+subprocess._USE_VFORK = False
+
 ROOT = Path('/tmp/lamp-sandbox-kits')
 ENDPOINT = str(ROOT / 'runtime.sock')
 ENV = dict(os.environ, DISPLAY=':99', DEBIAN_FRONTEND='noninteractive', PIP_BREAK_SYSTEM_PACKAGES='1')
 PACKAGES = {
  'browser': ['python3-venv', 'libnss3', 'libatk-bridge2.0-0', 'libcups2', 'libxkbcommon0', 'libxcomposite1', 'libxdamage1', 'libxfixes3', 'libxrandr2', 'libgbm1', 'libasound2t64', 'libpango-1.0-0', 'libcairo2'],
  'desktop': ['xvfb','fluxbox','xterm','xdotool','ffmpeg','x11-utils'],
- 'docker': ['docker.io', 'containerd', 'runc'],
+ 'docker': ['docker.io', 'containerd', 'runc', 'slirp4netns', 'iproute2'],
  'python': ['python3','python3-pip','python3-venv','python3-matplotlib'],
  'node': ['nodejs','npm'], 'go':['golang-go'], 'rust':['rustc','cargo'], 'c':['build-essential'],
  'lsp':['nodejs','npm'],
@@ -34,10 +37,10 @@ def run(argv, **kw):
         (ROOT/'last-command.log').write_bytes(e.stdout+b'\n'+e.stderr)
         raise
 
-def launch(argv):
+def launch(argv, **kw):
     log = (ROOT / 'services.log').open('ab', buffering=0)
     try:
-        return subprocess.Popen(argv, env=ENV, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+        return subprocess.Popen(argv, env=ENV, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, **kw)
     finally:
         log.close()
 
@@ -47,12 +50,47 @@ def artifact(path, mime):
 def output_path(suffix):
     return ROOT / (uuid.uuid4().hex + suffix)
 
+def docker_serve():
+    # Private mount/network namespaces give Docker its own /run and NIC.
+    # They retain the existing mapped guest UID range.
+    (ROOT/'docker-net.pid').write_text(str(os.getpid()))
+    deadline=time.monotonic()+20
+    while not (ROOT/'docker-net.ready').exists():
+        if time.monotonic()>deadline:raise RuntimeError('guest Docker network startup')
+        time.sleep(.1)
+    run(['ip','link','set','lo','up'])
+    state=ROOT/'docker';state.mkdir(mode=0o700,exist_ok=True)
+    run(['mount','-t','tmpfs','-o','mode=755','lamp-docker-run','/run'])
+    for directory in ('/run/containerd','/run/docker'):Path(directory).mkdir(mode=0o711,exist_ok=True)
+    import shutil
+    runc=shutil.which('runc')
+    wrapper=state/'runc-rootless'
+    wrapper.write_text('#!'+sys.executable+'\nimport json,os,sys\na=sys.argv[1:]\nif "--bundle" in a and ("create" in a or "run" in a):\n p=os.path.join(a[a.index("--bundle")+1],"config.json");c=json.load(open(p))\n for m in c.get("mounts",[]):\n  if m.get("type")=="devpts":m["options"]=[o for o in m.get("options",[]) if not o.startswith("gid=")]\n json.dump(c,open(p,"w"))\nos.execv('+repr(runc)+',["runc","--rootless=true"]+a)\n')
+    wrapper.chmod(0o700)
+    config=state/'containerd.toml';config.write_bytes(run(['containerd','config','default']).stdout)
+    address=str(state/'containerd.sock')
+    containerd=launch(['containerd','--config='+str(config),'--root='+str(state/'containerd-data'),'--state='+str(state/'containerd-run'),'--address='+address])
+    deadline=time.monotonic()+60
+    while True:
+        probe=socket.socket(socket.AF_UNIX)
+        try:probe.connect(address);break
+        except OSError:
+            if containerd.poll() is not None or time.monotonic()>deadline:raise RuntimeError('guest containerd startup failed')
+            time.sleep(.1)
+        finally:probe.close()
+    own=next(line[3:] for line in Path('/proc/self/cgroup').read_text().splitlines() if line.startswith('0::'))
+    daemon=launch(['dockerd','--group=0','--add-runtime=lamp-runc='+str(wrapper),'--default-runtime=lamp-runc','--exec-opt=native.cgroupdriver=cgroupfs','--cgroup-parent='+own+'/lamp-docker','--containerd='+address,'--host=unix:///tmp/lamp-docker.sock','--data-root=/tmp/lamp-docker-data','--exec-root=/tmp/lamp-docker-run','--pidfile=/tmp/lamp-docker.pid','--storage-driver=vfs','--bridge=none','--iptables=false','--ip6tables=false'])
+    try:
+        if daemon.wait()!=0:raise RuntimeError('guest Docker exited')
+    finally:containerd.terminate();containerd.wait(timeout=10)
+
 class LSP:
     def __init__(self, path):
         self.process = subprocess.Popen(['typescript-language-server','--stdio'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=(ROOT/'lsp.log').open('ab'),env=ENV)
         self.pending = {}; self.diagnostics = {}; self.sequence=0; self.lock=threading.Lock()
         threading.Thread(target=self.reader,daemon=True).start()
-        self.call('initialize',{'processId':None,'rootUri':Path(path).absolute().as_uri(),'capabilities':{}})
+        tsserver=Path(run(['npm','root','-g']).stdout.decode().strip())/'typescript/lib/tsserver.js'
+        self.call('initialize',{'processId':None,'rootUri':Path(path).absolute().as_uri(),'capabilities':{},'initializationOptions':{'tsserver':{'path':str(tsserver)}}})
         self.send('initialized',{})
     def reader(self):
         stream=self.process.stdout
@@ -105,14 +143,32 @@ class Runtime:
             if not (venv/'bin/python').exists():run(['python3','-m','venv',str(venv)])
             run([str(venv/'bin/pip'),'install','playwright'])
             run([str(venv/'bin/python'),'-m','playwright','install','chromium'])
-        elif kit=='lsp':run(['npm','install','-g','typescript','typescript-language-server'])
+        elif kit=='lsp':run(['npm','install','-g','typescript@5.9.3','typescript-language-server'])
         elif kit=='docker':
             if self.docker is None or self.docker.poll() is not None:
                 # Private guest socket only. VFS and host networking avoid
                 # overlay/iptables capabilities absent in an unprivileged VM task.
-                self.docker=launch(['dockerd','--host=unix:///tmp/lamp-docker.sock','--data-root=/tmp/lamp-docker-data','--exec-root=/tmp/lamp-docker-run','--pidfile=/tmp/lamp-docker.pid','--storage-driver=vfs','--bridge=none','--iptables=false','--ip6tables=false'])
+                netpid=ROOT/'docker-net.pid';netpid.unlink(missing_ok=True)
+                (ROOT/'docker-net.ready').unlink(missing_ok=True)
+                self.docker=launch(['unshare','--mount','--net','--fork',sys.executable,str(ROOT/'client.py'),'--docker-serve'])
+                deadline=time.monotonic()+15
+                while not netpid.exists():
+                    if self.docker.poll() is not None or time.monotonic()>deadline:raise RuntimeError('guest Docker namespace startup')
+                    time.sleep(.1)
+                ready,write_ready=os.pipe()
+                try:
+                    self.docker_net=launch(['slirp4netns','--configure','--disable-host-loopback','--ready-fd='+str(write_ready),netpid.read_text(),'tap0'],pass_fds=(write_ready,))
+                    os.close(write_ready);write_ready=-1
+                    if not select.select([ready],[],[],15)[0] or not os.read(ready,1):
+                        self.docker.terminate()
+                        raise RuntimeError('guest Docker network startup; read '+str(ROOT/'services.log'))
+                    (ROOT/'docker-net.ready').touch()
+                finally:
+                    os.close(ready)
+                    if write_ready>=0:os.close(write_ready)
             deadline=time.monotonic()+60
             while True:
+                if self.docker_net.poll() is not None:raise RuntimeError('guest Docker network exited')
                 if self.docker.poll() is not None:raise RuntimeError('guest Docker exited; read '+str(ROOT/'services.log'))
                 try:
                     run(['docker','--host=unix:///tmp/lamp-docker.sock','info']);break
@@ -131,6 +187,8 @@ class Runtime:
                     if time.monotonic()>deadline:raise TimeoutError('virtual display startup')
                     time.sleep(.1)
                 self.desktop.extend([launch(['fluxbox']),launch(['xterm'])])
+                windows=run(['xdotool','search','--sync','--onlyvisible','--class','XTerm']).stdout.splitlines()
+                run(['xdotool','windowfocus','--sync',windows[-1].decode()])
                 # The view is read-only HTTP, so it works through Lamp's
                 # authenticated preview without a second VNC credential.
                 threading.Thread(target=self.view,daemon=True).start()
@@ -143,7 +201,7 @@ class Runtime:
         class Handler(BaseHTTPRequestHandler):
             def log_message(self,*args):pass
             def do_GET(self):
-                if self.path=='/screen.png':
+                if self.path.split('?',1)[0]=='/screen.png':
                     data=run(['ffmpeg','-loglevel','error','-f','x11grab','-video_size','1024x768','-i',':99','-frames:v','1','-f','image2pipe','-vcodec','png','-threads','1','-']).stdout;mime='image/png'
                 else:
                     data=b'<!doctype html><title>Lamp desktop</title><img id="screen" width="1024" height="768"><script>setInterval(()=>document.getElementById("screen").src="screen.png?t="+Date.now(),1000)</script>';mime='text/html'
@@ -210,7 +268,16 @@ class Runtime:
         method='textDocument/documentSymbol' if action=='symbols' else 'textDocument/completion'
         params={'textDocument':doc}
         if action=='completions':params['position']={'line':q.get('line',0),'character':q.get('character',0)}
-        return {'items':self.lsp.call(method,params)}
+        value=self.lsp.call(method,params)
+        incomplete=value.get('isIncomplete',False) if isinstance(value,dict) else False
+        items=(value.get('items',[]) if isinstance(value,dict) else value) or []
+        # Completion lists routinely exceed the relay's 64 KiB reply. Return
+        # a usable bounded list with explicit truncation rather than failing.
+        selected=[]
+        for item in items:
+            if len(json.dumps(selected+[item]))>48000:break
+            selected.append(item)
+        return {'items':selected,'total':len(items),'truncated':len(selected)<len(items),'is_incomplete':incomplete}
     def call(self,q):
         component=q['component']
         if component=='kit':return self.install(q['kit'])
@@ -277,8 +344,16 @@ def relay(q, endpoint=ENDPOINT, command=None):
 if __name__=='__main__':
     # SOURCE is injected by lampd for -c, or read from our guest-only file.
     if 'SOURCE' not in globals():SOURCE=Path(__file__).read_text()
-    if sys.argv[1]=='--serve':serve(ENDPOINT,Runtime())
+    if sys.argv[1]=='--docker-serve':docker_serve()
+    elif sys.argv[1]=='--serve':serve(ENDPOINT,Runtime())
     elif sys.argv[1]=='--browser-serve':serve(str(ROOT/'browser.sock'),Browser())
+    elif sys.argv[1]=='--install':
+        ROOT.mkdir(mode=0o700,exist_ok=True)
+        worker=ROOT/'client.py';worker.write_text(SOURCE);worker.chmod(0o600)
+        print(json.dumps({'installed':True}))
+    elif sys.argv[1]=='--poll':
+        p=ROOT/(sys.argv[2]+'.result')
+        print(p.read_text() if p.exists() else '{"pending":true}')
     elif sys.argv[1]=='--job':
         job=ROOT/sys.argv[2]
         try:result=relay(json.loads(job.with_suffix('.request').read_text()))
@@ -286,7 +361,7 @@ if __name__=='__main__':
         tmp=job.with_suffix('.new');tmp.write_text(json.dumps(result));tmp.replace(job.with_suffix('.result'))
     else:
         ROOT.mkdir(mode=0o700,exist_ok=True)
-        worker=ROOT/'client.py';worker.write_text(SOURCE);worker.chmod(0o600)
+        worker=ROOT/'client.py'
         job=uuid.uuid4().hex
         (ROOT/(job+'.request')).write_text(sys.argv[1])
         launch([sys.executable,str(worker),'--job',job])

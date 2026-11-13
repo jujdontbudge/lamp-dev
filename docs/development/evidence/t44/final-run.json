@@ -1,0 +1,454 @@
+{
+  "steps": [
+    {
+      "command": [
+        "kit",
+        "list"
+      ],
+      "reply": {
+        "items": [
+          {
+            "created_at": "2026-11-13T04:10:23.488360884Z",
+            "fleet_id": "fl_local",
+            "id": "go",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Go"
+            },
+            "name": "go",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T04:10:23.488360884Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T04:10:23.488364174Z",
+            "fleet_id": "fl_local",
+            "id": "rust",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Rust and Cargo"
+            },
+            "name": "rust",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T04:10:23.488364174Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T04:10:23.488365197Z",
+            "fleet_id": "fl_local",
+            "id": "c",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "C/C++ and make"
+            },
+            "name": "c",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T04:10:23.488365197Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T04:10:23.488366195Z",
+            "fleet_id": "fl_local",
+            "id": "python",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Python with pip, matplotlib and persistent interpreter"
+            },
+            "name": "python",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T04:10:23.488366195Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T04:10:23.488366805Z",
+            "fleet_id": "fl_local",
+            "id": "node",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Node.js and npm"
+            },
+            "name": "node",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T04:10:23.488366805Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T04:10:23.488367895Z",
+            "fleet_id": "fl_local",
+            "id": "lsp",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "TypeScript language server"
+            },
+            "name": "lsp",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T04:10:23.488367895Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T04:10:23.488368897Z",
+            "fleet_id": "fl_local",
+            "id": "browser",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Headless Chromium (throwaway guest profile)"
+            },
+            "name": "browser",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T04:10:23.488368897Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T04:10:23.4883699Z",
+            "fleet_id": "fl_local",
+            "id": "desktop",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Virtual desktop, input, screenshots and recording"
+            },
+            "name": "desktop",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T04:10:23.4883699Z",
+            "visibility": "private"
+          },
+          {
+            "created_at": "2026-11-13T04:10:23.488370389Z",
+            "fleet_id": "fl_local",
+            "id": "docker",
+            "kind": "kit",
+            "labels": {
+              "lamp.builtin": "true",
+              "lamp.description": "Docker daemon inside the guest"
+            },
+            "name": "docker",
+            "owner_id": "pr_t44_demo",
+            "revision": 1,
+            "state": "active",
+            "updated_at": "2026-11-13T04:10:23.488370389Z",
+            "visibility": "private"
+          }
+        ],
+        "request_id": "req_c3b8d6953817e4b3533baa32245459d6"
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "create",
+        "--template-id",
+        "tp_353d5f351d64191fe6bf326605",
+        "--kit",
+        "docker",
+        "--resources",
+        "{\"vcpus\": 2, \"memory_mib\": 2048, \"disk_gib\": 20, \"pids_max\": 4096}",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_fdc326ac1691e179fa356174a2ad61b2",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "request_id": "req_842f1f0aec6e68b6bf287fa51a4e0b3a",
+        "replayed": false,
+        "operation": {
+          "id": "op_fdc326ac1691e179fa356174a2ad61b2",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T04:10:23.503562933Z",
+          "updated_at": "2026-11-13T04:10:41.183519061Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_create",
+          "request_hash": "cdb981a5c4b083293ec5f9c599f9590f4cf3abc54264cb846789942b4c764f16",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+            }
+          ],
+          "phase": "kits",
+          "accepted_at": "2026-11-13T04:10:23.503562933Z",
+          "completed_at": "2026-11-13T04:10:41.183519061Z",
+          "outcome": {
+            "result": {
+              "sandbox_id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+              "session_ids": []
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "volatile"
+        },
+        "result": {
+          "sandbox_id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+          "session_ids": []
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "run-code",
+        "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+        "--code",
+        "import subprocess; r=subprocess.run([\"docker\",\"run\",\"--rm\",\"--network\",\"host\",\"alpine:3.20\",\"echo\",\"DIND_OK\"],capture_output=True,text=True); print(r.returncode); print(r.stdout); print(r.stderr)",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_28d787551e6599a94d352e7979cbf189",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "request_id": "req_50730fdacd1705db4598eb3ac27f15c0",
+        "replayed": false,
+        "operation": {
+          "id": "op_28d787551e6599a94d352e7979cbf189",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T04:10:41.210816309Z",
+          "updated_at": "2026-11-13T04:10:43.880736855Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_run_code",
+          "request_hash": "6f5ff70b7dbfd04c5cf742dbfde57854c885625ddfcb2b84053d17463e5d81d3",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+            }
+          ],
+          "accepted_at": "2026-11-13T04:10:41.210816309Z",
+          "completed_at": "2026-11-13T04:10:43.880736855Z",
+          "outcome": {
+            "result": {
+              "context": "default",
+              "outputs": [],
+              "result": null,
+              "stderr": "",
+              "stdout": "0\nDIND_OK\n\nUnable to find image 'alpine:3.20' locally\n3.20: Pulling from library/alpine\n25f1d6b1951a: Pulling fs layer\n25f1d6b1951a: Verifying Checksum\n25f1d6b1951a: Download complete\n25f1d6b1951a: Pull complete\nDigest: sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc\nStatus: Downloaded newer image for alpine:3.20\n\n"
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "context": "default",
+          "outputs": [],
+          "result": null,
+          "stderr": "",
+          "stdout": "0\nDIND_OK\n\nUnable to find image 'alpine:3.20' locally\n3.20: Pulling from library/alpine\n25f1d6b1951a: Pulling fs layer\n25f1d6b1951a: Verifying Checksum\n25f1d6b1951a: Download complete\n25f1d6b1951a: Pull complete\nDigest: sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc\nStatus: Downloaded newer image for alpine:3.20\n\n"
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "kit",
+        "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+        "--kit",
+        "lsp",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_8ae31e0d3118f58a21b6d1c03834e7bf",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "request_id": "req_986bbd853c0d9a5170883b3b6be6fc02",
+        "replayed": false,
+        "operation": {
+          "id": "op_8ae31e0d3118f58a21b6d1c03834e7bf",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T04:10:43.896802975Z",
+          "updated_at": "2026-11-13T04:10:47.222114935Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_kit",
+          "request_hash": "71a80b273dd7f85c545e8dc89f93ddd3c5c44c4534c54e3e1be25b3eedca64db",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+            }
+          ],
+          "accepted_at": "2026-11-13T04:10:43.896802975Z",
+          "completed_at": "2026-11-13T04:10:47.222114935Z",
+          "outcome": {
+            "result": {
+              "boundary": "vm",
+              "kit": "lsp",
+              "state": "ready"
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "boundary": "vm",
+          "kit": "lsp",
+          "state": "ready"
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "run-code",
+        "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+        "--code",
+        "import subprocess; print(subprocess.check_output([\"node\",\"-e\",\"console.log(42)\"],text=True))",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_7e89a2651fd8b9734664d2a3c64d6188",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "request_id": "req_23fe1b0314ef604393c1aa299d306007",
+        "replayed": false,
+        "operation": {
+          "id": "op_7e89a2651fd8b9734664d2a3c64d6188",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T04:10:47.248593394Z",
+          "updated_at": "2026-11-13T04:10:47.808431986Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_run_code",
+          "request_hash": "c078dfca3fbcb20f85ced56310b1b25b1e22da71e0b77b42973f41d614924d70",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+            }
+          ],
+          "accepted_at": "2026-11-13T04:10:47.248593394Z",
+          "completed_at": "2026-11-13T04:10:47.808431986Z",
+          "outcome": {
+            "result": {
+              "context": "default",
+              "outputs": [],
+              "result": null,
+              "stderr": "",
+              "stdout": "42\n\n"
+            }
+          },
+          "cleanup_state": "not_needed",
+          "durability": "local"
+        },
+        "result": {
+          "context": "default",
+          "outputs": [],
+          "result": null,
+          "stderr": "",
+          "stdout": "42\n\n"
+        }
+      }
+    },
+    {
+      "command": [
+        "sandbox",
+        "delete",
+        "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+        "--wait-ms",
+        "60000"
+      ],
+      "reply": {
+        "operation_id": "op_fd5ee819ff6f9c05501b2049cab76a1d",
+        "resource_ids": [
+          {
+            "kind": "sandbox",
+            "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+          }
+        ],
+        "request_id": "req_9863b4d3f2e44244ff554aec4a61b806",
+        "replayed": false,
+        "operation": {
+          "id": "op_fd5ee819ff6f9c05501b2049cab76a1d",
+          "kind": "operation",
+          "fleet_id": "fl_local",
+          "owner_id": "pr_t44_demo",
+          "revision": 3,
+          "created_at": "2026-11-13T04:13:53.49178368Z",
+          "updated_at": "2026-11-13T04:13:53.582001071Z",
+          "state": "succeeded",
+          "labels": {},
+          "visibility": "private",
+          "operation_name": "sandbox_delete",
+          "request_hash": "dc357e73fbd5e887afe2d432940b057e6abd08efc91e3e3beea0f3112debf65b",
+          "resource_ids": [
+            {
+              "kind": "sandbox",
+              "id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d"
+            }
+          ],
+          "phase": "cleanup",
+          "accepted_at": "2026-11-13T04:13:53.49178368Z",
+          "completed_at": "2026-11-13T04:13:53.582001071Z",
+          "outcome": {
+            "result": {}
+          },
+          "cleanup_state": "complete",
+          "durability": "volatile"
+        },
+        "result": {}
+      }
+    }
+  ],
+  "fixture": "public Ubuntu 26.04 template, disposable task VM",
+  "host": "ubuntu-server",
+  "sandbox_id": "sb_5c2db174b2a8ae5ae9807fed787f5e0d",
+  "result": "success"
+}

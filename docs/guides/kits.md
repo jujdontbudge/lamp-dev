@@ -23,14 +23,17 @@ lamp sandbox kit "$SB" --kit desktop --wait-ms 60000 --json
 
 Available names: `browser`, `desktop`, `docker`, `python`, `node`, `go`, `rust`,
 `c`, `lsp`. Toolchains install on the normal guest PATH. The `lsp` kit includes
-Node.js, TypeScript and `typescript-language-server`. The Python kit includes
+Node.js, TypeScript 5.9.3 and `typescript-language-server` (the TypeScript
+version retains the tsserver protocol this server uses). The Python kit includes
 pip, venv and matplotlib.
 
 All commands below are also MCP tools (`sandbox_run_code`, `sandbox_browser`,
 `sandbox_desktop`, `sandbox_lsp`, `sandbox_kit`) and HTTP operations
 (`POST /v1/sandboxes/{sandbox_id}:run-code`, etc.). Mutations require an
 `Idempotency-Key`; reuse it to inspect/replay an operation, rather than executing
-code again. CLI keys are generated automatically. Scope actions use the same
+code again. A lost result or a sandbox generation change after a job starts
+returns `outcome_unknown`: the guest job may still run, so inspect before
+submitting a new execution. CLI keys are generated automatically. Scope actions use the same
 names with a dot after `sandbox`, for example `sandbox.run_code`.
 
 ## Stateful Python
@@ -93,22 +96,32 @@ HTTP port using the ordinary private preview flow:
 ```sh
 lamp port create --sandbox-id "$SB" --port 6080 --protocol http --access private --wait-ms 60000 --json
 lamp port get "$PORT_ID" --json
+umask 077
+lamp port share-link "$PORT_ID" --wait-ms 60000 --json > desktop-link.json
 ```
 
-The port's `origin` is the desktop view URL and uses the same authorization as
-other Lamp previews. The view refreshes screenshots; input uses the desktop
+The port's `origin` is the desktop view URL. Enrolled signed-in viewers can
+open it directly. Otherwise open the one-time-disclosed `result.url` from the
+private `desktop-link.json` file to establish a preview session. That URL is a
+bearer: keep it out of logs and evidence. An API token alone does not authorize
+a preview origin. The view refreshes screenshots; input uses the desktop
 operations. Set `DISPLAY=:99` when launching additional GUI apps with exec.
 
 ## Docker
 
 ```sh
 lamp sandbox kit "$SB" --kit docker --wait-ms 60000 --json
-lamp exec create --sandbox-id "$SB" --argv '["docker","run","--rm","--network","host","alpine:3.20","echo","DIND_OK"]' --wait-ms 60000 --json
+lamp exec create --sandbox-id "$SB" --argv '["docker","run","--rm","alpine:3.20","echo","DIND_OK"]' --wait-ms 60000 --json
 ```
 
 Docker's socket, image store and containers are inside the guest. VFS storage
-and `--network host` use the guest network without requiring a nested bridge or
-host Docker socket. Here `host` means the sandbox VM, not the owner's machine.
+and a private guest network served by slirp4netns avoid a privileged bridge or
+host Docker socket. Use `--network host` for containers to share that private
+Docker network when a container needs outbound connectivity. The default
+container network runs local commands but has no forwarding. Here `host`
+remains inside the sandbox VM. The guest init
+exposes TUN to tasks; creating interfaces still requires a network namespace
+owned by the task. Templates made with older init binaries need rebuilding.
 Container processes retain Lamp's guest audit and resource limits.
 
 ## TypeScript LSP
@@ -125,7 +138,8 @@ lamp sandbox lsp "$SB" --action close --path /tmp/example.ts --wait-ms 60000 --j
 lamp sandbox lsp "$SB" --action stop --wait-ms 60000 --json
 ```
 
-Positions are zero based UTF-16 LSP positions. `open` accepts optional `text` for
+Symbol/completion replies include `total` and `truncated` when the bounded
+control-channel response omits entries. Positions are zero based UTF-16 LSP positions. `open` accepts optional `text` for
 an unsaved buffer. Diagnostics return the latest published notification; an
 empty list can mean the server has not published yet. One language server runs
 per sandbox; stop it before starting it for a different project root.

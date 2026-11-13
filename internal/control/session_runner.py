@@ -249,6 +249,9 @@ def serve(directory, endpoint, request):
 
 
 def main(request):
+    # The guest collector traces forks. A vfork child can otherwise hold the
+    # relay thread needed to complete its traced launch.
+    subprocess._USE_VFORK = False
     if request["action"] == "exec":
         with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as error:
             try:
