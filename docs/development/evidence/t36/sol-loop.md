@@ -11,7 +11,8 @@ Round 1: CHANGES.
 
 One reviewer-written regression test retained; no declined findings. Initial
 implementation diff: 45 files, 6472 insertions, 2395 deletions. Round 2 checks
-S1 and the changed code only; its verdict is pending.
+S1 and the changed code only; verdict: APPROVE. S1 is resolved, with no
+new blocker/should findings.
 
 Before round 2, rebased on origin/main 03944fbd (T38 and T33 merged).
 Contract conflicts were resolved semantically and all bindings regenerated:
@@ -24,3 +25,7 @@ and generated consistency checks passed after rebase. Linux supervisor/init/
 guard and Go builds also passed. No additional VM was needed for conflict
 resolution. Post-fix/rebase diff: 47 files, 6527 insertions, 2386 deletions (before
 this ledger note).
+
+Round 2 approved a9df402. Final documentation records that approval; no product
+code changed afterward. Two rounds total with gpt-6.1-sol on medium reasoning.
+One agreed finding fixed, none declined, one reviewer-written test retained.
