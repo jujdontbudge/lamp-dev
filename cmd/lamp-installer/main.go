@@ -79,7 +79,7 @@ Example: lamp-installer status --help`)
 		usage()
 	}
 	cmds := map[string]func([]string) error{
-		"keygen": keygen, "recovery-keygen": recoveryKeygen, "build": build, "verify": verifyCmd,
+		"unpack-seed": unpackSeed, "keygen": keygen, "recovery-keygen": recoveryKeygen, "build": build, "verify": verifyCmd,
 		"install": install, "update": update, "auto": auto, "policy": policy, "rollback": rollbackCmd,
 		"status": status, "uninstall": uninstall, "rollout": rollout, "recover": recoverCmd, "index": indexCmd, "publish": publish, "agent": agentCmd, "restart": restartCmd,
 	}
@@ -224,22 +224,23 @@ func build(args []string) error {
 		if !ok || !validPath(dst) {
 			return fmt.Errorf("bad --file %q", f)
 		}
-		data, err := os.ReadFile(src)
+		info, err := os.Stat(src)
 		if err != nil {
 			return err
 		}
-		info, _ := os.Stat(src)
 		mode := uint32(0644)
 		if info.Mode()&0111 != 0 {
 			mode = 0755
 		}
 		target := filepath.Join(*out, "payload", dst)
-		os.MkdirAll(filepath.Dir(target), 0755)
-		if err := os.WriteFile(target, data, fs.FileMode(mode)); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}
-		sum := sha256.Sum256(data)
-		m.Files[dst] = fileEntry{SHA256: hex.EncodeToString(sum[:]), Mode: mode, Size: int64(len(data))}
+		sum, size, err := release.CopyFile(src, target, fs.FileMode(mode))
+		if err != nil {
+			return err
+		}
+		m.Files[dst] = fileEntry{SHA256: sum, Mode: mode, Size: size}
 		// Record the exact reused module graph of each Go binary (ENG-002).
 		if bi, err := buildinfo.ReadFile(src); err == nil {
 			var cs []component
@@ -342,20 +343,18 @@ func stage(prefix, dir string, m manifest, trust ed25519.PublicKey) (string, err
 	os.RemoveAll(tmp)
 	dir = filepath.Join(dir, release.Platform())
 	for rel, e := range m.Files {
-		data, err := os.ReadFile(filepath.Join(dir, "payload", rel))
+		p := filepath.Join(tmp, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			return "", err
+		}
+		sum, _, err := release.CopyFile(filepath.Join(dir, "payload", rel), p, fs.FileMode(e.Mode))
 		if err != nil {
 			return "", err
 		}
-		// Recheck after copy: the staged bytes are what will run.
-		sum := sha256.Sum256(data)
-		if hex.EncodeToString(sum[:]) != e.SHA256 {
+		if sum != e.SHA256 {
 			return "", fmt.Errorf("payload file %s changed during staging", rel)
 		}
-		p := filepath.Join(tmp, rel)
-		os.MkdirAll(filepath.Dir(p), 0755)
-		if err := os.WriteFile(p, data, fs.FileMode(e.Mode)); err != nil {
-			return "", err
-		}
+
 	}
 	raw, _ := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	sig, _ := os.ReadFile(filepath.Join(dir, "manifest.sig"))
@@ -722,6 +721,8 @@ func install(args []string) error {
 	recovery := fl.String("recovery-public-key", "", "owner recovery public key (omit to make backups visibly nonrecoverable)")
 	identityFile := fl.String("identity-file", "", "existing owner enrollment (fleet hosts share one); default generates a new owner bearer")
 	tokenFile := fl.String("token-file", "", "with --identity-file: the owner bearer file the updater and health checks use")
+	engine := fl.Bool("engine", false, "install a prefix-scoped engine and signed default seed")
+	storeGiB := fl.Uint64("store-gib", 80, "sparse engine store GiB (minimum 80)")
 	agent := fl.Bool("agent", true, "run the updater agent service beside lampd")
 	wait := fl.Bool("wait", true, "wait for lampd to answer (fleet hosts answer only once quorum forms)")
 	var supArgs multi
@@ -740,7 +741,26 @@ func install(args []string) error {
 	if err != nil {
 		return fmt.Errorf("refused before install: %w", err)
 	}
-	p, _ := filepath.Abs(*prefix)
+	p, err := filepath.Abs(*prefix)
+	if err != nil || *prefix == "" {
+		return errors.New("--prefix is required")
+	}
+	limit := 108
+	if runtime.GOOS == "darwin" {
+		limit = 104
+	}
+	if len(filepath.Join(p, "run", "api.sock")) >= limit {
+		return fmt.Errorf("prefix too long for a Unix socket (%d bytes, limit %d); choose a shorter --prefix", len(filepath.Join(p, "run", "api.sock")), limit-1)
+	}
+	if *engine {
+		if *name == "default" {
+			digest := sha256.Sum256([]byte(p))
+			*name = "local-" + hex.EncodeToString(digest[:6])
+		}
+		if err := enginePreflight(filepath.Join(*release, runtime.GOOS+"-"+runtime.GOARCH, "payload"), *storeGiB); err != nil {
+			return err
+		}
+	}
 	if _, err := os.Stat(filepath.Join(p, "config", "install.json")); err == nil {
 		return errors.New("already installed here; use update")
 	}
@@ -785,7 +805,7 @@ func install(args []string) error {
 		os.WriteFile(filepath.Join(p, "config", "recovery.pub"), raw, 0644)
 		lampdArgs = append(lampdArgs, "--recovery-public-key", filepath.Join(p, "config", "recovery.pub"))
 	}
-	if !hasWorker(extra) && !hasArg(extra, "--fleet-config") {
+	if !*engine && !hasWorker(extra) && !hasArg(extra, "--fleet-config") {
 		// Control-only host until a supervisor is enrolled.
 		lampdArgs = append(lampdArgs, "--worker-socket", filepath.Join(p, "run", "worker.sock"), "--worker-id", "unenrolled", "--worker-boot-id", "unenrolled", "--grant-id", "none", "--worker-uid", strconv.Itoa(os.Getuid()), "--worker-pid", "1")
 	}
@@ -807,7 +827,7 @@ func install(args []string) error {
 	// tool. Mac sandboxes leave no host spools: an empty capture is "no
 	// records", so /usr/bin/true frees the slot without Python (the CLT shim
 	// would prompt to install developer tools) or sudo.
-	if !hasArg(lampdArgs, "--audit-release") {
+	if !*engine && !hasArg(lampdArgs, "--audit-release") {
 		argv := []string{"/usr/bin/true"}
 		if runtime.GOOS == "linux" {
 			argv = []string{"/usr/bin/python3", filepath.Join(p, "current", "tools", "guard-audit-release.py"), *guardAuditDir}
@@ -833,6 +853,14 @@ func install(args []string) error {
 					st.HostID = fc.HostID
 				}
 			}
+		}
+	}
+	if *engine {
+		if len(supArgs) > 0 || hasWorker(extra) || hasArg(extra, "--fleet-config") {
+			return errors.New("--engine cannot be combined with manual worker/fleet enrollment")
+		}
+		if err := setupEngine(p, &st, *storeGiB); err != nil {
+			return err
 		}
 	}
 	if len(supArgs) > 0 {
@@ -1129,6 +1157,7 @@ func policy(args []string) error {
 func status(args []string) error {
 	fl := flag.NewFlagSet("status", flag.ExitOnError)
 	prefix := fl.String("prefix", "", "installation directory")
+	fl.Bool("json", true, "JSON status")
 	fl.Parse(args)
 	p, _ := filepath.Abs(*prefix)
 	st, err := loadState(p)
@@ -1194,8 +1223,20 @@ func uninstall(args []string) error {
 	}
 	removeService(p, st, lampdJob(p, st))
 	if st.Supervisor != nil {
-		stopSupervisor(p, &st)
-		sudo("rm", "-rf", st.Supervisor.Dir)
+		if err := stopSupervisor(p, &st); err != nil {
+			return err
+		}
+		if st.Supervisor.GrantID != "" {
+			if *data == "delete" {
+				if err := removeManagedEngine(p); err != nil {
+					return err
+				}
+			} else {
+				say("engine store and binaries retained at %s", supStore(st.Supervisor))
+			}
+		} else {
+			sudo("rm", "-rf", st.Supervisor.Dir)
+		}
 	}
 	os.Remove(filepath.Join(p, "run", "api.sock"))
 	if *data == "export" {
@@ -1236,15 +1277,12 @@ func copyTree(src, dst string) (int, error) {
 		if !d.Type().IsRegular() {
 			return nil
 		}
-		data, err := os.ReadFile(path)
+		want, _, err := release.CopyFile(path, target, 0600)
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(target, data, 0600); err != nil {
-			return err
-		}
-		got, err := os.ReadFile(target)
-		if err != nil || !bytes.Equal(got, data) {
+		got, err := release.FileDigest(target)
+		if err != nil || got != want {
 			return fmt.Errorf("copy of %s does not verify", rel)
 		}
 		n++
@@ -1455,7 +1493,16 @@ func agentCmd(args []string) error {
 	resPath := filepath.Join(p, "config", "update-result.json")
 	say("lamp-installer agent watching %s", reqPath)
 	waiting := map[string]time.Time{}
+	nextGrant := time.Time{}
 	for {
+		if time.Now().After(nextGrant) {
+			if st, err := loadState(p); err == nil {
+				if err := refreshEngineGrant(p, st); err != nil {
+					fmt.Fprintln(os.Stderr, "engine grant renewal:", err)
+				}
+			}
+			nextGrant = time.Now().Add(time.Hour)
+		}
 		time.Sleep(time.Second)
 		raw, err := os.ReadFile(reqPath)
 		if err != nil {

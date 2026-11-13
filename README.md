@@ -9,33 +9,33 @@ keys, logins and tools through a broker without being handed the secrets.
 
 Created in [T3 Code](https://t3.codes).
 
-- **Fast sandboxes.** Create a Linux sandbox in about 330–400 ms (p50), and fork
-  a running one, memory included. [Measured results](docs/release/measurements.md),
-  including the targets Lamp does not yet meet.
-- **Bring your agent.** Eleven coding agents, sessions over native PTYs, stock
-  SSH, ACP and MCP, and continuation between your machine and a sandbox.
-- **CI in fresh VMs.** GitHub Actions and GitLab runners, plus other CI systems.
-- **Fleets.** Join several machines into one fleet; updates roll out one host at
-  a time and roll back on failure.
-- **Yours.** Everything runs on your own hardware, including the optional relay.
-
-## Install
+## Install and run code
 
 ```sh
 curl -fsSL https://lamp.eilmer.si/install.sh | sh
+"$HOME/.local/lamp/current/bin/lamp" sandbox run -- python3 -c 'print("hello from Lamp")'
 ```
 
-The installer checks the download's digest and the release signature. Then set
-up the engine and, if you want it, the TypeScript SDK: see the
-[0.1.1 release notes](docs/release/0.1.1.md). Linux needs KVM; macOS needs
-version 26 or later on Apple Silicon.
+The next release's installer sets up the engine, private owner credential and
+an included Linux template. `run` creates a VM, runs the command, then deletes
+it. **The published 0.1.1 installer predates this flow**; the coordinator must
+publish a release containing the new installer before these two lines work
+from the public URL. See [installation](docs/install.md) for prerequisites,
+PATH, persistent sandboxes, locations and a second install. Linux needs KVM;
+Apple Silicon needs macOS 26+ and administrator access. No password prompts
+are opened. Mac restore/networking and Linux arm64 still require release
+validation; the implementation evidence currently covers Ubuntu amd64.
+
+The default install enrolls the local sandbox engine and control API. Sessions,
+model custody, fleets, CI adapters and relay require their own enrollment; the
+presence of a binary or schema operation does not configure those features.
+The owner has deferred SDK work. Use the CLI, MCP or HTTP API.
 
 ## Build from source
 
 ```sh
 git clone https://gitlab.com/johansardar/lamp.git && cd lamp
 make build              # Go, Rust and the plugin launcher
-make bootstrap verify   # build plus selected smoke tests
 ```
 
 You need Go, Rust (see `rust-toolchain.toml`), a C compiler and Python 3.

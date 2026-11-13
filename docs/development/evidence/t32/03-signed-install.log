@@ -1,0 +1,39 @@
+capacity live Firecracker: 1 available MiB: 13243
++ bash -o pipefail -c curl -fsSL http://127.0.0.1:18432/install.sh | LAMP_PREFIX=/tmp/l32final LAMP_SERVICE=process sh
+127.0.0.1 - - [12/Nov/2026 19:56:49] "GET /install.sh HTTP/1.1" 200 -
+Downloading Lamp 0.1.2 and its default Linux seed…
+127.0.0.1 - - [12/Nov/2026 19:56:49] "GET /lamp-0.1.2-linux-amd64.tar.gz HTTP/1.1" 200 -
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-i/59a47755/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its 2 GiB template…
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 91 ms
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 3067 ms
+definition: default (0 steps), seed lamp-seed/ubuntu-26.04@sha256:9f2440dc6a5cc939d3c6ef4cf96a4bbc8a9312e28ca47d60eab7151fc45ddb83
+build sandbox booted in 395 ms
+template VM booted in 316 ms
+full capture written in 38035 ms
+memory image: 1960 MiB of zero pages left as holes
+published tp_3bfdfea2566ee6a5e96e0e6134 as default in 49530 ms
+{"at":"2026-11-13T00:59:33Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l32final","service":"process","version":"0.1.2"}
+Lamp 0.1.2 ready. Binaries: /tmp/l32final/current/bin
+Owner credential (private; clients load it automatically): /tmp/l32final/config/owner.token
+For this shell and your shell profile: export PATH="/tmp/l32final/current/bin:$PATH"
+Run code: /tmp/l32final/current/bin/lamp sandbox run -- uname -a
+capacity live Firecracker: 0 available MiB: 13324
++ /tmp/l32final/current/bin/lamp sandbox run -- sh -c echo hello from the signed Lamp candidate; uname -m; python3 -c "print(6*7)"
+hello from the signed Lamp candidate
+x86_64
+42
+install to code and cleanup seconds: 165.473
++ /tmp/l32final/current/bin/lamp-installer status --prefix /tmp/l32final --json
+{"current":"0.1.2","healthy":true,"highest_version":"0.1.2","name":"local-59a47755d2b8","previous":"","saved_items":1,"service":"process","supervisor":{"alive":true,"binary_sha256":"9a16bcefd079d4870dc6cd0f6789370e20d2c96c569b07e064e59f2f9851d4c8","from_release":true,"pid":448578,"release":"0.1.2","sha256":{"firecracker":"99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5","jailer":"65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f","lamp-guard":"b748bba66adcd164a9462c8f550d48f42ac6f8abb4619f1b5342fe643aba434a","lamp-supervisor":"9a16bcefd079d4870dc6cd0f6789370e20d2c96c569b07e064e59f2f9851d4c8"}},"update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000}}
++ /tmp/l32final/current/bin/lamp template list --json
+{"items":[{"arch":"x86_64","created_at":"2026-11-13T00:59:33.68959321Z","default_resources":{"disk_gib":20,"memory_mib":2048,"pids_max":4096,"vcpus":2},"fleet_id":"fl_local","guest_os":"linux","id":"tp_3bfdfea2566ee6a5e96e0e6134","kind":"template","labels":{"lamp.default":"true"},"name":"default","owner_id":"pr_owner","revision":1,"state":"ready","updated_at":"2026-11-13T00:59:33.68959321Z","visibility":"private"}],"next_cursor":null,"request_id":"req_477c34cf4bedf6d9d04e25255e9fe93b"}
++ /tmp/l32final/current/bin/lamp sandbox list --json
+{"items":[{"boundary":"vm","capture_trust":"clean","created_at":"2026-11-13T00:59:34.130141893Z","custody_host_ids":["hs_local"],"durability":"volatile","effective_policy_revision":1,"fleet_id":"fl_local","generation":1,"host_id":"hs_local","id":"sb_f93ef27a89ba42b040c7ab826051ca64","idle_countdown":{"action":"suspend","grace_seconds":300},"kind":"sandbox","labels":{},"owner_id":"pr_owner","resources":{"disk_gib":20,"memory_mib":2048,"pids_max":4096,"vcpus":2},"revision":6,"state":"deleted","task_id":"tk_ba6ff6122be9cc1158b31f882928dced","template_id":"tp_3bfdfea2566ee6a5e96e0e6134","updated_at":"2026-11-13T00:59:34.562809367Z","visibility":"private"}],"next_cursor":null,"request_id":"req_9920ea31dadbf75e49c32733c2d5b2d9"}
+capacity live Firecracker: 1 available MiB: 13183
++ /tmp/l32final/current/bin/lamp sandbox create --json
+zero-argument create: sb_47f2ed8d0568644517d643f307a90575 operation state: succeeded
+guest streams: 'outerr' '' exit: 7
+Traceback (most recent call last):
+  File "<stdin>", line 31, in <module>
+AssertionError

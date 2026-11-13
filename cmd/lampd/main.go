@@ -23,6 +23,7 @@ import (
 
 	"lamp.eilmer.si/internal/ci"
 	"lamp.eilmer.si/internal/control"
+	"lamp.eilmer.si/internal/localconfig"
 	"lamp.eilmer.si/internal/relayclient"
 	kitruntime "lamp.eilmer.si/kits"
 )
@@ -61,8 +62,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	base := filepath.Join(home, ".local", "state", "lamp-demo")
-	socket := flags.String("socket", filepath.Join(base, "api.sock"), "private local HTTP Unix socket")
+	base := filepath.Join(home, ".local", "lamp", "state")
+	socket := flags.String("socket", localconfig.Socket(), "private local HTTP Unix socket")
 	state := flags.String("state-dir", filepath.Join(base, "control"), "private operation journal directory")
 	exports := flags.String("exports-dir", "", "private broker-published clean reconstruction bundles")
 	readers := map[uint32]string{}

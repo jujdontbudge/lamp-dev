@@ -1,0 +1,24 @@
+corrected CLI against installed VM: 'out' 'err' exit: 7
++ /tmp/l32final/current/bin/lamp-installer restart --prefix /tmp/l32final
+{"at":"2026-11-13T01:02:24Z","event":"restarted","saved_items_preserved":2,"service":"process"}
+ready after daemon restart
++ /tmp/l32final/current/bin/lamp --token-file /tmp/l32final/config/owner.token sandbox get sb_47f2ed8d0568644517d643f307a90575 --json
+{"error":{"code":"INVALID_ARGUMENT","message":"unexpected arguments","retryable":false},"request_id":"cli"}
++ /tmp/l32final/current/bin/lamp sandbox get sb_47f2ed8d0568644517d643f307a90575 --json
+Traceback (most recent call last):
+  File "<stdin>", line 12, in <module>
+  File "<stdin>", line 4, in call
+  File "/usr/lib/python3.14/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['/tmp/l32final/current/bin/lamp', '--token-file', '/tmp/l32final/config/owner.token', 'sandbox', 'get', 'sb_47f2ed8d0568644517d643f307a90575', '--json']' returned non-zero exit status 2.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<stdin>", line 21, in <module>
+  File "<stdin>", line 4, in call
+  File "/usr/lib/python3.14/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['/tmp/l32final/current/bin/lamp', 'sandbox', 'get', 'sb_47f2ed8d0568644517d643f307a90575', '--json']' returned non-zero exit status 2.

@@ -1,0 +1,10 @@
+# Lamp
+
+Lamp runs isolated virtual machines on hardware you own. Interfaces: CLI, MCP,
+HTTP API. SDK work is deferred.
+
+- [Install and first sandbox](docs/install.md): two-command quickstart, host prerequisites, paths and credentials. The public 0.1.1 download does not yet include this next-release path.
+- [README](README.md): product overview and source build.
+- [API schema](contracts/public/schema.json): canonical request shapes; a schema operation may require separate host enrollment.
+- [Release notes](docs/release/0.1.1.md): historical shipped surface and limitations.
+- [Measurements](docs/release/measurements.md): historical results, including missed targets.

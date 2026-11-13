@@ -36768,6 +36768,22 @@
                         "recipe_id"
                       ]
                     }
+                  },
+                  {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "recipe_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "template_id"
+                          ]
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -66588,6 +66604,22 @@
             "not": {
               "required": [
                 "recipe_id"
+              ]
+            }
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "recipe_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "template_id"
+                  ]
+                }
               ]
             }
           }

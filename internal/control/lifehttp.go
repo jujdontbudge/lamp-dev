@@ -526,6 +526,12 @@ func (s *Service) lifeItems(a caller, kind string) []map[string]any {
 			add(v.R)
 		}
 	case "template":
+		if s.installedTemplate != nil {
+			raw, _ := json.Marshal(s.installedTemplate)
+			var m map[string]any
+			json.Unmarshal(raw, &m)
+			add(m)
+		}
 		for _, v := range s.life.Templates {
 			add(v.R)
 		}

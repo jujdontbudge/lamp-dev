@@ -1,0 +1,7 @@
+mkdir -p bin
+cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
+go build ./...
+python3 tools/sdkgen.py --check
+sdk codegen: clean (330 operations)
+cargo build --workspace --locked
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s

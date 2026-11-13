@@ -10,13 +10,14 @@ import (
 	"os/signal"
 	"syscall"
 
+	"lamp.eilmer.si/internal/localconfig"
 	"lamp.eilmer.si/internal/surface"
 )
 
 func main() {
 	flags := flag.NewFlagSet("lamp-mcp", flag.ContinueOnError)
 	flags.SetOutput(os.Stdout)
-	socket := flags.String("socket", surface.DefaultSocket(), "lampd Unix socket (LAMP_SOCKET)")
+	socket := flags.String("socket", localconfig.Socket(), "lampd Unix socket (LAMP_SOCKET)")
 	url := flags.String("api-url", os.Getenv("LAMP_API_URL"), "API origin (LAMP_API_URL)")
 	tokenFile := flags.String("token-file", "", "private bearer file (LAMP_TOKEN_FILE; otherwise LAMP_TOKEN)")
 	flags.Usage = func() {
@@ -37,7 +38,7 @@ MCP client config example:
 		flags.Usage()
 		os.Exit(2)
 	}
-	token, err := surface.Credential(*tokenFile)
+	token, err := localconfig.Token(*tokenFile, *socket, *url)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "lamp-mcp: cannot read credential file:", err)
 		os.Exit(2)
