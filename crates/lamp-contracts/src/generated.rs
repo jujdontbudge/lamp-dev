@@ -6141,6 +6141,37 @@ pub struct CredentialSourceListResult {
     #[serde(rename = "request_id")]
     pub request_id: String,
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CredentialSourceRevokeCompletion {}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CredentialSourceRevokeInput {
+    #[serde(rename = "credential_source_id")]
+    pub credential_source_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CredentialSourceRevokeResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<CredentialSourceRevokeCompletion>,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CredentialSourceState {
     #[serde(rename = "locked")]
@@ -24453,6 +24484,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "CredentialSourceListResult",
         authorization: "authenticated_scope",
         mutation: false,
+    },
+    OperationDescriptor {
+        name: "credential_source_revoke",
+        scope: "credential_source.revoke",
+        cli: "lamp credential-source revoke",
+        method: "post",
+        path: "/v1/credential-sources/{credential_source_id}:revoke",
+        input_schema: "CredentialSourceRevokeInput",
+        result_schema: "CredentialSourceRevokeResult",
+        authorization: "authenticated_scope",
+        mutation: true,
     },
     OperationDescriptor {
         name: "credential_source_update",

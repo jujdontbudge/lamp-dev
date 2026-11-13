@@ -123,8 +123,11 @@ func attachSession(args []string, stdout, stderr io.Writer) int {
 		if cursor != "" {
 			in["cursor"] = cursor
 		}
-		m, e := call("session_output", in)
+		m, e := call("session_watch", in)
 		if e != nil {
+			if ctx.Err() != nil {
+				return 0
+			}
 			fmt.Fprintln(stderr, e)
 			return 1
 		}
@@ -146,6 +149,10 @@ func attachSession(args []string, stdout, stderr io.Writer) int {
 		cursor, _ = m["next_cursor"].(string)
 		v, e := call("session_get", map[string]any{"session_id": *id})
 		if e != nil {
+			if ctx.Err() != nil {
+				return 0
+			}
+			fmt.Fprintln(stderr, e)
 			return 1
 		}
 		state := v["data"].(map[string]any)["state"]

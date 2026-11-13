@@ -1,0 +1,5 @@
+{
+  "mac": "dedicated supervisor stopped; VMs released; worker user domains, accounts and private states removed",
+  "linux": "dedicated supervisor stopped; VMs released; private state, dedicated store and runtime directory removed",
+  "owner_services_and_Docker": "untouched"
+}

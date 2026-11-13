@@ -34067,6 +34067,76 @@
         "request_id",
         "replayed"
       ]
+    },
+    "CredentialSourceRevokeInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "credential_source_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "credential_source_id",
+        "idempotency_key",
+        "expected_revision"
+      ]
+    },
+    "CredentialSourceRevokeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/CredentialSourceRevokeCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "CredentialSourceRevokeCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
     }
   },
   "x-lamp-resources": {
@@ -34440,7 +34510,8 @@
         "list",
         "create",
         "update",
-        "delete"
+        "delete",
+        "revoke"
       ],
       "singleton": false
     },
@@ -39523,6 +39594,20 @@
       "mcp": "secret_request",
       "authorization": "authenticated_scope",
       "completion_schema": "SecretRequestCompletion"
+    },
+    "credential_source_revoke": {
+      "kind": "credential_source",
+      "action": "revoke",
+      "method": "post",
+      "path": "/v1/credential-sources/{credential_source_id}:revoke",
+      "mutation": true,
+      "input_schema": "CredentialSourceRevokeInput",
+      "result_schema": "CredentialSourceRevokeResult",
+      "scope": "credential_source.revoke",
+      "cli": "lamp credential-source revoke",
+      "mcp": "credential_source_revoke",
+      "authorization": "authenticated_scope",
+      "completion_schema": "CredentialSourceRevokeCompletion"
     }
   },
   "x-lamp-errors": {

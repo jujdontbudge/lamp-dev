@@ -644,7 +644,7 @@ def main():
     if config.get("managed") and config["kind"] == "opencode":
         if not Path(config["binary"]).is_file():
             print("lamp: installing opencode 1.19.5 in the sandbox…", flush=True)
-            subprocess.run(["npm", "install", "-g", "--no-audit", "--no-fund", "--progress=false", "--loglevel=error", "opencode-ai@1.19.5"], check=True)
+            subprocess.run(["npm", "install", "-g", "--no-audit", "--no-fund", "--progress=false", "--loglevel=error", "--maxsockets=1", "opencode-ai@1.19.5"], check=True)
         if token := config.pop("transport_token", None):
             write_private(Path(config["credential_file"]), token)
     if cli_source := config.pop("guest_cli_source", None):

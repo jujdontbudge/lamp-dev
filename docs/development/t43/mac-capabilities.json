@@ -1,0 +1,77 @@
+[
+  {
+    "step": "release harness",
+    "harnesses": [
+      {
+        "id": "opencode",
+        "state": "active",
+        "version": "enrolled"
+      }
+    ]
+  },
+  {
+    "step": "host-held model source",
+    "source": "credential_source_3fedabdf6a5f3f85d34b8400845664b6"
+  },
+  {
+    "step": "sign-in start",
+    "state": "pending",
+    "provider": "openrouter",
+    "authorization_origin": "https://openrouter.ai/auth",
+    "pkce_url_returned": true
+  },
+  {
+    "step": "allocation admission",
+    "platform": "macOS",
+    "disposable_vm_memory_mib": 1024
+  },
+  {
+    "step": "sandbox ready",
+    "sandbox": "sb_f2be503227b046b10367dceefb21604f",
+    "state": "ready"
+  },
+  {
+    "step": "session created",
+    "session": "se_41b956e902b668604f07aeef2134eb99"
+  },
+  {
+    "step": "nested guest CLI",
+    "output": "created child sb_5101bfb36b1b7a55bbc67179da7226be\nthird refused NO_CAPACITY\nparent delete refused SCOPE_DENIED\n{\"items\": [{\"stream_id\": \"ex_5571db227934fba478812181677641e7.stdout\", \"sequence\": 0, \"channel\": \"stdout\", \"data_base64\": \"bmVzdGVkLXQ0My1vawo=\", \"byte_offset\": \"0\", \"location_epoch\": 1}], \"request_id\": \"req_8e18b448b83ee9d713668699a040b713\"}\nchild delete op_a584eab0718ede5cf753b5e7afcc3d12\n"
+  },
+  {
+    "step": "settings approval",
+    "host_file": "Approved disposable T43 update.\n"
+  },
+  {
+    "step": "opaque secrets",
+    "output": "{\"body\": \"{\\n  \\\"args\\\": {},\\n  \\\"headers\\\": {\\n    \\\"Accept-Encoding\\\": \\\"gzip\\\",\\n    \\\"Authorization\\\": \\\"Bearer [REDACTED]\\\",\\n    \\\"Host\\\": \\\"httpbin.org\\\",\\n    \\\"User-Agent\\\": \\\"Go-http-client/1.1\\\"\\n  },\\n  \\\"method\\\": \\\"GET\\\",\\n  \\\"origin\\\": \\\"130.126.255.80\\\",\\n  \\\"url\\\": \\\"https://httpbin.org/anything\\\",\\n  \\\"data\\\": \\\"\\\",\\n  \\\"files\\\": {},\\n  \\\"form\\\": {},\\n  \\\"json\\\": null\\n}\\n\", \"status\": 200}\nunapproved origin refused\n"
+  },
+  {
+    "step": "CLI session attach",
+    "retained_output_displayed": true,
+    "disconnect_exit": 0,
+    "input_lease_released": true
+  },
+  {
+    "step": "guest credential custody",
+    "host_model_key_absent_from_environment": true,
+    "guest_transport_differs_from_model_key": true
+  },
+  {
+    "step": "daemon restart",
+    "transcript_preserved": true,
+    "guest_gateway": "{\"data\": {\"content\": [{\"type\": \"text\", \"text\": \"<result>\\n<url>https://developers.cloudflare.com/changelog/post/2026-03-26-outbound-workers/</url>\\n<title>2026 03 26 Outbound Workers</title>\\n<text>\\n\n"
+  },
+  {
+    "step": "source revoked",
+    "guest_refusal": "{\"error\":{\"code\":\"SCOPE_DENIED\",\"message\":\"agent capability expired or revoked\",\"retryable\":false},\"request_id\":\"\"}\n\n"
+  },
+  {
+    "step": "complete",
+    "goal": "scoped guest capabilities, settings approval, opaque secret, MCP gateway, restart and revocation; model/app covered by retained run 2"
+  },
+  {
+    "step": "sandbox deleted",
+    "sandbox": "sb_f2be503227b046b10367dceefb21604f"
+  }
+]

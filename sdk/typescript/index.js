@@ -931,6 +931,16 @@ export const OPERATIONS = {
   "resultSchema": "CredentialSourceListResult",
   "scope": "credential_source.list"
  },
+ "credential_source_revoke": {
+  "cli": "lamp credential-source revoke",
+  "inputSchema": "CredentialSourceRevokeInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "credential_source_revoke",
+  "path": "/v1/credential-sources/{credential_source_id}:revoke",
+  "resultSchema": "CredentialSourceRevokeResult",
+  "scope": "credential_source.revoke"
+ },
  "credential_source_update": {
   "cli": "lamp credential-source update",
   "inputSchema": "CredentialSourceUpdateInput",

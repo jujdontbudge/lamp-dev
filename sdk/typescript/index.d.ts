@@ -1962,6 +1962,22 @@ export interface CredentialSourceListResult {
   "next_cursor"?: string;
   "request_id": string;
 }
+export interface CredentialSourceRevokeCompletion {
+}
+export interface CredentialSourceRevokeInput {
+  "credential_source_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  readonly "expected_revision": number;
+}
+export interface CredentialSourceRevokeResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: CredentialSourceRevokeCompletion;
+}
 export interface CredentialSourceUpdateCompletion {
 }
 export interface CredentialSourceUpdateInput {
@@ -7476,6 +7492,8 @@ export declare class LampClient {
   credentialSourceGet(input: CredentialSourceGetInput): Promise<CredentialSourceGetResult>;
   /** `lamp credential-source list` — GET /v1/credential-sources (scope credential_source.list) */
   credentialSourceList(input: CredentialSourceListInput): Promise<CredentialSourceListResult>;
+  /** `lamp credential-source revoke` — POST /v1/credential-sources/{credential_source_id}:revoke (scope credential_source.revoke) */
+  credentialSourceRevoke(input: CredentialSourceRevokeInput): Promise<CredentialSourceRevokeResult>;
   /** `lamp credential-source update` — PATCH /v1/credential-sources/{credential_source_id} (scope credential_source.update) */
   credentialSourceUpdate(input: CredentialSourceUpdateInput): Promise<CredentialSourceUpdateResult>;
   /** `lamp docs read` — GET /v1/docs (scope docs.read) */

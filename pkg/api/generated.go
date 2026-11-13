@@ -2822,6 +2822,22 @@ type CredentialSourceListResult struct {
 	NextCursor *string            `json:"next_cursor,omitempty"`
 	RequestId  string             `json:"request_id"`
 }
+type CredentialSourceRevokeCompletion struct {
+}
+type CredentialSourceRevokeInput struct {
+	CredentialSourceId string  `json:"credential_source_id"`
+	IdempotencyKey     string  `json:"idempotency_key"`
+	WaitMs             *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision   uint64  `json:"expected_revision"`
+}
+type CredentialSourceRevokeResult struct {
+	OperationId string                            `json:"operation_id"`
+	ResourceIds []ResourceRef                     `json:"resource_ids"`
+	RequestId   string                            `json:"request_id"`
+	Replayed    bool                              `json:"replayed"`
+	Operation   *Operation                        `json:"operation,omitempty"`
+	Result      *CredentialSourceRevokeCompletion `json:"result,omitempty"`
+}
 type CredentialSourceState string
 
 const (
@@ -11246,6 +11262,7 @@ var Operations = []OperationDescriptor{
 	{"credential_source_delete", "credential_source.delete", "lamp credential-source delete", "delete", "/v1/credential-sources/{credential_source_id}", "CredentialSourceDeleteInput", "CredentialSourceDeleteResult", "authenticated_scope", true},
 	{"credential_source_get", "credential_source.get", "lamp credential-source get", "get", "/v1/credential-sources/{credential_source_id}", "CredentialSourceGetInput", "CredentialSourceGetResult", "authenticated_scope", false},
 	{"credential_source_list", "credential_source.list", "lamp credential-source list", "get", "/v1/credential-sources", "CredentialSourceListInput", "CredentialSourceListResult", "authenticated_scope", false},
+	{"credential_source_revoke", "credential_source.revoke", "lamp credential-source revoke", "post", "/v1/credential-sources/{credential_source_id}:revoke", "CredentialSourceRevokeInput", "CredentialSourceRevokeResult", "authenticated_scope", true},
 	{"credential_source_update", "credential_source.update", "lamp credential-source update", "patch", "/v1/credential-sources/{credential_source_id}", "CredentialSourceUpdateInput", "CredentialSourceUpdateResult", "authenticated_scope", true},
 	{"docs_read", "docs.read", "lamp docs read", "get", "/v1/docs", "DocsReadInput", "DocsReadResult", "authenticated_scope", false},
 	{"engine_get", "engine.get", "lamp engine get", "get", "/v1/engines/{engine_id}", "EngineGetInput", "EngineGetResult", "authenticated_scope", false},
