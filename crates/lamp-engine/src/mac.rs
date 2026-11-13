@@ -2941,3 +2941,35 @@ pub fn new_generic_machine_identifier(worker: &Path) -> Result<String> {
 pub fn object(path: &Path) -> Result<Object> {
     fsutil::digest_file(path)
 }
+
+impl Engine {
+    pub fn mount_storage(
+        &self,
+        auth: Authority<'_>,
+        socket: &str,
+        path: &str,
+        read_only: bool,
+        unmount: bool,
+        caller_uid: u32,
+    ) -> Result<Outcome> {
+        let arc = self.sandbox(auth.sandbox_id)?;
+        let sb = arc.lock().unwrap();
+        Self::check(&sb, auth)?;
+        let vsock = Self::worker(&sb)?.vsock.clone();
+        drop(sb);
+        crate::storage::mount(
+            &vsock,
+            auth.sandbox_id,
+            auth.generation,
+            socket,
+            path,
+            read_only,
+            unmount,
+            caller_uid,
+        )?;
+        Ok(Outcome {
+            state: if unmount { "unmounted" } else { "mounted" }.into(),
+            ..Default::default()
+        })
+    }
+}

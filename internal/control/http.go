@@ -273,6 +273,30 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, requestID, "INVALID_ARGUMENT", "resources.vcpus: exceeds 4294967295; reduce the CPU request", nil)
 			return
 		}
+		// Check template shape and host maxima before accepting a create.
+		if s.worker.config.Socket != "" {
+			ref := value(in.TemplateId)
+			s.mu.Lock()
+			if t := s.life.Templates[ref]; t != nil {
+				ref = t.Capture
+			}
+			s.mu.Unlock()
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			raw, _ := json.Marshal(in.Resources)
+			request := s.workerRequest(ctx, "resources", "sb_catalog", 1)
+			request.Command = &pb.Request_Template{Template: &pb.Template{Action: "check", Reference: ref, Definition: string(raw)}}
+			_, checkErr := s.worker.call(ctx, request)
+			cancel()
+			if checkErr != nil {
+				code := "INVALID_ARGUMENT"
+				var we *workerFailure
+				if errors.As(checkErr, &we) {
+					code = we.code
+				}
+				writeError(w, requestID, code, checkErr.Error(), nil)
+				return
+			}
+		}
 
 		if in.EngineId != nil && *in.EngineId == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "engine_id cannot be empty", nil)
@@ -327,6 +351,9 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		sb.TemplateId = in.TemplateId
 		sb.NetworkPolicyId = in.NetworkPolicyId
+		if original, ok := r.Context().Value(templateCreateKey{}).(string); ok {
+			sb.TemplateId = &original
+		}
 		sb.EngineId = in.EngineId
 		sb.Resources = in.Resources
 		sb.Devices = in.Devices
@@ -820,6 +847,23 @@ func (s *Service) execute(id, source string) {
 	// internal dispatch fence; the next durable public transition is the worker
 	// command-start result. Readers use durableOps and never see this unsaved
 	// revision. A crash still recovers accepted work as outcome_unknown.
+	templateSource := restoreID
+	var templateArchives []string
+	if name == "sandbox_create" && sb.SnapshotId == nil {
+		if t := s.life.Templates[templateSource]; t != nil {
+			templateSource = t.Capture
+			for ref, n := value(sb.TemplateId), 0; ref != "" && n < 64; n++ {
+				current := s.life.Templates[ref]
+				if current == nil {
+					break
+				}
+				if current.Archive != "" {
+					templateArchives = append([]string{current.Archive}, templateArchives...)
+				}
+				ref = current.Base
+			}
+		}
+	}
 	running := make(chan error, 1)
 	if name == "exec_create" {
 		s.mu.Unlock()
@@ -835,6 +879,7 @@ func (s *Service) execute(id, source string) {
 		}()
 	}
 	generation := *sb.Generation
+
 	request := func(step, sandbox string, generation uint64) *pb.Request {
 		deadline, _ := ctx.Deadline()
 		return &pb.Request{Context: &pb.Context{RequestId: newID("req"), OperationId: id + "." + step, DeadlineMs: uint64(deadline.UnixMilli()), SandboxId: sandbox, Generation: generation, GrantId: s.worker.config.GrantID, PolicyRevision: 1}}
@@ -935,12 +980,24 @@ func (s *Service) execute(id, source string) {
 		err = allocate()
 		if err == nil {
 			stage("template")
-			err = restore(restoreID)
+			err = restore(templateSource)
 		}
 		if err == nil {
 			stage("command")
 			err = start([]string{"/bin/true"}, "/", nil)
 		}
+		for _, object := range templateArchives {
+			if err != nil {
+				break
+			}
+			stage("template_files")
+			var archive []byte
+			archive, err = s.readObject(object)
+			if err == nil {
+				err = s.guestExtract(ctx, sb.Id, archive, "/", false)
+			}
+		}
+
 	case "sandbox_fork":
 		capture := newID("capture")
 		r := request("capture", source, sourceGeneration)
@@ -959,6 +1016,21 @@ func (s *Service) execute(id, source string) {
 		}
 		if err == nil {
 			err = restore(capture)
+		}
+		if err == nil {
+			s.mu.Lock()
+			var mounts []map[string]any
+			for _, at := range s.life.Attachments {
+				if textField(at.R, "sandbox_id") == source && textField(at.R, "state") == "ready" {
+					mounts = append(mounts, map[string]any{"sandbox_id": sb.Id, "mount_path": textField(at.R, "mount_path")})
+				}
+			}
+			s.mu.Unlock()
+			for _, at := range mounts {
+				if err = s.unmountStorage(ctx, at); err != nil {
+					break
+				}
+			}
 		}
 		if err == nil {
 			stage("command")

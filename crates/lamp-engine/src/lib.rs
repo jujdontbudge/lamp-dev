@@ -49,3 +49,8 @@ pub mod transfer;
 pub mod engine;
 
 pub use error::{EngineError, Result};
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub mod storage;
+
+pub mod buildlog;

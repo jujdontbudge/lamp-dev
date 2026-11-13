@@ -625,9 +625,22 @@ func (s *Service) planCacheDelete(a caller, in map[string]any) (lifePlan, error)
 	if s.attached(textField(m, "id")) {
 		return lifePlan{}, reject("RESOURCE_IN_USE", "cache is attached")
 	}
-	m["state"] = "deleted"
+	m["state"] = "disabled"
 	editResource(m)
-	return lifePlan{ref: lifeRef("cache", textField(m, "id")), result: map[string]any{}}, nil
+	return lifePlan{ref: lifeRef("cache", textField(m, "id")), run: func(ctx context.Context) (map[string]any, error) {
+		if err := os.RemoveAll(filepath.Join(s.dir, "storage", textField(m, "id"))); err != nil {
+			return nil, reject("DATA_UNAVAILABLE", "cannot remove storage data")
+		}
+		return map[string]any{}, nil
+	}, finish: func(_ map[string]any, err error) error {
+		if err == nil {
+			m["state"] = "deleted"
+		} else {
+			m["state"] = "disabled"
+		}
+		editResource(m)
+		return err
+	}}, nil
 }
 
 func (s *Service) attached(resource string) bool {
@@ -690,11 +703,29 @@ func (s *Service) planVolumeDelete(a caller, in map[string]any) (lifePlan, error
 		return lifePlan{}, err
 	}
 	if s.attached(textField(m, "id")) {
+		for _, at := range s.life.Attachments {
+			if textField(at.R, "resource_id") == textField(m, "id") && (textField(at.R, "state") == "ready" || textField(at.R, "state") == "attaching") {
+				return lifePlan{}, reject("RESOURCE_IN_USE", "volume is attached to sandbox "+textField(at.R, "sandbox_id"))
+			}
+		}
 		return lifePlan{}, reject("RESOURCE_IN_USE", "volume is attached")
 	}
-	m["state"] = "deleted"
+	m["state"] = "unavailable"
 	editResource(m)
-	return lifePlan{ref: lifeRef("volume", textField(m, "id")), result: map[string]any{}}, nil
+	return lifePlan{ref: lifeRef("volume", textField(m, "id")), run: func(ctx context.Context) (map[string]any, error) {
+		if err := os.RemoveAll(filepath.Join(s.dir, "storage", textField(m, "id"))); err != nil {
+			return nil, reject("DATA_UNAVAILABLE", "cannot remove storage data")
+		}
+		return map[string]any{}, nil
+	}, finish: func(_ map[string]any, err error) error {
+		if err == nil {
+			m["state"] = "deleted"
+		} else {
+			m["state"] = "unavailable"
+		}
+		editResource(m)
+		return err
+	}}, nil
 }
 
 // mergeShared applies one writer's changes (base → mine) onto the current
@@ -762,6 +793,12 @@ func (s *Service) planAttachmentCreate(a caller, in map[string]any) (lifePlan, e
 	if !strings.HasPrefix(mount, "/") || path.Clean(mount) != mount || mount == "/" || strings.ContainsRune(mount, 0) {
 		return lifePlan{}, reject("INVALID_ARGUMENT", "mount_path must be a clean absolute guest directory")
 	}
+	for _, other := range s.life.Attachments {
+		p := textField(other.R, "mount_path")
+		if textField(other.R, "sandbox_id") == sbID && (textField(other.R, "state") == "ready" || textField(other.R, "state") == "attaching") && (p == mount || strings.HasPrefix(p, mount+"/") || strings.HasPrefix(mount, p+"/")) {
+			return lifePlan{}, reject("RESOURCE_IN_USE", "attachment overlaps "+p)
+		}
+	}
 	mode := textField(in, "mode")
 	if mode == "" {
 		mode = "read_only"
@@ -812,13 +849,18 @@ func (s *Service) planAttachmentCreate(a caller, in map[string]any) (lifePlan, e
 	}
 	return lifePlan{ref: lifeRef("attachment", atID), timeout: 10 * time.Minute,
 		run: func(ctx context.Context) (map[string]any, error) {
-			if err := s.materializeTree(ctx, sbID, t, mount); err != nil {
+			if err := s.mountStorage(ctx, m, uintField(res, "quota_bytes")); err != nil {
 				return nil, err
 			}
-			if mode == "read_only" {
-				// Read-only within the guest's own permissions; writes are
-				// never collected from a read-only attachment.
-				s.guestRun(ctx, sbID, "chmod", "-R", "a-w", mount)
+			if len(t) > 0 {
+				// Migrate the existing tree only when the backing directory
+				// has not received writes through another attachment.
+				entries, _ := os.ReadDir(filepath.Join(s.dir, "storage", resID))
+				if len(entries) == 0 {
+					if err := s.materializeTree(ctx, sbID, t, mount); err != nil {
+						return nil, err
+					}
+				}
 			}
 			return map[string]any{"attachment_id": atID}, nil
 		},
@@ -863,7 +905,6 @@ func (s *Service) planAttachmentDelete(a caller, in map[string]any) (lifePlan, e
 		return lifePlan{}, reject("NOT_FOUND", "attachment not found")
 	}
 	atID := textField(m, "id")
-	at := s.life.Attachments[atID]
 	kind, resID, sbID := textField(m, "resource_kind"), textField(m, "resource_id"), textField(m, "sandbox_id")
 	var res map[string]any
 	if kind == "volume" {
@@ -880,10 +921,21 @@ func (s *Service) planAttachmentDelete(a caller, in map[string]any) (lifePlan, e
 	}
 	writeBack := writable
 	if !writeBack {
-		m["state"] = "detached"
-		editResource(m)
-		s.detachFrom(res, atID)
-		return lifePlan{ref: lifeRef("attachment", atID), result: map[string]any{}}, nil
+		return lifePlan{ref: lifeRef("attachment", atID), run: func(ctx context.Context) (map[string]any, error) {
+			if sb.State == "ready" {
+				if err := s.unmountStorage(ctx, m); err != nil {
+					return nil, err
+				}
+			}
+			return map[string]any{}, nil
+		}, finish: func(_ map[string]any, err error) error {
+			if err == nil {
+				m["state"] = "detached"
+				editResource(m)
+				s.detachFrom(res, atID)
+			}
+			return err
+		}}, nil
 	}
 	if s.busy[sbID] {
 		return lifePlan{}, reject("RESOURCE_IN_USE", "sandbox is busy")
@@ -900,6 +952,9 @@ func (s *Service) planAttachmentDelete(a caller, in map[string]any) (lifePlan, e
 			}
 			t, err := s.collectTree(ctx, sbID, mount, quota)
 			collected = t
+			if err == nil {
+				err = s.unmountStorage(ctx, m)
+			}
 			return map[string]any{}, err
 		},
 		finish: func(_ map[string]any, err error) error {
@@ -908,15 +963,7 @@ func (s *Service) planAttachmentDelete(a caller, in map[string]any) (lifePlan, e
 			}
 			v := s.life.Volumes[resID]
 			next := collected
-			if textField(res, "mode") == "shared_files" {
-				var conflicts []string
-				next, conflicts = mergeShared(v.History[at.Base], v.Tree, collected)
-				if len(conflicts) > 0 {
-					// The attachment stays attached and nothing is
-					// overwritten; the writer resolves and detaches again.
-					return reject("RESOURCE_IN_USE", "changed on both sides since attach: "+strings.Join(conflicts, ","))
-				}
-			}
+
 			if treeBytes(next) > int64(quota) {
 				return reject("NO_CAPACITY", "volume quota exceeded")
 			}
@@ -954,10 +1001,12 @@ func (s *Service) writableAttachments(sbID string) map[string]uint64 {
 // attached: deleting would drop its files. Detach first to write them back.
 func (s *Service) deleteKeepsWrites(w http.ResponseWriter, requestID, sbID string) bool {
 	s.mu.Lock()
-	open := s.writableAttachments(sbID)
+	owner := s.journal.Sandboxes[sbID].OwnerId
 	s.mu.Unlock()
-	for id := range open {
-		writeError(w, requestID, "RESOURCE_IN_USE", "read-write volume attachment "+id+" is still attached; detach it first so its files are written back", nil)
+	ctx, cancel := context.WithTimeout(s.context(), 2*time.Minute)
+	defer cancel()
+	if !s.detachForDelete(ctx, owner, sbID) {
+		writeError(w, requestID, "RESOURCE_IN_USE", "cannot detach storage from sandbox "+sbID, nil)
 		return false
 	}
 	return true
@@ -968,7 +1017,12 @@ func (s *Service) deleteKeepsWrites(w http.ResponseWriter, requestID, sbID strin
 // any write-back did not complete; the sandbox is then kept.
 func (s *Service) detachForDelete(ctx context.Context, owner, sbID string) bool {
 	s.mu.Lock()
-	open := s.writableAttachments(sbID)
+	open := map[string]uint64{}
+	for id, at := range s.life.Attachments {
+		if textField(at.R, "sandbox_id") == sbID && textField(at.R, "state") == "ready" {
+			open[id] = uintField(at.R, "revision")
+		}
+	}
 	s.mu.Unlock()
 	for id, rev := range open {
 		in := map[string]any{"attachment_id": id, "expected_revision": jsonNumber(rev), "idempotency_key": "lamp-delete-detach:" + id + ":" + strconv.FormatUint(rev, 10)}

@@ -24,6 +24,8 @@ pub const COMMANDS: &[&str] = &[
     "rebuild",
     "session_call",
     "network_call",
+    "template",
+    "storage_mount",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

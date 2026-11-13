@@ -509,6 +509,9 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.kitsHTTP(w, r, id, op, selectors)
 		return
 	}
+	if !s.templateInventoryHTTP(w, r, id, op) {
+		return
+	}
 	if s.cleanExportRead(op.Name, selectors) {
 		// T9's clean-export templates and blobs keep their own read path.
 		s.engineHTTP(w, r)

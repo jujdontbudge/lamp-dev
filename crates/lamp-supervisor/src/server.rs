@@ -130,6 +130,8 @@ fn command_name(command: &request::Command) -> &'static str {
         request::Command::Rebuild(_) => "rebuild",
         request::Command::SessionCall(_) => "session_call",
         request::Command::NetworkCall(_) => "network_call",
+        request::Command::Template(_) => "template",
+        request::Command::StorageMount(_) => "storage_mount",
     }
 }
 
@@ -365,6 +367,15 @@ impl Server {
         };
         let began = std::time::Instant::now();
         let result = match command {
+            request::Command::Template(t) => crate::templates::dispatch(&self.engine, &t),
+            request::Command::StorageMount(m) => self.engine.mount_storage(
+                auth,
+                &m.socket_path,
+                &m.mount_path,
+                m.read_only,
+                m.unmount,
+                caller_uid,
+            ),
             request::Command::Allocate(a) => {
                 if !a.engine_id.is_empty()
                     && a.engine_id != ENGINE_NAME

@@ -1878,6 +1878,15 @@ impl Engine {
                         .and_then(|f| f.set_len(disk_bytes))
                         .ctx("grow working disk")?;
                 }
+                let status = std::process::Command::new("resize2fs")
+                    .arg(&path)
+                    .status()
+                    .ctx("grow root filesystem")?;
+                if !status.success() {
+                    return Err(EngineError::host(
+                        "resize2fs failed; root disk was not grown",
+                    ));
+                }
                 Ok(())
             })();
             if let Err(e) = grown {
@@ -3427,4 +3436,40 @@ fn sparse_copy(src: &Path, dst: &Path) -> Result<()> {
     }
     d.sync_all()?;
     Ok(())
+}
+
+impl Engine {
+    pub fn mount_storage(
+        &self,
+        auth: Authority<'_>,
+        socket: &str,
+        path: &str,
+        read_only: bool,
+        unmount: bool,
+        caller_uid: u32,
+    ) -> Result<Outcome> {
+        let arc = self.sandbox(auth.sandbox_id)?;
+        let sb = arc.lock().unwrap();
+        Self::check(&sb, auth)?;
+        let vsock = sb
+            .jail
+            .as_ref()
+            .ok_or_else(|| EngineError::in_use("no jail"))?
+            .path(fc::VSOCK);
+        drop(sb);
+        crate::storage::mount(
+            &vsock,
+            auth.sandbox_id,
+            auth.generation,
+            socket,
+            path,
+            read_only,
+            unmount,
+            caller_uid,
+        )?;
+        Ok(Outcome {
+            state: if unmount { "unmounted" } else { "mounted" }.into(),
+            ..Default::default()
+        })
+    }
 }

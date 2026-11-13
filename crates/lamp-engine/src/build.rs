@@ -256,7 +256,8 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
     let def: Definition = definition::parse(definition_text)?;
     let resources = Resources {
         memory_mib: def.memory_mib.unwrap_or(STANDARD.memory_mib),
-        ..STANDARD
+        vcpus: def.vcpus.unwrap_or(STANDARD.vcpus),
+        disk_gib: def.disk_gib.unwrap_or(STANDARD.disk_gib),
     };
     if def.arch != host_arch() {
         return Err(EngineError::new(
@@ -295,6 +296,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
         def.seed_ref
     );
 
+    crate::buildlog::write(&engine.cfg.store, definition_text, &log)?;
     // 1. Build sandbox from the seed; run steps with no network.
     let mut steps = Vec::new();
     {
@@ -364,12 +366,13 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
                 done.exit_code,
                 t.elapsed().as_millis()
             );
+            crate::buildlog::write(&engine.cfg.store, definition_text, &log)?;
             if done.exit_code != 0 || done.timed_out {
                 let failed = engine.cfg.store.join("failed");
                 let _ = std::fs::create_dir_all(&failed);
                 let _ = std::fs::write(failed.join(format!("build-{tag}.log")), &log);
                 return Err(EngineError::invalid(format!(
-                    "step {i} failed (exit {}, timed_out {}); log kept in failed/build-{tag}.log",
+                    "step {i} failed (exit {}, timed_out {}); log kept in failed/build-{tag}.log\n{log}",
                     done.exit_code, done.timed_out
                 )));
             }
@@ -394,7 +397,25 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
             .ctx("collect built root")?;
     }
     fsutil::reflink(&seed_dir.join(fc::KERNEL), &st.join(fc::KERNEL), 0o444)?;
-    seal(&st.join("root.ext4"))?;
+    let root = st.join("root.ext4");
+    let size = std::fs::metadata(&root).ctx("stat built root")?.len();
+    if size > resources.disk_gib << 30 {
+        return Err(EngineError::invalid(
+            "requested template disk is smaller than the seed",
+        ));
+    }
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&root)?
+        .set_len(resources.disk_gib << 30)?;
+    let status = std::process::Command::new("resize2fs")
+        .arg(&root)
+        .status()
+        .ctx("resize template filesystem")?;
+    if !status.success() {
+        return Err(EngineError::host("resize2fs failed for template"));
+    }
+    seal(&root)?;
     seal(&st.join(fc::KERNEL))?;
 
     // 2. Boot the built root at the standard size and capture the
@@ -413,7 +434,7 @@ pub fn build_template(engine: &Engine, definition_text: &str) -> Result<BuildRep
             v.get(),
             engine,
             &seed.kernel.cmdline,
-            STANDARD.vcpus,
+            resources.vcpus,
             resources.memory_mib,
             true,
         )?;

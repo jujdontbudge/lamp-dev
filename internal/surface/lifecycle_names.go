@@ -10,7 +10,7 @@ func init() {
 		"attachment_create", "attachment_get", "attachment_list", "attachment_delete",
 		"artifact_create", "artifact_get", "artifact_list", "artifact_finalize", "artifact_download", "artifact_delete",
 		"backup_create", "backup_get", "backup_list", "backup_restore", "backup_delete",
-		"template_get", "template_list", "template_delete",
+		"template_create", "template_build", "template_get", "template_list", "template_delete",
 		"recipe_create", "recipe_get", "recipe_list", "recipe_update", "recipe_delete",
 		"warm_pool_create", "warm_pool_get", "warm_pool_list", "warm_pool_update", "warm_pool_delete",
 		"change_set_create", "change_set_get", "change_set_list", "change_set_apply", "change_set_reject", "change_set_delete",
