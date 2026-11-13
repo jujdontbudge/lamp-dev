@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """One disposable T34 demonstration on the owner's Ubuntu laptop (no credentials logged)."""
-import shlex
+import shlex, shutil
 import base64, hashlib, http.client, json, os, secrets, socket, subprocess, sys, time, urllib.parse
 from pathlib import Path
 
@@ -31,12 +31,12 @@ class API:
         if o['mutation']:
             h['Idempotency-Key']=secrets.token_hex(8)
             if 'expected_revision' in fields: h['If-Match']=str(fields.pop('expected_revision'))
-            fields['wait_ms']=60000
+            fields['wait_ms']=1000
         elif fields: path+='?'+urllib.parse.urlencode(fields)
         out=self.raw(o['method'].upper(),path,fields if o['mutation'] else None,h)
         if o['mutation']:
             while out.get('operation',{}).get('state') not in ('succeeded','failed','outcome_unknown','canceled'):
-                op=self.raw('GET','/v1/operations/'+out['operation_id']+'/wait?timeout_ms=60000')['data']
+                op=self.raw('GET','/v1/operations/'+out['operation_id']+'/wait?timeout_ms=1000')['data']
                 out=dict(operation=op,operation_id=op['id'],resource_ids=op['resource_ids'],result=(op.get('outcome') or {}).get('result'))
             if out['operation']['state']!='succeeded': raise RuntimeError(json.dumps(out['operation'].get('error') or out))
         return out
@@ -83,16 +83,21 @@ try:
         time.sleep(.1)
     grant=json.loads(sh('sudo','-n',SUP,'grant-install','--store',STORE,'--caller-uid',str(os.getuid()),'--ttl-s','7200'))
     log('default grant lifecycle scope',dict(generation=grant['generation'],max_generation=grant.get('max_generation')))
-    sh(SRC/'bin/lamp-installer','recovery-keygen','--out',ROOT/'offline.key','--public',ROOT/'recovery.pub')
+    recovery_from=Path(os.environ['T34_RECOVERY_FROM']) if os.environ.get('T34_RECOVERY_FROM') else None
+    if recovery_from:
+        for name in ('offline.key','recovery.pub'):
+            shutil.copyfile(recovery_from/name,ROOT/name); (ROOT/name).chmod(0o600)
+    else:
+        sh(SRC/'bin/lamp-installer','recovery-keygen','--out',ROOT/'offline.key','--public',ROOT/'recovery.pub')
     admin_wrapper=ROOT/'state-admin.py'
     admin_wrapper.write_text('import pathlib,subprocess,sys\nr=subprocess.run(sys.argv[1:],capture_output=True)\nif r.returncode:\n with pathlib.Path(__file__).with_suffix(".failure").open("ab") as f: f.write(repr(sys.argv[1:]).encode()+b"\\n"+r.stdout+r.stderr)\nsys.stdout.buffer.write(r.stdout)\nsys.exit(r.returncode)\n')
-    wargs=['--worker-socket',str(ws),'--worker-id','lamp-supervisor@'+os.uname().nodename,'--worker-boot-id',Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'--worker-uid','0','--worker-pid',pidfile.read_text().strip(),'--grant-id',grant['grant_id'],'--worker-timeout','60s','--state-admin',json.dumps([sys.executable,str(admin_wrapper),'sudo','-n',SUP,'state','--admin-socket',str(admin)])]
+    wargs=['--worker-socket',str(ws),'--worker-id','lamp-supervisor@'+os.uname().nodename,'--worker-boot-id',Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'--worker-uid','0','--worker-pid',pidfile.read_text().strip(),'--grant-id',grant['grant_id'],'--worker-timeout','60s','--audit-release',json.dumps(['sudo','-n','/usr/bin/python3',str(SRC/'tools/guard-audit-release.py'),STORE+'/audit']),'--state-admin',json.dumps([sys.executable,str(admin_wrapper),'sudo','-n',SUP,'state','--admin-socket',str(admin)])]
     def start(prefix,recovery=False):
         global daemon,api
         sock=ROOT/(prefix+'.sock')
         if sock.exists(): sock.unlink()
         args=[str(SRC/'bin/lampd')]+wargs+['--identity-file',str(ident),'--state-dir',str(ROOT/prefix),'--socket',str(sock),'--recovery-public-key',str(ROOT/'recovery.pub')]
-        if recovery: args+=['--recovery-key-file',str(ROOT/'offline.key'),'--recovery-import-dir',str(ROOT/'state/backups')]
+        if recovery: args+=['--recovery-key-file',str(ROOT/'offline.key'),'--recovery-import-dir',str((recovery_from or ROOT)/'state/backups')]
         daemon=subprocess.Popen(args,stdout=logfile,stderr=logfile)
         until=time.monotonic()+30
         while not sock.exists():
@@ -102,68 +107,82 @@ try:
     def stop():
         global daemon
         if daemon and daemon.poll() is None: daemon.terminate(); daemon.wait(timeout=60)
-    start('state')
     limits=dict(vcpus=2,memory_mib=1024,disk_gib=20,pids_max=4096)
-    sb=api.create(template_id=tpl,resources=limits,lifecycle=dict(idle_grace_seconds=10,suspended_retention_seconds=600))
-    program='import time,os\ni=0\nopen("/tmp/counter.pid","w").write(str(os.getpid()))\nwhile True:\n i+=1; f=open("/tmp/counter-next","w"); f.write(str(i)); f.close(); os.replace("/tmp/counter-next","/tmp/counter"); time.sleep(.1)'
-    counter='setsid python3 -u -c '+shlex.quote(program)+' >/dev/null 2>&1 </dev/null &'
-    api.run(sb,counter+'\nuntil test -s /tmp/counter; do sleep 0.1; done'); before=api.advancing(sb); log('counter before suspend',before)
-    api.change(sb,'suspend'); assert api.get('sandbox',sb)['state']=='suspended'
-    stop(); start('state'); capacity(); api.change(sb,'resume'); log('resume after daemon restart',dict(state=api.get('sandbox',sb)['state'],counter=api.advancing(sb)))
-    # Background process must prevent idle suspension, despite no mediated execs.
-    until=time.monotonic()+25
-    while True:
-        state=api.get('sandbox',sb); eligibility=state.get('suspend_eligibility',{})
-        if 'task_process' in eligibility.get('reasons',[]): break
-        if time.monotonic()>until: raise RuntimeError('busy process not observed')
-        time.sleep(.5)
-    log('busy eligibility',dict(state=state['state'],eligibility=eligibility)); assert state['state']=='ready'
-    snap=api.op('snapshot_create',sandbox_id=sb)['resource_ids'][0]['id']; api.change(sb,'delete')
-    log('snapshot outlives source',api.op('snapshot_list')['items'])
-    restored=api.create(snapshot_id=snap); log('snapshot memory restored',api.advancing(restored))
-    api.op('snapshot_delete',snapshot_id=snap,expected_revision=api.get('snapshot',snap)['revision'])
-    assert all(s['id']!=snap for s in api.op('snapshot_list')['items']); log('snapshot explicitly deleted',snap)
-    vol=api.op('volume_create',name='t34-public-data',mode='shared_files',quota_bytes=1048576)['resource_ids'][0]['id']
-    at=api.op('attachment_create',sandbox_id=restored,resource_kind='volume',resource_id=vol,mount_path='/tmp/t34-volume',mode='read_write')['resource_ids'][0]['id']
-    api.run(restored,'echo volume-survives > /tmp/t34-volume/proof.txt')
-    api.op('attachment_delete',attachment_id=at,expected_revision=api.get('attachment',at)['revision'])
-    volume_backup=api.op('backup_create',resource_kind='volume',resource_id=vol)['resource_ids'][0]['id']
-    log('encrypted volume backup',dict(volume=vol,backup=volume_backup))
-    if not os.environ.get('T34_SKIP_FORK'):
-        # Fork during writes; delete child promptly before starting anything else.
-        api.run(restored,"setsid sh -c 'dd if=/dev/zero of=/var/tmp/t34-write bs=1M count=400; sync' >/dev/null 2>&1 </dev/null &")
-        capacity(); child=api.change(restored,'fork',fork_mode='memory')['resource_ids'][0]['id']; owned.append((api,child)); api.change(child,'delete')
-        log('source usable after writing fork',dict(state=api.get('sandbox',restored)['state'],counter=api.run(restored,'cat /tmp/counter')))
-    else: log('fork omitted','shared slot occupied; see previous real fork transcript')
-    api.change(restored,'suspend'); capacity(); log('automatic exec wake',api.advancing(restored))
-    api.change(restored,'suspend'); backup=api.op('backup_create',resource_kind='sandbox',resource_id=restored)['resource_ids'][0]['id']; log('encrypted sandbox backup',api.get('backup',backup))
-    # Stop the counter, establish an idle countdown, then restart mid-countdown.
-    capacity(); api.run(restored,'kill $(cat /tmp/counter.pid)');
-    api.change(restored,'update',lifecycle=dict(idle_grace_seconds=15,suspended_retention_seconds=20))
-    until=time.monotonic()+20
-    while True:
-        idle=api.get('sandbox',restored)['idle_countdown']
-        if 'fires_at' in idle: break
-        if time.monotonic()>until: raise RuntimeError('idle countdown not observed')
-        time.sleep(.25)
-    stop(); start('state'); after=api.get('sandbox',restored)['idle_countdown']; log('countdown survives restart',dict(before=idle,after=after)); assert idle['fires_at']==after['fires_at']
-    until=time.monotonic()+45
-    while api.get('sandbox',restored)['state']!='suspended':
-        if time.monotonic()>until: raise RuntimeError('idle suspension did not run')
-        time.sleep(.5)
-    log('idle suspended',api.get('sandbox',restored))
-    until=time.monotonic()+40
-    while api.get('sandbox',restored)['state']!='deleted':
-        if time.monotonic()>until: raise RuntimeError('retention deletion did not run')
-        time.sleep(.5)
-    log('suspended retention expired',api.get('sandbox',restored)['state'])
-    stop(); start('recovered',True); log('offline recovery imported',api.op('backup_list')['items'])
+    if recovery_from:
+        prior=[json.loads(line) for line in (recovery_from/'transcript.jsonl').read_text().splitlines()]
+        backup=next(row['data']['id'] for row in prior if row['step']=='encrypted sandbox backup')
+        volume_backup=next(row['data']['backup'] for row in prior if row['step']=='encrypted volume backup')
+    else:
+        start('state')
+        limits=dict(vcpus=2,memory_mib=1024,disk_gib=20,pids_max=4096)
+        sb=api.create(template_id=tpl,resources=limits,lifecycle=dict(idle_grace_seconds=10,suspended_retention_seconds=600))
+        program='import time,os\ni=0\nopen("/tmp/counter.pid","w").write(str(os.getpid()))\nwhile True:\n i+=1; f=open("/tmp/counter-next","w"); f.write(str(i)); f.close(); os.replace("/tmp/counter-next","/tmp/counter"); time.sleep(.1)'
+        counter='setsid python3 -u -c '+shlex.quote(program)+' >/dev/null 2>&1 </dev/null &'
+        api.run(sb,counter+'\nuntil test -s /tmp/counter; do sleep 0.1; done'); before=api.advancing(sb); log('counter before suspend',before)
+        api.change(sb,'suspend'); assert api.get('sandbox',sb)['state']=='suspended'
+        stop(); start('state'); capacity(); api.change(sb,'resume'); log('resume after daemon restart',dict(state=api.get('sandbox',sb)['state'],counter=api.advancing(sb)))
+        # Background process must prevent idle suspension, despite no mediated execs.
+        until=time.monotonic()+25
+        while True:
+            state=api.get('sandbox',sb); eligibility=state.get('suspend_eligibility',{})
+            if 'task_process' in eligibility.get('reasons',[]): break
+            if time.monotonic()>until: raise RuntimeError('busy process not observed')
+            time.sleep(.5)
+        log('busy eligibility',dict(state=state['state'],eligibility=eligibility)); assert state['state']=='ready'
+        snap=api.op('snapshot_create',sandbox_id=sb)['resource_ids'][0]['id']; api.change(sb,'delete')
+        log('snapshot outlives source',api.op('snapshot_list')['items'])
+        restored=api.create(snapshot_id=snap); log('snapshot memory restored',api.advancing(restored))
+        api.op('snapshot_delete',snapshot_id=snap,expected_revision=api.get('snapshot',snap)['revision'])
+        assert all(s['id']!=snap for s in api.op('snapshot_list')['items']); log('snapshot explicitly deleted',snap)
+        vol=api.op('volume_create',name='t34-public-data',mode='shared_files',quota_bytes=1048576)['resource_ids'][0]['id']
+        at=api.op('attachment_create',sandbox_id=restored,resource_kind='volume',resource_id=vol,mount_path='/tmp/t34-volume',mode='read_write')['resource_ids'][0]['id']
+        api.run(restored,'echo volume-survives > /tmp/t34-volume/proof.txt')
+        api.op('attachment_delete',attachment_id=at,expected_revision=api.get('attachment',at)['revision'])
+        volume_backup=api.op('backup_create',resource_kind='volume',resource_id=vol)['resource_ids'][0]['id']
+        log('encrypted volume backup',dict(volume=vol,backup=volume_backup))
+        if not os.environ.get('T34_SKIP_FORK'):
+            # Fork during writes; delete child promptly before starting anything else.
+            api.run(restored,"setsid sh -c 'dd if=/dev/zero of=/var/tmp/t34-write bs=1M count=400; sync' >/dev/null 2>&1 </dev/null &")
+            capacity(); child=api.change(restored,'fork',fork_mode='memory')['resource_ids'][0]['id']; owned.append((api,child)); api.change(child,'delete')
+            log('source usable after writing fork',dict(state=api.get('sandbox',restored)['state'],counter=api.run(restored,'cat /tmp/counter')))
+        else: log('fork omitted','shared slot occupied; see previous real fork transcript')
+        api.change(restored,'suspend'); capacity(); log('automatic exec wake',api.advancing(restored))
+        api.change(restored,'suspend'); backup=api.op('backup_create',resource_kind='sandbox',resource_id=restored)['resource_ids'][0]['id']; log('encrypted sandbox backup',api.get('backup',backup))
+        api.change(restored,'delete')
+
+        stop()
+    start('recovered',True); log('offline recovery imported',api.op('backup_list')['items'])
     recovered=api.op('backup_restore',backup_id=backup,expected_revision=1)['resource_ids'][-1]['id']; owned.append((api,recovered)); capacity(); api.change(recovered,'resume')
     log('fresh prefix recovered memory',dict(sandbox=recovered,counter=api.advancing(recovered)))
+    stop(); start('recovered')
+    until=time.monotonic()+30
+    while api.get('sandbox',recovered)['state']!='ready':
+        if time.monotonic()>until: raise RuntimeError('recovered sandbox did not reconcile after restart')
+        time.sleep(.25)
+    log('recovered sandbox survives restart',api.advancing(recovered))
     recovered_volume=api.op('backup_restore',backup_id=volume_backup,expected_revision=1)['resource_ids'][-1]['id']
     api.op('attachment_create',sandbox_id=recovered,resource_kind='volume',resource_id=recovered_volume,mount_path='/tmp/t34-recovered-volume',mode='read_only')
     content=api.run(recovered,'cat /tmp/t34-recovered-volume/proof.txt'); assert content=='volume-survives'; log('fresh prefix recovered volume file',content)
     api.change(recovered,'delete')
+    # A separate idle guest lets the recovered counter keep its own process namespace.
+    idle_sb=api.create(template_id=tpl,resources=limits,lifecycle=dict(idle_grace_seconds=15,suspended_retention_seconds=20))
+    until=time.monotonic()+20
+    while True:
+        idle=api.get('sandbox',idle_sb)['idle_countdown']
+        if 'fires_at' in idle: break
+        if time.monotonic()>until: raise RuntimeError('idle countdown not observed')
+        time.sleep(.25)
+    stop(); start('recovered'); after=api.get('sandbox',idle_sb)['idle_countdown']; log('countdown survives restart',dict(before=idle,after=after)); assert idle['fires_at']==after['fires_at']
+    until=time.monotonic()+45
+    while api.get('sandbox',idle_sb)['state']!='suspended':
+        if time.monotonic()>until: raise RuntimeError('idle suspension did not run')
+        time.sleep(.5)
+    log('idle suspended',api.get('sandbox',idle_sb))
+    until=time.monotonic()+40
+    while api.get('sandbox',idle_sb)['state']!='deleted':
+        if time.monotonic()>until: raise RuntimeError('retention deletion did not run')
+        time.sleep(.5)
+    log('suspended retention expired',api.get('sandbox',idle_sb)['state'])
     try: api.op('budget_create',deadline_at='1999-01-01T00:00:00Z')
     except RuntimeError as e: assert 'INVALID_ARGUMENT' in str(e); log('past budget deadline refused','INVALID_ARGUMENT')
     else: raise AssertionError('past deadline admitted')
@@ -190,7 +209,12 @@ finally:
             try:
                 if api.get('sandbox',sb)['state']!='deleted': api.change(sb,'delete')
             except Exception as e: log('cleanup requires attention',dict(sandbox=sb,error=str(e)))
-    if daemon and daemon.poll() is None: daemon.terminate(); daemon.wait(timeout=60)
+    if daemon and daemon.poll() is None:
+        daemon.terminate()
+        try: daemon.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            log('cleanup forced daemon stop','own disposable daemon did not exit in 60 seconds')
+            daemon.kill(); daemon.wait()
     if worker and worker.poll() is None:
         sh('sudo','-n','kill','-TERM',(ROOT/'worker.pid').read_text().strip()); worker.wait(timeout=120)
     log('live firecracker after cleanup',subprocess.run(['pgrep','-c','firecracker'],capture_output=True,text=True).stdout.strip())

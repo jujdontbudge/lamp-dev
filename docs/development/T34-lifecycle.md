@@ -51,7 +51,8 @@ Suspend the sandbox, then use `lamp backup create --resource-kind sandbox
 --resource-id sb_...`. The host-enrolled `lampd --state-admin '[...]'` command
 must reach the supervisor's root-only state administration. It exports signed
 memory, VM state and disk into an owner-private directory, then encrypts the
-complete bundle in the existing `.lbk` archive format. Volume backups remain
+complete bundle in the existing `.lbk` archive format. Disk extraction preserves
+zero runs as sparse holes; the engine verifies its signed digest before import. Volume backups remain
 separate resources and contain their last committed files.
 
 Configure `lampd --recovery-public-key /private/recovery.pub` before creating

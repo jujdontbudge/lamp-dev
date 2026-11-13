@@ -657,7 +657,14 @@ func (s *Service) restoreEngine(ctx context.Context, data []byte) (string, error
 		if err != nil {
 			return "", err
 		}
-		_, err = io.Copy(f, tr)
+		var destination io.Writer = f
+		if h.Name == "disk" {
+			destination = sparseBackupDisk{file: f, ctx: ctx}
+		}
+		_, err = io.Copy(destination, tr)
+		if err == nil {
+			err = f.Truncate(h.Size)
+		}
 		f.Close()
 		if err != nil {
 			return "", err
@@ -682,4 +689,24 @@ func (s *Service) restoreEngine(ctx context.Context, data []byte) (string, error
 		return "", reject("DATA_UNAVAILABLE", "import omitted capture_id")
 	}
 	return capture, nil
+}
+
+// Restored VM disks contain large zero runs. Keep those as holes instead of
+// flooding the journal filesystem with the disk's full logical capacity.
+type sparseBackupDisk struct {
+	file *os.File
+	ctx  context.Context
+}
+
+func (w sparseBackupDisk) Write(p []byte) (int, error) {
+	if err := w.ctx.Err(); err != nil {
+		return 0, err
+	}
+	if bytes.Count(p, []byte{0}) == len(p) {
+		if _, err := w.file.Seek(int64(len(p)), io.SeekCurrent); err != nil {
+			return 0, err
+		}
+		return len(p), nil
+	}
+	return w.file.Write(p)
 }
