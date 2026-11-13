@@ -31,6 +31,7 @@ fn staging_sandbox(engine: &Engine, tag: &str, resources: Resources, guest_os: &
         guest_os: guest_os.into(),
         identity: None,
         worker: None,
+        pending_network: None,
         machine: None,
         source: String::new(),
         captures: Vec::new(),
@@ -226,6 +227,7 @@ impl Engine {
                 }],
                 dir: sb.dir.clone(),
                 nat_network: false,
+                ethernet_fd: None,
                 read_paths: vec![],
                 write_paths: vec![],
                 write_dirs: vec![],
@@ -234,7 +236,7 @@ impl Engine {
             fsutil::chmod(&staging, 0o755)?;
             let mut detail = BTreeMap::new();
             let t = Instant::now();
-            self.spawn(&mut sb, spec, None, &mut detail)?;
+            self.spawn(&mut sb, spec, None, false, &mut detail)?;
             self.finish_start(&mut sb, false, &mut detail)?;
             log.push_str(&format!(
                 "booted in {} ms: {detail:?}\n",
@@ -380,13 +382,14 @@ impl Engine {
                 }],
                 dir: sb.dir.clone(),
                 nat_network: false,
+                ethernet_fd: None,
                 read_paths: vec![],
                 write_paths: vec![],
                 write_dirs: vec![],
             };
             let mut detail = BTreeMap::new();
             let t = Instant::now();
-            self.spawn(&mut sb, spec, None, &mut detail)?;
+            self.spawn(&mut sb, spec, None, false, &mut detail)?;
             self.finish_start(&mut sb, false, &mut detail)?;
             log.push_str(&format!(
                 "booted to the guest helper in {} ms\n",

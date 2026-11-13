@@ -513,15 +513,9 @@ impl Server {
             request::Command::Inspect(i) => self
                 .engine
                 .inspect(&ctx.sandbox_id, &i.command_operation_id),
-            #[cfg(target_os = "linux")]
             request::Command::NetworkCall(call) => {
                 self.engine.network_call(auth, call.request_json)
             }
-            #[cfg(target_os = "macos")]
-            request::Command::NetworkCall(_) => Err(EngineError::new(
-                "ENGINE_UNQUALIFIED",
-                "this engine has no managed data NIC",
-            )),
             request::Command::SessionCall(call) if call.bridge_source == "lamp-exec-io/1" => {
                 self.engine.exec_io(auth, call.request_json)
             }
@@ -639,6 +633,11 @@ impl Server {
                 .insert(format!("template.{}", t.id), t.manifest.name.clone());
         }
         o.detail.insert("engine".into(), ENGINE_NAME.into());
+        #[cfg(target_os = "linux")]
+        o.detail
+            .insert("request_devices".into(), "[\"disk\"]".into());
+        #[cfg(target_os = "macos")]
+        o.detail.insert("request_devices".into(), "[]".into());
         // The Lamp release this supervisor binary was built for.
         o.detail.insert(
             "supervisor_release".into(),

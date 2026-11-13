@@ -1,0 +1,200 @@
+[
+  {
+    "step": "confined managed helper ready",
+    "report": {
+      "state": "ready"
+    }
+  },
+  {
+    "step": "network control",
+    "request": {
+      "operation": "policy_update",
+      "expected_revision": 1,
+      "revision": 2,
+      "policy_layers": [
+        {
+          "filter_mode": "transport",
+          "default_egress": "deny",
+          "allow": [],
+          "deny": []
+        }
+      ]
+    },
+    "response": {
+      "data": null,
+      "state": "applied"
+    }
+  },
+  {
+    "step": "guest ready",
+    "report": {
+      "result": "barrier_ack",
+      "sandbox_id": "sb_t35_mac_managed",
+      "generation": 1,
+      "machine_id": "b384c6e7c51840088fb32f69fe287d98",
+      "hostname": "t35-managed",
+      "rng_sample_hex": "608a04094232db44120b989263ff3cf7",
+      "kernel_boot_id": "52d79a45-93cf-4528-b468-043358b5d877"
+    }
+  },
+  {
+    "step": "guest command",
+    "command": "mkdir -p /opt/t35-preview; printf 'T35 preview on M5\\n' > /opt/t35-preview/index.html; cd /opt/t35-preview; nohup python3 -m http.server 8080 --bind 0.0.0.0 >/tmp/t35-preview.log 2>&1 &",
+    "result": {
+      "result": "exec_done",
+      "exit_code": 0,
+      "signal": 0,
+      "truncated": false,
+      "timed_out": false,
+      "started_unix_ns": 1794538154683204458,
+      "finished_unix_ns": 1794538154727259916,
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  {
+    "step": "network control",
+    "request": {
+      "operation": "publish_port",
+      "port": 8080,
+      "public": true
+    },
+    "response": {
+      "data": {
+        "id": "po_a6ae509f4e10d1f736bd81a23eeccee5",
+        "subject": {
+          "sandbox_id": "sb_t35_mac_managed",
+          "generation": 1
+        },
+        "port": 8080,
+        "origin": "http://p-a6ae509f4e10d1f736bd81a23eeccee5.localhost:59556"
+      },
+      "state": "applied"
+    }
+  },
+  {
+    "step": "preview request",
+    "url": "http://p-a6ae509f4e10d1f736bd81a23eeccee5.localhost:59556",
+    "status": 200,
+    "body": "T35 preview on M5\n"
+  },
+  {
+    "step": "guest command",
+    "command": "curl --noproxy \"*\" -fsSI --max-time 8 https://example.com",
+    "result": {
+      "result": "exec_done",
+      "exit_code": 6,
+      "signal": 0,
+      "truncated": false,
+      "timed_out": false,
+      "started_unix_ns": 1794538155080243916,
+      "finished_unix_ns": 1794538155176544250,
+      "stdout": "",
+      "stderr": "curl: (6) Could not resolve host: example.com\n"
+    }
+  },
+  {
+    "step": "network control",
+    "request": {
+      "operation": "policy_update",
+      "expected_revision": 2,
+      "revision": 3,
+      "policy_layers": [
+        {
+          "filter_mode": "transport",
+          "default_egress": "deny",
+          "allow": [
+            {
+              "host_pattern": "example.com",
+              "protocol": "tcp",
+              "ports": [
+                443
+              ]
+            }
+          ],
+          "deny": []
+        }
+      ]
+    },
+    "response": {
+      "data": null,
+      "state": "applied"
+    }
+  },
+  {
+    "step": "guest command",
+    "command": "curl --noproxy \"*\" -fsSI --max-time 15 https://example.com",
+    "result": {
+      "result": "exec_done",
+      "exit_code": 0,
+      "signal": 0,
+      "truncated": false,
+      "timed_out": false,
+      "started_unix_ns": 1794538155181217375,
+      "finished_unix_ns": 1794538155293262208,
+      "stdout": "HTTP/2 200 \r\ndate: Fri, 13 Nov 2026 02:49:15 GMT\r\ncontent-type: text/html; charset=utf-8\r\nserver: cloudflare\r\nlast-modified: Thu, 12 Nov 2026 21:56:22 GMT\r\nallow: GET, HEAD\r\naccept-ranges: bytes\r\nage: 7\r\ncf-cache-status: HIT\r\ncf-ray: a59a764eacdeeb66-ORD\r\nalt-svc: h3=\":443\"; ma=86400\r\n\r\n",
+      "stderr": ""
+    }
+  },
+  {
+    "step": "network control",
+    "request": {
+      "operation": "policy_update",
+      "expected_revision": 3,
+      "revision": 4,
+      "policy_layers": [
+        {
+          "filter_mode": "transport",
+          "default_egress": "deny",
+          "allow": [],
+          "deny": []
+        }
+      ]
+    },
+    "response": {
+      "data": null,
+      "state": "applied"
+    }
+  },
+  {
+    "step": "guest command",
+    "command": "curl --noproxy \"*\" -fsSI --max-time 8 https://example.com",
+    "result": {
+      "result": "exec_done",
+      "exit_code": 6,
+      "signal": 0,
+      "truncated": false,
+      "timed_out": false,
+      "started_unix_ns": 1794538155298331041,
+      "finished_unix_ns": 1794538155360352750,
+      "stdout": "",
+      "stderr": "curl: (6) Could not resolve host: example.com\n"
+    }
+  },
+  {
+    "step": "preview request",
+    "url": "http://p-a6ae509f4e10d1f736bd81a23eeccee5.localhost:59556",
+    "status": 200,
+    "body": "T35 preview on M5\n"
+  },
+  {
+    "step": "network control",
+    "request": {
+      "operation": "unpublish_port",
+      "port_id": "po_a6ae509f4e10d1f736bd81a23eeccee5"
+    },
+    "response": {
+      "data": null,
+      "state": "applied"
+    }
+  },
+  {
+    "step": "complete",
+    "scope": "M5 confined Linux VZ worker and managed helper; no privileged supervisor/API",
+    "policy_revisions": [
+      2,
+      3,
+      4
+    ]
+  }
+]

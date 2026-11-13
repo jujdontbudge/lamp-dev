@@ -350,6 +350,10 @@ impl Jail {
     /// Starts the jailed Firecracker and waits for its API socket.
     pub fn spawn(&mut self, bins: &Binaries, limits: Limits) -> Result<()> {
         let log = std::fs::File::create(self.dir.join("vmm.log")).ctx("create vmm log")?;
+        // Reclaim/throttle host page cache before it consumes the hard VMM
+        // allowance. Guest RAM plus buffered disk I/O must not race the OOM
+        // killer at memory.max during an ordinary large disk write.
+        let memory_high = (limits.memory_mib + 256) << 20;
         let memory_max = (limits.memory_mib + 1024) << 20;
         let cpu_max = format!("cpu.max={} 100000", (u64::from(limits.vcpus) + 1) * 100_000);
         let status = Command::new(&bins.jailer)
@@ -365,6 +369,7 @@ impl Jail {
             .arg("--chroot-base-dir")
             .arg(self.dir.parent().and_then(Path::parent).unwrap())
             .args(["--cgroup-version", "2", "--parent-cgroup", CGROUP_PARENT])
+            .args(["--cgroup", &format!("memory.high={memory_high}")])
             .args(["--cgroup", &format!("memory.max={memory_max}")])
             .args([
                 "--cgroup",

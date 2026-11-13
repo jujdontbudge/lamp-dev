@@ -1,0 +1,82 @@
+[
+  {
+    "step": "created",
+    "result": "sb_1a9f5541f9d03426ba0185505a6b89f0"
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "set -eu; echo persisted >/opt/t35-marker; apt-get update -qq; apt-get install -y -qq jq; jq --version; if ln /usr/sbin/lamp-guard /opt/guard-link; then echo trusted-inode-exposed; exit 1; else echo trusted-inode-protected; fi",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "Selecting previously unselected package libonig5:amd64.\r\n(Reading database ... \r(Reading database ... 5%\r(Reading database ... 10%\r(Reading database ... 15%\r(Reading database ... 20%\r(Reading database ... 25%\r(Reading database ... 30%\r(Reading database ... 35%\r(Reading database ... 40%\r(Reading database ... 45%\r(Reading database ... 50%\r(Reading database ... 55%\r(Reading database ... 60%\r(Reading database ... 65%\r(Reading database ... 70%\r(Reading database ... 75%\r(Reading database ... 80%\r(Reading database ... 85%\r(Reading database ... 90%\r(Reading database ... 95%\r(Reading database ... 100%\r(Reading database ... 49233 files and directories currently installed.)\r\nPreparing to unpack .../libonig5_6.9.10-1build1_amd64.deb ...\r\nUnpacking libonig5:amd64 (6.9.10-1build1) ...\r\nSelecting previously unselected package libjq1:amd64.\r\nPreparing to unpack .../libjq1_1.8.1-4ubuntu2_amd64.deb ...\r\nUnpacking libjq1:amd64 (1.8.1-4ubuntu2) ...\r\nSelecting previously unselected package jq.\r\nPreparing to unpack .../jq_1.8.1-4ubuntu2_amd64.deb ...\r\nUnpacking jq (1.8.1-4ubuntu2) ...\r\nSetting up libonig5:amd64 (6.9.10-1build1) ...\r\nSetting up libjq1:amd64 (1.8.1-4ubuntu2) ...\r\nSetting up jq (1.8.1-4ubuntu2) ...\r\nProcessing triggers for libc-bin (2.43-2ubuntu2.7) ...\r\njq-1.8.1\ntrusted-inode-protected\ndebconf: unable to initialize frontend: Dialog\ndebconf: (TERM is not set, so the dialog frontend is not usable.)\ndebconf: falling back to frontend: Readline\ndebconf: unable to initialize frontend: Readline\ndebconf: (This frontend requires a controlling tty.)\ndebconf: falling back to frontend: Teletype\ndebconf: unable to initialize frontend: Teletype\ndebconf: (This frontend requires a controlling tty.)\ndebconf: falling back to frontend: Noninteractive\nln: failed to create hard link '/usr/sbin/lamp-guard' => '/opt/guard-link': Invalid cross-device link\n"
+    }
+  },
+  {
+    "step": "forked",
+    "result": "sb_b5c88df60b3a2c73e9d663562fefb796"
+  },
+  {
+    "step": "exec",
+    "result": {
+      "command": "set -eu; cat /opt/t35-marker; jq --version; curl -fsSI --max-time 15 https://example.com",
+      "state": "exited",
+      "exit_code": 0,
+      "output": "persisted\njq-1.8.1\nHTTP/2 200 \r\ndate: Fri, 13 Nov 2026 02:29:15 GMT\r\ncontent-type: text/html; charset=utf-8\r\nserver: cloudflare\r\nlast-modified: Thu, 12 Nov 2026 21:56:22 GMT\r\nallow: GET, HEAD\r\naccept-ranges: bytes\r\nage: 6\r\ncf-cache-status: HIT\r\ncf-ray: a59a5903b9aaeae7-ORD\r\nalt-svc: h3=\":443\"; ma=86400\r\n\r\n"
+    }
+  },
+  {
+    "step": "vmm_death",
+    "result": {
+      "state": "failed",
+      "labels": {
+        "lamp.failure": "VMM exited"
+      }
+    }
+  },
+  {
+    "step": "failure_events",
+    "result": [
+      {
+        "kind": "event",
+        "event_id": "hs_local-1-387",
+        "host_id": "hs_local",
+        "host_epoch": 1,
+        "sequence": 387,
+        "resource_kind": "sandbox",
+        "resource_id": "sb_b5c88df60b3a2c73e9d663562fefb796",
+        "resource_revision": 4,
+        "type": "sandbox.state_changed",
+        "data": {
+          "reason": "VMM exited",
+          "state": "failed"
+        },
+        "occurred_at": "2026-11-13T02:29:20.22268786Z"
+      },
+      {
+        "kind": "event",
+        "event_id": "hs_local-1-389",
+        "host_id": "hs_local",
+        "host_epoch": 1,
+        "sequence": 389,
+        "resource_kind": "sandbox",
+        "resource_id": "sb_b5c88df60b3a2c73e9d663562fefb796",
+        "resource_revision": 5,
+        "type": "sandbox.state_changed",
+        "data": {
+          "reason": "VMM exited",
+          "state": "failed"
+        },
+        "occurred_at": "2026-11-13T02:29:20.666164473Z"
+      }
+    ]
+  },
+  {
+    "step": "deleted",
+    "result": "sb_b5c88df60b3a2c73e9d663562fefb796"
+  },
+  {
+    "step": "deleted",
+    "result": "sb_1a9f5541f9d03426ba0185505a6b89f0"
+  }
+]

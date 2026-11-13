@@ -49,13 +49,14 @@ use std::time::{Duration, Instant};
 
 #[path = "mac_build.rs"]
 pub mod build;
+#[path = "mac_network.rs"]
+mod network;
 
 pub const ENGINE_NAME: &str = "vz-macos26";
 pub const STATE_ABI: &str = "vz/saved-machine-state";
-pub const DEVICE_GRAPH_LINUX: &str =
-    "vz-generic:virtio-blk:vda,virtio-vsock,virtio-console:hvc0,virtio-entropy";
+pub const DEVICE_GRAPH_LINUX: &str = "vz-generic:virtio-blk:vda,virtio-vsock,virtio-console:hvc0,virtio-entropy,virtio-net:guarded-v1";
 pub const DEVICE_GRAPH_MACOS: &str =
-    "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy";
+    "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy,virtio-net:guarded-v1";
 const LEGACY_DEVICE_GRAPH_MACOS: &str = "vz-mac:virtio-blk:disk0,virtio-vsock,virtio-console,virtio-entropy,mac-graphics:1024x768,mac-keyboard,mac-trackpad";
 /// The certified Linux-on-Mac row (fits both lanes, including the 8 GB AIR
 /// with a source and a fork running at once).
@@ -282,11 +283,12 @@ struct Worker {
     child: Child,
     api: PathBuf,
     vsock: PathBuf,
+    network: Option<network::Attachment>,
 }
 
 impl Worker {
     fn alive(&mut self) -> bool {
-        matches!(self.child.try_wait(), Ok(None))
+        matches!(self.child.try_wait(), Ok(None)) && self.network.as_mut().is_none_or(|n| n.alive())
     }
 
     fn call(&self, req: &Api, timeout: Duration) -> Result<ApiReply> {
@@ -310,17 +312,20 @@ impl Worker {
     }
 
     fn kill(&mut self) {
-        if self.alive() {
+        // Network health is part of readiness, but teardown must still reap
+        // a live VMM when its helper has already failed.
+        if matches!(self.child.try_wait(), Ok(None)) {
             let _ = self.call(&Api::Exit {}, Duration::from_secs(10));
         }
         let deadline = Instant::now() + Duration::from_secs(10);
-        while self.alive() && Instant::now() < deadline {
+        while matches!(self.child.try_wait(), Ok(None)) && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(20));
         }
-        if self.alive() {
+        if matches!(self.child.try_wait(), Ok(None)) {
             let _ = self.child.kill();
         }
         let _ = self.child.wait();
+        self.network.take();
     }
 
     fn liveness(&self) -> impl Fn() -> bool + Send + 'static {
@@ -340,6 +345,7 @@ pub struct Sandbox {
     pub dir: PathBuf,
     pub identity: Option<Identity>,
     worker: Option<Worker>,
+    pending_network: Option<network::Attachment>,
     pub machine: Option<WorkerSpec>,
     pub source: String,
     pub captures: Vec<String>,
@@ -647,6 +653,7 @@ impl Engine {
                 "captures",
                 "sb",
                 "staging",
+                "network",
                 "grants",
                 "keys",
             ] {
@@ -660,6 +667,7 @@ impl Engine {
             fsutil::chmod(&cfg.store, 0o755)?;
             fsutil::chmod(&cfg.store.join("sb"), 0o711)?;
             fsutil::chmod(&cfg.store.join("staging"), 0o711)?;
+            fsutil::chmod(&cfg.store.join("network"), 0o711)?;
             fsutil::chmod(&cfg.store.join("templates"), 0o755)?;
             if let Some(ram) = &cfg.ram_dir {
                 std::fs::create_dir_all(ram).ctx("create RAM capture dir")?;
@@ -870,6 +878,7 @@ impl Engine {
             dir: dir.to_path_buf(),
             identity: None,
             worker: None,
+            pending_network: None,
             machine: Some(spec),
             source: meta["source"].as_str().unwrap_or("").into(),
             captures: Vec::new(),
@@ -1259,6 +1268,7 @@ impl Engine {
                 dir: self.cfg.store.join("sb").join(auth.sandbox_id),
                 identity: None,
                 worker: None,
+                pending_network: None,
                 machine: None,
                 source: String::new(),
                 captures: Vec::new(),
@@ -1386,6 +1396,7 @@ impl Engine {
                 if let Some(mut w) = sb.worker.take() {
                     w.kill();
                 }
+                sb.pending_network.take();
                 if let Some(id) = sb.identity.take() {
                     self.free_identity(&id);
                 }
@@ -1407,8 +1418,56 @@ impl Engine {
         }
     }
 
+    /// The same generation-bound control channel used by Linux. An initial
+    /// policy can be applied to the private NIC before any guest is booted.
+    pub fn network_call(&self, auth: Authority<'_>, request: Vec<u8>) -> Result<Outcome> {
+        let sandbox = self.sandbox(auth.sandbox_id)?;
+        let mut sb = sandbox.lock().unwrap();
+        Self::check(&sb, auth)?;
+        let data = match sb.state {
+            State::Allocated => {
+                if sb.pending_network.is_none() {
+                    let identity = match &sb.identity {
+                        Some(identity) => identity.clone(),
+                        None => self.alloc_identity()?,
+                    };
+                    sb.identity = Some(identity.clone());
+                    sb.pending_network = Some(network::Attachment::start(
+                        &self.cfg.worker,
+                        &self.cfg.store.join("network"),
+                        &sb.id,
+                        sb.generation,
+                        identity.uid,
+                        identity.gid,
+                        true,
+                    )?);
+                }
+                sb.pending_network.as_mut().unwrap().call(&request)?
+            }
+            State::Running => sb
+                .worker
+                .as_mut()
+                .and_then(|worker| worker.network.as_mut())
+                .ok_or_else(|| EngineError::in_use("sandbox has no active network generation"))?
+                .call(&request)?,
+            _ => {
+                return Err(EngineError::in_use(
+                    "sandbox has no active network generation",
+                ));
+            }
+        };
+        Ok(Outcome {
+            state: "network_reply".into(),
+            detail: BTreeMap::from([("response_json".into(), data.to_string())]),
+            ..Default::default()
+        })
+    }
+
     fn new_dir(&self, sb: &mut Sandbox) -> Result<Identity> {
-        let identity = self.alloc_identity()?;
+        let identity = match &sb.identity {
+            Some(identity) => identity.clone(),
+            None => self.alloc_identity()?,
+        };
         let _ = std::fs::remove_dir_all(&sb.dir);
         std::fs::create_dir(&sb.dir).ctx("create sandbox dir")?;
         fsutil::chmod(&sb.dir, 0o700)?;
@@ -1427,6 +1486,7 @@ impl Engine {
         sb: &mut Sandbox,
         mut spec: WorkerSpec,
         restore: Option<&Path>,
+        allow_egress: bool,
         detail: &mut BTreeMap<String, String>,
     ) -> Result<()> {
         let identity = sb
@@ -1443,6 +1503,19 @@ impl Engine {
             fsutil::chown(&ram, identity.uid, identity.gid)?;
             spec.write_dirs.push(ram);
         }
+        let network = match sb.pending_network.take() {
+            Some(network) => network,
+            None => network::Attachment::start(
+                &self.cfg.worker,
+                &self.cfg.store.join("network"),
+                &sb.id,
+                sb.generation,
+                identity.uid,
+                identity.gid,
+                allow_egress,
+            )?,
+        };
+        spec.ethernet_fd = Some(3);
         std::fs::write(
             sb.dir.join("spec.json"),
             serde_json::to_vec_pretty(&spec).unwrap(),
@@ -1474,10 +1547,14 @@ impl Engine {
                     .map(Stdio::from)
                     .unwrap_or(Stdio::null()),
             );
+        use std::os::fd::AsRawFd;
+        let ethernet = network.ethernet.as_raw_fd();
         // SAFETY: only async-signal-safe calls between fork and exec.
         unsafe {
             cmd.pre_exec(move || {
-                if libc::setgroups(0, std::ptr::null()) != 0
+                if libc::dup2(ethernet, 3) < 0
+                    || libc::fcntl(3, libc::F_SETFD, 0) < 0
+                    || libc::setgroups(0, std::ptr::null()) != 0
                     || libc::setgid(gid) != 0
                     || libc::setuid(uid) != 0
                 {
@@ -1527,6 +1604,7 @@ impl Engine {
             child,
             api: sb.dir.join("api.sock"),
             vsock: sb.dir.join("vsock.sock"),
+            network: Some(network),
         });
         sb.machine = Some(spec);
         Ok(())
@@ -1631,6 +1709,7 @@ impl Engine {
                 }],
                 dir: sb.dir.clone(),
                 nat_network: false,
+                ethernet_fd: None,
                 read_paths: vec![],
                 write_paths: vec![],
                 write_dirs: vec![],
@@ -1660,6 +1739,7 @@ impl Engine {
                     }],
                     dir: sb.dir.clone(),
                     nat_network: false,
+                    ethernet_fd: None,
                     read_paths: vec![],
                     write_paths: vec![],
                     write_dirs: vec![],
@@ -1682,7 +1762,7 @@ impl Engine {
             serde_json::to_string(&spec.devices).unwrap(),
         );
         spec.read_paths.extend(state.clone());
-        self.spawn(sb, spec, state.as_deref(), &mut detail)?;
+        self.spawn(sb, spec, state.as_deref(), true, &mut detail)?;
         detail.insert(
             "create_mode".into(),
             match (&state, locked) {
@@ -1783,7 +1863,7 @@ impl Engine {
         if let (Some(s), Some(id)) = (&state, &sb.identity) {
             fsutil::chown(s, id.uid, id.gid)?;
         }
-        self.spawn(sb, spec, state.as_deref(), &mut detail)?;
+        self.spawn(sb, spec, state.as_deref(), true, &mut detail)?;
         detail.insert(
             "fork_mode".into(),
             if c.preserves_memory {
@@ -1847,6 +1927,7 @@ impl Engine {
         let state = sb.dir.join(SUSPEND_FILE);
         spec.read_paths = vec![state.clone()];
         if let Err(e) = pin_suspended_disks(&sb.dir) {
+            sb.pending_network.take();
             if let Some(id) = sb.identity.take() {
                 self.free_identity(&id);
             }
@@ -1857,7 +1938,7 @@ impl Engine {
         sb.policy_revision = auth.policy_revision;
         detail.insert("prepare_us".into(), us(t0.elapsed()));
         let r = self
-            .spawn(sb, spec, Some(&state), &mut detail)
+            .spawn(sb, spec, Some(&state), true, &mut detail)
             .and_then(|_| self.finish_start(sb, true, &mut detail));
         match r {
             Ok(()) => {
@@ -1890,11 +1971,13 @@ impl Engine {
                 if let Err(u) = unpin_suspended_disks(&sb.dir) {
                     sb.state =
                         State::Failed(format!("suspended disks not restored: {}", u.message));
+                    sb.pending_network.take();
                     if let Some(id) = sb.identity.take() {
                         self.free_identity(&id);
                     }
                     return Err(e.context("resume").context(&u.message));
                 }
+                sb.pending_network.take();
                 if let Some(id) = sb.identity.take() {
                     self.free_identity(&id);
                 }
@@ -2635,6 +2718,7 @@ impl Engine {
         if let Some(mut w) = sb.worker.take() {
             w.kill();
         }
+        sb.pending_network.take();
         if let Some(id) = sb.identity.take() {
             self.free_identity(&id);
         }
@@ -2678,6 +2762,7 @@ impl Engine {
         if let Some(mut w) = sb.worker.take() {
             w.kill();
         }
+        sb.pending_network.take();
         if let Some(id) = sb.identity.take() {
             self.free_identity(&id);
         }
@@ -2699,6 +2784,7 @@ impl Engine {
             if let Some(mut w) = sb.worker.take() {
                 w.kill();
             }
+            sb.pending_network.take();
             if let Some(id) = sb.identity.take() {
                 self.free_identity(&id);
             }
@@ -2787,6 +2873,7 @@ impl Engine {
                 w.kill();
                 n += 1;
             }
+            sb.pending_network.take();
         }
         n
     }

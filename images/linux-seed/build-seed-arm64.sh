@@ -21,7 +21,7 @@ KERNEL_SHA256=490a7aedf1b355c565d3a6c05333ccccb5da82064eca46b590448a7099d7d651
 KCONFIG_URL=https://raw.githubusercontent.com/firecracker-microvm/firecracker/v1.17.0/resources/guest_configs/microvm-kernel-ci-aarch64-6.18.config
 SUITE=resolute
 MIRROR=${LAMP_SEED_MIRROR:-http://ports.ubuntu.com/ubuntu-ports}
-PACKAGES=python3,git,ca-certificates,procps,iproute2,coreutils,gcc,libc6-dev
+PACKAGES=python3,python3-pip,python3-venv,git,curl,wget,ca-certificates,nodejs,npm,openssh-client,openssh-server,sudo,procps,iproute2,coreutils,gcc,libc6-dev
 DISK_GIB=${LAMP_SEED_DISK_GIB:-20}
 export TMPDIR=$WORK/tmp
 
@@ -52,21 +52,28 @@ fi
 BIN="${CARGO_TARGET_DIR:-$ROOT/target}/aarch64-unknown-linux-musl/release"
 
 # 3. Ubuntu root; mmdebstrap verifies the archive signatures.
-if [ ! -s "root-$SUITE-arm64.tar" ]; then
-  sudo -n rm -f "root-$SUITE-arm64.tar.partial"
+if [ ! -s "root-$SUITE-arm64-usable-v1.tar" ]; then
+  sudo -n rm -f "root-$SUITE-arm64-usable-v1.tar.partial"
   sudo -n env TMPDIR="$TMPDIR" mmdebstrap --variant=minbase --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg \
-    --include="$PACKAGES" --aptopt='Acquire::Retries "5"' --format=tar "$SUITE" "root-$SUITE-arm64.tar.partial" \
+    --include="$PACKAGES" --aptopt='Acquire::Retries "5"' --format=tar "$SUITE" "root-$SUITE-arm64-usable-v1.tar.partial" \
     "deb $MIRROR $SUITE main universe" "deb $MIRROR $SUITE-updates main universe" "deb $MIRROR $SUITE-security main universe"
-  sudo -n mv "root-$SUITE-arm64.tar.partial" "root-$SUITE-arm64.tar"
+  sudo -n mv "root-$SUITE-arm64-usable-v1.tar.partial" "root-$SUITE-arm64-usable-v1.tar"
 fi
 sudo -n rm -rf rootdir && mkdir rootdir
-sudo -n tar -C rootdir -xf "root-$SUITE-arm64.tar"
+sudo -n tar -C rootdir -xf "root-$SUITE-arm64-usable-v1.tar"
 sudo -n install -m 0755 "$BIN/lamp-init" rootdir/sbin/lamp-init
 sudo -n install -m 0755 "$BIN/lamp-guest-helper" rootdir/sbin/lamp-guest-helper
 sudo -n install -m 0755 "$BIN/lamp-guard" rootdir/sbin/lamp-guard
 sudo -n chmod 1777 rootdir/var/tmp
 echo lamp | sudo -n tee rootdir/etc/hostname >/dev/null
 printf '127.0.0.1 localhost lamp\n::1 localhost\n' | sudo -n tee rootdir/etc/hosts >/dev/null
+# Never ship mmdebstrap's copied host resolver, search domains or SSH identity.
+sudo -n rm -f rootdir/etc/resolv.conf rootdir/etc/ssh/ssh_host_* rootdir/etc/apt/apt.conf.d/99mmdebstrap
+printf 'nameserver 198.18.240.1\noptions timeout:2 attempts:2\n' | sudo -n tee rootdir/etc/resolv.conf >/dev/null
+# Keep ordinary pip installs away from the distribution's managed Python.
+sudo -n chroot rootdir python3 -m venv --system-site-packages /opt/venv
+sudo -n ln -sf /opt/venv/bin/pip rootdir/usr/local/bin/pip
+sudo -n ln -sf /opt/venv/bin/pip3 rootdir/usr/local/bin/pip3
 sudo -n rm -f rootdir/etc/machine-id && sudo -n touch rootdir/etc/machine-id
 sudo -n chroot rootdir dpkg-query -W -f '${Package} ${Version}\n' >packages.txt
 
@@ -99,7 +106,7 @@ seed = {
     "page_size": 4096,
     "kernel": {**obj(os.path.join(out, "Image")), "format": "arm64 Image", "source": f"linux-{kver}.tar.xz",
                "source_sha256": ksha, "config_sha256": sha(os.path.join(out, "kernel.config")),
-               "cmdline": "console=hvc0 root=/dev/vda rw init=/sbin/lamp-init quiet"},
+               "cmdline": "console=hvc0 root=/dev/vda rw init=/usr/sbin/lamp-init quiet"},
     "rootfs": {**obj(os.path.join(out, "rootfs.ext4")), "filesystem": "ext4", "distribution": "ubuntu resolute arm64"},
     "init": {"lamp-init": sha(init), "lamp-guest-helper": sha(helper), "lamp-guard": sha(guard)},
     "packages": obj(os.path.join(out, "packages.txt")),

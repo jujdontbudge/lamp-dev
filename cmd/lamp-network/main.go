@@ -110,7 +110,7 @@ func run() error {
 	defer audit.Close()
 	var frames *os.File
 	if os.Args[1] == "bridge" {
-		if c.Bridge == nil || c.Bridge.Transport.Subject != c.Subject || c.Bridge.GuardUID < 65536 {
+		if c.Bridge == nil || c.Bridge.Transport.Subject != c.Subject {
 			return network.ErrDenied
 		}
 		if c.Bridge.FrameFD != 0 {

@@ -396,6 +396,7 @@ impl Attachment {
                 &format!(
                     "ip link set lo up\n\
                  ip tuntap add dev {TAP} mode tap user {u} group {u}\n\
+                 ip link set {TAP} address 06:00:c6:12:f0:01\n\
                  ip addr add {GATEWAY_CIDR} dev {TAP}\n\
                  ip link set {TAP} up\n\
                  echo 1 > /proc/sys/net/ipv4/ip_forward\n\

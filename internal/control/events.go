@@ -91,7 +91,11 @@ func (s *Service) addEvents(delta *journal) {
 		}
 		sequence := s.journal.EventSequence + uint64(len(delta.Events)) + 1
 		eventID := fmt.Sprintf("%s-1-%d", s.hostID(), sequence)
-		raw, _ := json.Marshal(map[string]string{"state": r.state})
+		data := map[string]string{"state": r.state}
+		if r.kind == "sandbox" && r.state == "failed" {
+			data["reason"] = delta.Sandboxes[r.id].Labels["lamp.failure"]
+		}
+		raw, _ := json.Marshal(data)
 		typ := r.kind + ".state_changed"
 		if r.kind == "operation" && terminal(api.OperationState(r.state)) {
 			typ = "operation.completed"

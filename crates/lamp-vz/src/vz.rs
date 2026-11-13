@@ -78,6 +78,7 @@ pub struct LinuxSpec {
     pub machine_identifier: Option<Vec<u8>>,
     /// A data NIC is attached only when networking is requested.
     pub nat_network: bool,
+    pub ethernet_fd: Option<i32>,
     pub devices: crate::spec::Devices,
 }
 
@@ -92,6 +93,7 @@ pub struct MacSpec {
     pub disks: Vec<Disk>,
     pub console_log: Option<PathBuf>,
     pub nat_network: bool,
+    pub ethernet_fd: Option<i32>,
     /// Headless display size; the framework still models a graphics device.
     pub display: (isize, isize),
     pub devices: crate::spec::Devices,
@@ -143,6 +145,7 @@ fn common(
     disks: &[Disk],
     log: Option<&Path>,
     nat: bool,
+    ethernet_fd: Option<i32>,
 ) -> VzResult<()> {
     // SAFETY: setters on a configuration this thread owns.
     unsafe {
@@ -156,6 +159,30 @@ fn common(
         cfg.setEntropyDevices(&NSArray::from_retained_slice(&[entropy]));
         if let Some(log) = log {
             cfg.setSerialPorts(&NSArray::from_retained_slice(&[console(log)?]));
+        }
+        if nat && ethernet_fd.is_some() {
+            return Err("guarded Ethernet and NAT are mutually exclusive".into());
+        }
+        if let Some(fd) = ethernet_fd {
+            let handle = objc2_foundation::NSFileHandle::initWithFileDescriptor_closeOnDealloc(
+                objc2_foundation::NSFileHandle::alloc(),
+                fd,
+                true,
+            );
+            let att = VZFileHandleNetworkDeviceAttachment::initWithFileHandle(
+                VZFileHandleNetworkDeviceAttachment::alloc(),
+                &handle,
+            );
+            let net = VZVirtioNetworkDeviceConfiguration::new();
+            // Stable MAC across capture/restore; identity comes from the assigned FD.
+            let mac = VZMACAddress::initWithString(
+                VZMACAddress::alloc(),
+                &NSString::from_str("02:4c:41:4d:50:01"),
+            )
+            .ok_or("invalid guest MAC")?;
+            net.setMACAddress(&mac);
+            net.setAttachment(Some(&att));
+            cfg.setNetworkDevices(&NSArray::from_retained_slice(&[Retained::into_super(net)]));
         }
         if nat {
             let net = VZVirtioNetworkDeviceConfiguration::new();
@@ -210,6 +237,7 @@ pub fn linux_config(spec: &LinuxSpec) -> VzResult<Retained<VZVirtualMachineConfi
             &spec.disks,
             spec.console_log.as_deref(),
             spec.nat_network,
+            spec.ethernet_fd,
         )?;
         if let Some(d) = &spec.devices.display {
             let gfx = VZVirtioGraphicsDeviceConfiguration::new();
@@ -295,6 +323,7 @@ pub fn mac_config(spec: &MacSpec) -> VzResult<Retained<VZVirtualMachineConfigura
             &spec.disks,
             spec.console_log.as_deref(),
             spec.nat_network,
+            spec.ethernet_fd,
         )?;
         if spec.devices != crate::spec::Devices::default() {
             cfg.validateWithError().map_err(|e| describe(&e))?;

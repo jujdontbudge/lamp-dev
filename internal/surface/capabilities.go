@@ -28,7 +28,7 @@ func init() {
 		"key_create", "key_get", "key_list", "key_rotate", "key_delete",
 		"approval_create", "approval_get", "approval_list", "approval_approve", "approval_deny", "approval_revoke",
 		"connection_invoke",
-		"harness_get", "harness_list",
+		"harness_get", "harness_list", "engine_get", "engine_list",
 		"session_create", "session_get", "session_list", "session_update", "session_delete",
 		"session_watch", "session_attach", "session_input", "session_resize", "session_end",
 		"session_spawn", "session_teleport", "session_checkpoint",

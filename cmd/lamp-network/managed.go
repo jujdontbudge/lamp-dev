@@ -117,7 +117,15 @@ func managed(path string) error {
 	}
 	c.Policy.HostAddresses = append(c.Policy.HostAddresses, addresses...)
 	c.Policy.LANPrefixes = append(c.Policy.LANPrefixes, prefixes...)
-	frames, err := network.OpenPrivateTAP(c.Bridge.Namespace, c.Bridge.Interface)
+	var frames *os.File
+	if c.Bridge.FrameFD != 0 {
+		if c.Bridge.Namespace != "" || c.Bridge.Interface != "" || c.Bridge.FrameFD == plan.ControlFD {
+			return network.ErrDenied
+		}
+		frames, err = network.AdoptEthernetFD(c.Bridge.FrameFD)
+	} else {
+		frames, err = network.OpenPrivateTAP(c.Bridge.Namespace, c.Bridge.Interface)
+	}
 	if err != nil {
 		return fmt.Errorf("private TAP: %w", err)
 	}

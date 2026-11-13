@@ -197,6 +197,7 @@ fn install(args: &mut Vec<String>, flag: impl Fn(&mut Vec<String>, &str) -> Opti
         }],
         dir: dir.clone(),
         nat_network: false,
+        ethernet_fd: None,
         read_paths: vec![],
         write_paths: vec![],
         write_dirs: vec![],
