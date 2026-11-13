@@ -813,14 +813,14 @@ func (s *Service) refillPools(ctx context.Context) {
 			res = &api.Resources{}
 			assign(rc.R["resources"].(map[string]any), res)
 		}
-		source, fixed, err := s.engineSource(textField(p.R, "owner_id"), textField(rc.R, "template_id"))
+		_, fixed, err := s.engineSource(textField(p.R, "owner_id"), textField(rc.R, "template_id"))
 		if err != nil {
 			continue
 		}
 		if fixed != nil {
 			res = fixed
 		}
-		fills = append(fills, fill{pool: id, owner: textField(p.R, "owner_id"), template: source, resources: res, n: len(p.Entries)})
+		fills = append(fills, fill{pool: id, owner: textField(p.R, "owner_id"), template: textField(rc.R, "template_id"), resources: res, n: len(p.Entries)})
 	}
 	s.mu.Unlock()
 	for _, f := range fills {

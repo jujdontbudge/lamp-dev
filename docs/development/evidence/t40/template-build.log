@@ -1,0 +1,21 @@
+capacity available; starting one public template build
+template build exit 0
+validating definition; preparing confined build VMdefinition: t40-tools (1 steps), seed lamp-seed/ubuntu-26.04@sha256:f9980827307a0acfdec620fcce4ee8912be51d3870d359d57358d7fee566f333
+build sandbox booted in 125 ms
+step 0 ["python3", "-c", "import pathlib,site,shutil; d=pathlib.Path('/opt/tools'); d.mkdir(exist_ok=True); shutil.copy('/opt/src/six.py',d/'six.py'); shutil.copy('/opt/src/six.py',pathlib.Path(site.getsitepackages()[0])/'six.py'); import six; print('installed public six',six.__version__)"]: exit 0 in 56 ms
+installed public six 1.17.0
+
+
+definition: t40-tools (1 steps), seed lamp-seed/ubuntu-26.04@sha256:f9980827307a0acfdec620fcce4ee8912be51d3870d359d57358d7fee566f333
+
+build sandbox booted in 187 ms
+step 0 ["python3", "-c", "import pathlib,site,shutil; d=pathlib.Path('/opt/tools'); d.mkdir(exist_ok=True); shutil.copy('/opt/src/six.py',d/'six.py'); shutil.copy('/opt/src/six.py',pathlib.Path(site.getsitepackages()[0])/'six.py'); import six; print('installed public six',six.__version__)"]: exit 0 in 54 ms
+installed public six 1.17.0
+
+template VM booted in 187 ms
+full capture written in 7249 ms
+memory image: 958 MiB of zero pages left as holes
+published tp_42736e322660f095381c2397a6 as t40-tools in 36220 ms
+
+{"data":{"created_at":"2026-11-13T02:18:05.213753718Z","default_resources":{"disk_gib":20,"memory_mib":1024,"pids_max":4096,"vcpus":2},"definition_blob_id":"bl_bf3e1d9bf7d7a238e817a1ab6eef1180","fleet_id":"fl_local","id":"tp_a17df353b891c98cfb2c3664df7d7f83","kind":"template","labels":{"build_log":"definition: t40-tools (1 steps), seed lamp-seed/ubuntu-26.04@sha256:f9980827307a0acfdec620fcce4ee8912be51d3870d359d57358d7fee566f333\nbuild sandbox booted in 187 ms\nstep 0 [\"python3\", \"-c\", \"import pathlib,site,shutil; d=pathlib.Path('/opt/tools'); d.mkdir(exist_ok=True); shutil.copy('/opt/src/six.py',d/'six.py'); shutil.copy('/opt/src/six.py',pathlib.Path(site.getsitepackages()[0])/'six.py'); import six; print('installed public six',six.__version__)\"]: exit 0 in 54 ms\ninstalled public six 1.17.0\n\ntemplate VM booted in 187 ms\nfull capture written in 7249 ms\nmemory image: 958 MiB of zero pages left as holes\npublished tp_42736e322660f095381c2397a6 as t40-tools in 36220 ms\n","engine_template_id":"tp_42736e322660f095381c2397a6"},"minimum_resources":{"disk_gib":20,"memory_mib":1024,"pids_max":4096,"vcpus":2},"name":"/home/johan/.local/state/lamp-t40/tools.lamp","owner_id":"pr_local","revision":3,"state":"ready","updated_at":"2026-11-13T02:18:41.449507841Z","visibility":"private"},"request_id":"req_9a588299cec299f874c2aa4864d03468"}
+

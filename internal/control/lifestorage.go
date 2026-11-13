@@ -849,18 +849,11 @@ func (s *Service) planAttachmentCreate(a caller, in map[string]any) (lifePlan, e
 	}
 	return lifePlan{ref: lifeRef("attachment", atID), timeout: 10 * time.Minute,
 		run: func(ctx context.Context) (map[string]any, error) {
-			if err := s.mountStorage(ctx, m, uintField(res, "quota_bytes")); err != nil {
+			if err := s.populateStorage(resID, t, uintField(res, "quota_bytes")); err != nil {
 				return nil, err
 			}
-			if len(t) > 0 {
-				// Migrate the existing tree only when the backing directory
-				// has not received writes through another attachment.
-				entries, _ := os.ReadDir(filepath.Join(s.dir, "storage", resID))
-				if len(entries) == 0 {
-					if err := s.materializeTree(ctx, sbID, t, mount); err != nil {
-						return nil, err
-					}
-				}
+			if err := s.mountStorage(ctx, m, uintField(res, "quota_bytes")); err != nil {
+				return nil, err
 			}
 			return map[string]any{"attachment_id": atID}, nil
 		},

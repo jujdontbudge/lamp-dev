@@ -1,0 +1,9 @@
+=== RUN   TestT40RenamedDirectoryRemainsUsable
+    t40_review_test.go:54: 9P request 72 failed: Linux errno 2
+--- FAIL: TestT40RenamedDirectoryRemainsUsable (0.01s)
+=== RUN   TestT40InterruptedTemplateBuildCanRetryAfterRestart
+    t40_review_test.go:105: interrupted template build must be recoverable after restart: template is already building or ready
+--- FAIL: TestT40InterruptedTemplateBuildCanRetryAfterRestart (0.20s)
+FAIL
+FAIL	lamp.eilmer.si/internal/control	1.717s
+FAIL

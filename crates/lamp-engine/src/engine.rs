@@ -1878,15 +1878,7 @@ impl Engine {
                         .and_then(|f| f.set_len(disk_bytes))
                         .ctx("grow working disk")?;
                 }
-                let status = std::process::Command::new("resize2fs")
-                    .arg(&path)
-                    .status()
-                    .ctx("grow root filesystem")?;
-                if !status.success() {
-                    return Err(EngineError::host(
-                        "resize2fs failed; root disk was not grown",
-                    ));
-                }
+                crate::build::resize_ext4(&path)?;
                 Ok(())
             })();
             if let Err(e) = grown {

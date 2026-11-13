@@ -1,0 +1,1 @@
+{"error":{"code":"INVALID_ARGUMENT","message":"Dockerfile/OCI definitions are unsupported; Docker is only available as a kit","retryable":false},"request_id":"cli"}

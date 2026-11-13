@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -35,11 +36,19 @@ func templateFile(ctx context.Context, c *surface.Client, file string, stdout, s
 			return nil, err
 		}
 		if status >= 400 {
-			return nil, fmt.Errorf("%s", data)
+			return nil, templateResponseError(data)
 		}
 		return out, nil
 	}
-	fail := func(err error) int { cliError(stderr, "TEMPLATE_BUILD_FAILED", err.Error(), asJSON); return 1 }
+	fail := func(err error) int {
+		code := "TEMPLATE_BUILD_FAILED"
+		var apiErr *templateAPIError
+		if errors.As(err, &apiErr) {
+			code = apiErr.code
+		}
+		cliError(stderr, code, err.Error(), asJSON)
+		return 1
+	}
 	hash := sha256.Sum256(raw)
 	digest := hex.EncodeToString(hash[:])
 	created, err := call("blob_create", map[string]any{"size_bytes": len(raw), "sha256": digest})
@@ -48,7 +57,7 @@ func templateFile(ctx context.Context, c *surface.Client, file string, stdout, s
 	}
 	refs := created["resource_ids"].([]any)
 	blob := refs[0].(map[string]any)["id"].(string)
-	if _, err = call("blob_upload", map[string]any{"blob_id": blob, "expected_revision": 1, "offset_bytes": 0, "data_base64": base64.StdEncoding.EncodeToString(raw)}); err != nil {
+	if _, err = call("blob_upload", map[string]any{"blob_id": blob, "expected_revision": 1, "offset_bytes": 0, "chunk_sha256": digest, "data_base64": base64.StdEncoding.EncodeToString(raw)}); err != nil {
 		return fail(err)
 	}
 	if _, err = call("blob_finalize", map[string]any{"blob_id": blob, "expected_revision": 2, "size_bytes": len(raw), "sha256": digest}); err != nil {
@@ -65,7 +74,7 @@ func templateFile(ctx context.Context, c *surface.Client, file string, stdout, s
 		return fail(err)
 	}
 	if status >= 400 {
-		return fail(fmt.Errorf("%s", data))
+		return fail(templateResponseError(data))
 	}
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -100,4 +109,20 @@ func templateFile(ctx context.Context, c *surface.Client, file string, stdout, s
 		case <-ticker.C:
 		}
 	}
+}
+
+type templateAPIError struct{ code, message string }
+
+func (e *templateAPIError) Error() string { return e.message }
+func templateResponseError(data []byte) error {
+	var envelope struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(data, &envelope) == nil && envelope.Error.Code != "" {
+		return &templateAPIError{envelope.Error.Code, envelope.Error.Message}
+	}
+	return fmt.Errorf("%s", data)
 }

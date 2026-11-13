@@ -9,7 +9,8 @@ import (
 	pb "lamp.eilmer.si/pkg/workerpb"
 )
 
-// reconcileSandbox performs only Inspect. It may restore readiness only for an
+// reconcileSandbox inspects the original command and reconnects storage.
+// It may restore readiness only for an
 // originally successful create/fork, with the same generation and independently
 // witnessed original command. Missing proof leaves the resource unavailable.
 func (s *Service) reconcileSandbox(id, operationID string) {
@@ -34,6 +35,9 @@ func (s *Service) reconcileSandbox(id, operationID string) {
 	deadline, _ := ctx.Deadline()
 	receipt, err := s.worker.call(ctx, &pb.Request{Context: &pb.Context{RequestId: newID("req"), OperationId: newID("op"), DeadlineMs: uint64(deadline.UnixMilli()), SandboxId: id, Generation: generation, GrantId: s.worker.config.GrantID, PolicyRevision: 1}, Command: &pb.Request_Inspect{Inspect: &pb.Inspect{CommandOperationId: operationID + ".start"}}})
 	if err != nil || receipt.Command == nil || receipt.Command.StartedAtUnixNs == 0 || receipt.Command.FinishedAtUnixNs == 0 || receipt.Command.ExitCode != 0 || receipt.Command.Signal != 0 || receipt.Detail["generation"] != strconv.FormatUint(generation, 10) || receipt.State != "running" && receipt.State != "command_started" {
+		return
+	}
+	if err := s.remountStorage(ctx, id); err != nil {
 		return
 	}
 	s.readLock()

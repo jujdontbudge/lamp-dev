@@ -198,6 +198,14 @@ func (s *Service) loadLife() error {
 	for _, n := range st.Networks {
 		n.Pending = false
 	}
+	for _, t := range st.Templates {
+		if t.Building {
+			t.Building = false
+			t.R["state"] = "failed"
+			t.R["labels"] = map[string]any{"build_log": "build interrupted by daemon restart; outcome unknown; retry with a new idempotency key"}
+			editResource(t.R)
+		}
+	}
 	s.life = st
 	return nil
 }

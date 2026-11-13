@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -28,7 +29,12 @@ type p9fid struct {
 	file   *os.File
 	append bool
 }
+type p9group struct {
+	mu      sync.Mutex
+	servers map[*p9server]bool
+}
 type p9server struct {
+	group    *p9group
 	root     *os.Root
 	quota    uint64
 	readonly bool
@@ -180,7 +186,25 @@ func (s *p9server) handle(kind uint8, b *p9buf) ([]byte, error) {
 		if !p9name(name) || !p9name(next) || s.readonly {
 			return nil, syscall.EPERM
 		}
-		return nil, s.root.Rename(path.Join(from.path, name), path.Join(to.path, next))
+		oldPath, newPath := path.Join(from.path, name), path.Join(to.path, next)
+		if e := s.root.Rename(oldPath, newPath); e != nil {
+			return nil, e
+		}
+		update := func(server *p9server) {
+			for _, fid := range server.fids {
+				if fid.path == oldPath || strings.HasPrefix(fid.path, oldPath+"/") {
+					fid.path = newPath + strings.TrimPrefix(fid.path, oldPath)
+				}
+			}
+		}
+		if s.group == nil {
+			update(s)
+		} else {
+			for server := range s.group.servers {
+				update(server)
+			}
+		}
+		return nil, b.err
 	}
 	id := b.u32()
 	f, e := s.fid(id)
@@ -505,9 +529,17 @@ func (s *p9server) handle(kind uint8, b *p9buf) ([]byte, error) {
 	return out.Bytes(), b.err
 }
 func (s *p9server) serve(c net.Conn) {
+	if s.group != nil {
+		s.mu.Lock()
+		s.group.servers[s] = true
+		s.mu.Unlock()
+		defer func() { s.mu.Lock(); delete(s.group.servers, s); s.mu.Unlock() }()
+	}
 	defer c.Close()
 	defer s.root.Close()
 	defer func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		for _, f := range s.fids {
 			if f.file != nil {
 				f.file.Close()
@@ -588,7 +620,7 @@ func (s *Service) mountStorage(ctx context.Context, at map[string]any, quota uin
 	}
 	os.Chmod(socket, 0600)
 	stop := context.AfterFunc(ctx, func() { listener.Close() })
-	lock, _ := storageLocks.LoadOrStore(rootPath, &sync.Mutex{})
+	lock, _ := storageLocks.LoadOrStore(rootPath, &p9group{servers: map[*p9server]bool{}})
 	go func() {
 		c, e := listener.Accept()
 		stop()
@@ -600,7 +632,7 @@ func (s *Service) mountStorage(ctx context.Context, at map[string]any, quota uin
 		}
 		stopConn := context.AfterFunc(s.context(), func() { c.Close() })
 		defer stopConn()
-		(&p9server{root: root, quota: quota, readonly: textField(at, "mode") == "read_only", mu: lock.(*sync.Mutex), fids: map[uint32]*p9fid{}}).serve(c)
+		(&p9server{root: root, quota: quota, readonly: textField(at, "mode") == "read_only", mu: &lock.(*p9group).mu, group: lock.(*p9group), fids: map[uint32]*p9fid{}}).serve(c)
 	}()
 	r := s.workerRequest(ctx, "mount", sandbox, s.sandboxGeneration(sandbox))
 	r.Command = &pb.Request_StorageMount{StorageMount: &pb.StorageMount{SocketPath: socket, MountPath: textField(at, "mount_path"), ReadOnly: textField(at, "mode") == "read_only"}}
@@ -687,4 +719,105 @@ func (s *Service) remountStorage(ctx context.Context, sandbox string) error {
 		}
 	}
 	return nil
+}
+
+// Populate restored snapshots before exposing the filesystem, including for
+// read-only mounts. Never remove or extract over a guest's mounted root.
+func (s *Service) populateStorage(resource string, t tree, quota uint64) error {
+	if len(t) == 0 {
+		return nil
+	}
+	dest := filepath.Join(s.dir, "storage", resource)
+	group, _ := storageLocks.LoadOrStore(dest, &p9group{servers: map[*p9server]bool{}})
+	g := group.(*p9group)
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	entries, err := os.ReadDir(dest)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if len(entries) > 0 {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
+		return err
+	}
+	staging, err := os.MkdirTemp(filepath.Dir(dest), ".restore-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(staging)
+	root, err := os.OpenRoot(staging)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	names := make([]string, 0, len(t))
+	for n := range t {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	var used uint64
+	for _, n := range names {
+		e := t[n]
+		if n == "." && e.Dir {
+			continue
+		}
+		if n == "" || n == "." || path.Clean(n) != n || strings.HasPrefix(n, "/") || n == ".." || strings.HasPrefix(n, "../") {
+			return reject("DATA_UNAVAILABLE", "invalid stored path")
+		}
+		used += 512
+		if !e.Dir {
+			if e.Size < 0 {
+				return reject("DATA_UNAVAILABLE", "invalid stored size")
+			}
+			used += uint64(e.Size)
+		}
+		if used > quota {
+			return syscall.ENOSPC
+		}
+		if err := root.MkdirAll(path.Dir(n), 0755); err != nil {
+			return err
+		}
+		switch {
+		case e.Dir:
+			if err := root.MkdirAll(n, os.FileMode(e.Mode)&0777); err != nil {
+				return err
+			}
+		case e.Link != "":
+			if err := root.Symlink(e.Link, n); err != nil {
+				return err
+			}
+		default:
+			data, err := s.readObject(e.SHA256)
+			if err != nil {
+				return err
+			}
+			f, err := root.OpenFile(n, os.O_WRONLY|os.O_CREATE|os.O_EXCL, os.FileMode(e.Mode)&0777)
+			if err != nil {
+				return err
+			}
+			_, err = f.Write(data)
+			if err == nil {
+				err = f.Sync()
+			}
+			f.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	d, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	err = d.Sync()
+	d.Close()
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(dest); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return os.Rename(staging, dest)
 }

@@ -38,6 +38,7 @@ func (s *Service) refreshTemplates(ctx context.Context) error {
 		Arch      string        `json:"arch"`
 		GuestOS   string        `json:"guest_os"`
 		Resources api.Resources `json:"resources"`
+		Minimum   api.Resources `json:"minimum_resources"`
 		Fixed     bool          `json:"fixed_resources"`
 		SeedRef   string        `json:"seed_ref"`
 	}
@@ -51,9 +52,10 @@ func (s *Service) refreshTemplates(ctx context.Context) error {
 			continue
 		}
 		item.Resources.PidsMax = 4096
+		item.Minimum.PidsMax = 1
 		m := s.lifeResource("tp", "template", s.journal.Control.OwnerID)
 		m["id"], m["name"], m["state"], m["arch"], m["guest_os"] = item.ID, item.Name, "ready", item.Arch, item.GuestOS
-		m["default_resources"], m["minimum_resources"] = object(item.Resources), object(item.Resources)
+		m["default_resources"], m["minimum_resources"] = object(item.Resources), object(item.Minimum)
 		m["durability"] = "local"
 		m["labels"] = map[string]any{"seed_ref": item.SeedRef, "fixed_resources": fmt.Sprint(item.Fixed)}
 		raw, _ := json.Marshal(item.Resources)
@@ -165,7 +167,11 @@ func (s *Service) planTemplateBuild(a caller, in map[string]any) (lifePlan, erro
 				res.PidsMax = 4096
 				t.Resources, _ = json.Marshal(res)
 				m["default_resources"] = object(res)
-				m["minimum_resources"] = object(res)
+				minimum := res
+				if t.Flexible {
+					minimum.Vcpus, minimum.MemoryMib, minimum.PidsMax = 1, 256, 1
+				}
+				m["minimum_resources"] = object(minimum)
 			}
 			// Resolve resources and architecture from the engine's signed inventory.
 			m["state"] = "ready"

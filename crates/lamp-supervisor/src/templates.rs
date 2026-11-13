@@ -21,8 +21,15 @@ pub fn dispatch(engine: &Engine, request: &Template) -> Result<Outcome> {
                     lamp_engine::engine::MachineCfg::Linux { resources, .. } => (resources, true),
                     lamp_engine::engine::MachineCfg::Macos { default_resources, .. } => (default_resources, false),
                 };
+                #[cfg(target_os = "linux")]
+                let minimum = json!({"vcpus": 1, "memory_mib": 256, "disk_gib": resources.disk_gib});
+                #[cfg(target_os = "macos")]
+                let minimum = match &t.machine {
+                    lamp_engine::engine::MachineCfg::Linux { resources, .. } => json!(resources),
+                    lamp_engine::engine::MachineCfg::Macos { minimum_resources, .. } => json!(minimum_resources),
+                };
                 json!({"id": t.id, "name": t.manifest.name, "arch": t.manifest.arch,
-                    "guest_os": t.manifest.guest_os, "seed_ref":t.manifest.seed_ref, "resources": resources, "fixed_resources": fixed})
+                    "guest_os": t.manifest.guest_os, "seed_ref":t.manifest.seed_ref, "resources": resources, "minimum_resources": minimum, "fixed_resources": fixed})
             }).collect();
             out.detail
                 .insert("items".into(), serde_json::to_string(&items).unwrap());
@@ -122,6 +129,12 @@ pub fn dispatch(engine: &Engine, request: &Template) -> Result<Outcome> {
                 .insert("definition".into(), serde_json::to_string(&def).unwrap());
         }
         "build" => {
+            #[cfg(target_os = "linux")]
+            let log_key = request.definition.clone();
+            #[cfg(target_os = "macos")]
+            let log_key = definition::normalized(&definition::parse(&request.definition)?)
+                .unwrap_or_else(|| request.definition.clone());
+            lamp_engine::buildlog::write(&engine.cfg.store, &log_key, "")?;
             #[cfg(target_os = "linux")]
             let report = lamp_engine::build::build_template(engine, &request.definition)?;
             #[cfg(target_os = "macos")]

@@ -352,6 +352,9 @@ func (s *Service) reconcileResumed(ctx context.Context, id string, revision uint
 	if err != nil || res.Exit != 0 {
 		return
 	}
+	if err := s.remountStorage(ctx, id); err != nil {
+		return
+	}
 	s.readLock()
 	defer s.mu.Unlock()
 	current := s.journal.Sandboxes[id]
@@ -742,7 +745,6 @@ func (s *Service) observeIdle(ctx context.Context, id string) (reasons []string,
 
 func (s *Service) lifeMonitor() {
 	defer s.wg.Done()
-	recoverMounts := true
 	ticker := time.NewTicker(lifeTick)
 	defer ticker.Stop()
 	for {
@@ -751,33 +753,6 @@ func (s *Service) lifeMonitor() {
 			s.finalDiscard()
 			return
 		case <-ticker.C:
-		}
-		if recoverMounts {
-			recoverMounts = false
-			s.mu.Lock()
-			var sandboxes []string
-			for id, sb := range s.journal.Sandboxes {
-				if sb.State == "ready" {
-					sandboxes = append(sandboxes, id)
-				}
-			}
-			s.mu.Unlock()
-			for _, id := range sandboxes {
-				ctx, cancel := context.WithTimeout(s.context(), 30*time.Second)
-				err := s.remountStorage(ctx, id)
-				cancel()
-				if err != nil {
-					s.readLock()
-					for _, at := range s.life.Attachments {
-						if textField(at.R, "sandbox_id") == id && textField(at.R, "state") == "ready" {
-							at.R["state"] = "failed"
-							editResource(at.R)
-						}
-					}
-					s.saveLife()
-					s.mu.Unlock()
-				}
-			}
 		}
 		s.lifeTickOnce()
 	}
