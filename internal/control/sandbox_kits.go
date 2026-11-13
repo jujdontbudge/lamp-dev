@@ -83,7 +83,7 @@ func (s *Service) sandboxKitCall(ctx context.Context, sandbox string, in map[str
 	generation := s.sandboxGeneration(sandbox)
 	const client = "/tmp/lamp-sandbox-kits/client.py"
 	probe := `import os,json;print(json.dumps({'installed':os.path.isfile('/tmp/lamp-sandbox-kits/client.py')}))`
-	result, err := s.kitRelayExec(ctx, sandbox, generation, []string{"python3", "-c", probe})
+	result, err := s.kitReadRelayExec(ctx, sandbox, generation, []string{"python3", "-c", probe})
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +107,38 @@ func (s *Service) sandboxKitCall(ctx context.Context, sandbox string, in map[str
 		}
 	}
 	for {
+		result, err = s.kitReadRelayExec(ctx, sandbox, generation, []string{"python3", client, "--poll", job})
+		if err != nil {
+			return nil, err
+		}
+		if pending, _ := result["pending"].(bool); !pending {
+			if unknown, _ := result["outcome_unknown"].(bool); unknown {
+				return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit runtime result unavailable; job may still run", unknown: true}
+			}
+			if code := textField(result, "error"); code != "" {
+				return nil, reject("INVALID_ARGUMENT", code+": "+textField(result, "message"))
+			}
+			return result, nil
+		}
+		timer := time.NewTimer(200 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit job may still be running: " + job, unknown: true}
+		case <-timer.C:
+		}
+	}
+}
+
+// kitReadRelayExec retries only readiness and result reads, never job submission.
+// Bridge startup or a single relay may lag behind the caller's transport wait.
+func (s *Service) kitReadRelayExec(ctx context.Context, sandbox string, generation uint64, argv []string) (map[string]any, error) {
+	for {
 		s.readLock()
 		current := s.journal.Sandboxes[sandbox]
 		if value(current.Generation) != generation || (current.State != "ready" && current.State != "preparing") {
 			s.mu.Unlock()
-			return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "sandbox changed while guest kit job may still be running: " + job, unknown: true}
+			return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "sandbox changed during kit relay", unknown: true}
 		}
 		if s.sandboxStopRequired(current, true) {
 			s.mu.Unlock()
@@ -119,25 +146,15 @@ func (s *Service) sandboxKitCall(ctx context.Context, sandbox string, in map[str
 		}
 		s.lifeSB(sandbox).activity = time.Now()
 		s.mu.Unlock()
-		result, err = s.kitRelayExec(ctx, sandbox, generation, []string{"python3", client, "--poll", job})
-		// Polling only reads the acknowledged job's result. A slow or lost
-		// relay can be retried without submitting the installation again.
+		result, err := s.kitRelayExec(ctx, sandbox, generation, argv)
 		if err == nil {
-			if pending, _ := result["pending"].(bool); !pending {
-				if unknown, _ := result["outcome_unknown"].(bool); unknown {
-					return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit runtime result unavailable; job may still run", unknown: true}
-				}
-				if code := textField(result, "error"); code != "" {
-					return nil, reject("INVALID_ARGUMENT", code+": "+textField(result, "message"))
-				}
-				return result, nil
-			}
+			return result, nil
 		}
 		timer := time.NewTimer(200 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "guest kit job may still be running: " + job, unknown: true}
+			return nil, &workerFailure{code: "OUTCOME_UNKNOWN", message: "deadline before kit relay result", unknown: true}
 		case <-timer.C:
 		}
 	}
