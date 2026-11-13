@@ -16,4 +16,10 @@ Usage was not exposed.
   volatile guests may report a clean, deletable loss rather than preserve the
   same guest. Both supervisor-only and both-process recovery demonstrate that
   accepted behavior. No guest-memory continuity is claimed.
-- Round 2: pending; scope is S1 and code changed since round 1 only.
+- Round 2: APPROVE. S1 resolved; targeted regression passed. No new blocker or
+  should findings in changes since round 1. No files changed by reviewer.
+  The documented clean, deletable guest loss matches clarified acceptance.
+- Two rounds completed. One accepted/fixed finding, none declined, one regression
+  test added. Review diff grew from 40 files / 1132 insertions / 144 deletions to
+  42 files / 1858 insertions / 149 deletions, mostly recorded live evidence.
+  Usage not exposed. Final branch is pushed to MR 8; coordinator reviews/merges.
