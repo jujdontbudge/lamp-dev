@@ -153,22 +153,32 @@ func (f *Fleet) serve(w http.ResponseWriter, r *http.Request, routed bool) {
 			fleet.CoordinationState = pointer(api.FleetCoordinationStateHealthy)
 		}
 		unavailable, stranded := []string{}, []string{}
+		offline := map[string]fleetObservation{}
 		f.mu.Lock()
 		for _, host := range f.config.Hosts {
 			if host.ID == f.config.HostID || f.online[host.ID] {
+				continue
+			}
+			offline[host.ID] = f.observations[host.ID]
+		}
+		f.mu.Unlock()
+		// Authorization checks the authority lease and takes f.mu itself.
+		// Observations are immutable snapshots, so inspect them after unlocking.
+		for _, host := range f.config.Hosts {
+			observation, missing := offline[host.ID]
+			if !missing {
 				continue
 			}
 			if !s.hostAllowed(a, host.ID) {
 				continue
 			}
 			unavailable = append(unavailable, host.ID)
-			for _, sb := range f.observations[host.ID].Sandboxes {
+			for _, sb := range observation.Sandboxes {
 				if sb.State != "deleted" && s.sandboxAllowed(a, sb) {
 					stranded = append(stranded, sb.Id)
 				}
 			}
 		}
-		f.mu.Unlock()
 		sort.Strings(stranded)
 		fleet.UnavailableHostIds = &unavailable
 		fleet.StrandedSandboxIds = &stranded

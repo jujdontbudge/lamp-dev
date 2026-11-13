@@ -40,10 +40,29 @@ and SDK generator checks passed. `rustfmt --check` passed for the generated Rust
 contract file. The workspace-wide `cargo fmt --all -- --check` reports existing
 formatting in `crates/lamp-engine/src/engine.rs` and
 `crates/lamp-guard/src/audit.rs`; those unrelated files were left alone.
-No new tests or benchmark runs were added.
+Sol reproduced an outage-reporting lock deadlock with one focused regression
+test. It failed before the fix and passed afterward; that single reviewer test
+is retained. No other tests or benchmark runs were added.
 
 Enrollment provisions a new fleet with an immutable initial manifest. It does
 not migrate existing standalone state or implement online membership changes.
 Generated host certificates expire after one year; the guide calls out renewal.
 Unavailable sandbox disks retain their home and custody. Nothing promotes or
 copies private VM state to another machine automatically.
+
+## Packaging and local build
+
+`make build` passed, including the workspace Rust build and SDK generation check.
+[package.json](evidence/t38/package.json) records an actual signed macOS control
+payload archive containing the Cloudflare wrapper, enrollment helper, relay
+client, fleet HTTPS ingress, compiled plugin launcher and the release guide.
+The archive also contains the account/issuer/DNS helpers used by the access guide.
+[relay-packages.json](evidence/t38/relay-packages.json) records actual relay-server
+cross-builds and archive inspection for Linux amd64, Linux arm64 and macOS arm64.
+This packaging check does not claim a newly published or notarized public release.
+
+[fleet-cleanup.json](evidence/t38/fleet-cleanup.json) records the four disposable
+installer daemon/updater processes stopped after the successful update and
+rollback run. [compute-capacity-denied.jsonl](evidence/t38/compute-capacity-denied.jsonl)
+preserves the compute attempt that stopped at the owner's 12 GiB available-memory
+limit (11,118 MiB available); no sandbox was created in that attempt.

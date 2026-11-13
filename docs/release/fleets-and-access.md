@@ -132,7 +132,7 @@ to private token files; plaintext HTTP may bind only numeric loopback.
   private credential file. Generate its manifest with
   `lamp-access cloudflare-manifest --plugin /absolute/bin/lamp-access-cloudflare --out /absolute/private/cloudflare-manifest.json`.
   Fill in the `cloudflare` block, pinned executable/manifest digests and launcher
-  from [the Cloudflare configuration](../development/access.md#cloudflare-tunnel).
+  from [the Cloudflare configuration](../development/access.md#cloudflare-tunnel-access-plugin).
   Start `lamp-access serve --config /absolute/private/access.json`. Linux uses
   the compiled `lamp-plugin-launcher`; macOS wraps `/usr/bin/sandbox-exec` with
   that same launcher and requires explicit `diagnostic_soft_limits: true`. Engine
