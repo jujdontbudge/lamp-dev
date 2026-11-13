@@ -1,0 +1,5 @@
+Plan: update lamp-site; ensure lamp/account Worker routes; replace only private account DNS.
+Additional DNS/route writes: 2. Release assets must already be public.
+Updated lamp-site.
+Applied PUT for account.eilmer.si.
+Applied POST for account.eilmer.si/*.

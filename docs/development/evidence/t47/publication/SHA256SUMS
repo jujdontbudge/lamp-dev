@@ -1,0 +1,9 @@
+36f84f0ea36c27ff586dcb5ac6d4a27940da65a702c54120e8dadf3b5333aa2f  install.sh
+9be0f8fef57fd9452702856da52573aa80df37d65758f49efaffe08995a8baf6  lamp-0.1.2-darwin-arm64.tar.gz
+ba5d1d995176776634c9263281cab1a4bdbcaf7b4d3a862d01a97383bd270a79  lamp-0.1.2-linux-amd64.tar.gz
+98deeb8ac37af6cde8d0abb5fd94e0ad1c1e7f67c4e4b1109eb1693d0654533c  lamp-0.1.2-linux-arm64.tar.gz
+b5b4bd1a13f97671d8dbd0a7ba4561ed53fd92fd02e1a38b274c5acfda5fbb0a  lamp-relay-0.1.2-darwin-arm64.tar.gz
+6e2488622fe3d3d20f46f17f2886ee4a60eae61290ff4b1f4ca3a50f4f337073  lamp-relay-0.1.2-linux-amd64.tar.gz
+ec46e045f43fe2e769952bce0396714b9588933f90f619d5ce7ba90d29247d58  lamp-relay-0.1.2-linux-arm64.tar.gz
+99e1dfb5481ada5b48fbb4ac3158daf5a87c967e07704d9445f428174bee6b85  release-trust.pub
+4d3fec7caa8d0c219bf7f564a320e79a851309bdd4fa4d1ec05ea27d4527bc18  release.json

@@ -1,12 +1,88 @@
 # Lamp release measurements
 
-## 0.1.2 publication status
+## 0.1.2 public release observations — 2026-11-13
 
-0.1.2 has not been published or measured on its final merged release build.
-No historical result below is a 0.1.2 result. At publication the maintainer
-records one create/live-fork/native-speed/zero-leak observation per available
-platform using the public CLI/API, including failures or unavailable measures.
-Missing observations are not passes and do not block release.
+[0.1.2 is public](https://gitlab.com/johansardar/lamp/-/releases/v0.1.2).
+The immutable assets were built from merged development commit
+`e7babe9d658ff21f033e5ae23431f041fb7b086d`; the redacted public tag points at
+`d83031de3780dae053a0fdfac900cf8d11a8cde0`. All ten public files matched the
+published checksums. The Mac payload was Developer ID signed and Apple accepted
+notarization submission `8a98c2e9-0f57-4e48-ada4-a1d64ff22c9b`.
+
+These are **one observation per available host**, using the public installer
+and CLI, with everyday services running. They are not p50 distributions or
+certification. Earlier failures and historical results below remain historical.
+
+| Host | Public install through first Python code | Create through useful command | Live memory fork through useful child command | Cleanup |
+| --- | ---: | ---: | ---: | --- |
+| M5 | 69.876 s | 553.6 ms | 750.9 ms | uninstalled; prefix removed |
+| Air | 69.638 s | 733.9 ms | 1199.6 ms | uninstalled; prefix removed |
+| lamp-la | 62.276 s | 4723.3 ms | 3862.8 ms | uninstalled; prefix removed |
+| Ubuntu amd64 | skipped | skipped | skipped | no install or VM created |
+
+M5 is Apple M5 / 24 GiB, macOS 26.5.2; Air is M2 / 8 GiB, macOS 26.7.1.
+`lamp-la` is Linux arm64 / 8 GiB / four vCPUs, nested KVM in the existing Lima
+VM on the M5; it is not bare metal. Ubuntu had **3,622 MiB available**, below
+the owner's 12 GiB requirement even for installation. Chrome was left running.
+
+Install timing starts before downloading `https://lamp.eilmer.si/install.sh`,
+includes signed installation, version/CLI/MCP/OpenAPI discovery and the first
+README-style Python command, and excludes uninstall. Create uses the installed,
+warm default template with explicit 1 vCPU / 512 MiB / 20 GiB / 4,096 PIDs,
+from the create CLI invocation through a separate useful Python exec. Fork uses
+`--fork-mode memory --durability local` with a 1 MiB resident witness; timing
+ends when the child answers. Parent and child retained its nonce and advanced
+its RAM tick counter. This is a small local-durability fork, not the old 4 GiB
+rows or a replicated-storage observation. A single create cannot establish a
+p50 target; the table preserves observations above and below the 500 ms and
+1 s goals without selecting a better rerun.
+
+### Single native/sandbox workload pairs
+
+Ratios are sandbox over native; higher is better. Fsync uses the inverse of
+seconds per operation. These are actual observations, not a claim of 97% parity.
+
+| Host | Compile | Compression | SHA-256 | Sequential write | Fsync | TCP diagnostic |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| M5 | 3.5970 | 0.9813 | 0.9461 | 0.0941 | 0.0040 | 0.1282 |
+| Air | unobserved / failed | 0.9688 | 0.9702 | 0.1483 | 0.0087 | 0.1255 |
+| lamp-la | 0.0371 | 0.4663 | 0.6708 | 0.3379 | 0.0012 | 0.0351 |
+
+The fixed standard-library workload is `benchmarks/workload.py`, SHA-256
+`7ef80949f5b68a839135d6ffb1ec5f246d3a67662b027280bb072dbff26a5cff`.
+Each completed workload pair ran once. Air native compile failed before its
+guest pair; compiler stderr was not retained, and it was not rerun. Native Mac uses Apple Clang;
+the Linux guest uses GCC, and Python/OpenSSL builds differ too. Compile includes
+toolchain startup and execution, so its ratio is not a CPU-only comparison.
+Disk paths and flush semantics differ (APFS/native versus ext4 guest, and
+Firecracker's `Unsafe` cache on Linux): **these are not durable native-speed
+parity measurements**. TCP compares host loopback against a guarded owner-service
+alias to a disposable echo server, not matched independent remote endpoints;
+remote network parity is unobserved. Exact elapsed values and toolchains are in
+the release evidence. No complete compute/disk/network parity is established.
+
+### Bounded credential observation and missing work
+
+- M5: the fresh installation control owner token was absent from one guest process environment.
+- Air: the fresh installation control owner token was absent from one guest process environment.
+- lamp-la: the fresh installation control owner token was absent from one guest process environment.
+
+This does not inspect complete guest memory or disk, model-provider custody,
+network captures or all Exposures. **The zero-leak goal is not completely
+measured.** Ubuntu installation/version/VM execution and its release speed
+measurements are unobserved because of the memory floor. Enrollment-only
+features and the unverified Linux arm64 Docker/LSP/desktop kits retain their
+release-note limits. No SDK work was added.
+
+Air native compile exited with code 1. Its stderr was not retained by the
+workload, so the cause is unobserved; no guest compile pair or rerun is claimed.
+The original exception is preserved in the release evidence.
+
+The first Python `urllib` public-URL verifier received HTTP 403; the failure
+is preserved. The curl verifier then checked the same URLs successfully, and
+the documented curl installer was used for the observations above. No release
+asset was replaced. Bundled documentation is the pre-publication snapshot;
+this live page and the GitLab release description carry the final observations.
 
 ### Install through code: T32 development candidates, 2026-11-12
 

@@ -1,0 +1,18 @@
+Downloading Lamp 0.1.2 and its default Linux seed…
+Host memory: physical=24576 MiB, available=4383 MiB, physical reserve=2048 MiB, available headroom=1095 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+Importing the signed default Linux seed and preparing its template…
+Host memory: physical=24576 MiB, available=5290 MiB, physical reserve=2048 MiB, available headroom=1322 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+{"at":"2026-11-13T21:07:11Z","automatic_updates":false,"dashboard_sign_in":"file:///tmp/l47m/run/dashboard.html","dashboard_url":"http://127.0.0.1:64588/dashboard","event":"installed","prefix":"/tmp/l47m","service":"process","version":"0.1.2"}
+Lamp 0.1.2 ready. Binaries: /tmp/l47m/current/bin
+Owner credential (private; clients load it automatically): /tmp/l47m/config/owner.token
+For this shell and your shell profile: export PATH="/tmp/l47m/current/bin:$PATH"
+Run code: /tmp/l47m/current/bin/lamp sandbox run -- uname -a
+Installation and engine setup: https://gitlab.com/johansardar/lamp/-/blob/v0.1.2/docs/install.md#engine-setup
+Update, rollback and uninstall: https://gitlab.com/johansardar/lamp/-/blob/v0.1.2/docs/install.md#update-rollback-and-remove-an-install
+lamp-supervisor: store open, 0 verified template(s) in 30 ms
+booted in 1550 ms: {"audit": "none", "barrier_us": "786", "confined": "true", "devices": "{\"display\":null,\"keyboard\":false,\"mouse\":false,\"gpu\":false,\"audio_input\":false,\"audio_output\":false,\"guest_transport\":null,\"extra_disks\":[]}", "helper_ready_us": "356390", "machine_id": "95d7d5b78dcb5cc4c69ac2ab6e2d6b7d", "rng_sample": "bbb9436fc316cccc01022b8dc50b069f", "spawn_us": "188192", "vz_start_us": "154752", "worker_identity": "_lampvm48262", "worker_pid": "93818"}
+$ sh -c uname -m && python3 --version && cc --version | head -1 && getconf PAGESIZE
+aarch64
+Python 3.14.4
+cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+4096

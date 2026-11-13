@@ -70,8 +70,11 @@ Ubuntu amd64 install through code and cleanup took **165.473 s** on a T32 signed
 development candidate using a local HTTP origin, exceeding the two-minute goal.
 This is not a public-download timing. Mac and nested Linux arm64 observations,
 and the older 0.1.0 create/fork/native-speed results with their platform names,
-are in [measurements](docs/release/measurements.md). No fresh 0.1.2 speed or
-complete zero-leak result is claimed before release measurements are taken.
+are in [measurements](docs/release/measurements.md). Public 0.1.2 fresh installs
+and Python VM execution passed on M5, M2 Air and nested Linux arm64; Ubuntu was
+skipped below the owner's memory floor. The same page records their one-time
+create, live-fork and native-speed observations, including misses and an Air
+native compile failure. No complete zero-leak measurement is claimed.
 
 ## Build from source
 
