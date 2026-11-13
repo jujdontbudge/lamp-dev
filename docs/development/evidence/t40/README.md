@@ -214,3 +214,20 @@ Final fetch confirms main remains `21e06f7`. Final delivery adds only this
 review ledger after the approved behavior head. All own Mac state was removed;
 Linux demonstration VMs and services are stopped. No online Mac template-build
 networking demonstration or native macOS guest mount support is claimed.
+
+## November 13 coordinator rebase
+
+Rebased delivery onto main `9acf590` (T44 and T45 following T35–T37).
+The only conflict was README: both the kits and templates/storage guides remain.
+`git range-diff` confirms all behavior patches are unchanged; the approved Mac
+files are byte-identical to the prior delivery. The combined worker protocol
+retains T45 release_version and T40 template/storage requests; its generation
+check passes. `make build`, scoped Go vet and the six retained T40/CLI checks
+pass after this rebase. No new tests or new runtime state were created.
+
+Sol's final Mac verdict remains APPROVE; no replacement reviewer was needed
+because it had already returned. M5 ST02 result remains PASS: actual 9P mounts,
+A/B write visibility, persistence after producer deletion, and remount/data
+availability after daemon restart. M5 ST01 cached-wheel reuse and requested
+resource shapes also passed. These are the earlier recorded runtime runs;
+this documentation update does not claim a new demonstration after T44/T45.
