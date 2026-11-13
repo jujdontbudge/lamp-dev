@@ -95,6 +95,17 @@ func (s *Service) addEvents(delta *journal) {
 		if r.kind == "sandbox" && r.state == "failed" {
 			data["reason"] = delta.Sandboxes[r.id].Labels["lamp.failure"]
 		}
+		if r.kind == "sandbox" {
+			if reason := delta.Sandboxes[r.id].Labels["lamp.stop_reason"]; reason != "" {
+				data["stop_reason"] = reason
+			}
+		}
+		if r.kind == "task" && delta.Accountability != nil {
+			t := delta.Accountability.Tasks[r.id]
+			if warning := t.Labels["lamp.budget_warning"]; warning != "" {
+				data["budget_warning"] = warning
+			}
+		}
 		raw, _ := json.Marshal(data)
 		typ := r.kind + ".state_changed"
 		if r.kind == "operation" && terminal(api.OperationState(r.state)) {

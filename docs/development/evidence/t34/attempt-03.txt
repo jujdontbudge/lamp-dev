@@ -1,0 +1,28 @@
+{"data": {"available_mib": 14597, "firecracker": 1}, "step": "capacity"}
+{"data": {"template_id": "tp_0d07bacfa64be676336ee78c28"}, "step": "using public template"}
+{"data": {"generation": 1, "max_generation": 18446744073709551615}, "step": "default grant lifecycle scope"}
+{"data": {"available_mib": 15212, "firecracker": 0}, "step": "capacity"}
+{"data": [1, 58], "step": "counter before suspend"}
+{"data": {"available_mib": 15286, "firecracker": 0}, "step": "capacity"}
+{"data": {"counter": [67, 79], "state": "ready"}, "step": "resume after daemon restart"}
+{"data": {"eligibility": {"eligible": false, "observation_state": "fresh", "observed_at": "2026-11-13T02:02:32.678295916Z", "reasons": ["session_activity", "task_process"]}, "state": "ready"}, "step": "busy eligibility"}
+{"data": [{"capture_trust": "clean", "created_at": "2026-11-13T02:02:33.342214306Z", "custody_host_ids": ["ubuntu-server"], "durability": "local", "fleet_id": "fl_local", "generation": 2, "id": "ss_02d59dbd29d1490ab46f026c44138284", "kind": "snapshot", "labels": {}, "owner_id": "pr_t34_demo", "preserves_memory": true, "revision": 2, "sandbox_id": "sb_905470213e1f4a6edf1098675d885a3c", "state": "ready", "updated_at": "2026-11-13T02:02:34.710466972Z", "visibility": "private"}], "step": "snapshot outlives source"}
+{"data": {"available_mib": 15304, "firecracker": 0}, "step": "capacity"}
+{"data": [115, 126], "step": "snapshot memory restored"}
+{"data": "ss_02d59dbd29d1490ab46f026c44138284", "step": "snapshot explicitly deleted"}
+{"data": {"backup": "bk_c7a5ae39f50f5406e43019a336eb0e3c", "volume": "vo_f07a2ffe6e51a63bf002668c05cb486d"}, "step": "encrypted volume backup"}
+{"data": {"available_mib": 14997, "firecracker": 1}, "step": "capacity"}
+{"data": {"counter": "273", "state": "ready"}, "step": "source usable after writing fork"}
+{"data": {"available_mib": 15497, "firecracker": 1}, "step": "capacity"}
+{"data": "1", "step": "live firecracker after cleanup"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 133, in <module>
+    api.change(restored,'suspend'); capacity(); log('automatic exec wake',api.advancing(restored))
+                                                                          ~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 57, in advancing
+    values=list(map(int,self.run(sb,'cat /tmp/counter; echo; sleep 1; cat /tmp/counter; echo').splitlines())); assert len(values)==2 and values[1]>values[0],values; return values
+                        ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 55, in run
+    assert e.get('exit_code')==0,(e,data.decode()); return data.decode().strip()
+           ^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ({'id': 'ex_4b86fbc2c4eb1a67da499781b2af08c5', 'kind': 'exec', 'fleet_id': 'fl_local', 'owner_id': 'pr_t34_demo', 'revision': 3, 'created_at': '2026-11-13T02:02:59.104859927Z', 'updated_at': '2026-11-13T02:03:11.628865183Z', 'state': 'exited', 'labels': {}, 'visibility': 'private', 'sandbox_id': 'sb_80618467999e0184dcbd6b11ee11bd35', 'argv': ['sh', '-c', 'cat /tmp/counter; echo; sleep 1; cat /tmp/counter; echo'], 'started_at': '2026-11-13T02:02:59.118438389Z', 'exit_code': 70, 'signal': 0}, '280\n')

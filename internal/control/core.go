@@ -165,8 +165,8 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		s.invokeProtected(w, r, id, in)
 		return
 	}
-	if op.Name == "session_input" {
-		if err := s.wakeSessionInput(r.Context(), requestCaller(r), in); err != nil {
+	if op.Name == "session_input" || op.Name == "session_attach" {
+		if err := s.wakeSessionInput(r.Context(), requestCaller(r), in, op.Name == "session_attach"); err != nil {
 			var denied *coreError
 			code := "DATA_UNAVAILABLE"
 			if errors.As(err, &denied) {

@@ -3493,7 +3493,7 @@ export interface LeaseRenewResult {
   "result"?: LeaseRenewCompletion;
 }
 export interface Lifecycle {
-  "idle_action"?: "suspend" | "delete" | "keep";
+  "idle_action"?: "suspend" | "delete" | "keep" | "stop";
   "idle_grace_seconds"?: number;
   "suspended_retention_seconds"?: number;
   "expires_at"?: string;
@@ -4979,6 +4979,8 @@ export interface Sandbox {
   "durability"?: "volatile" | "local" | "replicated" | "backup";
   "custody_host_ids"?: Array<string>;
   "exposures"?: Array<string>;
+  readonly "saved_state_until"?: string;
+  readonly "idle_countdown"?: { "action"?: string; "grace_seconds"?: number; "idle_since"?: string; "fires_at"?: string; "expires_at"?: string };
 }
 export type SandboxBrowserCompletion = AdapterDocument;
 export interface SandboxBrowserInput {
@@ -5022,6 +5024,8 @@ export interface SandboxCreateInput {
   "idempotency_key": string;
   readonly "wait_ms"?: number;
   "labels"?: StringMap;
+  "snapshot_id"?: string;
+  "budget_id"?: string;
 }
 export interface SandboxCreateResult {
   "operation_id": string;

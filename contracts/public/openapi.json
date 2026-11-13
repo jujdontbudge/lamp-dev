@@ -36924,6 +36924,14 @@
                   },
                   "labels": {
                     "$ref": "#/components/schemas/StringMap"
+                  },
+                  "snapshot_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "budget_id": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": [],
@@ -36933,8 +36941,17 @@
                       "recipe_id"
                     ],
                     "not": {
-                      "required": [
-                        "template_id"
+                      "anyOf": [
+                        {
+                          "required": [
+                            "template_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "snapshot_id"
+                          ]
+                        }
                       ]
                     }
                   },
@@ -36943,8 +36960,36 @@
                       "template_id"
                     ],
                     "not": {
-                      "required": [
-                        "recipe_id"
+                      "anyOf": [
+                        {
+                          "required": [
+                            "recipe_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "snapshot_id"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "snapshot_id"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "recipe_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "template_id"
+                          ]
+                        }
                       ]
                     }
                   },
@@ -55288,7 +55333,8 @@
             "enum": [
               "suspend",
               "delete",
-              "keep"
+              "keep",
+              "stop"
             ]
           },
           "idle_grace_seconds": {
@@ -58971,6 +59017,35 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "saved_state_until": {
+            "type": "string",
+            "readOnly": true
+          },
+          "idle_countdown": {
+            "type": "object",
+            "additionalProperties": false,
+            "readOnly": true,
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "grace_seconds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 18446744073709551615,
+                "format": "uint64"
+              },
+              "idle_since": {
+                "type": "string"
+              },
+              "fires_at": {
+                "type": "string"
+              },
+              "expires_at": {
+                "type": "string"
+              }
             }
           }
         },
@@ -68203,6 +68278,14 @@
           },
           "labels": {
             "$ref": "#/components/schemas/StringMap"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "budget_id": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
@@ -68214,8 +68297,17 @@
               "recipe_id"
             ],
             "not": {
-              "required": [
-                "template_id"
+              "anyOf": [
+                {
+                  "required": [
+                    "template_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "snapshot_id"
+                  ]
+                }
               ]
             }
           },
@@ -68224,8 +68316,36 @@
               "template_id"
             ],
             "not": {
-              "required": [
-                "recipe_id"
+              "anyOf": [
+                {
+                  "required": [
+                    "recipe_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "snapshot_id"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "required": [
+              "snapshot_id"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "recipe_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "template_id"
+                  ]
+                }
               ]
             }
           },

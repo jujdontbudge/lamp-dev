@@ -179,13 +179,16 @@ fn grant_command(cmd: &str, store: &std::path::Path, mut args: Vec<String>) {
     if caller_uid > u64::from(u32::MAX) {
         die("grant-install needs --caller-uid UID");
     }
+    let pinned = args.iter().any(|a| a == "--generation");
     let generation = num(&mut args, "--generation", 1);
-    let max_generation = take_flag(&mut args, "--max-generation").map(|v| {
-        v.parse::<u64>()
-            .ok()
-            .filter(|n| *n >= generation)
-            .unwrap_or_else(|| die("bad --max-generation"))
-    });
+    let max_generation = take_flag(&mut args, "--max-generation")
+        .map(|v| {
+            v.parse::<u64>()
+                .ok()
+                .filter(|n| *n >= generation)
+                .unwrap_or_else(|| die("bad --max-generation"))
+        })
+        .or(if pinned { None } else { Some(u64::MAX) });
     let policy_revision = num(&mut args, "--policy-revision", 1);
     let ttl_s = num(&mut args, "--ttl-s", 24 * 3600);
     let prefix = take_flag(&mut args, "--sandbox-prefix").unwrap_or_else(|| "sb_".into());

@@ -249,13 +249,13 @@ func (s *Service) accountMutation(a caller, op api.OperationDescriptor, in map[s
 				return fail("INVALID_ARGUMENT", "wall time exceeds supported duration")
 			}
 			if d := textField(m, "deadline_at"); d != "" {
-				if _, e := time.Parse(time.RFC3339Nano, d); e != nil {
-					return fail("INVALID_ARGUMENT", "invalid deadline")
+				if at, e := time.Parse(time.RFC3339Nano, d); e != nil || !at.After(s.enforcementNow()) || at.Sub(s.enforcementNow()) > 365*24*time.Hour {
+					return fail("INVALID_ARGUMENT", "deadline must be in the next year")
 				}
 			}
 			if w, ok := m["watchdog"].(map[string]any); ok {
-				if uintField(w, "warn_after_ms") != 0 || uintField(w, "repeated_action_limit") != 0 || textField(w, "on_stuck") == "ask" {
-					return fail("INVALID_ARGUMENT", "this watchdog supports hard block/stop only")
+				if uintField(w, "repeated_action_limit") != 0 || textField(w, "on_stuck") == "ask" {
+					return fail("INVALID_ARGUMENT", "repeated_action_limit and on_stuck ask are not supported")
 				}
 			}
 			m["token_home_host_id"] = s.hostID()
@@ -530,6 +530,9 @@ func (s *Service) sandboxStopRequired(sb api.Sandbox, checkAuthority bool) bool 
 	if checkAuthority && sb.State != "suspended" && s.controlGrantRevoked() {
 		return true
 	}
+	if s.taskExpired(sb) {
+		return true
+	}
 	// Suspended captures are inert encrypted state, not task execution. Ending
 	// the old Task must not erase an explicitly retained CI inspection capture.
 	// Resume separately requires current (and, for ended jobs, new) Task authority.
@@ -591,6 +594,19 @@ func (s *Service) watchAccountability() {
 		}
 		changed := false
 		for id, t := range s.journal.Accountability.Tasks {
+			budget := s.journal.Accountability.Budgets[value(t.BudgetId)]
+			if t.State == "running" && budget.Watchdog != nil && value(budget.Watchdog.WarnAfterMs) > 0 && t.Labels["lamp.budget_warning"] == "" {
+				started, _ := time.Parse(time.RFC3339Nano, t.CreatedAt)
+				if s.enforcementNow().Sub(started) >= time.Duration(*budget.Watchdog.WarnAfterMs)*time.Millisecond {
+					if t.Labels == nil {
+						t.Labels = api.StringMap{}
+					}
+					t.Labels["lamp.budget_warning"] = "wall-time budget is running out"
+					t.Revision++
+					s.journal.Accountability.Tasks[id] = t
+					changed = true
+				}
+			}
 			stalled := t.State == "running" && s.taskStalled(t)
 			if stalled || t.State == "running" && s.taskStopRequired(t, checkAuthority) {
 				// A watchdog block (no progress for block_after_ms before the
@@ -662,6 +678,13 @@ func (s *Service) stopAccountableSandbox(id string) {
 	defer s.mu.Unlock()
 	delete(s.busy, id)
 	sb = s.journal.Sandboxes[id]
+	if sb.Labels == nil {
+		sb.Labels = api.StringMap{}
+	}
+	sb.Labels["lamp.stop_reason"] = "budget_or_authority_expired"
+	if s.taskExpired(sb) {
+		sb.Labels["lamp.stop_reason"] = "lifecycle_expired"
+	}
 	sb.Revision++
 	sb.UpdatedAt = timestamp()
 	if err == nil {
@@ -1103,10 +1126,10 @@ func (s *Service) taskStalled(t api.Task) bool {
 		}
 		if s.life != nil {
 			if l := s.life.Sandboxes[id]; l != nil {
-				if sb.State == "ready" && l.idleFrom.IsZero() {
+				if sb.State == "ready" && l.IdleFrom.IsZero() {
 					return false
 				}
-				for _, at := range []time.Time{l.activity, l.idleFrom} {
+				for _, at := range []time.Time{l.Activity, l.IdleFrom} {
 					if at.After(last) {
 						last = at
 					}

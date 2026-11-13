@@ -1,0 +1,18 @@
+{"data": {"available_mib": 15000, "firecracker": 0}, "step": "capacity"}
+{"data": {"template_id": "tp_0d07bacfa64be676336ee78c28"}, "step": "using public template"}
+{"data": {"generation": 1, "max_generation": 18446744073709551615}, "step": "default grant lifecycle scope"}
+{"data": {"available_mib": 15848, "firecracker": 0}, "step": "capacity"}
+{"data": "11", "step": "counter before suspend"}
+{"data": {"available_mib": 15288, "firecracker": 0}, "step": "capacity"}
+{"data": {"counter": "1323", "state": "ready"}, "step": "resume after daemon restart"}
+{"data": {"eligibility": {"eligible": false, "observation_state": "fresh", "observed_at": "2026-11-13T01:33:33.63958698Z", "reasons": ["session_activity", "task_process"]}, "state": "ready"}, "step": "busy eligibility"}
+{"data": [{"capture_trust": "clean", "created_at": "2026-11-13T01:33:34.276696269Z", "custody_host_ids": ["ubuntu-server"], "durability": "local", "fleet_id": "fl_local", "generation": 2, "id": "ss_07c4ba25a2f7f5e8e28c1249fdd847c3", "kind": "snapshot", "labels": {}, "owner_id": "pr_t34_demo", "preserves_memory": true, "revision": 2, "sandbox_id": "sb_f8e488b2750076b63329f770fa7b6570", "state": "ready", "updated_at": "2026-11-13T01:33:34.781366002Z", "visibility": "private"}], "step": "snapshot outlives source"}
+{"data": {"available_mib": 15311, "firecracker": 0}, "step": "capacity"}
+{"data": "6678", "step": "snapshot memory restored"}
+{"data": "ss_07c4ba25a2f7f5e8e28c1249fdd847c3", "step": "snapshot explicitly deleted"}
+{"data": "0", "step": "live firecracker after cleanup"}
+Traceback (most recent call last):
+  File "/home/johan/lamp-t34/src/docs/development/evidence/t34/demonstration.py", line 119, in <module>
+    vol=api.op('volume_create',name='t34-public-data',mode='shared_files',quota_bytes=1048576)['resource_ids'][0]['id']
+        ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: API.op() got multiple values for argument 'name'

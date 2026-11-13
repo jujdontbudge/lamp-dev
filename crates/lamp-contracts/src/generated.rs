@@ -11205,6 +11205,8 @@ pub enum LifecycleIdleAction {
     Delete,
     #[serde(rename = "keep")]
     Keep,
+    #[serde(rename = "stop")]
+    Stop,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LifecycleOnJobEnd {
@@ -15847,6 +15849,18 @@ pub struct Sandbox {
     pub custody_host_ids: Option<Vec<String>>,
     #[serde(rename = "exposures", default, skip_serializing_if = "Option::is_none")]
     pub exposures: Option<Vec<String>>,
+    #[serde(
+        rename = "saved_state_until",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub saved_state_until: Option<String>,
+    #[serde(
+        rename = "idle_countdown",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub idle_countdown: Option<SandboxIdleCountdown>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxAuthMode {
@@ -16004,6 +16018,14 @@ pub struct SandboxCreateInput {
     pub wait_ms: Option<u64>,
     #[serde(rename = "labels", default, skip_serializing_if = "Option::is_none")]
     pub labels: Option<StringMap>,
+    #[serde(
+        rename = "snapshot_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub snapshot_id: Option<String>,
+    #[serde(rename = "budget_id", default, skip_serializing_if = "Option::is_none")]
+    pub budget_id: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxCreateInputAuthMode {
@@ -16595,6 +16617,32 @@ pub struct SandboxGetResult {
     pub data: Sandbox,
     #[serde(rename = "request_id")]
     pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxIdleCountdown {
+    #[serde(rename = "action", default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    #[serde(
+        rename = "grace_seconds",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub grace_seconds: Option<u64>,
+    #[serde(
+        rename = "idle_since",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub idle_since: Option<String>,
+    #[serde(rename = "fires_at", default, skip_serializing_if = "Option::is_none")]
+    pub fires_at: Option<String>,
+    #[serde(
+        rename = "expires_at",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub expires_at: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxKind {

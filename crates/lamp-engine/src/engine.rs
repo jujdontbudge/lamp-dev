@@ -3075,6 +3075,19 @@ impl Engine {
         m.disk.digest = Some(fsutil::digest_file(&disk_out)?.digest);
         m.sign(&self.producer)?;
         std::fs::write(dir.join("manifest.json"), manifest::canonical_json(&m)?)?;
+        // The administrator exports into a caller-owned private parent. Hand
+        // the bundle to that owner so lampd can seal it without root access.
+        use std::os::unix::fs::MetadataExt;
+        let parent = std::fs::metadata(
+            dir.parent()
+                .ok_or_else(|| EngineError::invalid("export parent required"))?,
+        )?;
+        for name in ["mem", "vmstate", "disk", "manifest.json"] {
+            fsutil::chown(&dir.join(name), parent.uid(), parent.gid())?;
+            fsutil::chmod(&dir.join(name), 0o600)?;
+        }
+        fsutil::chown(dir, parent.uid(), parent.gid())?;
+        fsutil::chmod(dir, 0o700)?;
         Ok(())
     }
 
@@ -3132,7 +3145,33 @@ impl Engine {
                 "bundle is for another host",
             )));
         }
-        let cid = m.capture_id.clone();
+        let cid = if self.state.exists(&m.capture_id) {
+            format!(
+                "cp_{}",
+                lamp_init::hex_encode(&fsutil::random_bytes::<16>())
+            )
+        } else {
+            m.capture_id.clone()
+        };
+        if cid != m.capture_id {
+            self.custody
+                .as_ref()
+                .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
+                .lock()
+                .unwrap()
+                .transact(|graph| {
+                    graph.derive(
+                        &m.capture_id,
+                        &cid,
+                        crate::custody::Destination {
+                            principal: self.custody_owner(),
+                            host: &self.cfg.host_id,
+                            online: true,
+                        },
+                        crate::custody::CapturePurpose::OwnerPrivate,
+                    )
+                })?;
+        }
         let (mem_name, vmstate_name, disk_name) = durable::object_names(&cid);
         let thin = match &self.disk {
             disk::Backend::Thin(pool) => Some(pool.new_id()),
@@ -3166,6 +3205,7 @@ impl Engine {
             };
             self.state.publish_objects(&names)?;
             let mut local = m.clone();
+            local.capture_id = cid.clone();
             local.memory.object = mem_name.clone();
             local.vmstate.object = vmstate_name.clone();
             local.disk.disk = disk.encode();

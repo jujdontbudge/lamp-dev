@@ -485,12 +485,19 @@ func (s *Service) recordAttempt(r *notificationRecord, status int, errText strin
 func (s *Service) withCountdowns(sb api.Sandbox) map[string]any {
 	m := object(sb)
 	action, grace, retention, expires := lifecycleOf(sb)
+	m["lifecycle"] = map[string]any{"idle_action": action, "idle_grace_seconds": grace, "suspended_retention_seconds": retention}
+	if sb.Lifecycle != nil && sb.Lifecycle.OnJobEnd != nil {
+		m["lifecycle"].(map[string]any)["on_job_end"] = *sb.Lifecycle.OnJobEnd
+	}
+	if !expires.IsZero() {
+		m["lifecycle"].(map[string]any)["expires_at"] = expires.UTC().Format(time.RFC3339Nano)
+	}
 	idle := map[string]any{"action": action, "grace_seconds": grace}
 	if s.life != nil {
 		if l := s.life.Sandboxes[sb.Id]; l != nil {
-			if !l.idleFrom.IsZero() && sb.State == "ready" {
-				idle["idle_since"] = l.idleFrom.UTC().Format(time.RFC3339Nano)
-				idle["fires_at"] = l.idleFrom.Add(time.Duration(grace) * time.Second).UTC().Format(time.RFC3339Nano)
+			if !l.IdleFrom.IsZero() && sb.State == "ready" {
+				idle["idle_since"] = l.IdleFrom.UTC().Format(time.RFC3339Nano)
+				idle["fires_at"] = l.IdleFrom.Add(time.Duration(grace) * time.Second).UTC().Format(time.RFC3339Nano)
 			}
 			if at, err := time.Parse(time.RFC3339Nano, l.SuspendedAt); err == nil && sb.State == "suspended" {
 				m["saved_state_until"] = at.Add(time.Duration(retention) * time.Second).UTC().Format(time.RFC3339Nano)

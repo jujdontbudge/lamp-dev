@@ -141,7 +141,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if name == "browser_action" && strings.SplitN(strings.TrimLeft(arg, "-"), "=", 2)[0] == "arguments-json" {
 			return usage("browser arguments require --input file or private --input -; not argv")
 		}
-
 	}
 	flags := flag.NewFlagSet(op.CLI, flag.ContinueOnError)
 	var parseLog bytes.Buffer

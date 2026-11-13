@@ -225,7 +225,11 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 	if l.Capture == "" {
 		return lifePlan{}, reject("DATA_UNAVAILABLE", "saved state is missing")
 	}
+	if err := s.accountAdmission(a, "sandbox_resume", sb); err != nil {
+		return lifePlan{}, err
+	}
 	capture := l.Capture
+	allocated := false
 	sb.State = "resuming"
 	sb.Revision++
 	// A resumed sandbox runs as a new generation: its own guard audit spool
@@ -250,6 +254,7 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 			if err := s.worker.perform(ctx, r, "allocated"); err != nil {
 				return nil, err
 			}
+			allocated = true
 			if sb.NetworkPolicyId != nil {
 				s.readLock()
 				n := s.life.Networks[*sb.NetworkPolicyId]
@@ -281,7 +286,8 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 			if err != nil {
 				// Never present a failed restore as a cold start: release the
 				// partial allocation and keep the intact saved state.
-				cleanup := context.WithoutCancel(ctx)
+				cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+				defer cancel()
 				stop := s.workerRequest(cleanup, "stop", id, gen)
 				stop.Command = &pb.Request_Stop{Stop: &pb.Stop{Force: true}}
 				s.worker.perform(cleanup, stop, "stopped")
@@ -311,10 +317,14 @@ func (s *Service) planResume(a caller, in map[string]any) (lifePlan, error) {
 				l.Resumed = value(sb.Generation)
 				l.Capture = ""
 				l.SuspendedAt = ""
-				l.idleFrom = time.Time{}
-				l.activity = time.Now()
+				l.IdleFrom = time.Time{}
+				l.Activity = s.lifeNow()
 			} else {
 				sb.State = "suspended"
+				var failure *workerFailure
+				if !allocated && errors.As(err, &failure) && failure.code == "SCOPE_DENIED" {
+					sb.Generation = pointer(value(sb.Generation) - 1)
+				}
 			}
 			s.journal.Sandboxes[id] = sb
 			if l.waking != nil {
@@ -365,8 +375,8 @@ func (s *Service) Wake(ctx context.Context, a caller, id string) error {
 		return nil // the original request reports NOT_FOUND
 	}
 	l := s.lifeSB(id)
-	l.activity = time.Now()
-	l.idleFrom = time.Time{}
+	l.Activity = s.lifeNow()
+	l.IdleFrom = time.Time{}
 	if l.Pool != "" {
 		s.mu.Unlock()
 		return reject("RESOURCE_IN_USE", "unclaimed warm-pool sandbox")
@@ -534,6 +544,9 @@ func (s *Service) planSandboxUpdate(a caller, in map[string]any) (lifePlan, erro
 		if s.taskExpired(sb) {
 			return lifePlan{}, reject("TASK_AUTHORITY_EXPIRED", "an expired deadline is never reactivated")
 		}
+		if err := s.validateLifecycle(a, &next); err != nil {
+			return lifePlan{}, err
+		}
 		owner := s.role(a) == "owner"
 		if next.IdleGraceSeconds != nil && *next.IdleGraceSeconds > maxIdleGrace && !owner {
 			return lifePlan{}, reject("SCOPE_DENIED", "idle grace above 86400 s needs owner authority")
@@ -607,8 +620,13 @@ const (
 // exited process means nothing.
 const pyIdle = `import os,json,fcntl,time
 out=dict(cgroup=None,running=[],socks=[],waits={})
-try: out['cgroup']=open('/sys/fs/cgroup/tasks/cgroup.procs').read().split()
-except OSError: pass
+def unreadable(error): raise error
+try:
+  out['cgroup']=[]
+  for root,dirs,files in os.walk('/sys/fs/cgroup/tasks',onerror=unreadable):
+    out['cgroup'] += open(root+'/cgroup.procs').read().split()
+  if not os.path.isdir('/sys/fs/cgroup/tasks'): out['cgroup']=None
+except OSError: out['cgroup']=None
 for i in range(3):
   out['running'].append(int(open('/proc/loadavg').read().split()[3].split('/')[0]))
   time.sleep(0.1)
@@ -769,6 +787,7 @@ func (s *Service) lifeTickOnce() {
 	ctx, cancel := context.WithTimeout(s.context(), 2*time.Minute)
 	defer cancel()
 	var candidates []idleCandidate
+	var recoveries []struct{ id, operation string }
 	var expiredDelete []api.Sandbox
 	var hardStop []idleCandidate
 	var retired []string
@@ -782,15 +801,33 @@ func (s *Service) lifeTickOnce() {
 		l := s.life.Sandboxes[id]
 		action, _, retention, _ := lifecycleOf(sb)
 		switch sb.State {
+		case "unavailable":
+			l = s.lifeSB(id)
+			if s.busy[id] || l.reconciling {
+				continue
+			}
+			for _, op := range s.journal.Operations {
+				name := value(op.Operation.OperationName)
+				if op.Resource.Id == id && op.Operation.State == "succeeded" && (name == "sandbox_create" || name == "sandbox_fork") {
+					l.reconciling = true
+					recoveries = append(recoveries, struct{ id, operation string }{id, op.Operation.Id})
+					break
+				}
+			}
 		case "ready":
 			if s.busy[id] || s.starting[id] > 0 || (l != nil && l.Pool != "") {
 				continue
 			}
 			if s.taskExpired(sb) {
-				hardStop = append(hardStop, idleCandidate{id: id, owner: sb.OwnerId, revision: sb.Revision})
+				expiredDelete = append(expiredDelete, sb)
 				continue
 			}
 			if s.sessionSandboxBusy(id) {
+				l = s.lifeSB(id)
+				l.IdleFrom = time.Time{}
+				l.Activity = now
+				sb.SuspendEligibility = &api.SuspendEligibility{Eligible: false, Reasons: []api.SuspendEligibilityReasonsItem{"session_activity"}, ObservedAt: timestamp(), ObservationState: api.SuspendEligibilityObservationStateFresh}
+				s.journal.Sandboxes[id] = sb
 				continue
 			}
 			if action == "keep" {
@@ -798,10 +835,14 @@ func (s *Service) lifeTickOnce() {
 			}
 			var since time.Time
 			if l != nil {
-				since = l.activity
+				since = l.Activity
 			}
 			candidates = append(candidates, idleCandidate{id: id, owner: sb.OwnerId, revision: sb.Revision, since: since})
 		case "suspended":
+			if s.taskExpired(sb) {
+				expiredDelete = append(expiredDelete, sb)
+				continue
+			}
 			if l == nil || l.SuspendedAt == "" || s.busy[id] {
 				continue
 			}
@@ -827,6 +868,19 @@ func (s *Service) lifeTickOnce() {
 		s.broken = true
 	}
 	s.mu.Unlock()
+	for _, c := range recoveries {
+		s.wg.Add(1)
+		go func(id, operation string) {
+			defer func() {
+				s.mu.Lock()
+				if l := s.life.Sandboxes[id]; l != nil {
+					l.reconciling = false
+				}
+				s.mu.Unlock()
+			}()
+			s.reconcileSandbox(id, operation)
+		}(c.id, c.operation)
+	}
 	s.discardCaptures(ctx)
 	for _, sb := range expiredDelete {
 		s.internalDelete(sb, "retention")
@@ -845,7 +899,7 @@ func (s *Service) lifeTickOnce() {
 			continue
 		}
 		l := s.lifeSB(c.id)
-		if !l.activity.Equal(c.since) || time.Since(l.activity) < lifeTick {
+		if !l.Activity.Equal(c.since) || time.Since(l.Activity) < lifeTick {
 			reasons = append([]string{"session_activity"}, reasons...)
 		}
 		for _, ex := range s.journal.Execs {
@@ -867,16 +921,20 @@ func (s *Service) lifeTickOnce() {
 		s.journal.Sandboxes[c.id] = sb
 		due := false
 		if !eligible {
-			l.idleFrom = time.Time{}
+			l.IdleFrom = time.Time{}
 		} else {
-			if l.idleFrom.IsZero() {
-				l.idleFrom = time.Now()
+			if l.IdleFrom.IsZero() {
+				l.IdleFrom = s.lifeNow()
 			}
 			_, grace, _, _ := lifecycleOf(sb)
-			due = time.Since(l.idleFrom) >= time.Duration(grace)*time.Second
+			due = s.lifeNow().Sub(l.IdleFrom) >= time.Duration(grace)*time.Second
 		}
 		action, _, _, _ := lifecycleOf(sb)
 		c.revision = sb.Revision
+		if s.saveLife() != nil {
+			s.broken = true
+			due = false
+		}
 		s.mu.Unlock()
 		if due && action == "delete" {
 			s.internalDelete(sb, "idle")
