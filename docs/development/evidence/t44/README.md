@@ -1,12 +1,16 @@
 # T44 live evidence
 
+This records the initial Ubuntu work. [Follow-up evidence](followup/README.md)
+records the network audit fix and the coordinator-requested platform runs.
+
 These are real CLI, HTTP and MCP calls against disposable Ubuntu Firecracker
 VMs on the owner's Ubuntu machine. No host Docker daemon, owner browser,
 visible desktop, account or vault was used. Only public package registries,
 example.com and guest-local files were involved. The template derives from
 the public Ubuntu seed used by T35, with the T36 guest helper; the final Docker
-run also uses the guest init built from this change. This is not a fresh
-release-installer test on every host. Apple Silicon execution was not run.
+run also uses the guest init built from this change. This initial run was not a fresh
+release-installer test on every host; Apple Silicon execution came in the
+follow-up.
 
 Completion arrays in the saved JSON are summarized as `returned_items` and
 `items_sample`; counts and the server's own truncation fields are preserved.
@@ -53,7 +57,8 @@ kernel namespace capability checks still control interface creation.
 
 Some runs lost external DNS after the existing network audit heartbeat stopped.
 The implementation does not weaken that enforcement. A suspend/resume restored
-networking and Chromium then navigated successfully. The first recovery attempt
+networking and Chromium then navigated successfully. The follow-up diagnoses
+and fixes this failure; its full kit run needs no recovery. The first recovery attempt
 also exposed a demo grant restricted to generation 1; subsequent disposable
 worker grants explicitly authorized recovery generations.
 

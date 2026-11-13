@@ -138,9 +138,11 @@ impl Attachment {
         if !ready.contains("\"state\":\"ready\"") {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(EngineError::host(
-                "guarded network helper did not become ready; inspect network helper.log",
-            ));
+            let log = std::fs::read_to_string(root.join("helper.log")).unwrap_or_default();
+            return Err(EngineError::host(format!(
+                "guarded network helper did not become ready: {}",
+                log.trim()
+            )));
         }
         use std::os::fd::IntoRawFd;
         Ok(Self {

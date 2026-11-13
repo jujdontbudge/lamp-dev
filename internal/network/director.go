@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"errors"
+	"log"
 	"net"
 	"net/netip"
 	"sync"
@@ -51,7 +52,6 @@ type Director struct {
 	cancel        context.CancelFunc
 	auditGate     sync.Mutex
 	auditRevision atomic.Uint64
-	lastAudit     atomic.Pointer[time.Time]
 	unsupported   atomic.Uint64
 	active        map[*flow]struct{}
 	links         map[Destination]*SandboxLink
@@ -75,7 +75,6 @@ func NewDirector(subject Subject, revision uint64, policy Policy, provider Provi
 		return nil, err
 	}
 	go d.auditLoop()
-	go d.auditWatch()
 	return d, nil
 }
 func (d *Director) Authorize(subject Subject, target Destination) (Permit, error) {
@@ -251,21 +250,13 @@ func (d *Director) record(event Event) error {
 		event.Revision = d.revision
 	}
 	d.auditGate.Lock()
-	previous := d.lastAudit.Load()
-	started := time.Now()
 	err := d.audit.Record(event)
-	if time.Since(started) > time.Second || (previous != nil && time.Since(*previous) > time.Second) {
-		err = ErrUnavailable
-	}
-	if err == nil {
-		now := time.Now()
-		d.lastAudit.Store(&now)
-		if event.Kind == "policy_fence" {
-			d.auditRevision.Store(event.Revision)
-		}
+	if err == nil && event.Kind == "policy_fence" {
+		d.auditRevision.Store(event.Revision)
 	}
 	d.auditGate.Unlock()
 	if err != nil {
+		log.Printf("network audit fence: event=%s error=%v", event.Kind, err)
 		d.cancel()
 		if !d.closed {
 			d.closed = true
@@ -281,16 +272,11 @@ func (d *Director) record(event Event) error {
 	return nil
 }
 func (d *Director) Done() <-chan struct{} { return d.root.Done() }
-func (d *Director) AuditAge() time.Duration {
-	last := d.lastAudit.Load()
-	if last == nil {
-		return time.Hour
-	}
-	return time.Since(*last)
-}
 
-// Heartbeat does not wait behind a pending numeric dial. The independent
-// bridge watchdog can disconnect its frame FD while a storage barrier blocks.
+// Heartbeats record liveness and unsupported-frame counts. Storage latency is
+// not loss of audit custody: new DNS/dial admissions still wait for their durable
+// record. Only a failed barrier poisons the route; a slow successful barrier must
+// not permanently disconnect an otherwise healthy sandbox.
 func (d *Director) Heartbeat(unsupported uint64) error {
 	select {
 	case <-d.done:
@@ -298,18 +284,10 @@ func (d *Director) Heartbeat(unsupported uint64) error {
 	default:
 	}
 	d.auditGate.Lock()
-	previous := d.lastAudit.Load()
-	started := time.Now()
-	err := d.audit.Record(Event{Kind: "heartbeat", Subject: d.subject, Revision: d.auditRevision.Load(), Decision: "observed", Reason: "bounded_liveness", Packets: unsupported})
-	if time.Since(started) > time.Second || (previous != nil && time.Since(*previous) > time.Second) {
-		err = ErrUnavailable
-	}
-	if err == nil {
-		now := time.Now()
-		d.lastAudit.Store(&now)
-	}
+	err := d.audit.Record(Event{Kind: "heartbeat", Subject: d.subject, Revision: d.auditRevision.Load(), Decision: "observed", Reason: "collector_liveness", Packets: unsupported})
 	d.auditGate.Unlock()
 	if err != nil {
+		log.Printf("network audit fence: event=heartbeat error=%v", err)
 		_ = d.Close()
 		return ErrUnavailable
 	}
@@ -324,21 +302,6 @@ func (d *Director) auditLoop() {
 			return
 		case <-ticker.C:
 			if d.Heartbeat(d.unsupported.Swap(0)) != nil {
-				return
-			}
-		}
-	}
-}
-func (d *Director) auditWatch() {
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-d.root.Done():
-			return
-		case <-ticker.C:
-			if d.AuditAge() > time.Second {
-				_ = d.Close()
 				return
 			}
 		}
