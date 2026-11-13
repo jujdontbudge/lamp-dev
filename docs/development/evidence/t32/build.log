@@ -2,6 +2,11 @@ mkdir -p bin
 cc -O2 -Wall -Wextra -Werror -o bin/lamp-plugin-launcher tools/plugin-launcher.c
 go build ./...
 python3 tools/sdkgen.py --check
-sdk codegen: clean (330 operations)
+sdk codegen: clean (332 operations)
 cargo build --workspace --locked
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+   Compiling lamp-vz v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-0a038369-57c67dab92417a72/crates/lamp-vz)
+   Compiling lamp-worker-protocol v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-0a038369-57c67dab92417a72/crates/lamp-worker-protocol)
+   Compiling lamp-contracts v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-0a038369-57c67dab92417a72/crates/lamp-contracts)
+   Compiling lamp-engine v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-0a038369-57c67dab92417a72/crates/lamp-engine)
+   Compiling lamp-supervisor v0.1.0 (/Users/johansardar/.t3/worktrees/lamp/t3-0a038369-57c67dab92417a72/crates/lamp-supervisor)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.44s

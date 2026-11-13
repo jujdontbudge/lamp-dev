@@ -152,6 +152,50 @@ Candidate archive SHA-256 values (disposable Ed25519 release signing key):
 - Adaptive M5: `22447d4bc597c4c72bea073c5694cc47b1c2adfd45e8e664142dcf329f0c4dde`
 - Final Air: `c8242d7d11d7c41f1fc090ea37de3d46c03f26fd9ed9189e72ac7d29051ea116`
 
+## Integration with T38 and T33
+
+The branch was rebased onto T38 and T33 at `03944fb`. Conflicts were resolved
+by retaining the new fleet imports, plugin launcher in both platform archives,
+and T33's explicit `pids_max` validation while adding the installed default.
+`make build`, targeted Go vet and both reviewer regressions passed after
+integration. The lifecycle regression fixture was updated for T33's earlier
+worker-capacity probe; it still reproduces the original HTTP 400 when the
+default-selection fix is removed, and passes with the fix present.
+
+T33 adds a second fixed 2048 MiB deduction from available memory, which would
+prevent the busy Air from running even a small guest. The combined policy
+retains its full physical host reserve and reservation/pending accounting,
+and scales additional available-page headroom to one quarter of the available
+pool, with a 256 MiB minimum and the physical reserve as a ceiling. The
+installer now uses that exact engine-reported headroom when choosing its
+default, and both report all budgets in a capacity refusal.
+
+Signed candidates built from `f0ffbd5` demonstrate the combined behavior:
+`14-m5-combined-install.log` and `15-arm64-combined-install.log` show the M5
+and Linux arm64 creating real VMs, printing `Linux aarch64` and Python `42`,
+and removing their sandboxes and installations. Both used 2048 MiB guests.
+The M5 reported 3875 MiB available and 968 MiB available-page headroom at
+preflight, while retaining a 2048 MiB physical reserve. Observed install
+through code and sandbox cleanup was 78.546 s on M5 and 99.349 s on arm64.
+These reruns validate integration changes; earlier timing observations remain
+historical.
+
+`16-air-combined-install.log` completes the post-rebase demonstration with
+the Air's apps still open. Preflight reported physical 8192 MiB, available
+1218 MiB, physical reserve 2048 MiB and available headroom 304 MiB. At
+preparation it reported 1390 MiB available and 347 MiB headroom. The selected
+512 MiB guest was admitted with the 256 MiB VMM allowance, created through
+the installed public CLI, and printed `Linux aarch64` and Python `42`.
+The guest and installation were removed; both worker users and groups and
+the engine/runtime paths were confirmed absent afterward. Observed install
+through code and sandbox cleanup was 127.209 s. No app was stopped to make
+that allocation fit.
+
+Combined candidate archive SHA-256 values:
+
+- Mac (M5 and Air): `caeae82ce09577c629127c779baef40f5ae7da3e54d51fc6d77ff9dbd06771e2`
+- Linux arm64: `00bdb4cfcc0461f8cd2b187e20dbda98839c0f35250f4c6aaf7bb8fe45df68b7`
+
 The candidate archives include compressed seeds, not tester-side kernel
 builds. The Mac prepared seed is Ubuntu arm64; the Linux arm64 seed uses the
 earlier prepared Firecracker kernel/rootfs in its own signed seed format.
