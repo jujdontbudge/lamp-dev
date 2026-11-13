@@ -1,0 +1,11 @@
+debugfs 1.47.2 (1-Jan-2025)
+debugfs: rm /usr/sbin/lamp-init
+
+debugfs: write /tmp/lamp-t40-source/target/x86_64-unknown-linux-musl/debug/lamp-init /usr/sbin/lamp-init
+Allocated inode: 6671
+debugfs: rm /usr/sbin/lamp-guest-helper
+
+debugfs: write /tmp/lamp-t40-source/target/x86_64-unknown-linux-musl/debug/lamp-guest-helper /usr/sbin/lamp-guest-helper
+Allocated inode: 6670
+lamp-supervisor: store open (dm-thin disks, 0 durable capture(s)), 2 verified template(s) in 10252 ms
+lamp-seed/ubuntu-26.04@sha256:700de944f17c679e00c3907dc5bae86a7d62e0d1354b0a17eede99f5622c4345

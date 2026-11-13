@@ -165,3 +165,29 @@ three retained T40 reviewer tests and three existing CLI/T41 tests pass. No new
 implementation tests were added for the Mac changes; the proof is the real
 M5 run. Native macOS guest filesystem mounts and online build networking remain
 outside this Linux-on-Mac demonstration.
+
+## Final T35–T37 integration
+
+Rebased onto main `21e06f7`, including T35, T36 and T37. Guest dispatch keeps
+T36 command I/O and native Mac session relay alongside T40 mounts. Template
+steps supply the new stdin/PTY defaults. T37 control setup and artifact update
+handling are retained. The worker binding check is clean.
+
+`integrated-build-demo.log`, `integrated-one.log`, `integrated-two.log`,
+`integrated-three.log` and `integrated-pool.log` repeat the full Linux runtime
+demonstration on head `3ab9652c0ca14e7af0cf5aaa8f54be5a0cdfa9af`.
+The seed contains newly built guest helpers from this integration. Public six
+build, requested resources/100 GiB root, concurrent storage and rename,
+restart remount, saved tools, MCP attachment, read-only backup restore, and
+both warm claims/refill pass. All demonstration VMs were deleted and the
+own supervisor/daemon stopped. The initial CLI call raced socket creation;
+its failure remains in the transcript before the successful build.
+`integrated-seed.log` also retains the unprivileged debugfs failure;
+`integrated-seed-corrected.log` records the actual helper update/import.
+
+`make build`, `go vet ./cmd/lamp ./internal/control`, the six focused retained
+T40/CLI checks and `python3 tools/protobuf.py --check` pass. Scoped rustfmt
+passes. Workspace formatting has existing differences in lamp-guard audit,
+lamp-supervisor main and lamp-vz admission; those unrelated files were not
+changed. No new tests were added. The M5 runtime evidence above predates this
+last integration; a further M5 runtime run is not claimed.

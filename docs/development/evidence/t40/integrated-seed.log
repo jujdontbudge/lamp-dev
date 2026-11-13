@@ -1,0 +1,12 @@
+debugfs 1.47.2 (1-Jan-2025)
+debugfs: Permission denied while trying to open /home/johan/.local/state/lamp-t40/seed/rootfs.ext4
+debugfs: rm /usr/sbin/lamp-init
+rm: Filesystem not open
+debugfs: write /tmp/lamp-t40-source/target/x86_64-unknown-linux-musl/debug/lamp-init /usr/sbin/lamp-init
+write: Filesystem not open
+debugfs: rm /usr/sbin/lamp-guest-helper
+rm: Filesystem not open
+debugfs: write /tmp/lamp-t40-source/target/x86_64-unknown-linux-musl/debug/lamp-guest-helper /usr/sbin/lamp-guest-helper
+write: Filesystem not open
+lamp-supervisor: store open (dm-thin disks, 0 durable capture(s)), 2 verified template(s) in 13437 ms
+lamp-seed/ubuntu-26.04@sha256:e5f279df6498f31d68b80bca70e307f31f2d760fdf59253ad26bdb0fb42f5afb
