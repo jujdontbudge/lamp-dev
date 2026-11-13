@@ -9,6 +9,7 @@ here because Lamp spawns sub-agents as separately visible sessions.
 
 import json
 import re
+import signal
 import os
 from pathlib import Path
 import subprocess
@@ -161,11 +162,15 @@ class Codex:
             raise ValueError("Codex subscription credentials must remain in the enrolled native custody home")
 
     def argv(self, c, state, prompt):
-        argv = [c["binary"]] + ([] if c.get("native_subagents") else ["--disable", "multi_agent"]) + ["-c", 'approval_policy="never"', "-c", 'web_search="disabled"']
+        argv = [c["binary"]] + ([] if c.get("native_subagents") else ["--disable", "multi_agent"]) + ["-c", 'approval_policy="never"', "-c", 'web_search="disabled"', "-c", 'sandbox_mode="workspace-write"', "-c", "sandbox_workspace_write.network_access=true"]
+        if c.get("location_kind") == "sandbox":
+            # The VM is the isolation boundary. Permit the agent's own scoped
+            # Lamp gateway, package installs and ordinary development traffic.
+            argv += ["-c", 'sandbox_mode="danger-full-access"']
         if c.get("agent_mode") == "outside" or (c["auth"] == "subscription" and not c.get("brokered_subscription")):
             argv += ["--disable", "shell_tool", "--disable", "unified_exec"]
         if mcp := c.get("mcp"):
-            argv += ["-c", "mcp_servers.lamp={command=" + json.dumps(mcp["command"]) + ",args=" + json.dumps(mcp["args"]) + ',enabled_tools=["exec","spawn","git_return"],default_tools_approval_mode="approve",tool_timeout_sec=180}']
+            argv += ["-c", "mcp_servers.lamp={command=" + json.dumps(mcp["command"]) + ",args=" + json.dumps(mcp["args"]) + ',default_tools_approval_mode="approve",tool_timeout_sec=180}']
         if c["auth"] == "api_key" or c.get("brokered_subscription"):
             argv += ["-c", 'model_provider="lamp"', "-c", 'model_providers.lamp={name="Lamp broker",base_url=' + json.dumps(c["endpoint"]) + ',env_key="LAMP_MODEL_TOKEN",wire_api="responses"}']
         if c.get("model"):
@@ -174,7 +179,9 @@ class Codex:
         if state.get("session_id"):
             argv += ["resume", state["session_id"]]
         else:
-            argv += ["--sandbox", "workspace-write", "--skip-git-repo-check"]
+            argv += ["--skip-git-repo-check"]
+            if c.get("location_kind") != "sandbox":
+                argv += ["--sandbox", "workspace-write"]
         return argv + ["--json", "-"], prompt
 
     def event(self, c, state, e):
@@ -640,9 +647,42 @@ def load_state(path):
 
 
 def main():
+    active = [None]
+    interrupted = [False]
+    def cancel_turn(signum, frame):
+        if active[0] is not None:
+            interrupted[0] = True
+            # Tool PTYs can create their own process groups. Kill only this
+            # dedicated turn's descendants as well as its group, so cancelling
+            # a tool such as sleep does not leave it running in the VM.
+            root = active[0].pid
+            try:
+                listing = subprocess.check_output(["ps","-axo","pid=,ppid="],text=True)
+                pairs = [tuple(map(int,line.split())) for line in listing.splitlines() if line.strip()]
+                descendants = {root}
+                for _ in range(len(pairs)):
+                    found = {pid for pid,parent in pairs if parent in descendants}
+                    if found <= descendants: break
+                    descendants.update(found)
+                for pid in reversed([pid for pid,_ in pairs if pid in descendants and pid != root]):
+                    try: os.kill(pid,signal.SIGKILL)
+                    except ProcessLookupError: pass
+            except (OSError,subprocess.SubprocessError,ValueError):
+                pass
+            try:
+                os.killpg(root, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+    signal.signal(signal.SIGUSR1, cancel_turn)
+    def end_session(signum, frame):
+        cancel_turn(signum, frame)
+        raise SystemExit(0)
+    signal.signal(signal.SIGTERM, end_session)
     config = json.loads(Path(sys.argv[1]).read_text())
     if config.get("managed") and config["kind"] in ("opencode", "codex"):
         if not Path(config["binary"]).is_file():
+            if config.get("location_kind") == "host":
+                raise ValueError("install the official harness explicitly on the enrolled host first")
             package = "opencode-ai@1.19.5" if config["kind"] == "opencode" else "@openai/codex@0.168.0"
             print("lamp: installing " + package + " in the sandbox…", flush=True)
             subprocess.run(["npm", "install", "-g", "--no-audit", "--no-fund", "--progress=false", "--loglevel=error", "--maxsockets=1", package], check=True)
@@ -656,6 +696,7 @@ def main():
         link = Path("/usr/local/bin/lamp")
         if not link.exists():
             link.symlink_to(cli)
+        os.environ["LAMP_SESSION_ID"] = config["session_id"]
         os.environ["LAMP_API_URL"] = config["gateway"]
         os.environ["LAMP_TOKEN_FILE"] = config["credential_file"]
         os.environ.update(config.get("secret_placeholders", {}))
@@ -723,7 +764,9 @@ def main():
             os.close(writer)
             child["CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR"] = str(reader)
             passed = (reader,)
-        process = subprocess.Popen(argv, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=child, text=True, pass_fds=passed)
+        interrupted[0] = False
+        process = subprocess.Popen(argv, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=child, text=True, pass_fds=passed, start_new_session=True)
+        active[0] = process
         for descriptor in passed:
             os.close(descriptor)
         if stdin is not None:
@@ -759,6 +802,7 @@ def main():
         if pending:
             display(pending, environment)
         code = process.wait()
+        active[0] = None
         if getattr(adapter, "text_mode", False):
             success = code == 0
         if hasattr(adapter, "after"):
@@ -771,8 +815,10 @@ def main():
         if state.get("forked_from_id"):
             # Reported, never hidden: this native session was forked from that one.
             completion["forked_from"] = state["forked_from_id"]
+        if interrupted[0]:
+            completion["interrupted"] = True
         emit(completion)
-        emit({"type": "status", "status": "idle" if ok else "blocked", "input_id": identity})
+        emit({"type": "status", "status": "idle" if ok or interrupted[0] else "blocked", "input_id": identity})
 
 
 if __name__ == "__main__":

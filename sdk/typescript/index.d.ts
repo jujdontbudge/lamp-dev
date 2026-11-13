@@ -5684,7 +5684,7 @@ export interface ScheduleUpdateResult {
   "result"?: ScheduleUpdateCompletion;
 }
 export interface Scope {
-  "actions"?: Array<"access_route.create" | "access_route.delete" | "access_route.get" | "access_route.list" | "access_route.update" | "adapter.get" | "adapter.list" | "api.describe" | "approval.approve" | "approval.create" | "approval.delete" | "approval.deny" | "approval.get" | "approval.list" | "approval.revoke" | "artifact.create" | "artifact.delete" | "artifact.download" | "artifact.finalize" | "artifact.get" | "artifact.list" | "artifact.update" | "attachment.create" | "attachment.delete" | "attachment.get" | "attachment.list" | "attachment.update" | "audit_record.export" | "audit_record.get" | "audit_record.list" | "auth_flow.bootstrap" | "auth_flow.complete" | "auth_flow.create" | "auth_flow.delete" | "auth_flow.exchange" | "auth_flow.get" | "auth_flow.list" | "backup.create" | "backup.delete" | "backup.export" | "backup.get" | "backup.list" | "backup.restore" | "blob.create" | "blob.delete" | "blob.download" | "blob.finalize" | "blob.get" | "blob.list" | "blob.upload" | "browser.action" | "browser.create" | "browser.delete" | "browser.fill_password" | "browser.get" | "browser.list" | "browser.return_control" | "browser.takeover" | "browser.update" | "budget.create" | "budget.delete" | "budget.get" | "budget.list" | "budget.update" | "cache.create" | "cache.delete" | "cache.evict" | "cache.get" | "cache.list" | "cache.publish" | "cache.update" | "change_set.apply" | "change_set.create" | "change_set.delete" | "change_set.get" | "change_set.list" | "change_set.reject" | "configuration.create" | "configuration.delete" | "configuration.get" | "configuration.list" | "connection.create" | "connection.delete" | "connection.get" | "connection.invoke" | "connection.list" | "connection.revoke" | "connection.test" | "connection.update" | "credential_source.create" | "credential_source.delete" | "credential_source.get" | "credential_source.list" | "credential_source.update" | "docs.read" | "engine.get" | "engine.list" | "event.list" | "exec.create" | "exec.delete" | "exec.get" | "exec.input" | "exec.interrupt" | "exec.list" | "exec.resize" | "exec.watch" | "exposure.activate" | "exposure.create" | "exposure.delete" | "exposure.get" | "exposure.list" | "exposure.revoke" | "fleet.get" | "fleet.list" | "fleet.recover" | "fleet.transfer_owner" | "fleet.update" | "grant.delete" | "grant.get" | "grant.list" | "grant.revoke" | "harness.get" | "harness.list" | "host.bench" | "host.create" | "host.delete" | "host.drain" | "host.enroll" | "host.get" | "host.list" | "host.update" | "identity_provider.create" | "identity_provider.delete" | "identity_provider.get" | "identity_provider.list" | "identity_provider.update" | "invitation.accept" | "invitation.create" | "invitation.delete" | "invitation.get" | "invitation.list" | "job.cancel" | "job.create" | "job.delete" | "job.get" | "job.list" | "job.reconcile" | "key.create" | "key.delete" | "key.get" | "key.list" | "key.rotate" | "kit.create" | "kit.delete" | "kit.get" | "kit.install" | "kit.install_status" | "kit.list" | "kit.update" | "lease.create" | "lease.delete" | "lease.get" | "lease.list" | "lease.release" | "lease.renew" | "membership.create" | "membership.delete" | "membership.get" | "membership.list" | "membership.update" | "message.create" | "message.get" | "message.list" | "metric.list" | "native_execution_grant.create" | "native_execution_grant.delete" | "native_execution_grant.get" | "native_execution_grant.list" | "network_attachment.create" | "network_attachment.delete" | "network_attachment.get" | "network_attachment.list" | "network_attachment.test" | "network_attachment.update" | "network_policy.create" | "network_policy.delete" | "network_policy.get" | "network_policy.list" | "network_policy.update" | "notification.acknowledge" | "notification.get" | "notification.list" | "notification.retry" | "notification_sink.create" | "notification_sink.delete" | "notification_sink.get" | "notification_sink.list" | "notification_sink.test" | "notification_sink.update" | "operation.cancel" | "operation.get" | "operation.list" | "operation.wait" | "plugin.create" | "plugin.delete" | "plugin.disable" | "plugin.enable" | "plugin.get" | "plugin.list" | "plugin.test" | "plugin.trust" | "plugin.update" | "port.create" | "port.delete" | "port.get" | "port.list" | "port.publish" | "port.share_link" | "port.unpublish" | "port.update" | "principal.create" | "principal.delete" | "principal.get" | "principal.list" | "principal.update" | "recipe.create" | "recipe.delete" | "recipe.get" | "recipe.list" | "recipe.update" | "sandbox.create" | "sandbox.delete" | "sandbox.device_input" | "sandbox.device_watch" | "sandbox.file_delete" | "sandbox.file_list" | "sandbox.file_read" | "sandbox.file_transfer" | "sandbox.file_write" | "sandbox.fork" | "sandbox.get" | "sandbox.list" | "sandbox.prepare_fork" | "sandbox.restore" | "sandbox.resume" | "sandbox.save_template" | "sandbox.suspend" | "sandbox.update" | "schedule.create" | "schedule.delete" | "schedule.get" | "schedule.list" | "schedule.pause" | "schedule.resume" | "schedule.run" | "schedule.update" | "session.attach" | "session.checkpoint" | "session.create" | "session.delete" | "session.end" | "session.get" | "session.input" | "session.interrupt" | "session.list" | "session.resize" | "session.spawn" | "session.teleport" | "session.update" | "session.watch" | "settings_change.apply" | "settings_change.create" | "settings_change.delete" | "settings_change.get" | "settings_change.list" | "settings_change.reject" | "settings_source.create" | "settings_source.delete" | "settings_source.get" | "settings_source.list" | "settings_source.update" | "share.create" | "share.delete" | "share.get" | "share.list" | "share.revoke" | "share.update" | "snapshot.create" | "snapshot.delete" | "snapshot.get" | "snapshot.list" | "task.create" | "task.delete" | "task.get" | "task.list" | "task.stop" | "task.update" | "telemetry.get" | "telemetry.purge" | "telemetry.update" | "template.build" | "template.create" | "template.delete" | "template.get" | "template.list" | "template.update" | "template.validate" | "trigger.create" | "trigger.delete" | "trigger.deliver" | "trigger.get" | "trigger.list" | "trigger.update" | "update.create" | "update.delete" | "update.get" | "update.list" | "update.rollback" | "volume.create" | "volume.delete" | "volume.get" | "volume.list" | "volume.recover" | "volume.snapshot" | "volume.update" | "warm_pool.create" | "warm_pool.delete" | "warm_pool.get" | "warm_pool.list" | "warm_pool.update" | "sandbox.file_stat" | "sandbox.file_search" | "sandbox.file_watch" | "sandbox.file_rename" | "sandbox.kit" | "sandbox.run_code" | "sandbox.lsp" | "sandbox.browser" | "sandbox.desktop" | "sandbox.metrics" | "sandbox.logs">;
+  "actions"?: Array<"access_route.create" | "access_route.delete" | "access_route.get" | "access_route.list" | "access_route.update" | "adapter.get" | "adapter.list" | "api.describe" | "approval.approve" | "approval.create" | "approval.delete" | "approval.deny" | "approval.get" | "approval.list" | "approval.revoke" | "artifact.create" | "artifact.delete" | "artifact.download" | "artifact.finalize" | "artifact.get" | "artifact.list" | "artifact.update" | "attachment.create" | "attachment.delete" | "attachment.get" | "attachment.list" | "attachment.update" | "audit_record.export" | "audit_record.get" | "audit_record.list" | "auth_flow.bootstrap" | "auth_flow.complete" | "auth_flow.create" | "auth_flow.delete" | "auth_flow.exchange" | "auth_flow.get" | "auth_flow.list" | "backup.create" | "backup.delete" | "backup.export" | "backup.get" | "backup.list" | "backup.restore" | "blob.create" | "blob.delete" | "blob.download" | "blob.finalize" | "blob.get" | "blob.list" | "blob.upload" | "browser.action" | "browser.create" | "browser.delete" | "browser.fill_password" | "browser.get" | "browser.list" | "browser.return_control" | "browser.takeover" | "browser.update" | "budget.create" | "budget.delete" | "budget.get" | "budget.list" | "budget.update" | "cache.create" | "cache.delete" | "cache.evict" | "cache.get" | "cache.list" | "cache.publish" | "cache.update" | "change_set.apply" | "change_set.create" | "change_set.delete" | "change_set.get" | "change_set.list" | "change_set.reject" | "configuration.create" | "configuration.delete" | "configuration.get" | "configuration.list" | "connection.create" | "connection.delete" | "connection.get" | "connection.invoke" | "connection.list" | "connection.revoke" | "connection.test" | "connection.update" | "credential_source.create" | "credential_source.delete" | "credential_source.get" | "credential_source.list" | "credential_source.update" | "docs.read" | "engine.get" | "engine.list" | "event.list" | "exec.create" | "exec.delete" | "exec.get" | "exec.input" | "exec.interrupt" | "exec.list" | "exec.resize" | "exec.watch" | "exposure.activate" | "exposure.create" | "exposure.delete" | "exposure.get" | "exposure.list" | "exposure.revoke" | "fleet.get" | "fleet.list" | "fleet.recover" | "fleet.transfer_owner" | "fleet.update" | "grant.delete" | "grant.get" | "grant.list" | "grant.revoke" | "harness.get" | "harness.list" | "host.bench" | "host.create" | "host.delete" | "host.drain" | "host.enroll" | "host.get" | "host.list" | "host.update" | "identity_provider.create" | "identity_provider.delete" | "identity_provider.get" | "identity_provider.list" | "identity_provider.update" | "invitation.accept" | "invitation.create" | "invitation.delete" | "invitation.get" | "invitation.list" | "job.cancel" | "job.create" | "job.delete" | "job.get" | "job.list" | "job.reconcile" | "key.create" | "key.delete" | "key.get" | "key.list" | "key.rotate" | "kit.create" | "kit.delete" | "kit.get" | "kit.install" | "kit.install_status" | "kit.list" | "kit.update" | "lease.create" | "lease.delete" | "lease.get" | "lease.list" | "lease.release" | "lease.renew" | "membership.create" | "membership.delete" | "membership.get" | "membership.list" | "membership.update" | "message.create" | "message.get" | "message.list" | "metric.list" | "native_execution_grant.create" | "native_execution_grant.delete" | "native_execution_grant.get" | "native_execution_grant.list" | "network_attachment.create" | "network_attachment.delete" | "network_attachment.get" | "network_attachment.list" | "network_attachment.test" | "network_attachment.update" | "network_policy.create" | "network_policy.delete" | "network_policy.get" | "network_policy.list" | "network_policy.update" | "notification.acknowledge" | "notification.get" | "notification.list" | "notification.retry" | "notification_sink.create" | "notification_sink.delete" | "notification_sink.get" | "notification_sink.list" | "notification_sink.test" | "notification_sink.update" | "operation.cancel" | "operation.get" | "operation.list" | "operation.wait" | "plugin.create" | "plugin.delete" | "plugin.disable" | "plugin.enable" | "plugin.get" | "plugin.list" | "plugin.test" | "plugin.trust" | "plugin.update" | "port.create" | "port.delete" | "port.get" | "port.list" | "port.publish" | "port.share_link" | "port.unpublish" | "port.update" | "principal.create" | "principal.delete" | "principal.get" | "principal.list" | "principal.update" | "recipe.create" | "recipe.delete" | "recipe.get" | "recipe.list" | "recipe.update" | "sandbox.create" | "sandbox.delete" | "sandbox.device_input" | "sandbox.device_watch" | "sandbox.file_delete" | "sandbox.file_list" | "sandbox.file_read" | "sandbox.file_transfer" | "sandbox.file_write" | "sandbox.fork" | "sandbox.get" | "sandbox.list" | "sandbox.prepare_fork" | "sandbox.restore" | "sandbox.resume" | "sandbox.save_template" | "sandbox.suspend" | "sandbox.update" | "schedule.create" | "schedule.delete" | "schedule.get" | "schedule.list" | "schedule.pause" | "schedule.resume" | "schedule.run" | "schedule.update" | "session.attach" | "session.checkpoint" | "session.create" | "session.delete" | "session.end" | "session.get" | "session.input" | "session.interrupt" | "session.list" | "session.resize" | "session.spawn" | "session.teleport" | "session.update" | "session.watch" | "settings_change.apply" | "settings_change.create" | "settings_change.delete" | "settings_change.get" | "settings_change.list" | "settings_change.reject" | "settings_source.create" | "settings_source.delete" | "settings_source.get" | "settings_source.list" | "settings_source.update" | "share.create" | "share.delete" | "share.get" | "share.list" | "share.revoke" | "share.update" | "snapshot.create" | "snapshot.delete" | "snapshot.get" | "snapshot.list" | "task.create" | "task.delete" | "task.get" | "task.list" | "task.stop" | "task.update" | "telemetry.get" | "telemetry.purge" | "telemetry.update" | "template.build" | "template.create" | "template.delete" | "template.get" | "template.list" | "template.update" | "template.validate" | "trigger.create" | "trigger.delete" | "trigger.deliver" | "trigger.get" | "trigger.list" | "trigger.update" | "update.create" | "update.delete" | "update.get" | "update.list" | "update.rollback" | "volume.create" | "volume.delete" | "volume.get" | "volume.list" | "volume.recover" | "volume.snapshot" | "volume.update" | "warm_pool.create" | "warm_pool.delete" | "warm_pool.get" | "warm_pool.list" | "warm_pool.update" | "sandbox.file_stat" | "sandbox.file_search" | "sandbox.file_watch" | "sandbox.file_rename" | "sandbox.kit" | "sandbox.run_code" | "sandbox.lsp" | "sandbox.browser" | "sandbox.desktop" | "sandbox.metrics" | "sandbox.logs" | "session.message" | "session.cancel">;
   "sandbox_ids"?: Array<string>;
   "recipe_ids"?: Array<string>;
   "host_ids"?: Array<string>;
@@ -5758,6 +5758,11 @@ export interface Session {
   readonly "location_epoch"?: number;
   readonly "output_cursor"?: string;
   readonly "continuation_ref"?: string;
+  "repository"?: string;
+  "shared_session_id"?: string;
+  "shared_epoch"?: number;
+  "last_turn"?: "completed" | "failed" | "interrupted";
+  "transfer"?: { "phase": string; "bytes_transferred": number; "artifact_bytes": number; "safe_to_close_source": boolean };
 }
 export interface SessionAttachCompletion {
   "stream": StreamDescriptor;
@@ -5777,6 +5782,22 @@ export interface SessionAttachResult {
   "replayed": boolean;
   "operation"?: Operation;
   "result"?: SessionAttachCompletion;
+}
+export interface SessionCancelCompletion {
+}
+export interface SessionCancelInput {
+  "session_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  readonly "expected_revision": number;
+}
+export interface SessionCancelResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SessionEndCompletion;
 }
 export interface SessionCheckpointCompletion {
 }
@@ -5815,6 +5836,7 @@ export interface SessionCreateInput {
   "idempotency_key": string;
   readonly "wait_ms"?: number;
   "prompt"?: string;
+  "repository"?: string;
 }
 export interface SessionCreateResult {
   "operation_id": string;
@@ -5911,6 +5933,23 @@ export interface SessionListResult {
   "next_cursor"?: string;
   "request_id": string;
 }
+export interface SessionMessageCompletion {
+}
+export interface SessionMessageInput {
+  "session_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  readonly "expected_revision": number;
+  "text": string;
+}
+export interface SessionMessageResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SessionEndCompletion;
+}
 export interface SessionResizeCompletion {
 }
 export interface SessionResizeInput {
@@ -5943,6 +5982,9 @@ export interface SessionSpawnInput {
   "idempotency_key": string;
   readonly "wait_ms"?: number;
   readonly "expected_revision": number;
+  "harness_id"?: string;
+  "prompt"?: string;
+  "side"?: boolean;
 }
 export interface SessionSpawnResult {
   "operation_id": string;
@@ -5951,6 +5993,14 @@ export interface SessionSpawnResult {
   "replayed": boolean;
   "operation"?: Operation;
   "result"?: SessionSpawnCompletion;
+}
+export interface SessionTeleportCheckInput {
+  "session_id": string;
+  "location": Location;
+}
+export interface SessionTeleportCheckResult {
+  "data": Session;
+  "request_id": string;
 }
 export interface SessionTeleportCompletion {
 }
@@ -7874,6 +7924,8 @@ export declare class LampClient {
   secretSet(input: SecretSetInput): Promise<SecretSetResult>;
   /** `lamp session attach` — POST /v1/sessions/{session_id}:attach (scope session.attach) */
   sessionAttach(input: SessionAttachInput): Promise<SessionAttachResult>;
+  /** `lamp session cancel` — POST /v1/sessions/{session_id}:cancel (scope session.cancel) */
+  sessionCancel(input: SessionCancelInput): Promise<SessionCancelResult>;
   /** `lamp session checkpoint` — POST /v1/sessions/{session_id}:checkpoint (scope session.checkpoint) */
   sessionCheckpoint(input: SessionCheckpointInput): Promise<SessionCheckpointResult>;
   /** `lamp session create` — POST /v1/sessions (scope session.create) */
@@ -7890,12 +7942,16 @@ export declare class LampClient {
   sessionInterrupt(input: SessionInterruptInput): Promise<SessionInterruptResult>;
   /** `lamp session list` — GET /v1/sessions (scope session.list) */
   sessionList(input: SessionListInput): Promise<SessionListResult>;
+  /** `lamp session message` — POST /v1/sessions/{session_id}:message (scope session.message) */
+  sessionMessage(input: SessionMessageInput): Promise<SessionMessageResult>;
   /** `lamp session resize` — POST /v1/sessions/{session_id}:resize (scope session.resize) */
   sessionResize(input: SessionResizeInput): Promise<SessionResizeResult>;
   /** `lamp session spawn` — POST /v1/sessions/{session_id}:spawn (scope session.spawn) */
   sessionSpawn(input: SessionSpawnInput): Promise<SessionSpawnResult>;
   /** `lamp session teleport` — POST /v1/sessions/{session_id}:teleport (scope session.teleport) */
   sessionTeleport(input: SessionTeleportInput): Promise<SessionTeleportResult>;
+  /** `lamp session teleport-check` — GET /v1/sessions/{session_id}/teleport-check (scope session.teleport) */
+  sessionTeleportCheck(input: SessionTeleportCheckInput): Promise<SessionTeleportCheckResult>;
   /** `lamp session update` — PATCH /v1/sessions/{session_id} (scope session.update) */
   sessionUpdate(input: SessionUpdateInput): Promise<SessionUpdateResult>;
   /** `lamp session watch` — GET /v1/sessions/{session_id}/output (scope session.watch) */

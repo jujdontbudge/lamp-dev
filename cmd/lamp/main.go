@@ -97,6 +97,29 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if wantsHelp {
 		return help(stdout, helpWords, asJSON, globals)
 	}
+	if len(args) >= 2 && args[0] == "session" && args[1] == "side" {
+		args[1] = "spawn"
+		args = append(args, "--side=true")
+	}
+	if len(args) >= 2 && args[0] == "session" && args[1] == "teleport" {
+		var err error
+		args, err = teleportArgs(args, globals)
+		if err != nil {
+			return usage(err.Error())
+		}
+		filtered := args[:2]
+		for _, arg := range args[2:] {
+			if arg == "--check" {
+				filtered[1] = "teleport-check"
+			} else {
+				filtered = append(filtered, arg)
+			}
+		}
+		args = filtered
+	}
+	if len(args) >= 3 && args[0] == "sandbox" && (args[1] == "diff" || args[1] == "pull-changes") && !wantsHelp {
+		return sandboxGit(args[1], append(append([]string{}, args[2:]...), globals...), stdout, stderr)
+	}
 	if len(args) >= 2 && args[0] == "session" && args[1] == "attach" && !asJSON {
 		return attachSession(append(append([]string{}, args[2:]...), globals...), stdout, stderr)
 	}

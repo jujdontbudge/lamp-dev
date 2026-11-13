@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"slices"
 	"strconv"
@@ -250,12 +251,19 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 	switch kind {
 	case "session":
 		if verb == "create" {
-			if err := acceptFields(in, "sandbox_id harness_id auth_mode task_id parent_session_id agent_mode location prompt"); err != nil {
+			if err := acceptFields(in, "sandbox_id harness_id auth_mode task_id parent_session_id agent_mode location prompt repository"); err != nil {
 				return api.ResourceRef{}, nil, nil, nil, err
 			}
 			if parent := textField(in, "parent_session_id"); parent != "" {
 				if p := c.Sessions[parent]; p == nil || textField(p.Resource, "owner_id") != a.Principal || !s.sessionAllowed(a, p.Resource, "session.get") {
 					return fail("NOT_FOUND", "parent session not found")
+				}
+			}
+			repository := textField(in, "repository")
+			if repository != "" {
+				u, err := url.Parse(repository)
+				if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+					return fail("INVALID_ARGUMENT", "repository must be a public HTTPS URL without credentials, query or fragment")
 				}
 			}
 			harness, ok := s.sessions.Harnesses[textField(in, "harness_id")]
@@ -346,6 +354,7 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 			if m["agent_mode"] == "outside" && textField(location, "kind") != "host" {
 				return fail("INVALID_ARGUMENT", "outside harnesses require an enrolled host location")
 			}
+			m["repository"] = repository
 			m["location"], m["location_epoch"] = location, json.Number("1")
 			for _, field := range []string{"parent_session_id", "task_id"} {
 				if v := textField(in, field); v != "" {
@@ -362,6 +371,22 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 				}
 				work.Pending = append(work.Pending, sessionWork{ID: newID("dispatch"), Action: "input", Lease: "initial-prompt", Data: base64.StdEncoding.EncodeToString([]byte(prompt))})
 			}
+			// A native session retains its task budget across location changes.
+			taskID := textField(m, "task_id")
+			if taskID == "" && sbID != "" {
+				taskID = value(s.journal.Sandboxes[sbID].TaskId)
+			}
+			if taskID == "" {
+				projection := api.Sandbox{Id: textField(m, "id"), OwnerId: a.Principal}
+				s.bindDefaultTask(a, &projection)
+				taskID = value(projection.TaskId)
+			} else {
+				task, exists := s.journal.Accountability.Tasks[taskID]
+				if !exists || task.OwnerId != a.Principal || s.taskStopped(task) {
+					return fail("SCOPE_DENIED", "session task must be owned and running")
+				}
+			}
+			m["task_id"] = taskID
 			c.Sessions[textField(m, "id")] = work
 			result["session_id"], result["sandbox_id"] = m["id"], sbID
 			break
@@ -419,6 +444,26 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 			if verb == "attach" {
 				result["lease_id"] = lease["id"]
 			}
+		case "message":
+			if err := acceptFields(in, "session_id text"); err != nil {
+				return api.ResourceRef{}, nil, nil, nil, err
+			}
+			if !s.sessionAllowed(a, m, "session.input") || work.Observed || work.GitBusy {
+				return fail("SCOPE_DENIED", "session input authority and a writable runner are required")
+			}
+			if len(work.Pending) >= 64 {
+				return fail("CONTROL_QUOTA_EXCEEDED", "session input queue full")
+			}
+			text := textField(in, "text")
+			if len(text) == 0 || len(text) > 32768 {
+				return fail("INVALID_ARGUMENT", "message must contain 1–32768 bytes")
+			}
+			work.Pending = append(work.Pending, sessionWork{ID: newID("dispatch"), Action: "input", Lease: newID("message"), Data: base64.StdEncoding.EncodeToString([]byte(text))})
+		case "cancel":
+			if work.Observed || s.sessions.Harnesses[textField(m, "harness_id")].Native == nil {
+				return fail("AUTH_TRANSPORT_UNSUPPORTED", "turn cancellation requires a native session")
+			}
+			work.Pending = append([]sessionWork{{ID: newID("dispatch"), Action: "cancel"}}, work.Pending...)
 		case "update":
 			if err := acceptFields(in, "session_id status status_reason"); err != nil {
 				return api.ResourceRef{}, nil, nil, nil, err
@@ -564,7 +609,11 @@ func (s *Service) sessionMutation(a caller, op api.OperationDescriptor, in map[s
 	if m == nil {
 		return fail("NOT_FOUND", "session operation not installed")
 	}
-	return api.ResourceRef{Kind: api.ResourceKind(kind), Id: textField(m, "id")}, result, nil, nil, nil
+	changed := []string{}
+	if kind == "session" && verb == "create" {
+		changed = append(changed, "$accountability")
+	}
+	return api.ResourceRef{Kind: api.ResourceKind(kind), Id: textField(m, "id")}, result, nil, changed, nil
 }
 
 func (s *Service) watchSession(w http.ResponseWriter, r *http.Request, id string, in map[string]any) {
@@ -782,12 +831,20 @@ func (s *Service) driveSession(id string) {
 	if action.Action == "start" {
 		request["argv"], request["cwd"], request["env"] = harness.Argv, harness.Cwd, harness.Env
 		request["repository"] = harness.Repository
+		if repository := textField(m, "repository"); repository != "" {
+			request["repository"] = repository
+		}
+		if shared := textField(m, "shared_session_id"); shared != "" {
+			request["shared_session_id"] = shared
+			request["shared_epoch"] = m["shared_epoch"]
+		}
 		if harness.Native != nil {
 			config := object(harness.Native)
 			config["auth"] = textField(m, "auth_mode")
 			config["agent_mode"] = textField(m, "agent_mode")
 			config["session_id"], config["sandbox_id"] = id, textField(m, "sandbox_id")
 			config["location_kind"] = textField(location, "kind")
+			config["location_epoch"] = epoch
 			if profile, exists := harness.Native.Profiles[textField(location, "kind")+":"+textField(location, "host_id")]; exists {
 				for key, value := range object(profile) {
 					config[key] = value
@@ -798,14 +855,27 @@ func (s *Service) driveSession(id string) {
 	}
 	ctx, cancel := context.WithTimeout(s.context(), 30*time.Second)
 	defer cancel()
-	if !native && harness.Native != nil && harness.Native.Managed {
+	if harness.Native != nil && harness.Native.Managed {
 		config, _ := request["native"].(map[string]any)
 		if config == nil {
 			config = map[string]any{}
 		}
-		if err := s.prepareAgent(ctx, id, sb, config); err != nil {
-			s.failSession(id, err.Error())
-			return
+		agentSandbox := sb
+		if native {
+			agentSandbox = api.Sandbox{}
+		}
+		if action.Action == "start" {
+			if err := s.prepareAgent(ctx, id, agentSandbox, config); err != nil {
+				s.failSession(id, err.Error())
+				return
+			}
+		} else {
+			// Rebind a running epoch's broker after daemon restart.
+			config["kind"], config["location_kind"], config["location_epoch"] = harness.Native.Kind, textField(location, "kind"), epoch
+			if err := s.prepareAgent(ctx, id, agentSandbox, config); err != nil {
+				s.failSession(id, err.Error())
+				return
+			}
 		}
 	}
 	raw, _ := json.Marshal(request)
@@ -877,6 +947,16 @@ func (s *Service) driveSession(id string) {
 				event := object(value)
 				raw, _ := json.Marshal(event)
 				work.Frames = append(work.Frames, api.Frame{StreamId: id, Sequence: uint64(len(work.Frames)), Channel: "control", DataBase64: base64.StdEncoding.EncodeToString(raw), ByteOffset: strconv.FormatUint(work.Offset, 10), LocationEpoch: epoch})
+				if textField(event, "type") == "input_completed" {
+					m["last_turn"] = "failed"
+					if event["success"] == true {
+						m["last_turn"] = "completed"
+					}
+					if event["interrupted"] == true {
+						m["last_turn"] = "interrupted"
+					}
+					editResource(m)
+				}
 				if textField(event, "type") == "status" {
 					m["status"] = textField(event, "status")
 					editResource(m)

@@ -9,7 +9,9 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -19,12 +21,14 @@ import (
 )
 
 type sessionTransfer struct {
+	InFlight                                     bool `json:"-"`
 	Kind, Phase, OperationID, SourceID, TargetID string
 	Caller                                       caller
 	Source, Target                               map[string]any
 	SourceEpoch, TargetEpoch                     uint64
 	Offset, UploadOffset, Size                   uint64
 	FinalOutput, FinalEvents                     uint64
+	ArchiveFile                                  string
 	Archive, SHA256                              string
 	Paths                                        []string
 	Metadata                                     map[string]any
@@ -34,9 +38,10 @@ type sessionTransfer struct {
 }
 
 type sessionChangeSet struct {
-	Resource map[string]any `json:"resource"`
-	Archive  string         `json:"archive"`
-	SHA256   string         `json:"sha256"`
+	Resource    map[string]any `json:"resource"`
+	Archive     string         `json:"archive,omitempty"`
+	ArchiveFile string         `json:"archive_file,omitempty"`
+	SHA256      string         `json:"sha256"`
 }
 
 func (s *Service) transferLocation(a caller, location map[string]any) error {
@@ -61,6 +66,26 @@ func (s *Service) transferLocation(a caller, location map[string]any) error {
 		return reject("INVALID_ARGUMENT", "a host or sandbox location is required")
 	}
 	return nil
+}
+
+// Checking a move never fences a runner, changes a revision or journals work.
+func (s *Service) checkSessionTeleport(a caller, work *managedSession, target map[string]any) error {
+	m := work.Resource
+	if textField(m, "state") != "active" || work.GitBusy {
+		return reject("RESOURCE_IN_USE", "session must be active and outside another transfer")
+	}
+	if s.sessions.Harnesses[textField(m, "harness_id")].Native == nil {
+		return reject("AUTH_TRANSPORT_UNSUPPORTED", "harness has no native continuation adapter")
+	}
+	if textField(m, "shared_session_id") != "" {
+		return reject("RESOURCE_IN_USE", "side chats share their main session's location; end the side chat before moving the main session")
+	}
+	for _, child := range s.journal.Control.Sessions {
+		if textField(child.Resource, "shared_session_id") == textField(m, "id") && textField(child.Resource, "state") != "ended" && textField(child.Resource, "state") != "failed" {
+			return reject("RESOURCE_IN_USE", "end shared-file side chats before moving this session")
+		}
+	}
+	return s.transferLocation(a, target)
 }
 
 func (s *Service) sessionTransferMutation(a caller, op api.OperationDescriptor, in map[string]any) (api.ResourceRef, map[string]any, *string, []string, error) {
@@ -115,11 +140,14 @@ func (s *Service) sessionTransferMutation(a caller, op api.OperationDescriptor, 
 		}
 		if verb == "reject" || verb == "delete" {
 			change.Resource["state"] = "rejected"
-			change.Archive = ""
+			change.Archive, change.ArchiveFile = "", ""
+			if transfer := c.SessionTransfers[ref.Id]; transfer != nil {
+				transfer.Archive, transfer.ArchiveFile = "", ""
+			}
 			editResource(change.Resource)
 			return ref, map[string]any{}, nil, nil, nil
 		}
-		if verb != "apply" || change.Archive == "" || textField(change.Resource, "state") != "proposed" {
+		if verb != "apply" || (change.Archive == "" && change.ArchiveFile == "") || textField(change.Resource, "state") != "proposed" {
 			return fail("RESOURCE_IN_USE", "a prepared proposed change set is required")
 		}
 		if _, selected := in["selected_paths"]; selected {
@@ -134,7 +162,7 @@ func (s *Service) sessionTransferMutation(a caller, op api.OperationDescriptor, 
 		}
 		target.GitBusy = true
 		t := s.newSessionTransfer("apply", a, source.Resource, target.Resource)
-		t.Phase, t.Archive, t.SHA256 = "upload", change.Archive, change.SHA256
+		t.Phase, t.Archive, t.SHA256, t.ArchiveFile = "upload", change.Archive, change.SHA256, change.ArchiveFile
 		c.SessionTransfers[ref.Id] = t
 		return ref, map[string]any{}, nil, nil, nil
 	}
@@ -154,12 +182,18 @@ func (s *Service) sessionTransferMutation(a caller, op api.OperationDescriptor, 
 		return fail("RESOURCE_IN_USE", "session transfer is already in progress")
 	}
 	if verb == "spawn" {
-		if err := acceptFields(in, "session_id sandbox_mode recipe_id selected_paths"); err != nil {
+		if err := acceptFields(in, "session_id sandbox_mode recipe_id selected_paths harness_id prompt side"); err != nil {
 			return ref, nil, nil, nil, err
 		}
 		recipe, exists := s.sessions.Recipes[textField(in, "recipe_id")]
 		if !exists {
-			return fail("NOT_FOUND", "an owner-enrolled session recipe is required")
+			if textField(in, "recipe_id") != "" {
+				return fail("NOT_FOUND", "session recipe not found")
+			}
+			recipe = SessionRecipe{HarnessID: textField(m, "harness_id"), AuthMode: textField(m, "auth_mode")}
+			if harness := textField(in, "harness_id"); harness != "" {
+				recipe.HarnessID, recipe.AuthMode = harness, ""
+			}
 		}
 		location := object(m["location"])
 		mode := textField(in, "sandbox_mode")
@@ -174,16 +208,31 @@ func (s *Service) sessionTransferMutation(a caller, op api.OperationDescriptor, 
 		if err := s.transferLocation(a, location); err != nil {
 			return ref, nil, nil, nil, err
 		}
-		sbID, agentMode := textField(m, "sandbox_id"), "outside"
+		sbID, agentMode := "", "inside"
 		if textField(location, "kind") == "sandbox" {
 			sbID, agentMode = textField(location, "sandbox_id"), "inside"
 		}
+		side, _ := in["side"].(bool)
+		if side && mode != "" && mode != "same" {
+			return fail("INVALID_ARGUMENT", "side chats share the parent's location and files")
+		}
 		child := map[string]any{"harness_id": recipe.HarnessID, "auth_mode": recipe.AuthMode, "parent_session_id": ref.Id, "sandbox_id": sbID, "agent_mode": agentMode, "location": location}
+		child["prompt"], child["task_id"] = in["prompt"], m["task_id"]
 		childRef, result, _, changed, err := s.sessionMutation(a, api.OperationDescriptor{Scope: "session.create"}, child)
 		if err != nil {
 			return ref, nil, nil, nil, err
 		}
-		c.Sessions[childRef.Id].Pending = nil
+		if side {
+			shared := textField(m, "shared_session_id")
+			if shared == "" {
+				shared = ref.Id
+			}
+			c.Sessions[childRef.Id].Resource["shared_session_id"] = shared
+			c.Sessions[childRef.Id].Resource["shared_epoch"] = c.Sessions[shared].Resource["location_epoch"]
+			return childRef, result, nil, changed, nil
+		}
+		// Keep the initial prompt, but start only after the workspace restore.
+		c.Sessions[childRef.Id].Pending = c.Sessions[childRef.Id].Pending[1:]
 		t := s.newSessionTransfer("spawn", a, m, c.Sessions[childRef.Id].Resource)
 		if value, exists := in["selected_paths"]; exists {
 			t.Paths = sessionTransferPaths(value)
@@ -203,7 +252,7 @@ func (s *Service) sessionTransferMutation(a caller, op api.OperationDescriptor, 
 	target := object(m["location"])
 	if verb == "teleport" {
 		target = object(in["location"])
-		if err := s.transferLocation(a, target); err != nil {
+		if err := s.checkSessionTeleport(a, source, target); err != nil {
 			return ref, nil, nil, nil, err
 		}
 	}
@@ -223,6 +272,7 @@ func (s *Service) sessionTransferMutation(a caller, op api.OperationDescriptor, 
 		}
 	}
 	m["state"] = "moving"
+	m["transfer"] = map[string]any{"phase": "snapshot", "bytes_transferred": uint64(0), "artifact_bytes": uint64(0), "safe_to_close_source": false}
 	editResource(m)
 	c.SessionTransfers[ref.Id] = t
 	return ref, map[string]any{}, nil, nil, nil
@@ -305,6 +355,85 @@ func (s *Service) transferCall(ctx context.Context, t *sessionTransfer, source b
 	return surface.Decode(data)
 }
 
+// Large code/continuation archives live in private files. Journaling every
+// base64 chunk in the control document otherwise retains gigabytes for a
+// modest repository. The receipt offset selects the acknowledged file prefix
+// after a crash; atomic replacement happens before the receipt is committed.
+func (s *Service) transferArchive(t *sessionTransfer) (string, error) {
+	if t.ArchiveFile == "" {
+		return t.Archive, nil
+	}
+	if filepath.Base(t.ArchiveFile) != t.ArchiveFile {
+		return "", errors.New("invalid transfer artifact")
+	}
+	raw, err := os.ReadFile(filepath.Join(s.dir, "transfer-artifacts", t.ArchiveFile))
+	if len(raw) > (16<<20)*4/3+4 {
+		return "", errors.New("transfer artifact exceeds quota")
+	}
+	return string(raw), err
+}
+func (s *Service) appendTransferArchive(t *sessionTransfer, chunk string) error {
+	raw, err := s.transferArchive(t)
+	if err != nil {
+		return err
+	}
+	prefix := base64.StdEncoding.EncodedLen(int(t.Offset))
+	if prefix > len(raw) || prefix+len(chunk) > (16<<20)*4/3+4 {
+		return errors.New("invalid transfer artifact offset")
+	}
+	directory := filepath.Join(s.dir, "transfer-artifacts")
+	if err := PrivateDir(directory); err != nil {
+		return err
+	}
+	name := t.OperationID + ".b64"
+	if err := atomicSecret(filepath.Join(directory, name), []byte(raw[:prefix]+chunk)); err != nil {
+		return err
+	}
+	t.ArchiveFile, t.Archive = name, ""
+	return nil
+}
+
+func (s *Service) failSessionTransfer(id, phase string) {
+	s.readLock()
+	defer s.mu.Unlock()
+	t := s.journal.Control.SessionTransfers[id]
+	if t == nil || t.Phase != phase {
+		return
+	}
+	rec := s.journal.Operations[t.OperationID]
+	if rec == nil {
+		return
+	}
+	target := s.journal.Control.Sessions[t.TargetID]
+	target.GitBusy = false
+	if t.Kind == "teleport" && phase == "snapshot" {
+		target.Resource["state"], target.Resource["location_epoch"] = "active", t.SourceEpoch
+	} else if t.Kind == "spawn" || t.Kind == "teleport" {
+		target.Resource["state"], target.Resource["status_reason"] = "failed", "transfer failed; source files and continuation retained at source location"
+	}
+	editResource(target.Resource)
+	t.Phase = "done"
+	rec.Operation.State, rec.Operation.CompletedAt = "failed", pointer(timestamp())
+	rec.Operation.Error = &api.ErrorDetail{Code: "DATA_UNAVAILABLE", Message: "session transfer failed during " + phase + "; source files retained"}
+	rec.Operation.Revision++
+	rec.Operation.UpdatedAt = timestamp()
+	if t.Kind == "teleport" {
+		target.Resource["transfer"] = map[string]any{"phase": "failed", "bytes_transferred": min(t.UploadOffset*3/4, t.Size), "artifact_bytes": t.Size, "safe_to_close_source": false}
+		editResource(target.Resource)
+	}
+	if err := s.save("$control", t.OperationID); err != nil {
+		s.broken = true
+		return
+	}
+	if ch := s.done[t.OperationID]; ch != nil {
+		select {
+		case <-ch:
+		default:
+			close(ch)
+		}
+	}
+}
+
 func (s *Service) driveSessionTransfer(id string) {
 	s.readLock()
 	t := s.journal.Control.SessionTransfers[id]
@@ -312,6 +441,18 @@ func (s *Service) driveSessionTransfer(id string) {
 		s.mu.Unlock()
 		return
 	}
+	if t.InFlight {
+		s.mu.Unlock()
+		return
+	}
+	t.InFlight = true
+	defer func() {
+		s.readLock()
+		if current := s.journal.Control.SessionTransfers[id]; current != nil {
+			current.InFlight = false
+		}
+		s.mu.Unlock()
+	}()
 	copy := *t
 	t = &copy
 	source, target := s.journal.Control.Sessions[t.SourceID], s.journal.Control.Sessions[t.TargetID]
@@ -349,11 +490,15 @@ func (s *Service) driveSessionTransfer(id string) {
 		useSource = true
 		request["action"], request["artifact_offset"] = "export", t.Offset
 	case "upload":
-		end := t.UploadOffset + 32768
-		if end > uint64(len(t.Archive)) {
-			end = uint64(len(t.Archive))
+		archive, err := s.transferArchive(t)
+		if err != nil {
+			return
 		}
-		request["action"], request["artifact_offset"], request["artifact_data"] = "upload", t.UploadOffset, t.Archive[t.UploadOffset:end]
+		end := t.UploadOffset + 32768
+		if end > uint64(len(archive)) {
+			end = uint64(len(archive))
+		}
+		request["action"], request["artifact_offset"], request["artifact_data"] = "upload", t.UploadOffset, archive[t.UploadOffset:end]
 	case "restore":
 		request["action"], request["include_native"] = "restore", t.Kind == "teleport"
 	case "apply":
@@ -365,7 +510,11 @@ func (s *Service) driveSessionTransfer(id string) {
 		ctx, cancel := context.WithTimeout(s.context(), 10*time.Second)
 		reply, callErr = s.transferCall(ctx, t, useSource, request)
 		cancel()
-		if callErr != nil || reply["error"] != nil || reply["wait"] == true {
+		if reply["error"] != nil {
+			s.failSessionTransfer(id, t.Phase)
+			return
+		}
+		if callErr != nil || reply["wait"] == true {
 			return
 		}
 	}
@@ -418,13 +567,19 @@ func (s *Service) driveSessionTransfer(id string) {
 		t.Phase = "export"
 	case "export":
 		chunk := textField(reply, "artifact_data")
-		if uint64(len(t.Archive)+len(chunk)) > (16<<20)*4/3+4 || uintField(reply, "artifact_offset") <= t.Offset {
+		if uintField(reply, "artifact_offset") <= t.Offset {
 			return
 		}
-		t.Archive += chunk
+		if err := s.appendTransferArchive(t, chunk); err != nil {
+			return
+		}
 		t.Offset = uintField(reply, "artifact_offset")
 		if t.Offset == t.Size {
-			artifact, err := base64.StdEncoding.DecodeString(t.Archive)
+			archive, err := s.transferArchive(t)
+			if err != nil {
+				return
+			}
+			artifact, err := base64.StdEncoding.DecodeString(archive)
 			hash := sha256.Sum256(artifact)
 			if err != nil || hex.EncodeToString(hash[:]) != t.SHA256 {
 				s.journal.Control = before
@@ -432,12 +587,12 @@ func (s *Service) driveSessionTransfer(id string) {
 			}
 			if t.Kind == "change_set" {
 				change := s.journal.Control.ChangeSets[id]
-				change.Archive, change.SHA256 = t.Archive, t.SHA256
+				change.Archive, change.SHA256, change.ArchiveFile = t.Archive, t.SHA256, t.ArchiveFile
 				change.Resource["base_tree_digest"], change.Resource["commit_ids"] = t.Metadata["base_tree"], t.Metadata["commits"]
 				editResource(change.Resource)
 				t.Archive, done = "", true
 			} else if t.Kind == "checkpoint" {
-				source.Checkpoint = t.Archive
+				source.Checkpoint = archive
 				source.Resource["state"] = "active"
 				editResource(source.Resource)
 				t.Archive, done = "", true
@@ -447,7 +602,7 @@ func (s *Service) driveSessionTransfer(id string) {
 		}
 	case "upload":
 		t.UploadOffset = uintField(reply, "artifact_offset")
-		if t.UploadOffset == uint64(len(t.Archive)) {
+		if archive, err := s.transferArchive(t); err == nil && t.UploadOffset == uint64(len(archive)) {
 			t.Phase = "restore"
 			if t.Kind == "apply" {
 				t.Phase = "apply"
@@ -458,13 +613,13 @@ func (s *Service) driveSessionTransfer(id string) {
 			return
 		}
 		target.Resource["location"], target.Resource["location_epoch"] = t.Target, t.TargetEpoch
-		target.Resource["agent_mode"] = "outside"
+		target.Resource["agent_mode"] = "inside"
 		if textField(t.Target, "kind") == "sandbox" {
 			target.Resource["sandbox_id"], target.Resource["agent_mode"] = t.Target["sandbox_id"], "inside"
 		}
 		target.Resource["state"], target.Resource["observation_state"] = "starting", "stale"
 		target.Offset, target.EventOffset = 0, 0
-		target.Pending = []sessionWork{{ID: newID("dispatch"), Action: "start"}}
+		target.Pending = append([]sessionWork{{ID: newID("dispatch"), Action: "start"}}, target.Pending...)
 		// The target runner starts with a fresh input ledger, so carried inputs
 		// are re-keyed to one per-epoch lease and numbered from zero.
 		carry := "carry@" + strconv.FormatUint(t.TargetEpoch, 10)
@@ -493,6 +648,10 @@ func (s *Service) driveSessionTransfer(id string) {
 		rec.Operation.Revision++
 		rec.Operation.UpdatedAt = timestamp()
 	}
+	if t.Kind == "teleport" {
+		target.Resource["transfer"] = map[string]any{"phase": t.Phase, "bytes_transferred": min(t.UploadOffset*3/4, t.Size), "artifact_bytes": t.Size, "safe_to_close_source": done}
+		editResource(target.Resource)
+	}
 	if err := s.save("$control", t.OperationID); err != nil {
 		if errors.Is(err, errAuthorityConflict) {
 			s.journal.Control = before
@@ -503,6 +662,9 @@ func (s *Service) driveSessionTransfer(id string) {
 		return
 	}
 	if done {
+		if t.Kind != "change_set" && t.ArchiveFile != "" {
+			_ = os.Remove(filepath.Join(s.dir, "transfer-artifacts", t.ArchiveFile))
+		}
 		if ch := s.done[t.OperationID]; ch != nil {
 			select {
 			case <-ch:

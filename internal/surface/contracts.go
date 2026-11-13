@@ -345,7 +345,16 @@ func Request(op api.OperationDescriptor, in map[string]any) (string, map[string]
 	if strings.EqualFold(op.Method, "get") {
 		q := url.Values{}
 		for k, v := range in {
-			q.Set(k, fmt.Sprint(v))
+			switch v.(type) {
+			case map[string]any, []any, []string:
+				raw, err := json.Marshal(v)
+				if err != nil {
+					return "", nil, nil, err
+				}
+				q.Set(k, string(raw))
+			default:
+				q.Set(k, fmt.Sprint(v))
+			}
 		}
 		if len(q) > 0 {
 			path += "?" + q.Encode()
@@ -407,7 +416,16 @@ func Query(op api.OperationDescriptor, q url.Values, in map[string]any) error {
 		if _, exists := in[k]; exists {
 			return fmt.Errorf("duplicate selector")
 		}
-		if p["type"] == "integer" {
+		if ref, ok := p["$ref"].(string); ok {
+			p = Definition(strings.TrimPrefix(ref, "#/$defs/"))
+		}
+		if p["type"] == "object" {
+			value, err := Decode([]byte(values[0]))
+			if err != nil {
+				return err
+			}
+			in[k] = value
+		} else if p["type"] == "integer" {
 			if _, err := strconv.ParseUint(values[0], 10, 64); err != nil {
 				return err
 			}

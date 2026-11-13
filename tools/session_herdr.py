@@ -13,7 +13,9 @@ def main():
     parser.add_argument("--url")
     parser.add_argument("--token-file")
     parser.add_argument("--herdr", default="herdr")
-    parser.add_argument("--machine", required=True)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--machine")
+    target.add_argument("--herdr-session", help="dedicated named Herdr server; never selects the focused session")
     parser.add_argument("--fleet", required=True)
     parser.add_argument("--ssh-target", required=True)
     parser.add_argument("--ssh-config", required=True)
@@ -35,7 +37,8 @@ def main():
         sessions = [session for session in sessions if session["state"] != "ended"]
 
     def herdr(*arguments):
-        output = subprocess.check_output([args.herdr, "--machine", args.machine, *arguments])
+        selection = ["--machine", args.machine] if args.machine else ["--session", args.herdr_session]
+        output = subprocess.check_output([args.herdr, *selection, *arguments])
         return json.loads(output)["result"] if output.strip() else None
 
     def snapshot():
@@ -73,7 +76,7 @@ def main():
         herdr("pane", "rename", pane["pane_id"], title)
         herdr("pane", "run", pane["pane_id"], command)
         joined.append({"session_id": session["id"], "tab_id": tab["tab_id"], "pane_id": pane["pane_id"], "mode": mode})
-    print(json.dumps({"fleet_id": args.fleet, "machine": args.machine, "workspace_id": workspace["workspace_id"], "sessions": joined}))
+    print(json.dumps({"fleet_id": args.fleet, "machine": args.machine, "herdr_session": args.herdr_session, "workspace_id": workspace["workspace_id"], "sessions": joined}))
 
 
 if __name__ == "__main__":

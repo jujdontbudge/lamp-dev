@@ -51,6 +51,8 @@ type agentRuntime struct {
 	sandbox     string
 	generation  uint64
 	session     string
+	epoch       uint64
+	host        bool
 	token       string
 	endpoint    string
 	broker      *broker.Broker
@@ -303,7 +305,9 @@ func brokerOwner(b *broker.Broker, path string, in any) (map[string]any, error) 
 }
 
 func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, config map[string]any) error {
-	runtimePath := filepath.Join(s.dir, "agent-runtimes", id+".json")
+	epoch := uintField(config, "location_epoch")
+	host := textField(config, "location_kind") == "host"
+	runtimePath := filepath.Join(s.dir, "agent-runtimes", fmt.Sprintf("%s-e%d.json", id, epoch))
 	var saved struct {
 		Token      string
 		Address    string
@@ -312,8 +316,12 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 		Sandbox    string
 		Children   map[string]bool
 	}
-	if raw, err := os.ReadFile(runtimePath); err == nil {
-		if err = json.Unmarshal(raw, &saved); err != nil {
+	raw, readErr := os.ReadFile(runtimePath)
+	if os.IsNotExist(readErr) && epoch == 1 {
+		raw, readErr = os.ReadFile(filepath.Join(s.dir, "agent-runtimes", id+".json"))
+	}
+	if readErr == nil {
+		if err := json.Unmarshal(raw, &saved); err != nil {
 			return err
 		}
 		if saved.Generation != value(sb.Generation) || saved.Sandbox != sb.Id {
@@ -327,6 +335,10 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 	}
 	existing := s.agentRuntimes[id]
 	s.mu.Unlock()
+	if existing != nil && existing.epoch != epoch {
+		existing.cancel()
+		existing = nil
+	}
 	if existing != nil {
 		config["endpoint"] = existing.endpoint
 		config["credential_file"] = "{session_dir}/broker.token"
@@ -381,7 +393,7 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 	if err != nil {
 		return err
 	}
-	rt := &agentRuntime{sandbox: sb.Id, generation: value(sb.Generation), session: id, token: newID("transport"), broker: b, children: map[string]bool{}, enrollment: e}
+	rt := &agentRuntime{sandbox: sb.Id, generation: value(sb.Generation), session: id, epoch: epoch, host: host, token: newID("transport"), broker: b, children: map[string]bool{}, enrollment: e}
 	address := "127.0.0.1:0"
 	if saved.Token != "" {
 		address = saved.Address
@@ -398,6 +410,9 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 	// Same alias is safe across isolated per-sandbox directors; port belongs to
 	// this session only and the host service admits no other loopback port.
 	alias := "198.19.250.43"
+	if host {
+		alias = "127.0.0.1"
+	}
 	rt.endpoint = fmt.Sprintf("http://%s:%d/v1/models/model/native", alias, port)
 	if e.Harness == "codex" {
 		rt.endpoint = fmt.Sprintf("http://%s:%d/v1/models/model", alias, port)
@@ -416,7 +431,7 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 	// A daemon restart rebinds the exact private listener. The running
 	// generation's network director already owns its alias attachment; trying
 	// to attach it again correctly refuses the duplicate destination.
-	if saved.Token == "" {
+	if saved.Token == "" && !host {
 		_, err = s.networkCall(ctx, sb.Id, value(sb.Generation), map[string]any{"operation": "host_service", "address": listener.Addr().String(), "alias": alias, "port": port, "access": "full", "connection_id": "agent_" + id, "expires_at": time.Now().Add(24 * time.Hour)})
 		if err != nil {
 			cancel()
@@ -429,7 +444,7 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 	}
 	saved.Token, saved.Address, saved.Enrollment, saved.Generation, saved.Sandbox = rt.token, listener.Addr().String(), e, rt.generation, sb.Id
 	saved.Children = rt.children
-	raw, _ := json.Marshal(saved)
+	raw, _ = json.Marshal(saved)
 	if err = os.WriteFile(runtimePath, raw, 0600); err != nil {
 		cancel()
 		return err
@@ -467,6 +482,21 @@ func (s *Service) prepareAgent(ctx context.Context, id string, sb api.Sandbox, c
 			tools = append(tools, map[string]any{"name": label + "_" + toolID[:12], "description": "Owner-enrolled Lamp connection: " + op, "_meta": map[string]string{"lamp.connection_id": cid, "lamp.operation": op}, "inputSchema": map[string]any{"type": "object", "properties": props, "required": required}})
 		}
 	}
+	if e.Nested {
+		for _, tool := range []struct {
+			name, description string
+			properties        map[string]any
+			required          []string
+		}{
+			{"spawn", "Start a child with copied files, or side=true for a fresh conversation sharing files. Use new for a separate sandbox (subject to capacity), sandbox:<child-id> for an existing child, or same for the current sandbox.", map[string]any{"sandbox_mode": map[string]any{"type": "string"}, "prompt": map[string]any{"type": "string"}, "side": map[string]any{"type": "boolean"}}, []string{"prompt"}},
+			{"message", "Queue a message for this session or a direct child.", map[string]any{"session_id": map[string]any{"type": "string"}, "text": map[string]any{"type": "string"}}, []string{"session_id", "text"}},
+			{"wait", "Read a session's retained output and turn state. Call again while working.", map[string]any{"session_id": map[string]any{"type": "string"}}, []string{"session_id"}},
+			{"cancel", "Interrupt a child turn, preserving its queued messages.", map[string]any{"session_id": map[string]any{"type": "string"}}, []string{"session_id"}},
+			{"git_return", "Propose this child's git changes to its parent.", map[string]any{}, []string{}},
+		} {
+			tools = append(tools, map[string]any{"name": tool.name, "description": tool.description, "_meta": map[string]string{"lamp.workflow": tool.name}, "inputSchema": map[string]any{"type": "object", "properties": tool.properties, "required": tool.required, "additionalProperties": false}})
+		}
+	}
 	config["gateway_tools"] = tools
 	config["settings_sources"] = e.Settings
 	placeholders := map[string]string{}
@@ -484,7 +514,19 @@ func (s *Service) agentProxy(rt *agentRuntime, w http.ResponseWriter, r *http.Re
 	s.readLock()
 	sb, ok := s.journal.Sandboxes[rt.sandbox]
 	session := s.journal.Control.Sessions[rt.session]
-	valid := ok && sb.State == "ready" && value(sb.Generation) == rt.generation && session != nil && textField(session.Resource, "sandbox_id") == rt.sandbox && (textField(session.Resource, "state") == "active" || textField(session.Resource, "state") == "starting") && !s.sandboxMustStop(sb)
+	valid := session != nil && uintField(session.Resource, "location_epoch") == rt.epoch && (textField(session.Resource, "state") == "active" || textField(session.Resource, "state") == "starting")
+	if session != nil && textField(session.Resource, "state") == "moving" {
+		transfer := s.journal.Control.SessionTransfers[rt.session]
+		valid = transfer != nil && transfer.SourceEpoch == rt.epoch && transfer.Phase == "snapshot"
+	}
+	if rt.host {
+		valid = valid && session != nil
+		if session != nil {
+			valid = valid && textField(object(session.Resource["location"]), "kind") == "host"
+		}
+	} else {
+		valid = valid && ok && sb.State == "ready" && value(sb.Generation) == rt.generation && textField(session.Resource, "sandbox_id") == rt.sandbox && !s.sandboxMustStop(sb)
+	}
 	if rt.enrollment.Source != "" {
 		n := s.life.Networks[rt.enrollment.Source]
 		valid = valid && n != nil && textField(n.R, "state") == "ready"
@@ -515,7 +557,7 @@ func (s *Service) agentProxy(rt *agentRuntime, w http.ResponseWriter, r *http.Re
 			_, err = brokerOwner(rt.broker, "/owner/renew", map[string]any{"grant_id": rt.grant, "ttl_seconds": 300})
 		}
 		if rt.grant == "" || err != nil {
-			g, err = brokerOwner(rt.broker, "/owner/grants", map[string]any{"sandbox_id": rt.sandbox, "generation": rt.generation, "peer_ip": "127.0.0.1", "ttl_seconds": 300, "connections": connections, "settings": rt.enrollment.Settings})
+			g, err = brokerOwner(rt.broker, "/owner/grants", map[string]any{"sandbox_id": rt.session, "generation": rt.epoch, "peer_ip": "127.0.0.1", "ttl_seconds": 300, "connections": connections, "settings": rt.enrollment.Settings})
 			if err == nil {
 				rt.grant = textField(g, "grant_id")
 				rt.brokerToken = textField(g, "token")
@@ -563,8 +605,65 @@ func (s *Service) agentNested(rt *agentRuntime, w http.ResponseWriter, r *http.R
 		writeError(w, "", "INVALID_ARGUMENT", "invalid JSON", nil)
 		return
 	}
+	related := func(id string) bool {
+		if id == rt.session {
+			return true
+		}
+		s.readLock()
+		defer s.mu.Unlock()
+		child := s.journal.Control.Sessions[id]
+		return child != nil && textField(child.Resource, "parent_session_id") == rt.session
+	}
 	switch op.Name {
+	case "session_get", "session_watch", "session_message", "session_cancel", "session_end", "session_spawn":
+		id := textField(selectors, "session_id")
+		s.readLock()
+		parentID := textField(s.journal.Control.Sessions[rt.session].Resource, "parent_session_id")
+		s.mu.Unlock()
+		if !related(id) && !((op.Name == "session_message" || op.Name == "session_get") && id == parentID && parentID != "") {
+			writeError(w, "", "SCOPE_DENIED", "only this session and its direct children are accessible", nil)
+			return
+		}
+		if op.Name == "session_spawn" {
+			if id != rt.session {
+				writeError(w, "", "SCOPE_DENIED", "spawn from your own session", nil)
+				return
+			}
+			for k := range body {
+				if k != "sandbox_mode" && k != "prompt" && k != "side" && k != "wait_ms" {
+					writeError(w, "", "SCOPE_DENIED", "children inherit their parent's enrolled harness", nil)
+					return
+				}
+			}
+			mode := textField(body, "sandbox_mode")
+			if mode != "" && mode != "same" && !rt.children[strings.TrimPrefix(mode, "sandbox:")] {
+				writeError(w, "", "SCOPE_DENIED", "target must be this session's own child sandbox", nil)
+				return
+			}
+		}
+	case "change_set_create":
+		source, target := textField(body, "source_session_id"), textField(body, "target_session_id")
+		s.readLock()
+		parent := textField(s.journal.Control.Sessions[rt.session].Resource, "parent_session_id")
+		s.mu.Unlock()
+		if !((source == rt.session && target == parent && parent != "") || (related(source) && source != rt.session && target == rt.session)) {
+			writeError(w, "", "SCOPE_DENIED", "return changes only between this session and its parent or direct children", nil)
+			return
+		}
+	case "change_set_get", "change_set_apply":
+		s.readLock()
+		change := s.journal.Control.ChangeSets[textField(selectors, "change_set_id")]
+		allowed := change != nil && textField(change.Resource, "target_session_id") == rt.session
+		s.mu.Unlock()
+		if !allowed {
+			writeError(w, "", "SCOPE_DENIED", "only changes addressed to this session are accessible", nil)
+			return
+		}
 	case "sandbox_create":
+		if rt.host {
+			writeError(w, "", "SCOPE_DENIED", "create child sandboxes from a sandbox session", nil)
+			return
+		}
 		s.readLock()
 		parent := s.journal.Sandboxes[rt.sandbox]
 		count := 0
@@ -635,7 +734,7 @@ func (s *Service) agentNested(rt *agentRuntime, w http.ResponseWriter, r *http.R
 	if op.Name == "sandbox_delete" && out.Code < 300 {
 		delete(rt.children, textField(selectors, "sandbox_id"))
 	}
-	runtimePath := filepath.Join(s.dir, "agent-runtimes", rt.session+".json")
+	runtimePath := filepath.Join(s.dir, "agent-runtimes", fmt.Sprintf("%s-e%d.json", rt.session, rt.epoch))
 	if raw, err := os.ReadFile(runtimePath); err == nil {
 		var saved map[string]any
 		if json.Unmarshal(raw, &saved) == nil {

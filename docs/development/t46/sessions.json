@@ -1,0 +1,69 @@
+[
+  {
+    "step": "scope",
+    "observed_at": "2026-11-13T07:41:44.559009+00:00",
+    "source_sha256": "1b591e6f25189013108f485cfa100b8332d96b63846e50ebd3896a9a00ef5f9f",
+    "description": "Live native PTY sessions through the public Lamp API and stock SSH; partial T21, not a complete ticket demonstration"
+  },
+  {
+    "step": "separate-live-sessions",
+    "sessions": [
+      "se_67b9dccb613258c1cab7bc44c494eed9",
+      "se_77e342991791709f37ba450dcc4223f7"
+    ],
+    "parent": "se_67b9dccb613258c1cab7bc44c494eed9",
+    "project": "https://gitlab.com/gitlab-org/gitlab-test.git",
+    "location": "native M5 PTYs, not sandboxes"
+  },
+  {
+    "step": "unshared-private",
+    "recipient_sessions": 0
+  },
+  {
+    "step": "explicit-watch-only",
+    "visible_sessions": 1,
+    "input_denied": true
+  },
+  {
+    "step": "stock-ssh",
+    "fleet_endpoint": "disposable loopback SSH with pinned CA",
+    "sessions": 2
+  },
+  {
+    "step": "stock-ssh-attach",
+    "child_input_acknowledged": true
+  },
+  {
+    "step": "live-input-and-watch",
+    "project_readme": true,
+    "ssh_watch_received_input_result": true,
+    "identical_input_retry_replayed": true
+  },
+  {
+    "step": "explicit-input-and-exclusive-writer",
+    "competing_lease_denied": true,
+    "recipient_input_observed": true
+  },
+  {
+    "step": "daemon-restart",
+    "durable_output_retained": true,
+    "existing_pty_accepts_next_sequence": true
+  },
+  {
+    "step": "cleanup",
+    "session_states": [
+      "ended",
+      "ended"
+    ]
+  },
+  {
+    "step": "not-demonstrated",
+    "features": [
+      "sandbox PTY execution",
+      "Claude Code/Codex API or subscription turns",
+      "T3 Code/Herdr public console bridges",
+      "git change-set return",
+      "laptop/sandbox continuation transfer"
+    ]
+  }
+]

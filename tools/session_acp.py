@@ -121,6 +121,9 @@ class LampACP:
                 state["sequence"] = 0
             state["mode"] = mode
             return {}
+        if method == "session/cancel":
+            self.client.mutate("sessions", identity, ":cancel")
+            return {}
         if method == "session/prompt":
             if state["mode"] != "input":
                 raise ValueError("select Input mode explicitly before typing")
@@ -157,6 +160,8 @@ class LampACP:
                 state["done"].wait()
                 if state.get("error"):
                     raise ValueError(state["error"])
+                if state.get("completion", {}).get("interrupted"):
+                    return {"stopReason": "cancelled"}
                 if not state.get("completion", {}).get("success"):
                     raise ValueError("native turn did not complete successfully; acknowledged input remains recorded")
                 return {"stopReason": "end_turn"}
@@ -193,7 +198,10 @@ def main():
                 if "id" in message and "method" in message:
                     pool.submit(agent.dispatch, message)
                 elif message.get("method") == "session/cancel":
-                    agent.update(message["params"]["sessionId"], "\nLamp detached cancellation does not stop the durable backend session. Use the session's explicit end action to stop it.\n")
+                    try:
+                        agent.handle("session/cancel", message["params"])
+                    except (PublicSessionError, ValueError, KeyError, OSError) as error:
+                        agent.update(message["params"]["sessionId"], "\nCancellation failed: " + str(error) + "\n")
         finally:
             agent.closed.set()
             for state in agent.sessions.values():

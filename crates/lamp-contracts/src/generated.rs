@@ -18593,6 +18593,10 @@ pub enum ScopeActionsItem {
     SandboxMetrics,
     #[serde(rename = "sandbox.logs")]
     SandboxLogs,
+    #[serde(rename = "session.message")]
+    SessionMessage,
+    #[serde(rename = "session.cancel")]
+    SessionCancel,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -18775,6 +18779,28 @@ pub struct Session {
         skip_serializing_if = "Option::is_none"
     )]
     pub continuation_ref: Option<String>,
+    #[serde(
+        rename = "repository",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub repository: Option<String>,
+    #[serde(
+        rename = "shared_session_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shared_session_id: Option<String>,
+    #[serde(
+        rename = "shared_epoch",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shared_epoch: Option<u64>,
+    #[serde(rename = "last_turn", default, skip_serializing_if = "Option::is_none")]
+    pub last_turn: Option<SessionLastTurn>,
+    #[serde(rename = "transfer", default, skip_serializing_if = "Option::is_none")]
+    pub transfer: Option<SessionTransfer>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionAgentMode {
@@ -18831,6 +18857,37 @@ pub enum SessionAuthMode {
     Subscription,
     #[serde(rename = "delegated")]
     Delegated,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionCancelCompletion {}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionCancelInput {
+    #[serde(rename = "session_id")]
+    pub session_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionCancelResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SessionEndCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -18926,6 +18983,12 @@ pub struct SessionCreateInput {
     pub wait_ms: Option<u64>,
     #[serde(rename = "prompt", default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
+    #[serde(
+        rename = "repository",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub repository: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionCreateInputAgentMode {
@@ -19141,6 +19204,15 @@ pub enum SessionKind {
     #[serde(rename = "session")]
     Session,
 }
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SessionLastTurn {
+    #[serde(rename = "completed")]
+    Completed,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "interrupted")]
+    Interrupted,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionListInput {
@@ -19164,6 +19236,39 @@ pub struct SessionListResult {
     pub next_cursor: Option<String>,
     #[serde(rename = "request_id")]
     pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionMessageCompletion {}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionMessageInput {
+    #[serde(rename = "session_id")]
+    pub session_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+    #[serde(rename = "text")]
+    pub text: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionMessageResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SessionEndCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionObservationState {
@@ -19250,6 +19355,16 @@ pub struct SessionSpawnInput {
     pub wait_ms: Option<u64>,
     #[serde(rename = "expected_revision")]
     pub expected_revision: u64,
+    #[serde(
+        rename = "harness_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub harness_id: Option<String>,
+    #[serde(rename = "prompt", default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    #[serde(rename = "side", default, skip_serializing_if = "Option::is_none")]
+    pub side: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -19291,6 +19406,22 @@ pub enum SessionStatus {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct SessionTeleportCheckInput {
+    #[serde(rename = "session_id")]
+    pub session_id: String,
+    #[serde(rename = "location")]
+    pub location: Location,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionTeleportCheckResult {
+    #[serde(rename = "data")]
+    pub data: Session,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionTeleportCompletion {}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -19329,6 +19460,18 @@ pub struct SessionTeleportResult {
     pub operation: Option<Operation>,
     #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
     pub result: Option<SessionTeleportCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionTransfer {
+    #[serde(rename = "phase")]
+    pub phase: String,
+    #[serde(rename = "bytes_transferred")]
+    pub bytes_transferred: u64,
+    #[serde(rename = "artifact_bytes")]
+    pub artifact_bytes: u64,
+    #[serde(rename = "safe_to_close_source")]
+    pub safe_to_close_source: bool,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -26561,6 +26704,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: true,
     },
     OperationDescriptor {
+        name: "session_cancel",
+        scope: "session.cancel",
+        cli: "lamp session cancel",
+        method: "post",
+        path: "/v1/sessions/{session_id}:cancel",
+        input_schema: "SessionCancelInput",
+        result_schema: "SessionCancelResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "session_checkpoint",
         scope: "session.checkpoint",
         cli: "lamp session checkpoint",
@@ -26649,6 +26803,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "session_message",
+        scope: "session.message",
+        cli: "lamp session message",
+        method: "post",
+        path: "/v1/sessions/{session_id}:message",
+        input_schema: "SessionMessageInput",
+        result_schema: "SessionMessageResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "session_resize",
         scope: "session.resize",
         cli: "lamp session resize",
@@ -26680,6 +26845,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "SessionTeleportResult",
         authorization: "authenticated_scope",
         mutation: true,
+    },
+    OperationDescriptor {
+        name: "session_teleport_check",
+        scope: "session.teleport",
+        cli: "lamp session teleport-check",
+        method: "get",
+        path: "/v1/sessions/{session_id}/teleport-check",
+        input_schema: "SessionTeleportCheckInput",
+        result_schema: "SessionTeleportCheckResult",
+        authorization: "authenticated_scope",
+        mutation: false,
     },
     OperationDescriptor {
         name: "session_update",

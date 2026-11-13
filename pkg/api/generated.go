@@ -8885,6 +8885,8 @@ const (
 	ScopeActionsItemSandboxDesktop             ScopeActionsItem = "sandbox.desktop"
 	ScopeActionsItemSandboxMetrics             ScopeActionsItem = "sandbox.metrics"
 	ScopeActionsItemSandboxLogs                ScopeActionsItem = "sandbox.logs"
+	ScopeActionsItemSessionMessage             ScopeActionsItem = "session.message"
+	ScopeActionsItemSessionCancel              ScopeActionsItem = "session.cancel"
 )
 
 type SecretRequestCompletion struct {
@@ -8953,6 +8955,11 @@ type Session struct {
 	LocationEpoch    *uint64                  `json:"location_epoch,omitempty"`
 	OutputCursor     *string                  `json:"output_cursor,omitempty"`
 	ContinuationRef  *string                  `json:"continuation_ref,omitempty"`
+	Repository       *string                  `json:"repository,omitempty"`
+	SharedSessionId  *string                  `json:"shared_session_id,omitempty"`
+	SharedEpoch      *uint64                  `json:"shared_epoch,omitempty"`
+	LastTurn         *SessionLastTurn         `json:"last_turn,omitempty"`
+	Transfer         *SessionTransfer         `json:"transfer,omitempty"`
 }
 type SessionAgentMode string
 
@@ -8989,6 +8996,22 @@ const (
 	SessionAuthModeDelegated    SessionAuthMode = "delegated"
 )
 
+type SessionCancelCompletion struct {
+}
+type SessionCancelInput struct {
+	SessionId        string  `json:"session_id"`
+	IdempotencyKey   string  `json:"idempotency_key"`
+	WaitMs           *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision uint64  `json:"expected_revision"`
+}
+type SessionCancelResult struct {
+	OperationId string                `json:"operation_id"`
+	ResourceIds []ResourceRef         `json:"resource_ids"`
+	RequestId   string                `json:"request_id"`
+	Replayed    bool                  `json:"replayed"`
+	Operation   *Operation            `json:"operation,omitempty"`
+	Result      *SessionEndCompletion `json:"result,omitempty"`
+}
 type SessionCheckpointCompletion struct {
 }
 type SessionCheckpointInput struct {
@@ -9026,6 +9049,7 @@ type SessionCreateInput struct {
 	IdempotencyKey   string                              `json:"idempotency_key"`
 	WaitMs           *uint64                             `json:"wait_ms,omitempty"`
 	Prompt           *string                             `json:"prompt,omitempty"`
+	Repository       *string                             `json:"repository,omitempty"`
 }
 type SessionCreateInputAgentMode string
 
@@ -9157,6 +9181,14 @@ const (
 	SessionKindSession SessionKind = "session"
 )
 
+type SessionLastTurn string
+
+const (
+	SessionLastTurnCompleted   SessionLastTurn = "completed"
+	SessionLastTurnFailed      SessionLastTurn = "failed"
+	SessionLastTurnInterrupted SessionLastTurn = "interrupted"
+)
+
 type SessionListInput struct {
 	Cursor *string `json:"cursor,omitempty"`
 	Limit  *uint64 `json:"limit,omitempty"`
@@ -9166,6 +9198,23 @@ type SessionListResult struct {
 	Items      []Session `json:"items"`
 	NextCursor *string   `json:"next_cursor,omitempty"`
 	RequestId  string    `json:"request_id"`
+}
+type SessionMessageCompletion struct {
+}
+type SessionMessageInput struct {
+	SessionId        string  `json:"session_id"`
+	IdempotencyKey   string  `json:"idempotency_key"`
+	WaitMs           *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision uint64  `json:"expected_revision"`
+	Text             string  `json:"text"`
+}
+type SessionMessageResult struct {
+	OperationId string                `json:"operation_id"`
+	ResourceIds []ResourceRef         `json:"resource_ids"`
+	RequestId   string                `json:"request_id"`
+	Replayed    bool                  `json:"replayed"`
+	Operation   *Operation            `json:"operation,omitempty"`
+	Result      *SessionEndCompletion `json:"result,omitempty"`
 }
 type SessionObservationState string
 
@@ -9207,6 +9256,9 @@ type SessionSpawnInput struct {
 	IdempotencyKey   string    `json:"idempotency_key"`
 	WaitMs           *uint64   `json:"wait_ms,omitempty"`
 	ExpectedRevision uint64    `json:"expected_revision"`
+	HarnessId        *string   `json:"harness_id,omitempty"`
+	Prompt           *string   `json:"prompt,omitempty"`
+	Side             *bool     `json:"side,omitempty"`
 }
 type SessionSpawnResult struct {
 	OperationId string                  `json:"operation_id"`
@@ -9234,6 +9286,14 @@ const (
 	SessionStatusIdle    SessionStatus = "idle"
 )
 
+type SessionTeleportCheckInput struct {
+	SessionId string   `json:"session_id"`
+	Location  Location `json:"location"`
+}
+type SessionTeleportCheckResult struct {
+	Data      Session `json:"data"`
+	RequestId string  `json:"request_id"`
+}
 type SessionTeleportCompletion struct {
 }
 type SessionTeleportInput struct {
@@ -9252,6 +9312,12 @@ type SessionTeleportResult struct {
 	Replayed    bool                       `json:"replayed"`
 	Operation   *Operation                 `json:"operation,omitempty"`
 	Result      *SessionTeleportCompletion `json:"result,omitempty"`
+}
+type SessionTransfer struct {
+	Phase             string `json:"phase"`
+	BytesTransferred  uint64 `json:"bytes_transferred"`
+	ArtifactBytes     uint64 `json:"artifact_bytes"`
+	SafeToCloseSource bool   `json:"safe_to_close_source"`
 }
 type SessionUpdateCompletion struct {
 }
@@ -11473,6 +11539,7 @@ var Operations = []OperationDescriptor{
 	{"secret_request", "secret.request", "lamp secret request", "post", "/v1/secrets:request", "SecretRequestInput", "SecretRequestResult", "authenticated_scope", true},
 	{"secret_set", "secret.set", "lamp secret set", "post", "/v1/secrets:set", "SecretSetInput", "SecretSetResult", "authenticated_scope", true},
 	{"session_attach", "session.attach", "lamp session attach", "post", "/v1/sessions/{session_id}:attach", "SessionAttachInput", "SessionAttachResult", "authenticated_scope", true},
+	{"session_cancel", "session.cancel", "lamp session cancel", "post", "/v1/sessions/{session_id}:cancel", "SessionCancelInput", "SessionCancelResult", "authenticated_scope", true},
 	{"session_checkpoint", "session.checkpoint", "lamp session checkpoint", "post", "/v1/sessions/{session_id}:checkpoint", "SessionCheckpointInput", "SessionCheckpointResult", "authenticated_scope", true},
 	{"session_create", "session.create", "lamp session create", "post", "/v1/sessions", "SessionCreateInput", "SessionCreateResult", "authenticated_scope", true},
 	{"session_delete", "session.delete", "lamp session delete", "delete", "/v1/sessions/{session_id}", "SessionDeleteInput", "SessionDeleteResult", "authenticated_scope", true},
@@ -11481,9 +11548,11 @@ var Operations = []OperationDescriptor{
 	{"session_input", "session.input", "lamp session input", "post", "/v1/sessions/{session_id}:input", "SessionInputInput", "SessionInputResult", "authenticated_scope", true},
 	{"session_interrupt", "session.interrupt", "lamp session interrupt", "post", "/v1/sessions/{session_id}:interrupt", "SessionInterruptInput", "SessionInterruptResult", "authenticated_scope", true},
 	{"session_list", "session.list", "lamp session list", "get", "/v1/sessions", "SessionListInput", "SessionListResult", "authenticated_scope", false},
+	{"session_message", "session.message", "lamp session message", "post", "/v1/sessions/{session_id}:message", "SessionMessageInput", "SessionMessageResult", "authenticated_scope", true},
 	{"session_resize", "session.resize", "lamp session resize", "post", "/v1/sessions/{session_id}:resize", "SessionResizeInput", "SessionResizeResult", "authenticated_scope", true},
 	{"session_spawn", "session.spawn", "lamp session spawn", "post", "/v1/sessions/{session_id}:spawn", "SessionSpawnInput", "SessionSpawnResult", "authenticated_scope", true},
 	{"session_teleport", "session.teleport", "lamp session teleport", "post", "/v1/sessions/{session_id}:teleport", "SessionTeleportInput", "SessionTeleportResult", "authenticated_scope", true},
+	{"session_teleport_check", "session.teleport", "lamp session teleport-check", "get", "/v1/sessions/{session_id}/teleport-check", "SessionTeleportCheckInput", "SessionTeleportCheckResult", "authenticated_scope", false},
 	{"session_update", "session.update", "lamp session update", "patch", "/v1/sessions/{session_id}", "SessionUpdateInput", "SessionUpdateResult", "authenticated_scope", true},
 	{"session_watch", "session.watch", "lamp session watch", "get", "/v1/sessions/{session_id}/output", "SessionWatchInput", "SessionWatchResult", "authenticated_scope", false},
 	{"settings_change_apply", "settings_change.apply", "lamp settings-change apply", "post", "/v1/settings-changes/{settings_change_id}:apply", "SettingsChangeApplyInput", "SettingsChangeApplyResult", "authenticated_scope", true},

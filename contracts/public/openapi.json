@@ -43648,6 +43648,167 @@
         }
       }
     },
+    "/v1/sessions/{session_id}:cancel": {
+      "post": {
+        "operationId": "session_cancel",
+        "x-lamp-scope": "session.cancel",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64",
+              "readOnly": true
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCancelResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sessions/{session_id}:checkpoint": {
       "post": {
         "operationId": "session_checkpoint",
@@ -44008,6 +44169,10 @@
                   "prompt": {
                     "type": "string",
                     "maxLength": 32768
+                  },
+                  "repository": {
+                    "type": "string",
+                    "description": "Public HTTPS git repository cloned into this session workspace."
                   }
                 },
                 "required": [
@@ -45178,6 +45343,174 @@
         }
       }
     },
+    "/v1/sessions/{session_id}:message": {
+      "post": {
+        "operationId": "session_message",
+        "x-lamp-scope": "session.message",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64",
+              "readOnly": true
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionMessageResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32768
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sessions/{session_id}:resize": {
       "post": {
         "operationId": "session_resize",
@@ -45523,6 +45856,16 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "harness_id": {
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "side": {
+                    "type": "boolean",
+                    "description": "Fresh conversation sharing the parent workspace and branch."
                   }
                 },
                 "required": []
@@ -45696,6 +46039,133 @@
                   }
                 },
                 "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sessions/{session_id}/teleport-check": {
+      "get": {
+        "operationId": "session_teleport_check",
+        "x-lamp-scope": "session.teleport",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Location"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionTeleportCheckResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
               }
             }
           }
@@ -56321,7 +56791,9 @@
                 "sandbox.browser",
                 "sandbox.desktop",
                 "sandbox.metrics",
-                "sandbox.logs"
+                "sandbox.logs",
+                "session.message",
+                "session.cancel"
               ]
             }
           },
@@ -60685,6 +61157,50 @@
           "continuation_ref": {
             "type": "string",
             "readOnly": true
+          },
+          "repository": {
+            "type": "string"
+          },
+          "shared_session_id": {
+            "type": "string"
+          },
+          "shared_epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_turn": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "interrupted"
+            ]
+          },
+          "transfer": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "phase": {
+                "type": "string"
+              },
+              "bytes_transferred": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "artifact_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "safe_to_close_source": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "phase",
+              "bytes_transferred",
+              "artifact_bytes",
+              "safe_to_close_source"
+            ]
           }
         },
         "required": [
@@ -70732,6 +71248,10 @@
           "prompt": {
             "type": "string",
             "maxLength": 32768
+          },
+          "repository": {
+            "type": "string",
+            "description": "Public HTTPS git repository cloned into this session workspace."
           }
         },
         "required": [
@@ -83020,6 +83540,16 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "harness_id": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "side": {
+            "type": "boolean",
+            "description": "Fresh conversation sharing the parent workspace and branch."
           }
         },
         "required": [
@@ -90028,6 +90558,184 @@
         },
         "required": [
           "items",
+          "request_id"
+        ]
+      },
+      "SessionMessageInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32768
+          }
+        },
+        "required": [
+          "session_id",
+          "idempotency_key",
+          "expected_revision",
+          "text"
+        ]
+      },
+      "SessionMessageResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SessionEndCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SessionMessageCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "SessionCancelInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          }
+        },
+        "required": [
+          "session_id",
+          "idempotency_key",
+          "expected_revision"
+        ]
+      },
+      "SessionCancelResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SessionEndCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SessionCancelCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "SessionTeleportCheckInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          }
+        },
+        "required": [
+          "session_id",
+          "location"
+        ]
+      },
+      "SessionTeleportCheckResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Session"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
           "request_id"
         ]
       }
