@@ -144,7 +144,7 @@ func (s *Service) kitReadRelayExec(ctx context.Context, sandbox string, generati
 			s.mu.Unlock()
 			return nil, &workerFailure{code: "SCOPE_DENIED", message: "kit task stopped or expired"}
 		}
-		s.lifeSB(sandbox).activity = time.Now()
+		s.lifeSB(sandbox).Activity = time.Now()
 		s.mu.Unlock()
 		result, err := s.kitRelayExec(ctx, sandbox, generation, argv)
 		if err == nil {

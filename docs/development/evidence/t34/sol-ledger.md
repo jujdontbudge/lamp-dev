@@ -36,3 +36,15 @@ network-policy validation/restoration and T34 lifecycle/snapshot behavior.
 The final diff is 46 files (about 2,080 insertions and 142 deletions), including
 the two reviewer tests, generated declarations and retained demonstration logs.
 No additional review round was started beyond the two-round budget.
+
+Coordinator continuation (2026-11-13): round 2 had returned APPROVE; no
+replacement review was needed. Rebased onto overnight main
+`9acf5908bdd33e7904eb503735a009f7343706c1`. Conflict resolution retains
+installed-template defaults only when no snapshot is supplied, kit creation,
+sandbox failure events, control-grant enforcement and retained suspended CI
+captures. Kit relay activity now uses the persisted `Activity` field.
+Targeted Go vet, both T34 reviewer regressions, the existing T32 default-template
+lifecycle regression, and direct human/JSON CLI help checks passed.
+The final `make build` also passed (Go, generated declarations and Rust
+workspace). Recovery/expiry evidence and the audit investigation remain as
+recorded; no historical failure was relabeled.
