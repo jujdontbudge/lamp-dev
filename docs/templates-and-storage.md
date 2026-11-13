@@ -4,8 +4,8 @@
 engine as well as templates created through the API. `template get ID --json`
 shows the guest OS, architecture, minimum/default resources and build state.
 The `seed_ref` label on an engine template identifies its enrolled base seed.
-Mac Linux prepared templates expose `fixed_resources=true`: requests for another
-shape are refused before a create operation is accepted. Omit resource flags to
+Linux templates on Apple Silicon restore prepared state at its original shape
+and cold-boot when CPU, memory or disk requests differ. Omit resource flags to
 use template or recipe defaults.
 
 ## Build a template
@@ -115,7 +115,6 @@ forks detach inherited mounts according to their attachment policy.
 
 Explicit CPU and memory requests are checked against host maxima before create.
 Linux root disks grow together with their ext4 filesystem; disks below the
-template minimum are refused. Saved templates retain their source shape. Mac
-prepared Linux templates require their documented shape. Warm-pool entries count
+template minimum are refused. Saved templates retain their source shape. Linux guests on Mac also grow whole-device ext4 roots before create completes. Warm-pool entries count
 as live sandboxes; the existing lifecycle monitor replenishes claimed entries
 up to `target_size`, subject to ordinary admission limits.

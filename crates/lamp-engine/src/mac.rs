@@ -1195,9 +1195,7 @@ impl Engine {
                         .and_then(|n| n.checked_add(self.cfg.devices.extra_disk_bytes()))
                         .ok_or_else(|| EngineError::invalid("disk size overflow"))?
                         .div_ceil(1 << 30);
-                    if (self.cfg.devices == Default::default() && &resources != min)
-                        || resources.disk_gib < disk
-                    {
+                    if resources.disk_gib < disk {
                         return Err(mismatch(min, &resources));
                     }
                 }
@@ -1329,16 +1327,13 @@ impl Engine {
                 let t = self.template(capture_id)?;
                 match &t.machine {
                     MachineCfg::Linux { resources, .. } => {
-                        if (self.cfg.devices == Default::default() && &sb.resources != resources)
-                            || sb.resources.disk_gib
-                                < resources
-                                    .disk_gib
-                                    .checked_mul(1 << 30)
-                                    .and_then(|n| {
-                                        n.checked_add(self.cfg.devices.extra_disk_bytes())
-                                    })
-                                    .ok_or_else(|| EngineError::invalid("disk size overflow"))?
-                                    .div_ceil(1 << 30)
+                        if sb.resources.disk_gib
+                            < resources
+                                .disk_gib
+                                .checked_mul(1 << 30)
+                                .and_then(|n| n.checked_add(self.cfg.devices.extra_disk_bytes()))
+                                .ok_or_else(|| EngineError::invalid("disk size overflow"))?
+                                .div_ceil(1 << 30)
                         {
                             return Err(mismatch(resources, &sb.resources));
                         }
@@ -1685,6 +1680,18 @@ impl Engine {
         self.new_dir(sb)?;
         let disk = sb.dir.join(DISK);
         fsutil::reflink(&t.dir.join(DISK), &disk, 0o600)?;
+        let mut grow_linux_root = false;
+        if matches!(t.machine, MachineCfg::Linux { .. }) {
+            let bytes = (sb.resources.disk_gib << 30)
+                .checked_sub(self.cfg.devices.extra_disk_bytes())
+                .ok_or_else(|| EngineError::invalid("extra disks exceed disk_gib"))?;
+            let file = std::fs::OpenOptions::new().write(true).open(&disk)?;
+            if bytes > file.metadata()?.len() {
+                file.set_len(bytes)?;
+                file.sync_all()?;
+                grow_linux_root = true;
+            }
+        }
         let spec = match &t.machine {
             MachineCfg::Linux {
                 cmdline,
@@ -1751,10 +1758,14 @@ impl Engine {
         // a Linux template then cold-boots its own sealed disk (about as
         // fast; the receipt says which way it started).
         let locked = t.variant.is_some() && console_locked();
+        let same_shape = match &t.machine {
+            MachineCfg::Linux { resources, .. } => resources == &sb.resources,
+            MachineCfg::Macos { .. } => true,
+        };
         let state = t
             .variant
             .as_ref()
-            .filter(|_| !locked && self.cfg.devices == Default::default())
+            .filter(|_| !locked && same_shape && self.cfg.devices == Default::default())
             .map(|_| t.dir.join(STATE_FILE));
         let mut spec = spec;
         detail.insert(
@@ -1773,6 +1784,20 @@ impl Engine {
             .into(),
         );
         self.finish_start(sb, state.is_some(), &mut detail)?;
+        if grow_linux_root {
+            // The seed uses a whole-device ext4 root. Grow it online only
+            // after a cold boot; never pair changed geometry with saved RAM.
+            let done = self.guest_command(sb, &["/usr/sbin/resize2fs", "/dev/vda"])?;
+            if done.exit_code != 0 {
+                return Err(EngineError::host(format!(
+                    "grow Linux root filesystem: {}",
+                    String::from_utf8_lossy(
+                        &lamp_init::b64_decode(&done.stderr_b64).unwrap_or_default()
+                    )
+                )));
+            }
+            detail.insert("root_disk_gib".into(), (sb.resources.disk_gib).to_string());
+        }
         Ok(Outcome {
             state: "restored".into(),
             detail,

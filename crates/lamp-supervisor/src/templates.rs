@@ -18,14 +18,14 @@ pub fn dispatch(engine: &Engine, request: &Template) -> Result<Outcome> {
                 let (resources, fixed) = (&t.variant.resources, false);
                 #[cfg(target_os = "macos")]
                 let (resources, fixed) = match &t.machine {
-                    lamp_engine::engine::MachineCfg::Linux { resources, .. } => (resources, true),
+                    lamp_engine::engine::MachineCfg::Linux { resources, .. } => (resources, false),
                     lamp_engine::engine::MachineCfg::Macos { default_resources, .. } => (default_resources, false),
                 };
                 #[cfg(target_os = "linux")]
                 let minimum = json!({"vcpus": 1, "memory_mib": 256, "disk_gib": resources.disk_gib});
                 #[cfg(target_os = "macos")]
                 let minimum = match &t.machine {
-                    lamp_engine::engine::MachineCfg::Linux { resources, .. } => json!(resources),
+                    lamp_engine::engine::MachineCfg::Linux { resources, .. } => json!({"vcpus": 1, "memory_mib": 256, "disk_gib": resources.disk_gib}),
                     lamp_engine::engine::MachineCfg::Macos { minimum_resources, .. } => json!(minimum_resources),
                 };
                 json!({"id": t.id, "name": t.manifest.name, "arch": t.manifest.arch,
@@ -93,13 +93,10 @@ pub fn dispatch(engine: &Engine, request: &Template) -> Result<Outcome> {
             #[cfg(target_os = "macos")]
             match &t.machine {
                 lamp_engine::engine::MachineCfg::Linux { resources, .. } => {
-                    if cpus != resources.vcpus as u64
-                        || memory != resources.memory_mib
-                        || disk != resources.disk_gib
-                    {
+                    if disk < resources.disk_gib || disk > 65536 {
                         return Err(EngineError::invalid(format!(
-                            "template allows exactly {} vcpus / {} MiB / {} GiB",
-                            resources.vcpus, resources.memory_mib, resources.disk_gib
+                            "Linux template needs disk_gib {}..=65536",
+                            resources.disk_gib
                         )));
                     }
                 }
