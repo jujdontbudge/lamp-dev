@@ -27,14 +27,16 @@ type Connection struct {
 	Access           string   `json:"access"` // off, read_only, ask_first, full
 	Endpoint         string   `json:"endpoint,omitempty"`
 	// CredentialCommand is a host-only credential-store reader. Its stdout must
-	// contain only the bearer. No shell is used and stderr is never forwarded.
+	// contain only the bearer, or the sign-in document for CodexSubscription.
+	// No shell is used and stderr is never forwarded.
 	CredentialCommand []string             `json:"credential_command,omitempty"`
 	Binary            string               `json:"binary,omitempty"`
-	Adapter           string               `json:"adapter,omitempty"`  // gh, stripe, aws
+	Adapter           string               `json:"adapter,omitempty"`  // gh, stripe, aws, tea
 	Resource          string               `json:"resource,omitempty"` // repository or bucket
 	Region            string               `json:"region,omitempty"`
 	KeyFile           string               `json:"key_file,omitempty"`
 	Models            []string             `json:"models,omitempty"`
+	CodexSubscription bool                 `json:"codex_subscription,omitempty"`
 	FreeOnly          bool                 `json:"free_only,omitempty"`
 	Operations        map[string]Operation `json:"operations"`
 }
@@ -91,6 +93,9 @@ func (c Config) Validate() error {
 		if len(v.TokenizerCommand) > 0 && (v.Kind != "model" || !filepath.IsAbs(v.TokenizerCommand[0])) {
 			return errors.New("tokenizer must be an absolute host model adapter")
 		}
+		if v.CodexSubscription && (v.Kind != "model" || v.Endpoint != "https://chatgpt.com/backend-api/codex/responses") {
+			return errors.New("Codex subscription requires its pinned Responses endpoint")
+		}
 		switch v.Kind {
 		case "model", "mcp", "service":
 			u, err := url.Parse(v.Endpoint)
@@ -100,7 +105,7 @@ func (c Config) Validate() error {
 			if u.Scheme != "https" && !(v.Kind == "service" && u.Scheme == "http" && (u.Hostname() == "127.0.0.1" || u.Hostname() == "::1")) {
 				return errors.New("upstreams require HTTPS; local services may use loopback HTTP")
 			}
-			if v.Kind != "service" && len(v.CredentialCommand) == 0 {
+			if v.Kind == "model" && len(v.CredentialCommand) == 0 {
 				return errors.New("authenticated upstream requires host credential reader")
 			}
 			if v.Kind == "model" && len(v.Models) == 0 {
@@ -110,8 +115,14 @@ func (c Config) Validate() error {
 			if !filepath.IsAbs(v.Binary) {
 				return errors.New("CLI binary must be absolute")
 			}
-			if v.Adapter != "gh" && v.Adapter != "stripe" && v.Adapter != "aws" {
+			if v.Adapter != "gh" && v.Adapter != "stripe" && v.Adapter != "aws" && v.Adapter != "tea" {
 				return errors.New("unsupported CLI adapter")
+			}
+			if v.Adapter == "tea" {
+				u, err := url.Parse(v.Endpoint)
+				if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" || u.Host == "" || (u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "127.0.0.1" || u.Hostname() == "::1"))) || len(v.CredentialCommand) == 0 {
+					return errors.New("tea requires a pinned HTTPS or loopback origin and host credential")
+				}
 			}
 			if v.Adapter == "gh" && !repoPattern.MatchString(v.Resource) {
 				return errors.New("GitHub repository must be pinned")
@@ -184,7 +195,7 @@ func safePath(p string) bool {
 }
 func cliOperation(adapter, operation string) (bool, bool) {
 	switch adapter + ":" + operation {
-	case "gh:repo_view", "gh:issue_list", "stripe:balance_get", "stripe:customers_list", "aws:identity", "aws:head_object":
+	case "tea:repo_list", "gh:repo_view", "gh:issue_list", "stripe:balance_get", "stripe:customers_list", "aws:identity", "aws:head_object":
 		return false, true
 	case "gh:issue_create", "stripe:customer_create":
 		return true, true

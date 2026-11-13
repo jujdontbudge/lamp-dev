@@ -1,0 +1,8 @@
+{
+  "dedicated_worker_and_store_removed": true,
+  "disposable_Forgejo_stopped_and_account_database_removed": true,
+  "private_custody_copies_and_grant_removed": true,
+  "live_firecracker_after_cleanup": 0,
+  "owner_original_credential_untouched": true,
+  "existing_services_and_Docker_untouched": true
+}

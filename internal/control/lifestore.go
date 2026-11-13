@@ -30,12 +30,13 @@ const lifeStateFile = "lifecycle.json"
 // objects (map form) so reads return exactly what was committed; private
 // fields sit beside them and are never serialized to callers.
 type lifeState struct {
-	Networks  map[string]*lifeNetwork  `json:"networks,omitempty"`
-	Jobs      map[string]*ciJob        `json:"jobs,omitempty"`
-	AuthFlows map[string]*ciAuthFlow   `json:"auth_flows,omitempty"`
-	Triggers  map[string]*lifeTrigger  `json:"triggers,omitempty"`
-	Schedules map[string]*lifeSchedule `json:"schedules,omitempty"`
-	Version   int                      `json:"version"`
+	Agents    map[string]agentEnrollment `json:"agents,omitempty"`
+	Networks  map[string]*lifeNetwork    `json:"networks,omitempty"`
+	Jobs      map[string]*ciJob          `json:"jobs,omitempty"`
+	AuthFlows map[string]*ciAuthFlow     `json:"auth_flows,omitempty"`
+	Triggers  map[string]*lifeTrigger    `json:"triggers,omitempty"`
+	Schedules map[string]*lifeSchedule   `json:"schedules,omitempty"`
+	Version   int                        `json:"version"`
 	// HighWater is the latest host time this service has observed. Deadlines
 	// are compared against max(now, HighWater): a clock rollback can never
 	// extend a retention or expiry deadline.

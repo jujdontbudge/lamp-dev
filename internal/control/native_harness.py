@@ -155,18 +155,18 @@ class Codex:
 
     def prepare(self, c, home, env):
         env["CODEX_HOME"] = str(home / "codex")
-        if c["auth"] == "api_key":
+        if c["auth"] == "api_key" or c.get("brokered_subscription"):
             env["LAMP_MODEL_TOKEN"] = secret(c)
         elif c["auth"] == "subscription" and Path(c["credential_file"]).resolve() != (home / "codex/auth.json").resolve():
             raise ValueError("Codex subscription credentials must remain in the enrolled native custody home")
 
     def argv(self, c, state, prompt):
         argv = [c["binary"]] + ([] if c.get("native_subagents") else ["--disable", "multi_agent"]) + ["-c", 'approval_policy="never"', "-c", 'web_search="disabled"']
-        if c.get("agent_mode") == "outside" or c["auth"] == "subscription":
+        if c.get("agent_mode") == "outside" or (c["auth"] == "subscription" and not c.get("brokered_subscription")):
             argv += ["--disable", "shell_tool", "--disable", "unified_exec"]
         if mcp := c.get("mcp"):
             argv += ["-c", "mcp_servers.lamp={command=" + json.dumps(mcp["command"]) + ",args=" + json.dumps(mcp["args"]) + ',enabled_tools=["exec","spawn","git_return"],default_tools_approval_mode="approve",tool_timeout_sec=180}']
-        if c["auth"] == "api_key":
+        if c["auth"] == "api_key" or c.get("brokered_subscription"):
             argv += ["-c", 'model_provider="lamp"', "-c", 'model_providers.lamp={name="Lamp broker",base_url=' + json.dumps(c["endpoint"]) + ',env_key="LAMP_MODEL_TOKEN",wire_api="responses"}']
         if c.get("model"):
             argv += ["-m", c["model"]]
@@ -251,6 +251,10 @@ class OpenCode:
             state["session_id"] = e["sessionID"]
         if part.get("sessionID"):
             state["session_id"] = part["sessionID"]
+        if e.get("type") == "tool_use" and part.get("type") == "tool":
+            tool = part.get("state") or {}
+            if tool.get("status") in ("completed", "error"):
+                return "[" + str(part.get("tool", "tool")) + "] " + str(tool.get("title", "")) + "\n" + str(tool.get("output") or tool.get("error") or ""), None
         if e.get("type") == "text":
             return part.get("text", ""), None
         if e.get("type") == "step_finish" and part.get("reason") not in ("tool-calls", "tool_calls"):
@@ -637,6 +641,37 @@ def load_state(path):
 
 def main():
     config = json.loads(Path(sys.argv[1]).read_text())
+    if config.get("managed") and config["kind"] in ("opencode", "codex"):
+        if not Path(config["binary"]).is_file():
+            package = "opencode-ai@1.19.5" if config["kind"] == "opencode" else "@openai/codex@0.168.0"
+            print("lamp: installing " + package + " in the sandbox…", flush=True)
+            subprocess.run(["npm", "install", "-g", "--no-audit", "--no-fund", "--progress=false", "--loglevel=error", "--maxsockets=1", package], check=True)
+        if token := config.pop("transport_token", None):
+            write_private(Path(config["credential_file"]), token)
+    if cli_source := config.pop("guest_cli_source", None):
+        cli = Path(config["credential_file"]).parent / "lamp.py"
+        write_private(cli, cli_source)
+        cli.chmod(0o700)
+        # Guest-only executable; HOME never changes on the host.
+        link = Path("/usr/local/bin/lamp")
+        if not link.exists():
+            link.symlink_to(cli)
+        os.environ["LAMP_API_URL"] = config["gateway"]
+        os.environ["LAMP_TOKEN_FILE"] = config["credential_file"]
+        os.environ.update(config.get("secret_placeholders", {}))
+        os.environ["LAMP_MCP_TOOLS"] = json.dumps(config.get("gateway_tools", []))
+        if config.get("gateway_tools"):
+            config["mcp_command"] = [sys.executable, str(cli), "mcp"]
+        for source in config.get("settings_sources") or []:
+            import urllib.request
+            req = urllib.request.Request(config["gateway"] + "/v1/settings/" + source + "/copy", data=b"{}", headers={"Authorization": "Bearer " + Path(config["credential_file"]).read_text().strip()})
+            with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req) as response:
+                snapshot = json.load(response)
+            for relative, content in snapshot["files"].items():
+                path = Path.cwd() / relative
+                if path.is_absolute() and path.resolve().is_relative_to(Path.cwd().resolve()):
+                    write_private(path, content)
+            write_private(Path(config["credential_file"]).parent / (source + ".settings.json"), snapshot)
     adapter = ADAPTERS[config["kind"]]()
     home = Path(os.environ["HOME"])
     home.mkdir(mode=0o700, parents=True, exist_ok=True)

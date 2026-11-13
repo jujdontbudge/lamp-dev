@@ -1962,6 +1962,22 @@ export interface CredentialSourceListResult {
   "next_cursor"?: string;
   "request_id": string;
 }
+export interface CredentialSourceRevokeCompletion {
+}
+export interface CredentialSourceRevokeInput {
+  "credential_source_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  readonly "expected_revision": number;
+}
+export interface CredentialSourceRevokeResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: CredentialSourceRevokeCompletion;
+}
 export interface CredentialSourceUpdateCompletion {
 }
 export interface CredentialSourceUpdateInput {
@@ -2631,6 +2647,28 @@ export interface Harness {
   "hooks"?: Hooks;
   "certification"?: string;
   "evidence_ref"?: string;
+}
+export interface HarnessEnrollCompletion {
+  "harness_id": string;
+}
+export interface HarnessEnrollInput {
+  "harness_id": string;
+  "model"?: string;
+  "credential_source_id"?: string;
+  "nested_create"?: boolean;
+  "settings_source_ids"?: Array<string>;
+  "connection_ids"?: Array<string>;
+  "idempotency_key": string;
+  "wait_ms"?: number;
+  "secret_names"?: Array<string>;
+}
+export interface HarnessEnrollResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: HarnessEnrollCompletion;
 }
 export interface HarnessGetInput {
   "harness_id": string;
@@ -5634,6 +5672,41 @@ export interface Scope {
   "limits"?: Limits;
   "expires_at"?: string;
 }
+export interface SecretRequestCompletion {
+  "entry_url": string;
+}
+export interface SecretRequestInput {
+  "name": string;
+  "hosts": Array<string>;
+  "idempotency_key": string;
+  "wait_ms"?: number;
+}
+export interface SecretRequestResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SecretRequestCompletion;
+}
+export interface SecretSetCompletion {
+  "name": string;
+}
+export interface SecretSetInput {
+  "name": string;
+  "value": string;
+  "idempotency_key": string;
+  "wait_ms"?: number;
+  "hosts"?: Array<string>;
+}
+export interface SecretSetResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SecretSetCompletion;
+}
 export interface SecurityRevocation {
   "digest"?: string;
   "effective_at"?: string;
@@ -5721,6 +5794,7 @@ export interface SessionCreateInput {
   "visibility"?: "private" | "shared";
   "idempotency_key": string;
   readonly "wait_ms"?: number;
+  "prompt"?: string;
 }
 export interface SessionCreateResult {
   "operation_id": string;
@@ -6045,6 +6119,26 @@ export interface SettingsSource {
   "categories"?: Array<string>;
   "content_digest"?: string;
   "signing_connection_id"?: string;
+}
+export interface SettingsSourceApplyCompletion {
+  "settings_source_id": string;
+}
+export interface SettingsSourceApplyInput {
+  "settings_source_id": string;
+  "session_id": string;
+  "settings_change_id": string;
+  "base_revision": string;
+  "selected_paths": Array<string>;
+  "idempotency_key": string;
+  "wait_ms"?: number;
+}
+export interface SettingsSourceApplyResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SettingsSourceApplyCompletion;
 }
 export interface SettingsSourceCreateCompletion {
   "settings_source_id": string;
@@ -7398,6 +7492,8 @@ export declare class LampClient {
   credentialSourceGet(input: CredentialSourceGetInput): Promise<CredentialSourceGetResult>;
   /** `lamp credential-source list` — GET /v1/credential-sources (scope credential_source.list) */
   credentialSourceList(input: CredentialSourceListInput): Promise<CredentialSourceListResult>;
+  /** `lamp credential-source revoke` — POST /v1/credential-sources/{credential_source_id}:revoke (scope credential_source.revoke) */
+  credentialSourceRevoke(input: CredentialSourceRevokeInput): Promise<CredentialSourceRevokeResult>;
   /** `lamp credential-source update` — PATCH /v1/credential-sources/{credential_source_id} (scope credential_source.update) */
   credentialSourceUpdate(input: CredentialSourceUpdateInput): Promise<CredentialSourceUpdateResult>;
   /** `lamp docs read` — GET /v1/docs (scope docs.read) */
@@ -7454,6 +7550,8 @@ export declare class LampClient {
   grantList(input: GrantListInput): Promise<GrantListResult>;
   /** `lamp grant revoke` — POST /v1/grants/{grant_id}:revoke (scope grant.revoke) */
   grantRevoke(input: GrantRevokeInput): Promise<GrantRevokeResult>;
+  /** `lamp harness enroll` — POST /v1/harnesses:enroll (scope harness.enroll) */
+  harnessEnroll(input: HarnessEnrollInput): Promise<HarnessEnrollResult>;
   /** `lamp harness get` — GET /v1/harnesses/{harness_id} (scope harness.get) */
   harnessGet(input: HarnessGetInput): Promise<HarnessGetResult>;
   /** `lamp harness list` — GET /v1/harnesses (scope harness.list) */
@@ -7746,6 +7844,10 @@ export declare class LampClient {
   scheduleRun(input: ScheduleRunInput): Promise<ScheduleRunResult>;
   /** `lamp schedule update` — PATCH /v1/schedules/{schedule_id} (scope schedule.update) */
   scheduleUpdate(input: ScheduleUpdateInput): Promise<ScheduleUpdateResult>;
+  /** `lamp secret request` — POST /v1/secrets:request (scope secret.request) */
+  secretRequest(input: SecretRequestInput): Promise<SecretRequestResult>;
+  /** `lamp secret set` — POST /v1/secrets:set (scope secret.set) */
+  secretSet(input: SecretSetInput): Promise<SecretSetResult>;
   /** `lamp session attach` — POST /v1/sessions/{session_id}:attach (scope session.attach) */
   sessionAttach(input: SessionAttachInput): Promise<SessionAttachResult>;
   /** `lamp session checkpoint` — POST /v1/sessions/{session_id}:checkpoint (scope session.checkpoint) */
@@ -7786,6 +7888,8 @@ export declare class LampClient {
   settingsChangeList(input: SettingsChangeListInput): Promise<SettingsChangeListResult>;
   /** `lamp settings-change reject` — POST /v1/settings-changes/{settings_change_id}:reject (scope settings_change.reject) */
   settingsChangeReject(input: SettingsChangeRejectInput): Promise<SettingsChangeRejectResult>;
+  /** `lamp settings-source apply` — POST /v1/settings-sources/{settings_source_id}:apply (scope settings_source.apply) */
+  settingsSourceApply(input: SettingsSourceApplyInput): Promise<SettingsSourceApplyResult>;
   /** `lamp settings-source create` — POST /v1/settings-sources (scope settings_source.create) */
   settingsSourceCreate(input: SettingsSourceCreateInput): Promise<SettingsSourceCreateResult>;
   /** `lamp settings-source delete` — DELETE /v1/settings-sources/{settings_source_id} (scope settings_source.delete) */

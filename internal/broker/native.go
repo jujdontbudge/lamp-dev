@@ -55,6 +55,23 @@ const nativeStallLimit = 90 * time.Second
 func (b *Broker) nativeStream(ctx context.Context, c Connection, in Invocation, w http.ResponseWriter, stop context.CancelFunc) ([]byte, bool, error) {
 	credential, err := command(ctx, c.CredentialCommand, nil)
 	secret := bytes.TrimSpace(credential)
+	account := ""
+	if c.CodexSubscription {
+		var auth struct {
+			Tokens struct {
+				Access  string `json:"access_token"`
+				Account string `json:"account_id"`
+			} `json:"tokens"`
+		}
+		if json.Unmarshal(credential, &auth) != nil {
+			return nil, false, errors.New("CREDENTIAL_UNAVAILABLE")
+		}
+		secret = []byte(auth.Tokens.Access)
+		account = auth.Tokens.Account
+		if account == "" {
+			return nil, false, errors.New("CREDENTIAL_UNAVAILABLE")
+		}
+	}
 	if err != nil || len(secret) < 8 || len(secret) > 16384 || bytes.ContainsAny(secret, "\r\n") {
 		return nil, false, errors.New("CREDENTIAL_UNAVAILABLE")
 	}
@@ -64,6 +81,11 @@ func (b *Broker) nativeStream(ctx context.Context, c Connection, in Invocation, 
 			return nil, false, errors.New("SCOPE_DENIED")
 		}
 		body["provider"] = map[string]any{"max_price": map[string]any{"prompt": 0, "completion": 0}}
+	}
+	if c.CodexSubscription {
+		delete(body, "max_output_tokens")
+		body["store"] = false
+		body["stream"] = true
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {
@@ -76,6 +98,11 @@ func (b *Broker) nativeStream(ctx context.Context, c Connection, in Invocation, 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	req.Header.Set("Authorization", "Bearer "+string(secret))
+	if c.CodexSubscription {
+		req.Header.Set("ChatGPT-Account-Id", account)
+		req.Header.Set("OpenAI-Beta", "responses=experimental")
+		req.Header.Set("originator", "codex_cli_rs")
+	}
 	if in.Operation == "messages" {
 		req.Header.Set("anthropic-version", "2023-06-01")
 	}
@@ -88,11 +115,27 @@ func (b *Broker) nativeStream(ctx context.Context, c Connection, in Invocation, 
 	}
 	defer response.Body.Close()
 	content := response.Header.Get("Content-Type")
+	// The pinned ChatGPT subscription endpoint can omit Content-Type for SSE.
+	if c.CodexSubscription && content == "" {
+		content = "text/event-stream"
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 || !strings.HasPrefix(content, "application/json") && !strings.HasPrefix(content, "text/event-stream") {
 		log.Printf("lamp-broker: native upstream response rejected (status=%d)", response.StatusCode)
 		return nil, false, errors.New("UPSTREAM_UNAVAILABLE")
 	}
 	forms := secretForms(secret)
+	if c.CodexSubscription {
+		// Also prevent echoes of refresh/id tokens or the entire custody document.
+		var auth struct {
+			Tokens map[string]any `json:"tokens"`
+		}
+		json.Unmarshal(credential, &auth)
+		for _, v := range auth.Tokens {
+			if value, ok := v.(string); ok && len(value) >= 8 {
+				forms = append(forms, secretForms([]byte(value))...)
+			}
+		}
+	}
 	hold := 0
 	for _, f := range forms {
 		if len(f) > hold {

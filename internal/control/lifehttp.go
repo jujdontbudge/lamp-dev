@@ -491,7 +491,7 @@ func (s *Service) lifeItems(a caller, kind string) []map[string]any {
 		}
 	}
 	switch kind {
-	case "port", "network_policy", "network_attachment", "grant", "configuration", "connection":
+	case "credential_source", "settings_source", "auth_flow", "identity_provider", "port", "network_policy", "network_attachment", "grant", "configuration", "connection":
 		for _, n := range s.life.Networks {
 			if textField(n.R, "kind") == kind {
 				add(n.R)

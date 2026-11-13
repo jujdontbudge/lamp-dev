@@ -1,0 +1,57 @@
+[
+  {
+    "observation": "Linux earlier fixture attempts",
+    "result": "failed",
+    "details": "Old worker protocol, old guest helper, and runner setup bugs were found during disposable fixture preparation. No green result is substituted for these runs."
+  },
+  {
+    "observation": "Linux extended run 12",
+    "result": "failed",
+    "details": "Provider returned Bad Gateway during a tool-using turn; the demo was interrupted and its sandbox deleted."
+  },
+  {
+    "observation": "Linux extended run 13",
+    "result": "failed",
+    "details": "Managed network service exited during npm installation; settings copy then failed with No route to host. The failure was not reproduced as a passing extended Linux run."
+  },
+  {
+    "observation": "Mac run 1",
+    "result": "failed",
+    "details": "The isolated supervisor was still opening its store when the API demo attempted allocation."
+  },
+  {
+    "observation": "Mac run 2 restart",
+    "result": "failed",
+    "details": "The restarted daemon attempted duplicate host-service attachment. It failed closed; saved listener rebinding now skips duplicate registration."
+  },
+  {
+    "observation": "Mac run 3",
+    "result": "failed",
+    "details": "The agent completed after a follow-up, but host preview returned HTTP 502. Earlier Mac run 2 preview passed; this later failed observation remains failed."
+  },
+  {
+    "observation": "Mac capability run 4",
+    "result": "failed",
+    "details": "The demo tried the guest CLI before native harness installation completed. The next demonstration waits for the real CLI file."
+  },
+  {
+    "observation": "Mac capability run 5",
+    "result": "failed",
+    "details": "Concurrent npm metadata downloads stalled; the disposable run was interrupted. Enrollment now limits npm to one download socket."
+  },
+  {
+    "observation": "Mac capability run 6",
+    "result": "failed",
+    "details": "Restart and public MCP invocation passed, but the revocation action had no canonical route. The route is now generated and run 8 observed revocation refusal."
+  },
+  {
+    "observation": "Mac capability run 7",
+    "result": "failed",
+    "details": "CLI attach displayed output, but disconnect returned 1 during a canceled follow-up read. Cancellation now returns 0; run 8 observed the released lease."
+  },
+  {
+    "observation": "Linux capability run 14",
+    "result": "not allocated",
+    "details": "One other Firecracker VM was live and available memory was 10337 MiB, below the owner-required 12288 MiB. The run stopped before sandbox allocation."
+  }
+]

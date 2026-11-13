@@ -1,0 +1,48 @@
+[
+  {
+    "step": "release harness",
+    "harnesses": [
+      {
+        "id": "opencode",
+        "state": "active",
+        "version": "enrolled"
+      }
+    ]
+  },
+  {
+    "step": "Codex host sign-in import",
+    "state": "completed",
+    "credential_mode": "0o600"
+  },
+  {
+    "step": "host-held model source",
+    "source": "cr_7217aa789091f1e527c3273471bb20b0"
+  },
+  {
+    "step": "allocation admission",
+    "live_firecracker": 0,
+    "available_mib": 15056
+  },
+  {
+    "step": "sandbox ready",
+    "sandbox": "sb_54f272a19b18573ac79dce6b527e6d57",
+    "state": "ready"
+  },
+  {
+    "step": "session created",
+    "session": "se_609173230fdf45a3c67d084c936718dd"
+  },
+  {
+    "step": "Codex subscription task",
+    "transcript": "lamp: installing @openai/codex@0.168.0 in the sandbox\u2026\n\nadded 2 packages in 7s\n{\"input_id\":\"initial-prompt.0\",\"status\":\"working\",\"type\":\"status\"}WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/lamp-sessions/se_609173230fdf45a3c67d084c936718dd.e1/home/codex\"))\nSUNFLOWER_T43. I\u2019ll write and run `app.py` in the disposable workspace.\nCreated and ran `app.py`. Its output was:\n\n```text\n385\n```\n",
+    "auth_mode": "subscription"
+  },
+  {
+    "step": "task artifact verified",
+    "output": "print(sum(n * n for n in range(1, 11)))\n\nverified output 385\n"
+  },
+  {
+    "step": "sandbox deleted",
+    "sandbox": "sb_54f272a19b18573ac79dce6b527e6d57"
+  }
+]

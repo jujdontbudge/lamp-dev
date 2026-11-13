@@ -14909,6 +14909,10 @@
           "maximum": 18446744073709551615,
           "format": "uint64",
           "readOnly": true
+        },
+        "prompt": {
+          "type": "string",
+          "maxLength": 32768
         }
       },
       "required": [
@@ -33731,6 +33735,408 @@
     },
     "SandboxDesktopCompletion": {
       "$ref": "#/$defs/AdapterDocument"
+    },
+    "HarnessEnrollInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "harness_id": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "credential_source_id": {
+          "type": "string"
+        },
+        "nested_create": {
+          "type": "boolean"
+        },
+        "settings_source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "connection_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "secret_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "harness_id",
+        "idempotency_key"
+      ]
+    },
+    "HarnessEnrollCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "harness_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "harness_id"
+      ]
+    },
+    "HarnessEnrollResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/HarnessEnrollCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SecretSetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "writeOnly": true
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "idempotency_key"
+      ]
+    },
+    "SecretSetCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "SecretSetResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SecretSetCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SettingsSourceApplyInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "settings_source_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "settings_change_id": {
+          "type": "string"
+        },
+        "base_revision": {
+          "type": "string"
+        },
+        "selected_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "settings_source_id",
+        "session_id",
+        "settings_change_id",
+        "base_revision",
+        "selected_paths",
+        "idempotency_key"
+      ]
+    },
+    "SettingsSourceApplyCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "settings_source_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "settings_source_id"
+      ]
+    },
+    "SettingsSourceApplyResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SettingsSourceApplyCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SecretRequestInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "name",
+        "hosts",
+        "idempotency_key"
+      ]
+    },
+    "SecretRequestCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "entry_url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entry_url"
+      ]
+    },
+    "SecretRequestResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SecretRequestCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "CredentialSourceRevokeInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "credential_source_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "credential_source_id",
+        "idempotency_key",
+        "expected_revision"
+      ]
+    },
+    "CredentialSourceRevokeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/CredentialSourceRevokeCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "CredentialSourceRevokeCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
     }
   },
   "x-lamp-resources": {
@@ -34104,7 +34510,8 @@
         "list",
         "create",
         "update",
-        "delete"
+        "delete",
+        "revoke"
       ],
       "singleton": false
     },
@@ -39131,6 +39538,76 @@
       "cli": "lamp sandbox desktop",
       "mcp": "sandbox_desktop",
       "authorization": "authenticated_scope"
+    },
+    "harness_enroll": {
+      "kind": "harness",
+      "action": "enroll",
+      "method": "post",
+      "path": "/v1/harnesses:enroll",
+      "mutation": true,
+      "input_schema": "HarnessEnrollInput",
+      "result_schema": "HarnessEnrollResult",
+      "scope": "harness.enroll",
+      "cli": "lamp harness enroll",
+      "mcp": "harness_enroll",
+      "authorization": "authenticated_scope",
+      "completion_schema": "HarnessEnrollCompletion"
+    },
+    "secret_set": {
+      "kind": "secret",
+      "action": "set",
+      "method": "post",
+      "path": "/v1/secrets:set",
+      "mutation": true,
+      "input_schema": "SecretSetInput",
+      "result_schema": "SecretSetResult",
+      "scope": "secret.set",
+      "cli": "lamp secret set",
+      "mcp": "secret_set",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SecretSetCompletion"
+    },
+    "settings_source_apply": {
+      "kind": "settings_source",
+      "action": "apply",
+      "method": "post",
+      "path": "/v1/settings-sources/{settings_source_id}:apply",
+      "mutation": true,
+      "input_schema": "SettingsSourceApplyInput",
+      "result_schema": "SettingsSourceApplyResult",
+      "scope": "settings_source.apply",
+      "cli": "lamp settings-source apply",
+      "mcp": "settings_source_apply",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SettingsSourceApplyCompletion"
+    },
+    "secret_request": {
+      "kind": "secret",
+      "action": "request",
+      "method": "post",
+      "path": "/v1/secrets:request",
+      "mutation": true,
+      "input_schema": "SecretRequestInput",
+      "result_schema": "SecretRequestResult",
+      "scope": "secret.request",
+      "cli": "lamp secret request",
+      "mcp": "secret_request",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SecretRequestCompletion"
+    },
+    "credential_source_revoke": {
+      "kind": "credential_source",
+      "action": "revoke",
+      "method": "post",
+      "path": "/v1/credential-sources/{credential_source_id}:revoke",
+      "mutation": true,
+      "input_schema": "CredentialSourceRevokeInput",
+      "result_schema": "CredentialSourceRevokeResult",
+      "scope": "credential_source.revoke",
+      "cli": "lamp credential-source revoke",
+      "mcp": "credential_source_revoke",
+      "authorization": "authenticated_scope",
+      "completion_schema": "CredentialSourceRevokeCompletion"
     }
   },
   "x-lamp-errors": {

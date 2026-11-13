@@ -6141,6 +6141,37 @@ pub struct CredentialSourceListResult {
     #[serde(rename = "request_id")]
     pub request_id: String,
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CredentialSourceRevokeCompletion {}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CredentialSourceRevokeInput {
+    #[serde(rename = "credential_source_id")]
+    pub credential_source_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CredentialSourceRevokeResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<CredentialSourceRevokeCompletion>,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CredentialSourceState {
     #[serde(rename = "locked")]
@@ -8630,6 +8661,70 @@ pub struct Harness {
         skip_serializing_if = "Option::is_none"
     )]
     pub evidence_ref: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HarnessEnrollCompletion {
+    #[serde(rename = "harness_id")]
+    pub harness_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HarnessEnrollInput {
+    #[serde(rename = "harness_id")]
+    pub harness_id: String,
+    #[serde(rename = "model", default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(
+        rename = "credential_source_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub credential_source_id: Option<String>,
+    #[serde(
+        rename = "nested_create",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub nested_create: Option<bool>,
+    #[serde(
+        rename = "settings_source_ids",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub settings_source_ids: Option<Vec<String>>,
+    #[serde(
+        rename = "connection_ids",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub connection_ids: Option<Vec<String>>,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(
+        rename = "secret_names",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub secret_names: Option<Vec<String>>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HarnessEnrollResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<HarnessEnrollCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -18417,6 +18512,76 @@ pub enum ScopeActionsItem {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct SecretRequestCompletion {
+    #[serde(rename = "entry_url")]
+    pub entry_url: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretRequestInput {
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "hosts")]
+    pub hosts: Vec<String>,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretRequestResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SecretRequestCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretSetCompletion {
+    #[serde(rename = "name")]
+    pub name: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretSetInput {
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "value")]
+    pub value: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "hosts", default, skip_serializing_if = "Option::is_none")]
+    pub hosts: Option<Vec<String>>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretSetResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SecretSetCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SecurityRevocation {
     #[serde(rename = "digest", default, skip_serializing_if = "Option::is_none")]
     pub digest: Option<String>,
@@ -18675,6 +18840,8 @@ pub struct SessionCreateInput {
     pub idempotency_key: String,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(rename = "prompt", default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionCreateInputAgentMode {
@@ -19609,6 +19776,46 @@ pub struct SettingsSource {
         skip_serializing_if = "Option::is_none"
     )]
     pub signing_connection_id: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsSourceApplyCompletion {
+    #[serde(rename = "settings_source_id")]
+    pub settings_source_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsSourceApplyInput {
+    #[serde(rename = "settings_source_id")]
+    pub settings_source_id: String,
+    #[serde(rename = "session_id")]
+    pub session_id: String,
+    #[serde(rename = "settings_change_id")]
+    pub settings_change_id: String,
+    #[serde(rename = "base_revision")]
+    pub base_revision: String,
+    #[serde(rename = "selected_paths")]
+    pub selected_paths: Vec<String>,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsSourceApplyResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SettingsSourceApplyCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -24279,6 +24486,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "credential_source_revoke",
+        scope: "credential_source.revoke",
+        cli: "lamp credential-source revoke",
+        method: "post",
+        path: "/v1/credential-sources/{credential_source_id}:revoke",
+        input_schema: "CredentialSourceRevokeInput",
+        result_schema: "CredentialSourceRevokeResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "credential_source_update",
         scope: "credential_source.update",
         cli: "lamp credential-source update",
@@ -24583,6 +24801,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/grants/{grant_id}:revoke",
         input_schema: "GrantRevokeInput",
         result_schema: "GrantRevokeResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "harness_enroll",
+        scope: "harness.enroll",
+        cli: "lamp harness enroll",
+        method: "post",
+        path: "/v1/harnesses:enroll",
+        input_schema: "HarnessEnrollInput",
+        result_schema: "HarnessEnrollResult",
         authorization: "authenticated_scope",
         mutation: true,
     },
@@ -26193,6 +26422,28 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: true,
     },
     OperationDescriptor {
+        name: "secret_request",
+        scope: "secret.request",
+        cli: "lamp secret request",
+        method: "post",
+        path: "/v1/secrets:request",
+        input_schema: "SecretRequestInput",
+        result_schema: "SecretRequestResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "secret_set",
+        scope: "secret.set",
+        cli: "lamp secret set",
+        method: "post",
+        path: "/v1/secrets:set",
+        input_schema: "SecretSetInput",
+        result_schema: "SecretSetResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "session_attach",
         scope: "session.attach",
         cli: "lamp session attach",
@@ -26409,6 +26660,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/settings-changes/{settings_change_id}:reject",
         input_schema: "SettingsChangeRejectInput",
         result_schema: "SettingsChangeRejectResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "settings_source_apply",
+        scope: "settings_source.apply",
+        cli: "lamp settings-source apply",
+        method: "post",
+        path: "/v1/settings-sources/{settings_source_id}:apply",
+        input_schema: "SettingsSourceApplyInput",
+        result_schema: "SettingsSourceApplyResult",
         authorization: "authenticated_scope",
         mutation: true,
     },

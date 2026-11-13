@@ -2822,6 +2822,22 @@ type CredentialSourceListResult struct {
 	NextCursor *string            `json:"next_cursor,omitempty"`
 	RequestId  string             `json:"request_id"`
 }
+type CredentialSourceRevokeCompletion struct {
+}
+type CredentialSourceRevokeInput struct {
+	CredentialSourceId string  `json:"credential_source_id"`
+	IdempotencyKey     string  `json:"idempotency_key"`
+	WaitMs             *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision   uint64  `json:"expected_revision"`
+}
+type CredentialSourceRevokeResult struct {
+	OperationId string                            `json:"operation_id"`
+	ResourceIds []ResourceRef                     `json:"resource_ids"`
+	RequestId   string                            `json:"request_id"`
+	Replayed    bool                              `json:"replayed"`
+	Operation   *Operation                        `json:"operation,omitempty"`
+	Result      *CredentialSourceRevokeCompletion `json:"result,omitempty"`
+}
 type CredentialSourceState string
 
 const (
@@ -4002,6 +4018,28 @@ type Harness struct {
 	Hooks             *Hooks            `json:"hooks,omitempty"`
 	Certification     *string           `json:"certification,omitempty"`
 	EvidenceRef       *string           `json:"evidence_ref,omitempty"`
+}
+type HarnessEnrollCompletion struct {
+	HarnessId string `json:"harness_id"`
+}
+type HarnessEnrollInput struct {
+	HarnessId          string    `json:"harness_id"`
+	Model              *string   `json:"model,omitempty"`
+	CredentialSourceId *string   `json:"credential_source_id,omitempty"`
+	NestedCreate       *bool     `json:"nested_create,omitempty"`
+	SettingsSourceIds  *[]string `json:"settings_source_ids,omitempty"`
+	ConnectionIds      *[]string `json:"connection_ids,omitempty"`
+	IdempotencyKey     string    `json:"idempotency_key"`
+	WaitMs             *uint64   `json:"wait_ms,omitempty"`
+	SecretNames        *[]string `json:"secret_names,omitempty"`
+}
+type HarnessEnrollResult struct {
+	OperationId string                   `json:"operation_id"`
+	ResourceIds []ResourceRef            `json:"resource_ids"`
+	RequestId   string                   `json:"request_id"`
+	Replayed    bool                     `json:"replayed"`
+	Operation   *Operation               `json:"operation,omitempty"`
+	Result      *HarnessEnrollCompletion `json:"result,omitempty"`
 }
 type HarnessGetInput struct {
 	HarnessId string `json:"harness_id"`
@@ -8819,6 +8857,41 @@ const (
 	ScopeActionsItemSandboxDesktop             ScopeActionsItem = "sandbox.desktop"
 )
 
+type SecretRequestCompletion struct {
+	EntryUrl string `json:"entry_url"`
+}
+type SecretRequestInput struct {
+	Name           string   `json:"name"`
+	Hosts          []string `json:"hosts"`
+	IdempotencyKey string   `json:"idempotency_key"`
+	WaitMs         *uint64  `json:"wait_ms,omitempty"`
+}
+type SecretRequestResult struct {
+	OperationId string                   `json:"operation_id"`
+	ResourceIds []ResourceRef            `json:"resource_ids"`
+	RequestId   string                   `json:"request_id"`
+	Replayed    bool                     `json:"replayed"`
+	Operation   *Operation               `json:"operation,omitempty"`
+	Result      *SecretRequestCompletion `json:"result,omitempty"`
+}
+type SecretSetCompletion struct {
+	Name string `json:"name"`
+}
+type SecretSetInput struct {
+	Name           string    `json:"name"`
+	Value          string    `json:"value"`
+	IdempotencyKey string    `json:"idempotency_key"`
+	WaitMs         *uint64   `json:"wait_ms,omitempty"`
+	Hosts          *[]string `json:"hosts,omitempty"`
+}
+type SecretSetResult struct {
+	OperationId string               `json:"operation_id"`
+	ResourceIds []ResourceRef        `json:"resource_ids"`
+	RequestId   string               `json:"request_id"`
+	Replayed    bool                 `json:"replayed"`
+	Operation   *Operation           `json:"operation,omitempty"`
+	Result      *SecretSetCompletion `json:"result,omitempty"`
+}
 type SecurityRevocation struct {
 	Digest          *string `json:"digest,omitempty"`
 	EffectiveAt     *string `json:"effective_at,omitempty"`
@@ -8922,6 +8995,7 @@ type SessionCreateInput struct {
 	Visibility       *SessionCreateInputVisibility       `json:"visibility,omitempty"`
 	IdempotencyKey   string                              `json:"idempotency_key"`
 	WaitMs           *uint64                             `json:"wait_ms,omitempty"`
+	Prompt           *string                             `json:"prompt,omitempty"`
 }
 type SessionCreateInputAgentMode string
 
@@ -9392,6 +9466,26 @@ type SettingsSource struct {
 	Categories          *[]string                `json:"categories,omitempty"`
 	ContentDigest       *string                  `json:"content_digest,omitempty"`
 	SigningConnectionId *string                  `json:"signing_connection_id,omitempty"`
+}
+type SettingsSourceApplyCompletion struct {
+	SettingsSourceId string `json:"settings_source_id"`
+}
+type SettingsSourceApplyInput struct {
+	SettingsSourceId string   `json:"settings_source_id"`
+	SessionId        string   `json:"session_id"`
+	SettingsChangeId string   `json:"settings_change_id"`
+	BaseRevision     string   `json:"base_revision"`
+	SelectedPaths    []string `json:"selected_paths"`
+	IdempotencyKey   string   `json:"idempotency_key"`
+	WaitMs           *uint64  `json:"wait_ms,omitempty"`
+}
+type SettingsSourceApplyResult struct {
+	OperationId string                         `json:"operation_id"`
+	ResourceIds []ResourceRef                  `json:"resource_ids"`
+	RequestId   string                         `json:"request_id"`
+	Replayed    bool                           `json:"replayed"`
+	Operation   *Operation                     `json:"operation,omitempty"`
+	Result      *SettingsSourceApplyCompletion `json:"result,omitempty"`
 }
 type SettingsSourceCreateCompletion struct {
 	SettingsSourceId string `json:"settings_source_id"`
@@ -11168,6 +11262,7 @@ var Operations = []OperationDescriptor{
 	{"credential_source_delete", "credential_source.delete", "lamp credential-source delete", "delete", "/v1/credential-sources/{credential_source_id}", "CredentialSourceDeleteInput", "CredentialSourceDeleteResult", "authenticated_scope", true},
 	{"credential_source_get", "credential_source.get", "lamp credential-source get", "get", "/v1/credential-sources/{credential_source_id}", "CredentialSourceGetInput", "CredentialSourceGetResult", "authenticated_scope", false},
 	{"credential_source_list", "credential_source.list", "lamp credential-source list", "get", "/v1/credential-sources", "CredentialSourceListInput", "CredentialSourceListResult", "authenticated_scope", false},
+	{"credential_source_revoke", "credential_source.revoke", "lamp credential-source revoke", "post", "/v1/credential-sources/{credential_source_id}:revoke", "CredentialSourceRevokeInput", "CredentialSourceRevokeResult", "authenticated_scope", true},
 	{"credential_source_update", "credential_source.update", "lamp credential-source update", "patch", "/v1/credential-sources/{credential_source_id}", "CredentialSourceUpdateInput", "CredentialSourceUpdateResult", "authenticated_scope", true},
 	{"docs_read", "docs.read", "lamp docs read", "get", "/v1/docs", "DocsReadInput", "DocsReadResult", "authenticated_scope", false},
 	{"engine_get", "engine.get", "lamp engine get", "get", "/v1/engines/{engine_id}", "EngineGetInput", "EngineGetResult", "authenticated_scope", false},
@@ -11196,6 +11291,7 @@ var Operations = []OperationDescriptor{
 	{"grant_get", "grant.get", "lamp grant get", "get", "/v1/grants/{grant_id}", "GrantGetInput", "GrantGetResult", "authenticated_scope", false},
 	{"grant_list", "grant.list", "lamp grant list", "get", "/v1/grants", "GrantListInput", "GrantListResult", "authenticated_scope", false},
 	{"grant_revoke", "grant.revoke", "lamp grant revoke", "post", "/v1/grants/{grant_id}:revoke", "GrantRevokeInput", "GrantRevokeResult", "authenticated_scope", true},
+	{"harness_enroll", "harness.enroll", "lamp harness enroll", "post", "/v1/harnesses:enroll", "HarnessEnrollInput", "HarnessEnrollResult", "authenticated_scope", true},
 	{"harness_get", "harness.get", "lamp harness get", "get", "/v1/harnesses/{harness_id}", "HarnessGetInput", "HarnessGetResult", "authenticated_scope", false},
 	{"harness_list", "harness.list", "lamp harness list", "get", "/v1/harnesses", "HarnessListInput", "HarnessListResult", "authenticated_scope", false},
 	{"host_bench", "host.bench", "lamp host bench", "post", "/v1/hosts/{host_id}:bench", "HostBenchInput", "HostBenchResult", "authenticated_scope", true},
@@ -11342,6 +11438,8 @@ var Operations = []OperationDescriptor{
 	{"schedule_resume", "schedule.resume", "lamp schedule resume", "post", "/v1/schedules/{schedule_id}:resume", "ScheduleResumeInput", "ScheduleResumeResult", "authenticated_scope", true},
 	{"schedule_run", "schedule.run", "lamp schedule run", "post", "/v1/schedules/{schedule_id}:run", "ScheduleRunInput", "ScheduleRunResult", "authenticated_scope", true},
 	{"schedule_update", "schedule.update", "lamp schedule update", "patch", "/v1/schedules/{schedule_id}", "ScheduleUpdateInput", "ScheduleUpdateResult", "authenticated_scope", true},
+	{"secret_request", "secret.request", "lamp secret request", "post", "/v1/secrets:request", "SecretRequestInput", "SecretRequestResult", "authenticated_scope", true},
+	{"secret_set", "secret.set", "lamp secret set", "post", "/v1/secrets:set", "SecretSetInput", "SecretSetResult", "authenticated_scope", true},
 	{"session_attach", "session.attach", "lamp session attach", "post", "/v1/sessions/{session_id}:attach", "SessionAttachInput", "SessionAttachResult", "authenticated_scope", true},
 	{"session_checkpoint", "session.checkpoint", "lamp session checkpoint", "post", "/v1/sessions/{session_id}:checkpoint", "SessionCheckpointInput", "SessionCheckpointResult", "authenticated_scope", true},
 	{"session_create", "session.create", "lamp session create", "post", "/v1/sessions", "SessionCreateInput", "SessionCreateResult", "authenticated_scope", true},
@@ -11362,6 +11460,7 @@ var Operations = []OperationDescriptor{
 	{"settings_change_get", "settings_change.get", "lamp settings-change get", "get", "/v1/settings-changes/{settings_change_id}", "SettingsChangeGetInput", "SettingsChangeGetResult", "authenticated_scope", false},
 	{"settings_change_list", "settings_change.list", "lamp settings-change list", "get", "/v1/settings-changes", "SettingsChangeListInput", "SettingsChangeListResult", "authenticated_scope", false},
 	{"settings_change_reject", "settings_change.reject", "lamp settings-change reject", "post", "/v1/settings-changes/{settings_change_id}:reject", "SettingsChangeRejectInput", "SettingsChangeRejectResult", "authenticated_scope", true},
+	{"settings_source_apply", "settings_source.apply", "lamp settings-source apply", "post", "/v1/settings-sources/{settings_source_id}:apply", "SettingsSourceApplyInput", "SettingsSourceApplyResult", "authenticated_scope", true},
 	{"settings_source_create", "settings_source.create", "lamp settings-source create", "post", "/v1/settings-sources", "SettingsSourceCreateInput", "SettingsSourceCreateResult", "authenticated_scope", true},
 	{"settings_source_delete", "settings_source.delete", "lamp settings-source delete", "delete", "/v1/settings-sources/{settings_source_id}", "SettingsSourceDeleteInput", "SettingsSourceDeleteResult", "authenticated_scope", true},
 	{"settings_source_get", "settings_source.get", "lamp settings-source get", "get", "/v1/settings-sources/{settings_source_id}", "SettingsSourceGetInput", "SettingsSourceGetResult", "authenticated_scope", false},

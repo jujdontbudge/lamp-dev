@@ -75,6 +75,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	args = local
+	if len(args) >= 2 && args[0] == "secret" && args[1] == "set" && !containsHelp(args) {
+		return setSecret(args[2:], globals, stdout, stderr)
+	}
 	if len(args) == 0 {
 		return help(stdout, nil, asJSON, globals)
 	}
@@ -92,6 +95,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if wantsHelp {
 		return help(stdout, helpWords, asJSON, globals)
+	}
+	if len(args) >= 2 && args[0] == "session" && args[1] == "attach" && !asJSON {
+		return attachSession(append(append([]string{}, args[2:]...), globals...), stdout, stderr)
 	}
 	if len(args) >= 2 && args[0] == "sandbox" {
 		customArgs := append(append([]string{}, args[2:]...), globals...)
