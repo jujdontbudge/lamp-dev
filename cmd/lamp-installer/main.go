@@ -36,7 +36,9 @@ import (
 	"syscall"
 	"time"
 
+	"lamp.eilmer.si/internal/buildversion"
 	"lamp.eilmer.si/internal/control"
+	"lamp.eilmer.si/internal/localconfig"
 	"lamp.eilmer.si/internal/release"
 )
 
@@ -66,6 +68,10 @@ type updatePolicy struct {
 }
 
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "version" || os.Args[1] == "--version") {
+		json.NewEncoder(os.Stdout).Encode(map[string]string{"version": buildversion.Current()})
+		return
+	}
 	if len(os.Args) > 1 && (os.Args[1] == "--help" || os.Args[1] == "-h" || os.Args[1] == "help") {
 		fmt.Fprintln(os.Stdout, `Usage: lamp-installer <command> [flags]
 Install and manage signed Lamp releases.
@@ -547,6 +553,9 @@ func restartService(prefix string, st installState, j job) error {
 func stopService(prefix string, st installState, j job, drain time.Duration) error {
 	switch st.Service {
 	case "systemd":
+		if _, err := os.Stat("/etc/systemd/system/" + unitName(st, j)); os.IsNotExist(err) {
+			return nil
+		}
 		return sudo("systemctl", "stop", unitName(st, j))
 	case "launchd":
 		exec.Command("launchctl", "bootout", guiDomain()+"/"+label(st, j)).Run()
@@ -583,15 +592,26 @@ func stopService(prefix string, st installState, j job, drain time.Duration) err
 	return fmt.Errorf("process %d did not drain within %s", pid, drain)
 }
 
-func removeService(prefix string, st installState, j job) {
+func removeService(prefix string, st installState, j job) error {
 	switch st.Service {
 	case "systemd":
-		sudo("systemctl", "disable", unitName(st, j))
-		sudo("rm", "-f", "/etc/systemd/system/"+unitName(st, j))
-		sudo("systemctl", "daemon-reload")
+		unit := "/etc/systemd/system/" + unitName(st, j)
+		if _, err := os.Stat(unit); os.IsNotExist(err) {
+			return nil
+		}
+		if err := sudo("systemctl", "disable", unitName(st, j)); err != nil {
+			return err
+		}
+		if err := sudo("rm", "-f", unit); err != nil {
+			return err
+		}
+		return sudo("systemctl", "daemon-reload")
 	case "launchd":
-		os.Remove(plistPath(st, j))
+		if err := os.Remove(plistPath(st, j)); err != nil && !os.IsNotExist(err) {
+			return err
+		}
 	}
+	return nil
 }
 
 // ---- health and work preservation ----
@@ -948,9 +968,21 @@ func hasWorker(args []string) bool {
 func update(args []string) error {
 	fl := flag.NewFlagSet("update", flag.ExitOnError)
 	release := fl.String("release", "", "release directory")
-	prefix := fl.String("prefix", "", "installation directory")
+	prefix := fl.String("prefix", localconfig.Prefix(), "installation directory")
+	source := fl.String("source", releaseSource, "HTTPS release service (used without --release)")
 	fl.Parse(args)
 	p, _ := filepath.Abs(*prefix)
+	if *release == "" {
+		dir, cleanup, err := fetchRelease(p, *source)
+		defer cleanup()
+		if err != nil {
+			return err
+		}
+		if dir == "" {
+			return nil
+		}
+		*release = dir
+	}
 	return applyUpdate(p, *release, "", "")
 }
 
@@ -985,6 +1017,10 @@ func applyUpdate(p, relDir string, wantDigest, channel string) error {
 		event(p, map[string]any{"event": "update_refused", "reason": "channel " + m.Channel + " is not " + channel, "current": st.Current})
 		return fmt.Errorf("refused before apply: release channel %s, fleet follows %s", m.Channel, channel)
 	}
+	if m.Version == st.Current {
+		say("already up to date (%s)", st.Current)
+		return nil
+	}
 	if !newer(m.Version, st.HighestVersion) {
 		event(p, map[string]any{"event": "update_refused", "reason": "anti-rollback: " + m.Version + " is not newer than " + st.HighestVersion, "current": st.Current})
 		return fmt.Errorf("refused before apply: %s is not newer than installed %s", m.Version, st.HighestVersion)
@@ -999,6 +1035,30 @@ func applyUpdate(p, relDir string, wantDigest, channel string) error {
 	if err := engineGuard(p, st.Supervisor, st.Current, m.Version); err != nil {
 		event(p, map[string]any{"event": "update_refused", "reason": err.Error(), "current": st.Current})
 		return fmt.Errorf("refused before apply: %w", err)
+	}
+	mirrorDir := filepath.Join(p, "mirror", m.Version)
+	if _, err := os.Stat(mirrorDir); err == nil {
+		_, _, mirroredDigest, err := release.VerifyPlatform(mirrorDir, key)
+		if err != nil {
+			return err
+		}
+		if mirroredDigest != digest {
+			return errors.New("mirror already contains a different release with this version")
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	} else {
+		incoming, err := os.MkdirTemp(filepath.Join(p, "mirror"), ".incoming-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(incoming)
+		if _, err := copyTree(relDir, incoming); err != nil {
+			return err
+		}
+		if err := os.Rename(incoming, mirrorDir); err != nil {
+			return err
+		}
 	}
 	event(p, map[string]any{"event": "draining", "from": st.Current, "to": m.Version, "saved_items": len(before)})
 	old := st.Current
@@ -1165,7 +1225,7 @@ func status(args []string) error {
 		return err
 	}
 	inv, ierr := inventory(p)
-	out := map[string]any{"name": st.Name, "service": st.Service, "current": st.Current, "previous": st.Previous, "highest_version": st.HighestVersion, "update_policy": loadPolicy(p), "healthy": ierr == nil, "saved_items": len(inv)}
+	out := map[string]any{"name": st.Name, "service": st.Service, "version": st.Current, "current": st.Current, "previous": st.Previous, "highest_version": st.HighestVersion, "update_policy": loadPolicy(p), "healthy": ierr == nil, "saved_items": len(inv)}
 	if ierr != nil {
 		out["recovery"] = "run lamp-installer restart --prefix " + p
 	}
@@ -1216,12 +1276,18 @@ func uninstall(args []string) error {
 	default:
 		return errors.New("choose what happens to owner data: --data retain, --data export --export-dir DIR, or --data delete --confirm-delete NAME; nothing was changed")
 	}
-	stopService(p, st, agentJob(p, st), 60*time.Second)
-	removeService(p, st, agentJob(p, st))
+	if err := stopService(p, st, agentJob(p, st), 60*time.Second); err != nil {
+		return err
+	}
+	if err := removeService(p, st, agentJob(p, st)); err != nil {
+		return err
+	}
 	if err := stopService(p, st, lampdJob(p, st), 60*time.Second); err != nil {
 		return err
 	}
-	removeService(p, st, lampdJob(p, st))
+	if err := removeService(p, st, lampdJob(p, st)); err != nil {
+		return err
+	}
 	if st.Supervisor != nil {
 		if err := stopSupervisor(p, &st); err != nil {
 			return err
@@ -1235,7 +1301,12 @@ func uninstall(args []string) error {
 				say("engine store and binaries retained at %s", supStore(st.Supervisor))
 			}
 		} else {
-			sudo("rm", "-rf", st.Supervisor.Dir)
+			if err := sudo("rm", "-rf", st.Supervisor.Dir); err != nil {
+				return err
+			}
+			if !shipsSupervisor(p, st.Current) {
+				say("external engine at %s was not installed by this installation and was retained", st.Supervisor.System)
+			}
 		}
 	}
 	os.Remove(filepath.Join(p, "run", "api.sock"))
@@ -1247,12 +1318,16 @@ func uninstall(args []string) error {
 		say("exported %d files of owner data to %s", n, *exportDir)
 	}
 	for _, d := range []string{"releases", "incoming", "mirror", "current", "run", "log", ".current.tmp", "config/lamp-installer"} {
-		os.RemoveAll(filepath.Join(p, d))
+		if err := os.RemoveAll(filepath.Join(p, d)); err != nil {
+			return err
+		}
 	}
 	kept := "retained at " + stateDir
 	switch *data {
 	case "delete":
-		os.RemoveAll(p)
+		if err := os.RemoveAll(p); err != nil {
+			return err
+		}
 		kept = "deleted"
 	default:
 		// Keep the owner's enrollment and token beside the retained data so a

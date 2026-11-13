@@ -1,0 +1,121 @@
+{"step": "baseline existing engine", "at": "2026-11-13T03:22:03Z", "service": {"ActiveState": "active", "SubState": "running", "FragmentPath": "/etc/systemd/system/lamp-supervisor.service", "MainPID": "34842"}, "engine_files_sha256": {"/usr/local/lib/lamp/firecracker": "99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5", "/usr/local/lib/lamp/gvisor-bin/checkpointgofer": "a7e56d07b675aa0278d8dae690fcdaadf0b7b40dc14a0c014b93bb5c448e22fa", "/usr/local/lib/lamp/gvisor-bin/gvisor-proc-umounter": "b3bbbaef5ddc62084e5febd19d3acca14f3d42b2a25d8552fb40def699467019", "/usr/local/lib/lamp/gvisor-bin/gvisor-sentry-prewarmer": "46d5c028723ac5fbe40b863f95100f15a00d2aa0cd39c69d892500a988c930bd", "/usr/local/lib/lamp/gvisor-bin/gvisor_sentry": "e7aba569a4b46b5382c5f0722e8555005f1f3aa1390c54403483d42379fae09b", "/usr/local/lib/lamp/gvisor-bin/runsc-fd-parking": "03af90d07ea466c10ecc3e3ba839b2a59540959dd3286aea3886917cba850c11", "/usr/local/lib/lamp/gvisor-bin/runsc-metric-server": "24b5762dc5a060657dd8581bd008fe3a338dbcb9a055ccfba0e0f9145337617b", "/usr/local/lib/lamp/jailer": "65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f", "/usr/local/lib/lamp/lamp-guard": "8734fc7ff8ce18b8cda333d63b8937e828528d4b2503691df331840a4546764d", "/usr/local/lib/lamp/lamp-supervisor": "a0612b968e90c913ef148aa8559ff21ef90979c541ef2f089675fcf2bf573013", "/usr/local/lib/lamp/runsc": "7d658f2c3a5602d28c391285eb4ee0740e7dd21d40731324049a29620e51cf5e"}, "store": {"device": 1806, "inode": 128, "uid": 1000, "gid": 0, "mode": 16877}, "store_mount": "/dev/loop14 /var/lib/lamp xfs", "unit_sha256": "631e32b4a4ccdece7cfd6ae779c1152cc9ba872445be7e7075d411279d09e8f3", "host_nft_sha256": "af7e8ed1fb07e082def62705307daeeb650f305bfa9d154defa34b6851cfce57"}
+               total        used        free      shared  buff/cache   available
+Mem:           31140       14840        1761        1699       16693       16300
+Swap:           8191        7791         400
+
+{"step": "capacity check", "at": "2026-11-13T03:22:04Z", "stage": "before engine/template preparation", "firecracker_processes": 0, "available_mib": 16300}
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer install --prefix /home/johan/t45-ubuntu-LEAZEK/p --name t45-leazek --release /home/johan/t45-ubuntu-LEAZEK/release-0.1.1 --trust /home/johan/t45-ubuntu-LEAZEK/release.pub --service systemd --engine
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-i/928e5a25/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its template…
+{"at":"2026-11-13T03:23:01Z","automatic_updates":false,"event":"installed","prefix":"/home/johan/t45-ubuntu-LEAZEK/p","service":"systemd","version":"0.1.1"}
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 130 ms
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 12207 ms
+definition: default (0 steps), seed lamp-seed/ubuntu-26.04-t45-current-guest@sha256:a61faa2b3487c3b91c2fc0194585e4ab4cab213de62c4df787492fa3a3295626
+build sandbox booted in 144 ms
+template VM booted in 330 ms
+full capture written in 17734 ms
+memory image: 1961 MiB of zero pages left as holes
+published tp_810fa07b53a29fbe4063bcd598 as default in 21841 ms
+Created symlink '/etc/systemd/system/multi-user.target.wants/lamp-t45-leazek.service' → '/etc/systemd/system/lamp-t45-leazek.service'.
+Created symlink '/etc/systemd/system/multi-user.target.wants/lamp-t45-leazek-agent.service' → '/etc/systemd/system/lamp-t45-leazek-agent.service'.
+
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp version --json
+{"api_version":"v1","client_version":"0.1.1","engines":[{"connected":true,"version":"0.1.1","worker_id":"lamp-supervisor@hs_local"}],"protocol":"lamp.worker/2","request_id":"req_47f16ef41008fa182b1d53014be30f0b","version":"0.1.1"}
+
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer status --prefix /home/johan/t45-ubuntu-LEAZEK/p --json
+{"current":"0.1.1","healthy":true,"highest_version":"0.1.1","name":"t45-leazek","previous":"","saved_items":0,"service":"systemd","supervisor":{"alive":true,"binary_sha256":"af7bb351d6e7783c6399b43cbdfdd79a9eecc67e664ca5ae07d43055a129bdac","from_release":true,"pid":1312900,"release":"0.1.1","sha256":{"firecracker":"99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5","jailer":"65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f","lamp-guard":"e87f3d77ce72e00b709a35156734764f7c5f0a048a20a725b6dab28c7481d7ae","lamp-network":"04083c93111b3d2ade2a58e273dfc185a850c8533784e0f804bdc95ec11e2a5a","lamp-supervisor":"af7bb351d6e7783c6399b43cbdfdd79a9eecc67e664ca5ae07d43055a129bdac"}},"update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000},"version":"0.1.1"}
+
+{"step": "versions agree", "at": "2026-11-13T03:23:01Z", "version": "0.1.1", "supervisor_pid": 1312900}
+{"step": "disposable systemd units active", "at": "2026-11-13T03:23:01Z", "units": {"": "active", "-agent": "active"}, "engine": "/var/lib/lamp-i/928e5a25", "runtime": "/run/lamp-928e5a25", "mounts": ["/var/lib/lamp-i/928e5a25/store", "/run/lamp-928e5a25/mem"]}
+               total        used        free      shared  buff/cache   available
+Mem:           31140       14316        1169        1698       17808       16824
+Swap:           8191        7849         342
+
+{"step": "capacity check", "at": "2026-11-13T03:23:01Z", "stage": "before sandbox create", "firecracker_processes": 0, "available_mib": 16824}
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp sandbox create --wait-ms 60000 --json
+{"operation_id":"op_0059b0ec698bde1325c0ae99c0c34a46","resource_ids":[{"kind":"sandbox","id":"sb_29ba85890c2fcdf9930594627a590c21"}],"request_id":"req_da1ecbbf5cb266fad95eef4505c3d231","replayed":false,"operation":{"id":"op_0059b0ec698bde1325c0ae99c0c34a46","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":3,"created_at":"2026-11-13T03:23:01.263780124Z","updated_at":"2026-11-13T03:23:01.570215105Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"sandbox_create","request_hash":"174c80cd3c699351aaf5571283ac13552e21c1832d1bbb4dafbe48d30d604625","resource_ids":[{"kind":"sandbox","id":"sb_29ba85890c2fcdf9930594627a590c21"}],"phase":"command","accepted_at":"2026-11-13T03:23:01.263780124Z","completed_at":"2026-11-13T03:23:01.570215105Z","outcome":{"result":{"sandbox_id":"sb_29ba85890c2fcdf9930594627a590c21","session_ids":[]}},"cleanup_state":"not_needed","durability":"volatile"},"result":{"sandbox_id":"sb_29ba85890c2fcdf9930594627a590c21","session_ids":[]}}
+
+
+{"step": "created one sandbox", "at": "2026-11-13T03:23:01Z", "sandbox_id": "sb_29ba85890c2fcdf9930594627a590c21"}
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp sandbox exec sb_29ba85890c2fcdf9930594627a590c21 -- python3 -c <public six module written/read in VM>
+
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp sandbox exec sb_29ba85890c2fcdf9930594627a590c21 -- python3 -c <public six module written/read in VM>
+1.16.0
+
+{"step": "namespace and store mounts while sandbox runs", "at": "2026-11-13T03:23:02Z", "mounts": ["/var/lib/lamp-i/928e5a25/store", "/run/lamp-928e5a25/mem", "/run/lamp-928e5a25/net/sb-29ba85890c2fcdf9930594627a590c21"], "namespace_tables": ""}
+               total        used        free      shared  buff/cache   available
+Mem:           31140       14352        1097        1700       17846       16788
+Swap:           8191        7849         342
+
+{"step": "capacity check", "at": "2026-11-13T03:23:02Z", "stage": "before update", "firecracker_processes": 1, "available_mib": 16788}
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer update --prefix /home/johan/t45-ubuntu-LEAZEK/p --source http://127.0.0.1:44505
+127.0.0.1 - - [12/Nov/2026 22:23:02] "GET /releases/latest.json HTTP/1.1" 200 -
+127.0.0.1 - - [12/Nov/2026 22:23:02] "GET /releases/v0.1.2/lamp-0.1.2-linux-amd64.tar.gz HTTP/1.1" 200 -
+{"at":"2026-11-13T03:23:04Z","event":"draining","from":"0.1.1","saved_items":1,"to":"0.1.2"}
+{"at":"2026-11-13T03:23:04Z","event":"applying","version":"0.1.2"}
+{"at":"2026-11-13T03:23:11Z","event":"sandbox_suspended","reason":"supervisor swap","sandbox_id":"sb_29ba85890c2fcdf9930594627a590c21"}
+{"at":"2026-11-13T03:23:13Z","binary_sha256":"80de16b7a17e28b81311ce5ee7acf3dfbc685ad9aa772b3e1ef742e3861106c1","event":"supervisor_swapped","from":"0.1.1","pid":1314143,"to":"0.1.2"}
+{"at":"2026-11-13T03:23:15Z","event":"sandbox_resumed","sandbox_id":"sb_29ba85890c2fcdf9930594627a590c21"}
+{"at":"2026-11-13T03:23:15Z","event":"completed","previous":"0.1.1","saved_items_preserved":1,"version":"0.1.2"}
+
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp version --json
+{"api_version":"v1","client_version":"0.1.2","engines":[{"connected":true,"version":"0.1.2","worker_id":"lamp-supervisor@hs_local"}],"protocol":"lamp.worker/2","request_id":"req_cf355eeb288a6ae198d99db285041e57","version":"0.1.2"}
+
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer status --prefix /home/johan/t45-ubuntu-LEAZEK/p --json
+{"current":"0.1.2","healthy":true,"highest_version":"0.1.2","name":"t45-leazek","previous":"0.1.1","saved_items":1,"service":"systemd","supervisor":{"alive":true,"binary_sha256":"80de16b7a17e28b81311ce5ee7acf3dfbc685ad9aa772b3e1ef742e3861106c1","from_release":true,"pid":1314143,"release":"0.1.2","sha256":{"firecracker":"99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5","jailer":"65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f","lamp-guard":"e87f3d77ce72e00b709a35156734764f7c5f0a048a20a725b6dab28c7481d7ae","lamp-network":"9b6a1470dbf779189af4220a708c38540a54cdd883c31c974e135d9028a94c5d","lamp-supervisor":"80de16b7a17e28b81311ce5ee7acf3dfbc685ad9aa772b3e1ef742e3861106c1"}},"update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000},"version":"0.1.2"}
+
+{"step": "versions agree", "at": "2026-11-13T03:23:15Z", "version": "0.1.2", "supervisor_pid": 1314143}
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp sandbox list --json
+{"items":[{"boundary":"vm","capture_trust":"clean","created_at":"2026-11-13T03:23:01.256228728Z","custody_host_ids":["hs_local"],"durability":"local","effective_policy_revision":1,"fleet_id":"fl_local","generation":2,"host_id":"hs_local","id":"sb_29ba85890c2fcdf9930594627a590c21","idle_countdown":{"action":"suspend","grace_seconds":300},"kind":"sandbox","labels":{},"owner_id":"pr_owner","readiness":{"checks":[{"name":"template","state":"passed"},{"name":"engine","state":"passed"},{"name":"identity","state":"passed"},{"name":"network","state":"skipped"},{"name":"settings","state":"skipped"},{"name":"kits","state":"skipped"},{"name":"auth","state":"skipped"},{"name":"connections","state":"skipped"},{"name":"command","state":"passed"},{"name":"agent","state":"skipped"}],"command_started_at":"2026-11-13T03:23:01.570215105Z"},"resources":{"disk_gib":20,"memory_mib":2048,"pids_max":4096,"vcpus":2},"revision":7,"state":"ready","task_id":"tk_e29d90f090f7dbe7dc8bd61c2d82170c","template_id":"tp_810fa07b53a29fbe4063bcd598","updated_at":"2026-11-13T03:23:14.48288165Z","visibility":"private"}],"next_cursor":null,"request_id":"req_6c47f4222b0921def43efafec3b922e0"}
+
+
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp sandbox exec sb_29ba85890c2fcdf9930594627a590c21 -- python3 -c <public six module written/read in VM>
+1.16.0
+
+{"step": "update preserved ready VM and public module", "at": "2026-11-13T03:23:15Z", "sandbox_id": "sb_29ba85890c2fcdf9930594627a590c21"}
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer update --prefix /home/johan/t45-ubuntu-LEAZEK/p --source http://127.0.0.1:44505
+127.0.0.1 - - [12/Nov/2026 22:23:15] "GET /releases/latest.json HTTP/1.1" 200 -
+already up to date (0.1.2)
+
+               total        used        free      shared  buff/cache   available
+Mem:           31140       14052        3024        1661       16555       17088
+Swap:           8191        8191           0
+
+{"step": "capacity check", "at": "2026-11-13T03:23:15Z", "stage": "before rollback", "firecracker_processes": 1, "available_mib": 17088}
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer rollback --prefix /home/johan/t45-ubuntu-LEAZEK/p
+{"at":"2026-11-13T03:23:18Z","event":"sandbox_suspended","reason":"supervisor swap","sandbox_id":"sb_29ba85890c2fcdf9930594627a590c21"}
+{"at":"2026-11-13T03:23:19Z","binary_sha256":"af7bb351d6e7783c6399b43cbdfdd79a9eecc67e664ca5ae07d43055a129bdac","event":"supervisor_swapped","from":"0.1.2","pid":1314840,"to":"0.1.1"}
+{"at":"2026-11-13T03:23:21Z","event":"sandbox_resumed","sandbox_id":"sb_29ba85890c2fcdf9930594627a590c21"}
+{"at":"2026-11-13T03:23:21Z","event":"rolled_back","version":"0.1.1"}
+
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp version --json
+{"api_version":"v1","client_version":"0.1.1","engines":[{"connected":true,"version":"0.1.1","worker_id":"lamp-supervisor@hs_local"}],"protocol":"lamp.worker/2","request_id":"req_c06013b6c204bd04bf45cf2b3ab3418c","version":"0.1.1"}
+
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer status --prefix /home/johan/t45-ubuntu-LEAZEK/p --json
+{"current":"0.1.1","healthy":true,"highest_version":"0.1.2","name":"t45-leazek","previous":"0.1.2","saved_items":1,"service":"systemd","supervisor":{"alive":true,"binary_sha256":"af7bb351d6e7783c6399b43cbdfdd79a9eecc67e664ca5ae07d43055a129bdac","from_release":true,"pid":1314840,"release":"0.1.1","sha256":{"firecracker":"99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5","jailer":"65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f","lamp-guard":"e87f3d77ce72e00b709a35156734764f7c5f0a048a20a725b6dab28c7481d7ae","lamp-network":"04083c93111b3d2ade2a58e273dfc185a850c8533784e0f804bdc95ec11e2a5a","lamp-supervisor":"af7bb351d6e7783c6399b43cbdfdd79a9eecc67e664ca5ae07d43055a129bdac"}},"update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000},"version":"0.1.1"}
+
+{"step": "versions agree", "at": "2026-11-13T03:23:21Z", "version": "0.1.1", "supervisor_pid": 1314840}
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp sandbox exec sb_29ba85890c2fcdf9930594627a590c21 -- python3 -c <public six module written/read in VM>
+1.16.0
+
+{"step": "rollback preserved ready VM and public module", "at": "2026-11-13T03:23:21Z", "sandbox_id": "sb_29ba85890c2fcdf9930594627a590c21"}
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp sandbox get --sandbox-id sb_29ba85890c2fcdf9930594627a590c21 --json
+{"data":{"id":"sb_29ba85890c2fcdf9930594627a590c21","kind":"sandbox","fleet_id":"fl_local","owner_id":"pr_owner","revision":11,"created_at":"2026-11-13T03:23:01.256228728Z","updated_at":"2026-11-13T03:23:20.739826137Z","state":"ready","labels":{},"visibility":"private","template_id":"tp_810fa07b53a29fbe4063bcd598","host_id":"hs_local","boundary":"vm","resources":{"vcpus":2,"memory_mib":2048,"disk_gib":20,"pids_max":4096},"task_id":"tk_e29d90f090f7dbe7dc8bd61c2d82170c","generation":3,"readiness":{"command_started_at":"2026-11-13T03:23:01.570215105Z","checks":[{"name":"template","state":"passed"},{"name":"engine","state":"passed"},{"name":"identity","state":"passed"},{"name":"network","state":"skipped"},{"name":"settings","state":"skipped"},{"name":"kits","state":"skipped"},{"name":"auth","state":"skipped"},{"name":"connections","state":"skipped"},{"name":"command","state":"passed"},{"name":"agent","state":"skipped"}]},"capture_trust":"clean","effective_policy_revision":1,"durability":"local","custody_host_ids":["hs_local"]},"request_id":"req_ab4af0b0b2a171ce0f159311d7e1ffd0"}
+
+
++ /home/johan/t45-ubuntu-LEAZEK/p/current/bin/lamp sandbox delete --sandbox-id sb_29ba85890c2fcdf9930594627a590c21 --expected-revision 11 --wait-ms 60000 --json
+{"operation_id":"op_07c94b1ece61788f57e82794f40b42b2","resource_ids":[{"kind":"sandbox","id":"sb_29ba85890c2fcdf9930594627a590c21"}],"request_id":"req_5ff84b56aa321d434c73e2899dc01185","replayed":false,"operation":{"id":"op_07c94b1ece61788f57e82794f40b42b2","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":3,"created_at":"2026-11-13T03:23:21.747394553Z","updated_at":"2026-11-13T03:23:21.792870167Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"sandbox_delete","request_hash":"803c4d9ba74a4079b5dac8f44fad760f40759bb74481c0f8bb21f938687b1e4f","resource_ids":[{"kind":"sandbox","id":"sb_29ba85890c2fcdf9930594627a590c21"}],"phase":"cleanup","accepted_at":"2026-11-13T03:23:21.747394553Z","completed_at":"2026-11-13T03:23:21.792870167Z","outcome":{"result":{}},"cleanup_state":"complete","durability":"volatile"},"result":{}}
+
+
+{"step": "sandbox deleted", "at": "2026-11-13T03:23:22Z", "remaining_mounts": ["/var/lib/lamp-i/928e5a25/store", "/run/lamp-928e5a25/mem"]}
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer uninstall --prefix /home/johan/t45-ubuntu-LEAZEK/p --data delete --confirm-delete t45-leazek
+{"at":"2026-11-13T03:23:23Z","data":"deleted","event":"uninstalled","name":"t45-leazek","owner_data":"delete"}
+Removed '/etc/systemd/system/multi-user.target.wants/lamp-t45-leazek-agent.service'.
+Removed '/etc/systemd/system/multi-user.target.wants/lamp-t45-leazek.service'.
+
+{"step": "post-uninstall checks", "at": "2026-11-13T03:23:24Z", "checks": {"prefix_absent": true, "engine_binaries_and_store_absent": true, "runtime_and_namespace_paths_absent": true, "uid_reservation_absent": true, "mounts_absent": true, "lamp-t45-leazek.service_file_absent": true, "lamp-t45-leazek.service_enable_link_absent": true, "lamp-t45-leazek.service_unloaded": true, "lamp-t45-leazek-agent.service_file_absent": true, "lamp-t45-leazek-agent.service_enable_link_absent": true, "lamp-t45-leazek-agent.service_unloaded": true, "no_engine_or_network_processes_from_install": true, "owned_supervisor_pids_gone": true, "existing_engine_files_unit_service_pid_and_store_unchanged": true, "host_network_rules_unchanged": true}, "units": {"lamp-t45-leazek.service": {"LoadState": "not-found", "ActiveState": "inactive"}, "lamp-t45-leazek-agent.service": {"LoadState": "not-found", "ActiveState": "inactive"}}, "existing_service": {"ActiveState": "active", "SubState": "running", "FragmentPath": "/etc/systemd/system/lamp-supervisor.service", "MainPID": "34842"}, "host_nft_sha256": "af7e8ed1fb07e082def62705307daeeb650f305bfa9d154defa34b6851cfce57"}
+               total        used        free      shared  buff/cache   available
+Mem:           31140       13228       12222        1457        7603       17912
+Swap:           8191        8191           0
+
+{"step": "capacity check", "at": "2026-11-13T03:23:24Z", "stage": "after uninstall", "firecracker_processes": 0, "available_mib": 17912}

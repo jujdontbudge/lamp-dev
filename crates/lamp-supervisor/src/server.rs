@@ -182,6 +182,7 @@ impl Server {
                 worker_id: self.cfg.worker_id.clone(),
                 boot_id: self.boot_id.clone(),
                 max_control_bytes: MAX_CONTROL_BYTES as u32,
+                release_version: crate::release_version().into(),
             })),
         };
         send_frame_with_fds(&stream, &hello, &[])?;

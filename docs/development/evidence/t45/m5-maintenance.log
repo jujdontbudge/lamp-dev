@@ -1,0 +1,91 @@
++ /tmp/t45p/bin-0.1.2/lamp-installer install --prefix /tmp/l45 --release /tmp/t45p/release-0.1.1 --trust /tmp/t45p/release.pub --service process --engine
+Host memory: physical=24576 MiB, available=5970 MiB, physical reserve=2048 MiB, available headroom=1492 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+Importing the signed default Linux seed and preparing its template…
+Host memory: physical=24576 MiB, available=5452 MiB, physical reserve=2048 MiB, available headroom=1363 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+{"at":"2026-11-13T03:06:40Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l45","service":"process","version":"0.1.1"}
+lamp-supervisor: store open, 0 verified template(s) in 25 ms
+booted in 1385 ms: {"audit": "none", "barrier_us": "1211", "confined": "true", "devices": "{\"display\":null,\"keyboard\":false,\"mouse\":false,\"gpu\":false,\"audio_input\":false,\"audio_output\":false,\"guest_transport\":null,\"extra_disks\":[]}", "helper_ready_us": "1124263", "machine_id": "13d28ea61593d11f5f405badfbc6ff78", "rng_sample": "053ca55cfd4b0caf532c74c1b0398609", "spawn_us": "258442", "vz_start_us": "170750", "worker_identity": "_lampvm13242", "worker_pid": "84139"}
+$ sh -c uname -m && python3 --version && cc --version | head -1 && getconf PAGESIZE
+aarch64
+Python 3.14.4
+cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+4096
+
++ /tmp/l45/current/bin/lamp version --json
+{"api_version":"v1","client_version":"0.1.1","engines":[{"connected":true,"version":"0.1.1","worker_id":"lamp-supervisor@wirelessprv-10-195-187-74.near.illinois.edu"}],"protocol":"lamp.worker/2","request_id":"req_0ec2f9fd1a67724023a70a7c51e16d2c","version":"0.1.1"}
+
++ /tmp/l45/current/bin/lamp sandbox create --wait-ms 60000 --json
+{"operation_id":"op_0173e824e24cb2c55fdf1815ea44a595","resource_ids":[{"kind":"sandbox","id":"sb_138afc7dfa9886598ff874be1753b429"}],"request_id":"req_439b8d0019582512aa086b9dbc0cbc25","replayed":false,"operation":{"id":"op_0173e824e24cb2c55fdf1815ea44a595","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":3,"created_at":"2026-11-13T03:06:40.826924Z","updated_at":"2026-11-13T03:06:41.486793Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"sandbox_create","request_hash":"a51b9a27ad11dc18e84e46951ecfb606748198e38322b6985db11fa90d03682a","resource_ids":[{"kind":"sandbox","id":"sb_138afc7dfa9886598ff874be1753b429"}],"phase":"command","accepted_at":"2026-11-13T03:06:40.826924Z","completed_at":"2026-11-13T03:06:41.486793Z","outcome":{"result":{"sandbox_id":"sb_138afc7dfa9886598ff874be1753b429","session_ids":[]}},"cleanup_state":"not_needed","durability":"volatile"},"result":{"sandbox_id":"sb_138afc7dfa9886598ff874be1753b429","session_ids":[]}}
+
+
++ /tmp/l45/current/bin/lamp sandbox exec sb_138afc7dfa9886598ff874be1753b429 -- python3 -c <public six module written to VM>
+1.16.0
+
++ /tmp/t45p/bin-0.1.2/lamp-installer update --prefix /tmp/l45 --source http://127.0.0.1:18445
+127.0.0.1 - - [12/Nov/2026 21:06:42] "GET /releases/latest.json HTTP/1.1" 200 -
+127.0.0.1 - - [12/Nov/2026 21:06:42] "GET /releases/v0.1.2/lamp-0.1.2-darwin-arm64.tar.gz HTTP/1.1" 200 -
+{"at":"2026-11-13T03:06:48Z","event":"draining","from":"0.1.1","saved_items":1,"to":"0.1.2"}
+{"at":"2026-11-13T03:06:48Z","event":"applying","version":"0.1.2"}
+{"at":"2026-11-13T03:06:50Z","event":"sandbox_suspended","reason":"supervisor swap","sandbox_id":"sb_138afc7dfa9886598ff874be1753b429"}
+{"at":"2026-11-13T03:06:51Z","binary_sha256":"8cbccfebf565101701a4529d3330939d8623f605fcdf7ef1cf2491027bfb82f5","event":"supervisor_swapped","from":"0.1.1","pid":85330,"to":"0.1.2"}
+{"at":"2026-11-13T03:06:53Z","event":"sandbox_resumed","sandbox_id":"sb_138afc7dfa9886598ff874be1753b429"}
+{"at":"2026-11-13T03:06:53Z","event":"completed","previous":"0.1.1","saved_items_preserved":1,"version":"0.1.2"}
+
++ /tmp/l45/current/bin/lamp version --json
+{"api_version":"v1","client_version":"0.1.2","engines":[{"connected":true,"version":"0.1.2","worker_id":"lamp-supervisor@wirelessprv-10-195-187-74.near.illinois.edu"}],"protocol":"lamp.worker/2","request_id":"req_c2979c5ea6b94cae1a6fdde56dfbf60b","version":"0.1.2"}
+
++ /tmp/l45/current/bin/lampd --version
+{"api_version":"v1","version":"0.1.2"}
+
++ /tmp/l45/current/bin/lamp-supervisor --version
+0.1.2
+
++ /tmp/l45/current/bin/lamp-installer --version
+{"version":"0.1.2"}
+
++ /tmp/t45p/bin-0.1.2/lamp-installer status --prefix /tmp/l45 --json
+{"current":"0.1.2","healthy":true,"highest_version":"0.1.2","name":"local-a45928ca77b1","previous":"0.1.1","saved_items":1,"service":"process","supervision":"unsupervised; run lamp-installer restart if the daemon exits","supervisor":{"alive":true,"binary_sha256":"8cbccfebf565101701a4529d3330939d8623f605fcdf7ef1cf2491027bfb82f5","from_release":true,"pid":85330,"release":"0.1.2","sha256":{"lamp-supervisor":"8cbccfebf565101701a4529d3330939d8623f605fcdf7ef1cf2491027bfb82f5","lamp-vz":"7a745c78e4d3690e5581cc117dc5f59bcd7211a552ece699446e84f2d090de3b"}},"update_policy":{"automatic":false,"max_unavailable":1,"channel":"stable","drain_timeout_ms":60000},"version":"0.1.2"}
+
++ /tmp/l45/current/bin/lamp-mcp
+{"id":1,"jsonrpc":"2.0","result":{"capabilities":{"tools":{}},"instructions":"Tools use the same caller credential as HTTP and CLI. Supply stable idempotency_key for mutations. Events use bounded event_list waits.","protocolVersion":"2025-06-18","serverInfo":{"name":"lamp","version":"0.1.2"}}}
+
+OpenAPI version {'title': 'Lamp API', 'version': '0.1.2', 'x-api-version': '1.0.0', 'x-release-version': '0.1.2'}
++ /tmp/l45/current/bin/lamp sandbox list --json
+{"items":[{"boundary":"vm","created_at":"2026-11-13T03:06:40.822898Z","custody_host_ids":["hs_local"],"durability":"local","effective_policy_revision":1,"fleet_id":"fl_local","generation":2,"host_id":"hs_local","id":"sb_138afc7dfa9886598ff874be1753b429","idle_countdown":{"action":"suspend","grace_seconds":300},"kind":"sandbox","labels":{},"owner_id":"pr_owner","readiness":{"checks":[{"name":"template","state":"passed"},{"name":"engine","state":"passed"},{"name":"identity","state":"passed"},{"name":"network","state":"skipped"},{"name":"settings","state":"skipped"},{"name":"kits","state":"skipped"},{"name":"auth","state":"skipped"},{"name":"connections","state":"skipped"},{"name":"command","state":"passed"},{"name":"agent","state":"skipped"}],"command_started_at":"2026-11-13T03:06:41.486793Z"},"resources":{"disk_gib":20,"memory_mib":2048,"pids_max":4096,"vcpus":2},"revision":7,"state":"ready","task_id":"tk_2a52fbb4b95e36a40adf4d966d4d5ac2","template_id":"tp_3b62725a1215cc3e95ac16c45d","updated_at":"2026-11-13T03:06:53.56701Z","visibility":"private"}],"next_cursor":null,"request_id":"req_76883454ea1da58d04e507d36603a11e"}
+
+
++ /tmp/l45/current/bin/lamp sandbox exec sb_138afc7dfa9886598ff874be1753b429 -- python3 /tmp/public-six.py
+
++ /tmp/t45p/bin-0.1.2/lamp-installer update --prefix /tmp/l45 --source http://127.0.0.1:18445
+127.0.0.1 - - [12/Nov/2026 21:06:56] "GET /releases/latest.json HTTP/1.1" 200 -
+already up to date (0.1.2)
+
++ /tmp/t45p/bin-0.1.2/lamp-installer rollback --prefix /tmp/l45
+{"at":"2026-11-13T03:06:58Z","event":"sandbox_suspended","reason":"supervisor swap","sandbox_id":"sb_138afc7dfa9886598ff874be1753b429"}
+{"at":"2026-11-13T03:06:59Z","binary_sha256":"fe1894c054b0951b5553c26e4e1faee0544e1ca95f7898d37043baaa8c6909f0","event":"supervisor_swapped","from":"0.1.2","pid":86040,"to":"0.1.1"}
+{"at":"2026-11-13T03:07:00Z","event":"sandbox_resumed","sandbox_id":"sb_138afc7dfa9886598ff874be1753b429"}
+{"at":"2026-11-13T03:07:00Z","event":"rolled_back","version":"0.1.1"}
+
++ /tmp/l45/current/bin/lamp version --json
+{"api_version":"v1","client_version":"0.1.1","engines":[{"connected":true,"version":"0.1.1","worker_id":"lamp-supervisor@wirelessprv-10-195-187-74.near.illinois.edu"}],"protocol":"lamp.worker/2","request_id":"req_3b9c4be1ec3346f5985b6d3c018f224f","version":"0.1.1"}
+
++ /tmp/l45/current/bin/lamp sandbox list --json
+{"items":[{"boundary":"vm","created_at":"2026-11-13T03:06:40.822898Z","custody_host_ids":["hs_local"],"durability":"local","effective_policy_revision":1,"fleet_id":"fl_local","generation":3,"host_id":"hs_local","id":"sb_138afc7dfa9886598ff874be1753b429","idle_countdown":{"action":"suspend","grace_seconds":300},"kind":"sandbox","labels":{},"owner_id":"pr_owner","readiness":{"checks":[{"name":"template","state":"passed"},{"name":"engine","state":"passed"},{"name":"identity","state":"passed"},{"name":"network","state":"skipped"},{"name":"settings","state":"skipped"},{"name":"kits","state":"skipped"},{"name":"auth","state":"skipped"},{"name":"connections","state":"skipped"},{"name":"command","state":"passed"},{"name":"agent","state":"skipped"}],"command_started_at":"2026-11-13T03:06:41.486793Z"},"resources":{"disk_gib":20,"memory_mib":2048,"pids_max":4096,"vcpus":2},"revision":11,"state":"ready","task_id":"tk_2a52fbb4b95e36a40adf4d966d4d5ac2","template_id":"tp_3b62725a1215cc3e95ac16c45d","updated_at":"2026-11-13T03:06:59.963566Z","visibility":"private"}],"next_cursor":null,"request_id":"req_7f39e9726c57e02ff48b52f596243968"}
+
+
++ /tmp/l45/current/bin/lamp sandbox exec sb_138afc7dfa9886598ff874be1753b429 -- python3 /tmp/public-six.py
+
++ /tmp/l45/current/bin/lamp sandbox get --sandbox-id sb_138afc7dfa9886598ff874be1753b429 --json
+{"data":{"id":"sb_138afc7dfa9886598ff874be1753b429","kind":"sandbox","fleet_id":"fl_local","owner_id":"pr_owner","revision":11,"created_at":"2026-11-13T03:06:40.822898Z","updated_at":"2026-11-13T03:06:59.963566Z","state":"ready","labels":{},"visibility":"private","template_id":"tp_3b62725a1215cc3e95ac16c45d","host_id":"hs_local","boundary":"vm","resources":{"vcpus":2,"memory_mib":2048,"disk_gib":20,"pids_max":4096},"task_id":"tk_2a52fbb4b95e36a40adf4d966d4d5ac2","generation":3,"readiness":{"command_started_at":"2026-11-13T03:06:41.486793Z","checks":[{"name":"template","state":"passed"},{"name":"engine","state":"passed"},{"name":"identity","state":"passed"},{"name":"network","state":"skipped"},{"name":"settings","state":"skipped"},{"name":"kits","state":"skipped"},{"name":"auth","state":"skipped"},{"name":"connections","state":"skipped"},{"name":"command","state":"passed"},{"name":"agent","state":"skipped"}]},"effective_policy_revision":1,"durability":"local","custody_host_ids":["hs_local"]},"request_id":"req_c89033a447949cceabffe1a8cf173445"}
+
+
++ /tmp/l45/current/bin/lamp sandbox delete --sandbox-id sb_138afc7dfa9886598ff874be1753b429 --expected-revision 11 --wait-ms 60000 --json
+{"operation_id":"op_37dae62888160b9166c3ebae3565df87","resource_ids":[{"kind":"sandbox","id":"sb_138afc7dfa9886598ff874be1753b429"}],"request_id":"req_2d505e0692dc603b75f1ce0596ce0fa1","replayed":false,"operation":{"id":"op_37dae62888160b9166c3ebae3565df87","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":3,"created_at":"2026-11-13T03:07:00.70337Z","updated_at":"2026-11-13T03:07:00.87155Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"sandbox_delete","request_hash":"f5a091e44eb313f29afe26fb32e10457af16dc1d6613ff8f94f14a44fb5f235e","resource_ids":[{"kind":"sandbox","id":"sb_138afc7dfa9886598ff874be1753b429"}],"phase":"cleanup","accepted_at":"2026-11-13T03:07:00.70337Z","completed_at":"2026-11-13T03:07:00.87155Z","outcome":{"result":{}},"cleanup_state":"complete","durability":"volatile"},"result":{}}
+
+
++ /tmp/t45p/bin-0.1.2/lamp-installer uninstall --prefix /tmp/l45 --data delete --confirm-delete local-a45928ca77b1
+{"at":"2026-11-13T03:07:05Z","data":"deleted","event":"uninstalled","name":"local-a45928ca77b1","owner_data":"delete"}
+
+Uninstall prefix absent: True
+This install engine/store/runtime paths and both hidden users/groups absent: True
+Other ticket agents active; global account equality is not asserted.

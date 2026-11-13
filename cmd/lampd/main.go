@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"lamp.eilmer.si/internal/buildversion"
 	"lamp.eilmer.si/internal/ci"
 	"lamp.eilmer.si/internal/control"
 	"lamp.eilmer.si/internal/localconfig"
@@ -35,6 +36,9 @@ func main() {
 	}
 }
 func run() error {
+	if len(os.Args) == 2 && (os.Args[1] == "version" || os.Args[1] == "--version") {
+		return json.NewEncoder(os.Stdout).Encode(map[string]string{"version": buildversion.Current(), "api_version": "v1"})
+	}
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
 	flags.Usage = func() {
 		fmt.Fprintln(flags.Output(), "Usage: lampd [flags]\nServe the credentialed Lamp HTTP API on a private Unix socket.\nEnroll a supervisor for VM execution; native sessions require --sessions-config.\nExample: lampd --socket /tmp/lamp/api.sock --state-dir /tmp/lamp/control\nUse lamp --help to create and manage workspaces.\nOptions:")

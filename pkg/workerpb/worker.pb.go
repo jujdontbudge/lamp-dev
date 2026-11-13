@@ -92,6 +92,7 @@ type Hello struct {
 	WorkerId        string                 `protobuf:"bytes,2,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
 	BootId          string                 `protobuf:"bytes,3,opt,name=boot_id,json=bootId,proto3" json:"boot_id,omitempty"`
 	MaxControlBytes uint32                 `protobuf:"varint,4,opt,name=max_control_bytes,json=maxControlBytes,proto3" json:"max_control_bytes,omitempty"` // <= 1048576
+	ReleaseVersion  string                 `protobuf:"bytes,5,opt,name=release_version,json=releaseVersion,proto3" json:"release_version,omitempty"`       // optional for older peers; never inferred from the daemon
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -152,6 +153,13 @@ func (x *Hello) GetMaxControlBytes() uint32 {
 		return x.MaxControlBytes
 	}
 	return 0
+}
+
+func (x *Hello) GetReleaseVersion() string {
+	if x != nil {
+		return x.ReleaseVersion
+	}
+	return ""
 }
 
 type Context struct {
@@ -1913,12 +1921,13 @@ var File_worker_proto protoreflect.FileDescriptor
 
 const file_worker_proto_rawDesc = "" +
 	"\n" +
-	"\fworker.proto\x12\x0elamp.worker.v1\"\x85\x01\n" +
+	"\fworker.proto\x12\x0elamp.worker.v1\"\xae\x01\n" +
 	"\x05Hello\x12\x1a\n" +
 	"\bprotocol\x18\x01 \x01(\tR\bprotocol\x12\x1b\n" +
 	"\tworker_id\x18\x02 \x01(\tR\bworkerId\x12\x17\n" +
 	"\aboot_id\x18\x03 \x01(\tR\x06bootId\x12*\n" +
-	"\x11max_control_bytes\x18\x04 \x01(\rR\x0fmaxControlBytes\"\xef\x01\n" +
+	"\x11max_control_bytes\x18\x04 \x01(\rR\x0fmaxControlBytes\x12'\n" +
+	"\x0frelease_version\x18\x05 \x01(\tR\x0ereleaseVersion\"\xef\x01\n" +
 	"\aContext\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12!\n" +

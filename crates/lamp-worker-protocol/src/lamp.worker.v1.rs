@@ -12,6 +12,9 @@ pub struct Hello {
     /// <= 1048576
     #[prost(uint32, tag = "4")]
     pub max_control_bytes: u32,
+    /// optional for older peers; never inferred from the daemon
+    #[prost(string, tag = "5")]
+    pub release_version: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Context {

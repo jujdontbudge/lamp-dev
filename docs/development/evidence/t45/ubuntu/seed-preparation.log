@@ -1,0 +1,61 @@
++ cargo build --release --locked --target x86_64-unknown-linux-musl -p lamp-init -p lamp-guard
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling memchr v2.8.3
+   Compiling zmij v1.0.23
+   Compiling libc v0.2.191
+   Compiling serde_json v1.0.154
+   Compiling serde v1.0.229
+   Compiling itoa v1.0.19
+   Compiling typenum v1.20.1
+   Compiling const-oid v0.10.2
+   Compiling hybrid-array v0.4.15
+   Compiling cfg-if v1.0.5
+   Compiling cpufeatures v0.3.1
+   Compiling syn v3.0.10
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling digest v0.11.3
+   Compiling sha2 v0.11.1
+   Compiling serde_derive v1.0.229
+   Compiling lamp-init v0.1.0 (/home/johan/t45-ubuntu-LEAZEK/src/crates/lamp-init)
+   Compiling lamp-guard v0.1.0 (/home/johan/t45-ubuntu-LEAZEK/src/crates/lamp-guard)
+    Finished `release` profile [optimized] target(s) in 6.31s
++ cp --reflink=auto --sparse=always /home/johan/lamp-t35/seed/rootfs.ext4 /home/johan/t45-ubuntu-LEAZEK/seed/rootfs.ext4
++ cp --reflink=auto --sparse=always /home/johan/lamp-t35/seed/seed.json /home/johan/t45-ubuntu-LEAZEK/seed/seed.json
++ cp --reflink=auto --sparse=always /home/johan/lamp-t35/seed/vmlinux /home/johan/t45-ubuntu-LEAZEK/seed/vmlinux
++ cp --reflink=auto --sparse=always /home/johan/lamp-t35/seed/packages.txt /home/johan/t45-ubuntu-LEAZEK/seed/packages.txt
++ debugfs -w -f /home/johan/t45-ubuntu-LEAZEK/debugfs.commands /home/johan/t45-ubuntu-LEAZEK/seed/rootfs.ext4
+debugfs 1.47.2 (1-Jan-2025)
+debugfs: rm /usr/sbin/lamp-init
+
+debugfs: write /home/johan/t45-ubuntu-LEAZEK/target/x86_64-unknown-linux-musl/release/lamp-init /usr/sbin/lamp-init
+Allocated inode: 10183
+debugfs: set_inode_field /usr/sbin/lamp-init mode 0100755
+debugfs: rm /usr/sbin/lamp-guest-helper
+
+debugfs: write /home/johan/t45-ubuntu-LEAZEK/target/x86_64-unknown-linux-musl/release/lamp-guest-helper /usr/sbin/lamp-guest-helper
+Allocated inode: 10182
+debugfs: set_inode_field /usr/sbin/lamp-guest-helper mode 0100755
+debugfs: rm /usr/sbin/lamp-guard
+
+debugfs: write /home/johan/t45-ubuntu-LEAZEK/target/x86_64-unknown-linux-musl/release/lamp-guard /usr/sbin/lamp-guard
+Allocated inode: 10181
+debugfs: set_inode_field /usr/sbin/lamp-guard mode 0100755
++ debugfs -R dump /usr/sbin/lamp-init /home/johan/t45-ubuntu-LEAZEK/readback-lamp-init /home/johan/t45-ubuntu-LEAZEK/seed/rootfs.ext4
+debugfs 1.47.2 (1-Jan-2025)
++ debugfs -R dump /usr/sbin/lamp-guest-helper /home/johan/t45-ubuntu-LEAZEK/readback-lamp-guest-helper /home/johan/t45-ubuntu-LEAZEK/seed/rootfs.ext4
+debugfs 1.47.2 (1-Jan-2025)
++ debugfs -R dump /usr/sbin/lamp-guard /home/johan/t45-ubuntu-LEAZEK/readback-lamp-guard /home/johan/t45-ubuntu-LEAZEK/seed/rootfs.ext4
+debugfs 1.47.2 (1-Jan-2025)
+Task-owned seed updated with current statically linked guest binaries; source seed unchanged.
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer build --version 0.1.1 --key /home/johan/t45-ubuntu-LEAZEK/release.key --out /home/johan/t45-ubuntu-LEAZEK/release-0.1.1 --snapshot-format 1 --file bin/lamp=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/lamp --file bin/lamp-mcp=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/lamp-mcp --file bin/lampd=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/lampd --file bin/lamp-supervisor=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/lamp-supervisor --file bin/firecracker=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/firecracker --file bin/lamp-plugin-launcher=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/lamp-plugin-launcher --file bin/jailer=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/jailer --file bin/lamp-guard=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/lamp-guard --file bin/lamp-installer=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/lamp-installer --file bin/lamp-network=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.1/lamp-network --file LICENSE=/home/johan/t45-ubuntu-LEAZEK/src/LICENSE --file THIRD_PARTY.md=/home/johan/t45-ubuntu-LEAZEK/src/THIRD_PARTY.md --file tools/guard-audit-release.py=/home/johan/t45-ubuntu-LEAZEK/src/tools/guard-audit-release.py --file seed/seed.json=/home/johan/t45-ubuntu-LEAZEK/seed/seed.json --file seed/vmlinux=/home/johan/t45-ubuntu-LEAZEK/seed/vmlinux --file seed/packages.txt=/home/johan/t45-ubuntu-LEAZEK/seed/packages.txt --file seed/rootfs.ext4.gz=/home/johan/t45-ubuntu-LEAZEK/rootfs.ext4.gz
+built 0.1.1 linux/amd64 with 17 files
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer index --release /home/johan/t45-ubuntu-LEAZEK/release-0.1.1 --key /home/johan/t45-ubuntu-LEAZEK/release.key
+indexed 0.1.1 (1 platforms) release_digest sha256:14cab745a94b9dcb926ea52d29d020ec54a4001b9049d6b8e70efa37c43dfe33
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer build --version 0.1.2 --key /home/johan/t45-ubuntu-LEAZEK/release.key --out /home/johan/t45-ubuntu-LEAZEK/release-0.1.2 --snapshot-format 1 --file bin/lamp=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp --file bin/lamp-mcp=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-mcp --file bin/lampd=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lampd --file bin/lamp-supervisor=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-supervisor --file bin/firecracker=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/firecracker --file bin/lamp-plugin-launcher=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-plugin-launcher --file bin/jailer=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/jailer --file bin/lamp-guard=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-guard --file bin/lamp-installer=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer --file bin/lamp-network=/home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-network --file LICENSE=/home/johan/t45-ubuntu-LEAZEK/src/LICENSE --file THIRD_PARTY.md=/home/johan/t45-ubuntu-LEAZEK/src/THIRD_PARTY.md --file tools/guard-audit-release.py=/home/johan/t45-ubuntu-LEAZEK/src/tools/guard-audit-release.py --file seed/seed.json=/home/johan/t45-ubuntu-LEAZEK/seed/seed.json --file seed/vmlinux=/home/johan/t45-ubuntu-LEAZEK/seed/vmlinux --file seed/packages.txt=/home/johan/t45-ubuntu-LEAZEK/seed/packages.txt --file seed/rootfs.ext4.gz=/home/johan/t45-ubuntu-LEAZEK/rootfs.ext4.gz
+built 0.1.2 linux/amd64 with 17 files
++ /home/johan/t45-ubuntu-LEAZEK/bin-0.1.2/lamp-installer index --release /home/johan/t45-ubuntu-LEAZEK/release-0.1.2 --key /home/johan/t45-ubuntu-LEAZEK/release.key
+indexed 0.1.2 (1 platforms) release_digest sha256:5d53a34ce604acee3114d45a93e1dae1362fd8f5a87d0f5307261d6d3bc29cd9
+Matching complete signed Linux candidates ready.

@@ -33299,6 +33299,14 @@
         "request_id",
         "replayed"
       ]
+    },
+    "VersionGetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "VersionGetResult": {
+      "$ref": "#/$defs/AdapterDocument"
     }
   },
   "x-lamp-resources": {
@@ -38616,6 +38624,19 @@
       "mcp": "sandbox_file_rename",
       "authorization": "authenticated_scope",
       "completion_schema": "SandboxFileRenameCompletion"
+    },
+    "version_get": {
+      "kind": "api",
+      "action": "version",
+      "method": "get",
+      "path": "/v1/version",
+      "mutation": false,
+      "input_schema": "VersionGetInput",
+      "result_schema": "VersionGetResult",
+      "scope": "api.describe",
+      "cli": "lamp version",
+      "mcp": "version_get",
+      "authorization": "authenticated_scope"
     }
   },
   "x-lamp-errors": {

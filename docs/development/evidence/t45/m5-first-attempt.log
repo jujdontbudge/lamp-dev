@@ -1,0 +1,104 @@
++ /tmp/t45p/bin-0.1.2/lamp-installer install --prefix /tmp/l45 --release /tmp/t45p/release-0.1.1 --trust /tmp/t45p/release.pub --service process --engine
+Host memory: physical=24576 MiB, available=5664 MiB, physical reserve=2048 MiB, available headroom=1416 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+Importing the signed default Linux seed and preparing its template…
+Host memory: physical=24576 MiB, available=5491 MiB, physical reserve=2048 MiB, available headroom=1372 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+{"at":"2026-11-13T03:00:32Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l45","service":"process","version":"0.1.1"}
+lamp-supervisor: store open, 0 verified template(s) in 88 ms
+booted in 599 ms: {"audit": "none", "barrier_us": "1356", "confined": "true", "devices": "{\"display\":null,\"keyboard\":false,\"mouse\":false,\"gpu\":false,\"audio_input\":false,\"audio_output\":false,\"guest_transport\":null,\"extra_disks\":[]}", "helper_ready_us": "390556", "machine_id": "fa14f46413f47d59e8138466b2b42924", "rng_sample": "e6625b507cfdd90241840262d78ff048", "spawn_us": "206024", "vz_start_us": "163892", "worker_identity": "_lampvm13242", "worker_pid": "68523"}
+$ sh -c uname -m && python3 --version && cc --version | head -1 && getconf PAGESIZE
+aarch64
+Python 3.14.4
+cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+4096
+
++ /tmp/l45/current/bin/lamp version --json
+{"api_version":"v1","client_version":"0.1.1","engines":[{"connected":true,"version":"0.1.1","worker_id":"lamp-supervisor@wirelessprv-10-195-187-74.near.illinois.edu"}],"protocol":"lamp.worker/2","request_id":"req_605e0ea6703e9bde40f68356550061e3","version":"0.1.1"}
+
++ /tmp/l45/current/bin/lamp sandbox create --wait-ms 60000 --json
+{"operation_id":"op_047167f6935fded28eca790370d77135","resource_ids":[{"kind":"sandbox","id":"sb_527a74da2e7e612a018288c286bc5c99"}],"request_id":"req_0e2e63163b52827555c2d3f191741af5","replayed":false,"operation":{"id":"op_047167f6935fded28eca790370d77135","kind":"operation","fleet_id":"fl_local","owner_id":"pr_owner","revision":3,"created_at":"2026-11-13T03:00:34.100213Z","updated_at":"2026-11-13T03:00:35.030881Z","state":"succeeded","labels":{},"visibility":"private","operation_name":"sandbox_create","request_hash":"851ab3c4b3eae1fb24bab419bca88d8be42b9aabbde6fe6b51ccbb8bbf36e14b","resource_ids":[{"kind":"sandbox","id":"sb_527a74da2e7e612a018288c286bc5c99"}],"phase":"command","accepted_at":"2026-11-13T03:00:34.100213Z","completed_at":"2026-11-13T03:00:35.030881Z","outcome":{"result":{"sandbox_id":"sb_527a74da2e7e612a018288c286bc5c99","session_ids":[]}},"cleanup_state":"not_needed","durability":"volatile"},"result":{"sandbox_id":"sb_527a74da2e7e612a018288c286bc5c99","session_ids":[]}}
+
+
++ /tmp/l45/current/bin/lamp sandbox exec sb_527a74da2e7e612a018288c286bc5c99 -- python3 -c import urllib.request,json,tarfile,io; m=json.load(urllib.request.urlopen('https://pypi.org/pypi/six/1.16.0/json')); u=next(x['url'] for x in m['urls'] if x['packagetype']=='sdist'); t=tarfile.open(fileobj=io.BytesIO(urllib.request.urlopen(u).read())); s=t.extractfile('six-1.16.0/six.py').read(); open('/tmp/public-six.py','wb').write(s); exec(compile(s,'six.py','exec')); print(__version__)
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/urllib/request.py", line 1321, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              encode_chunked=req.has_header('Transfer-encoding'))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/http/client.py", line 1367, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/http/client.py", line 1413, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/http/client.py", line 1362, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/http/client.py", line 1122, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/usr/lib/python3.14/http/client.py", line 1066, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/http/client.py", line 1501, in connect
+    super().connect()
+    ~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/http/client.py", line 1032, in connect
+    self.sock = self._create_connection(
+                ~~~~~~~~~~~~~~~~~~~~~~~^
+        (self.host,self.port), self.timeout, self.source_address)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/socket.py", line 846, in create_connection
+    for res in getaddrinfo(host, port, 0, SOCK_STREAM):
+               ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/socket.py", line 983, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import urllib.request,json,tarfile,io; m=json.load(urllib.request.urlopen('https://pypi.org/pypi/six/1.16.0/json')); u=next(x['url'] for x in m['urls'] if x['packagetype']=='sdist'); t=tarfile.open(fileobj=io.BytesIO(urllib.request.urlopen(u).read())); s=t.extractfile('six-1.16.0/six.py').read(); open('/tmp/public-six.py','wb').write(s); exec(compile(s,'six.py','exec')); print(__version__)
+                                                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/urllib/request.py", line 187, in urlopen
+    return opener.open(url, data, timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/urllib/request.py", line 487, in open
+    response = self._open(req, data)
+  File "/usr/lib/python3.14/urllib/request.py", line 504, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+                              '_open', req)
+  File "/usr/lib/python3.14/urllib/request.py", line 464, in _call_chain
+    result = func(*args)
+  File "/usr/lib/python3.14/urllib/request.py", line 1369, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        context=self._context)
+                        ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/urllib/request.py", line 1324, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>
+
++ /tmp/t45p/bin-0.1.2/lamp-installer uninstall --prefix /tmp/l45 --data delete --confirm-delete local-a45928ca77b1
+{"at":"2026-11-13T03:00:57Z","data":"deleted","event":"uninstalled","name":"local-a45928ca77b1","owner_data":"delete"}
+
+Uninstall prefix absent: True
+Accounts and other engine directories unchanged: False
+Traceback (most recent call last):
+  File "/tmp/t45-demo.py", line 26, in <module>
+    run([lamp,'sandbox','exec',sb,'--','python3','-c',code])
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/t45-demo.py", line 9, in run
+    if p.returncode: raise RuntimeError(f'exit {p.returncode}')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: exit 1
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/t45-demo.py", line 47, in <module>
+    assert inventory()==before
+           ^^^^^^^^^^^^^^^^^^^
+AssertionError

@@ -8,6 +8,7 @@ import (
 	"io"
 	"sync"
 
+	"lamp.eilmer.si/internal/buildversion"
 	"lamp.eilmer.si/pkg/api"
 )
 
@@ -50,7 +51,7 @@ func ServeMCP(ctx context.Context, input io.Reader, output io.Writer, client *Cl
 			rpcError := func(code int, message string) { response["error"] = map[string]any{"code": code, "message": message} }
 			switch method {
 			case "initialize":
-				response["result"] = map[string]any{"protocolVersion": "2025-06-18", "capabilities": map[string]any{"tools": map[string]any{}}, "serverInfo": map[string]string{"name": "lamp", "version": "0.1.0-dev"}, "instructions": "Tools use the same caller credential as HTTP and CLI. Supply stable idempotency_key for mutations. Events use bounded event_list waits."}
+				response["result"] = map[string]any{"protocolVersion": "2025-06-18", "capabilities": map[string]any{"tools": map[string]any{}}, "serverInfo": map[string]string{"name": "lamp", "version": buildversion.Current()}, "instructions": "Tools use the same caller credential as HTTP and CLI. Supply stable idempotency_key for mutations. Events use bounded event_list waits."}
 			case "ping":
 				response["result"] = map[string]any{}
 			case "tools/list":

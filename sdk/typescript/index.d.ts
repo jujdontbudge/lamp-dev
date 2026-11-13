@@ -6843,6 +6843,9 @@ export interface UpdateRollbackResult {
   "operation"?: Operation;
   "result"?: UpdateRollbackCompletion;
 }
+export interface VersionGetInput {
+}
+export type VersionGetResult = AdapterDocument;
 export interface Volume {
   readonly "id": string;
   readonly "kind": "volume";
@@ -7769,6 +7772,8 @@ export declare class LampClient {
   updateList(input: UpdateListInput): Promise<UpdateListResult>;
   /** `lamp update rollback` — POST /v1/updates/{update_id}:rollback (scope update.rollback) */
   updateRollback(input: UpdateRollbackInput): Promise<UpdateRollbackResult>;
+  /** `lamp version` — GET /v1/version (scope api.describe) */
+  versionGet(input: VersionGetInput): Promise<VersionGetResult>;
   /** `lamp volume create` — POST /v1/volumes (scope volume.create) */
   volumeCreate(input: VolumeCreateInput): Promise<VolumeCreateResult>;
   /** `lamp volume delete` — DELETE /v1/volumes/{volume_id} (scope volume.delete) */

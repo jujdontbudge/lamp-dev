@@ -1,0 +1,269 @@
+{
+  "source_head": "dbb6c8be36229cb040df5a31212e06f5d29f3026",
+  "host": "ubuntu-server",
+  "prefix": "/home/johan/t45-ubuntu-LEAZEK/p",
+  "name": "t45-leazek",
+  "steps": [
+    {
+      "step": "baseline existing engine",
+      "at": "2026-11-13T03:22:03Z",
+      "service": {
+        "ActiveState": "active",
+        "SubState": "running",
+        "FragmentPath": "/etc/systemd/system/lamp-supervisor.service",
+        "MainPID": "34842"
+      },
+      "engine_files_sha256": {
+        "/usr/local/lib/lamp/firecracker": "99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5",
+        "/usr/local/lib/lamp/gvisor-bin/checkpointgofer": "a7e56d07b675aa0278d8dae690fcdaadf0b7b40dc14a0c014b93bb5c448e22fa",
+        "/usr/local/lib/lamp/gvisor-bin/gvisor-proc-umounter": "b3bbbaef5ddc62084e5febd19d3acca14f3d42b2a25d8552fb40def699467019",
+        "/usr/local/lib/lamp/gvisor-bin/gvisor-sentry-prewarmer": "46d5c028723ac5fbe40b863f95100f15a00d2aa0cd39c69d892500a988c930bd",
+        "/usr/local/lib/lamp/gvisor-bin/gvisor_sentry": "e7aba569a4b46b5382c5f0722e8555005f1f3aa1390c54403483d42379fae09b",
+        "/usr/local/lib/lamp/gvisor-bin/runsc-fd-parking": "03af90d07ea466c10ecc3e3ba839b2a59540959dd3286aea3886917cba850c11",
+        "/usr/local/lib/lamp/gvisor-bin/runsc-metric-server": "24b5762dc5a060657dd8581bd008fe3a338dbcb9a055ccfba0e0f9145337617b",
+        "/usr/local/lib/lamp/jailer": "65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f",
+        "/usr/local/lib/lamp/lamp-guard": "8734fc7ff8ce18b8cda333d63b8937e828528d4b2503691df331840a4546764d",
+        "/usr/local/lib/lamp/lamp-supervisor": "a0612b968e90c913ef148aa8559ff21ef90979c541ef2f089675fcf2bf573013",
+        "/usr/local/lib/lamp/runsc": "7d658f2c3a5602d28c391285eb4ee0740e7dd21d40731324049a29620e51cf5e"
+      },
+      "store": {
+        "device": 1806,
+        "inode": 128,
+        "uid": 1000,
+        "gid": 0,
+        "mode": 16877
+      },
+      "store_mount": "/dev/loop14 /var/lib/lamp xfs",
+      "unit_sha256": "631e32b4a4ccdece7cfd6ae779c1152cc9ba872445be7e7075d411279d09e8f3",
+      "host_nft_sha256": "af7e8ed1fb07e082def62705307daeeb650f305bfa9d154defa34b6851cfce57"
+    },
+    {
+      "step": "capacity check",
+      "at": "2026-11-13T03:22:04Z",
+      "stage": "before engine/template preparation",
+      "firecracker_processes": 0,
+      "available_mib": 16300
+    },
+    {
+      "step": "versions agree",
+      "at": "2026-11-13T03:23:01Z",
+      "version": "0.1.1",
+      "supervisor_pid": 1312900
+    },
+    {
+      "step": "disposable systemd units active",
+      "at": "2026-11-13T03:23:01Z",
+      "units": {
+        "": "active",
+        "-agent": "active"
+      },
+      "engine": "/var/lib/lamp-i/928e5a25",
+      "runtime": "/run/lamp-928e5a25",
+      "mounts": [
+        "/var/lib/lamp-i/928e5a25/store",
+        "/run/lamp-928e5a25/mem"
+      ]
+    },
+    {
+      "step": "capacity check",
+      "at": "2026-11-13T03:23:01Z",
+      "stage": "before sandbox create",
+      "firecracker_processes": 0,
+      "available_mib": 16824
+    },
+    {
+      "step": "created one sandbox",
+      "at": "2026-11-13T03:23:01Z",
+      "sandbox_id": "sb_29ba85890c2fcdf9930594627a590c21"
+    },
+    {
+      "step": "namespace and store mounts while sandbox runs",
+      "at": "2026-11-13T03:23:02Z",
+      "mounts": [
+        "/var/lib/lamp-i/928e5a25/store",
+        "/run/lamp-928e5a25/mem",
+        "/run/lamp-928e5a25/net/sb-29ba85890c2fcdf9930594627a590c21"
+      ],
+      "namespace_tables": ""
+    },
+    {
+      "step": "capacity check",
+      "at": "2026-11-13T03:23:02Z",
+      "stage": "before update",
+      "firecracker_processes": 1,
+      "available_mib": 16788
+    },
+    {
+      "step": "versions agree",
+      "at": "2026-11-13T03:23:15Z",
+      "version": "0.1.2",
+      "supervisor_pid": 1314143
+    },
+    {
+      "step": "update preserved ready VM and public module",
+      "at": "2026-11-13T03:23:15Z",
+      "sandbox_id": "sb_29ba85890c2fcdf9930594627a590c21"
+    },
+    {
+      "step": "capacity check",
+      "at": "2026-11-13T03:23:15Z",
+      "stage": "before rollback",
+      "firecracker_processes": 1,
+      "available_mib": 17088
+    },
+    {
+      "step": "versions agree",
+      "at": "2026-11-13T03:23:21Z",
+      "version": "0.1.1",
+      "supervisor_pid": 1314840
+    },
+    {
+      "step": "rollback preserved ready VM and public module",
+      "at": "2026-11-13T03:23:21Z",
+      "sandbox_id": "sb_29ba85890c2fcdf9930594627a590c21"
+    },
+    {
+      "step": "sandbox deleted",
+      "at": "2026-11-13T03:23:22Z",
+      "remaining_mounts": [
+        "/var/lib/lamp-i/928e5a25/store",
+        "/run/lamp-928e5a25/mem"
+      ]
+    },
+    {
+      "step": "post-uninstall checks",
+      "at": "2026-11-13T03:23:24Z",
+      "checks": {
+        "prefix_absent": true,
+        "engine_binaries_and_store_absent": true,
+        "runtime_and_namespace_paths_absent": true,
+        "uid_reservation_absent": true,
+        "mounts_absent": true,
+        "lamp-t45-leazek.service_file_absent": true,
+        "lamp-t45-leazek.service_enable_link_absent": true,
+        "lamp-t45-leazek.service_unloaded": true,
+        "lamp-t45-leazek-agent.service_file_absent": true,
+        "lamp-t45-leazek-agent.service_enable_link_absent": true,
+        "lamp-t45-leazek-agent.service_unloaded": true,
+        "no_engine_or_network_processes_from_install": true,
+        "owned_supervisor_pids_gone": true,
+        "existing_engine_files_unit_service_pid_and_store_unchanged": true,
+        "host_network_rules_unchanged": true
+      },
+      "units": {
+        "lamp-t45-leazek.service": {
+          "LoadState": "not-found",
+          "ActiveState": "inactive"
+        },
+        "lamp-t45-leazek-agent.service": {
+          "LoadState": "not-found",
+          "ActiveState": "inactive"
+        }
+      },
+      "existing_service": {
+        "ActiveState": "active",
+        "SubState": "running",
+        "FragmentPath": "/etc/systemd/system/lamp-supervisor.service",
+        "MainPID": "34842"
+      },
+      "host_nft_sha256": "af7e8ed1fb07e082def62705307daeeb650f305bfa9d154defa34b6851cfce57"
+    },
+    {
+      "step": "capacity check",
+      "at": "2026-11-13T03:23:24Z",
+      "stage": "after uninstall",
+      "firecracker_processes": 0,
+      "available_mib": 17912
+    }
+  ],
+  "existing_engine_before": {
+    "engine_files": {
+      "/usr/local/lib/lamp/firecracker": "99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5",
+      "/usr/local/lib/lamp/gvisor-bin/checkpointgofer": "a7e56d07b675aa0278d8dae690fcdaadf0b7b40dc14a0c014b93bb5c448e22fa",
+      "/usr/local/lib/lamp/gvisor-bin/gvisor-proc-umounter": "b3bbbaef5ddc62084e5febd19d3acca14f3d42b2a25d8552fb40def699467019",
+      "/usr/local/lib/lamp/gvisor-bin/gvisor-sentry-prewarmer": "46d5c028723ac5fbe40b863f95100f15a00d2aa0cd39c69d892500a988c930bd",
+      "/usr/local/lib/lamp/gvisor-bin/gvisor_sentry": "e7aba569a4b46b5382c5f0722e8555005f1f3aa1390c54403483d42379fae09b",
+      "/usr/local/lib/lamp/gvisor-bin/runsc-fd-parking": "03af90d07ea466c10ecc3e3ba839b2a59540959dd3286aea3886917cba850c11",
+      "/usr/local/lib/lamp/gvisor-bin/runsc-metric-server": "24b5762dc5a060657dd8581bd008fe3a338dbcb9a055ccfba0e0f9145337617b",
+      "/usr/local/lib/lamp/jailer": "65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f",
+      "/usr/local/lib/lamp/lamp-guard": "8734fc7ff8ce18b8cda333d63b8937e828528d4b2503691df331840a4546764d",
+      "/usr/local/lib/lamp/lamp-supervisor": "a0612b968e90c913ef148aa8559ff21ef90979c541ef2f089675fcf2bf573013",
+      "/usr/local/lib/lamp/runsc": "7d658f2c3a5602d28c391285eb4ee0740e7dd21d40731324049a29620e51cf5e"
+    },
+    "unit_sha256": "631e32b4a4ccdece7cfd6ae779c1152cc9ba872445be7e7075d411279d09e8f3",
+    "store": {
+      "device": 1806,
+      "inode": 128,
+      "uid": 1000,
+      "gid": 0,
+      "mode": 16877
+    },
+    "service": {
+      "ActiveState": "active",
+      "SubState": "running",
+      "FragmentPath": "/etc/systemd/system/lamp-supervisor.service",
+      "MainPID": "34842"
+    },
+    "store_mount": "/dev/loop14 /var/lib/lamp xfs"
+  },
+  "host_nft_before_sha256": "af7e8ed1fb07e082def62705307daeeb650f305bfa9d154defa34b6851cfce57",
+  "remaining_owned_process_pids": [],
+  "existing_engine_after": {
+    "engine_files": {
+      "/usr/local/lib/lamp/firecracker": "99ad0f5cd0514a88aad0e9ae8cfdb3cc3b4ab9d190e1194602406c786b5de7a5",
+      "/usr/local/lib/lamp/gvisor-bin/checkpointgofer": "a7e56d07b675aa0278d8dae690fcdaadf0b7b40dc14a0c014b93bb5c448e22fa",
+      "/usr/local/lib/lamp/gvisor-bin/gvisor-proc-umounter": "b3bbbaef5ddc62084e5febd19d3acca14f3d42b2a25d8552fb40def699467019",
+      "/usr/local/lib/lamp/gvisor-bin/gvisor-sentry-prewarmer": "46d5c028723ac5fbe40b863f95100f15a00d2aa0cd39c69d892500a988c930bd",
+      "/usr/local/lib/lamp/gvisor-bin/gvisor_sentry": "e7aba569a4b46b5382c5f0722e8555005f1f3aa1390c54403483d42379fae09b",
+      "/usr/local/lib/lamp/gvisor-bin/runsc-fd-parking": "03af90d07ea466c10ecc3e3ba839b2a59540959dd3286aea3886917cba850c11",
+      "/usr/local/lib/lamp/gvisor-bin/runsc-metric-server": "24b5762dc5a060657dd8581bd008fe3a338dbcb9a055ccfba0e0f9145337617b",
+      "/usr/local/lib/lamp/jailer": "65ef226e96f0ceda55ba643f445801ef2cc0ea667ef67cad8ac4f406c9c8434f",
+      "/usr/local/lib/lamp/lamp-guard": "8734fc7ff8ce18b8cda333d63b8937e828528d4b2503691df331840a4546764d",
+      "/usr/local/lib/lamp/lamp-supervisor": "a0612b968e90c913ef148aa8559ff21ef90979c541ef2f089675fcf2bf573013",
+      "/usr/local/lib/lamp/runsc": "7d658f2c3a5602d28c391285eb4ee0740e7dd21d40731324049a29620e51cf5e"
+    },
+    "unit_sha256": "631e32b4a4ccdece7cfd6ae779c1152cc9ba872445be7e7075d411279d09e8f3",
+    "store": {
+      "device": 1806,
+      "inode": 128,
+      "uid": 1000,
+      "gid": 0,
+      "mode": 16877
+    },
+    "service": {
+      "ActiveState": "active",
+      "SubState": "running",
+      "FragmentPath": "/etc/systemd/system/lamp-supervisor.service",
+      "MainPID": "34842"
+    },
+    "store_mount": "/dev/loop14 /var/lib/lamp xfs"
+  },
+  "host_nft_after_sha256": "af7e8ed1fb07e082def62705307daeeb650f305bfa9d154defa34b6851cfce57",
+  "cleanup_checks": {
+    "prefix_absent": true,
+    "engine_binaries_and_store_absent": true,
+    "runtime_and_namespace_paths_absent": true,
+    "uid_reservation_absent": true,
+    "mounts_absent": true,
+    "lamp-t45-leazek.service_file_absent": true,
+    "lamp-t45-leazek.service_enable_link_absent": true,
+    "lamp-t45-leazek.service_unloaded": true,
+    "lamp-t45-leazek-agent.service_file_absent": true,
+    "lamp-t45-leazek-agent.service_enable_link_absent": true,
+    "lamp-t45-leazek-agent.service_unloaded": true,
+    "no_engine_or_network_processes_from_install": true,
+    "owned_supervisor_pids_gone": true,
+    "existing_engine_files_unit_service_pid_and_store_unchanged": true,
+    "host_network_rules_unchanged": true
+  },
+  "removed_units": {
+    "lamp-t45-leazek.service": {
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    },
+    "lamp-t45-leazek-agent.service": {
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    }
+  }
+}

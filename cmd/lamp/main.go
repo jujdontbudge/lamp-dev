@@ -112,8 +112,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if len(args) > 2 || len(args) == 2 && args[1] != "--json" {
 			return usage("usage: lamp version [--json]")
 		}
-		json.NewEncoder(stdout).Encode(map[string]string{"version": "0.1.0-dev", "protocol": "lamp.worker/2"})
-		return 0
+		return versionCommand(globals, stdout, stderr)
 	}
 	if len(args) > 0 && args[0] == "quota" {
 		args = append([]string{"metric", "list"}, args[1:]...)

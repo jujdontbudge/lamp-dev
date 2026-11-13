@@ -1,0 +1,124 @@
+{
+  "work": "/tmp/t45r-jya1i_o4",
+  "steps": [
+    {
+      "step": "install",
+      "output": "{\"at\":\"2026-11-13T03:04:16Z\",\"automatic_updates\":false,\"event\":\"installed\",\"prefix\":\"/tmp/t45r-jya1i_o4/p\",\"service\":\"process\",\"version\":\"0.1.1\"}"
+    },
+    {
+      "step": "unauthenticated version rejected",
+      "status": 401
+    },
+    {
+      "step": "versions agree",
+      "version": "0.1.1",
+      "cli": {
+        "api_version": "v1",
+        "client_version": "0.1.1",
+        "engines": [
+          {
+            "connected": false,
+            "version": null,
+            "worker_id": "unenrolled"
+          }
+        ],
+        "protocol": "lamp.worker/2",
+        "request_id": "req_f68b29fbd54887e5c323e0024ea05cff",
+        "version": "0.1.1"
+      },
+      "openapi": {
+        "title": "Lamp API",
+        "version": "0.1.1",
+        "x-api-version": "1.0.0",
+        "x-release-version": "0.1.1"
+      }
+    },
+    {
+      "step": "signed update without --release",
+      "output": "{\"at\":\"2026-11-13T03:04:19Z\",\"event\":\"draining\",\"from\":\"0.1.1\",\"saved_items\":0,\"to\":\"0.1.2\"}\n{\"at\":\"2026-11-13T03:04:19Z\",\"event\":\"applying\",\"version\":\"0.1.2\"}\n{\"at\":\"2026-11-13T03:04:21Z\",\"event\":\"completed\",\"previous\":\"0.1.1\",\"saved_items_preserved\":0,\"version\":\"0.1.2\"}"
+    },
+    {
+      "step": "versions agree",
+      "version": "0.1.2",
+      "cli": {
+        "api_version": "v1",
+        "client_version": "0.1.2",
+        "engines": [
+          {
+            "connected": false,
+            "version": null,
+            "worker_id": "unenrolled"
+          }
+        ],
+        "protocol": "lamp.worker/2",
+        "request_id": "req_c9b8039c13542880e27144af11ec6159",
+        "version": "0.1.2"
+      },
+      "openapi": {
+        "title": "Lamp API",
+        "version": "0.1.2",
+        "x-api-version": "1.0.0",
+        "x-release-version": "0.1.2"
+      }
+    },
+    {
+      "step": "API telemetry preference preserved",
+      "data": {
+        "id": "tm_local",
+        "kind": "telemetry",
+        "fleet_id": "fl_local",
+        "owner_id": "pr_owner",
+        "revision": 2,
+        "created_at": "2026-11-13T03:04:17.874682Z",
+        "updated_at": "2026-11-13T03:04:17.874715Z",
+        "state": "disabled",
+        "labels": {},
+        "visibility": "private",
+        "enabled": false,
+        "counts_enabled": false,
+        "timings_enabled": false,
+        "retention_days": 90
+      }
+    },
+    {
+      "step": "already current",
+      "output": "already up to date (0.1.2)"
+    },
+    {
+      "step": "rollback",
+      "output": "{\"at\":\"2026-11-13T03:04:22Z\",\"event\":\"rolled_back\",\"version\":\"0.1.1\"}"
+    },
+    {
+      "step": "versions agree",
+      "version": "0.1.1",
+      "cli": {
+        "api_version": "v1",
+        "client_version": "0.1.1",
+        "engines": [
+          {
+            "connected": false,
+            "version": null,
+            "worker_id": "unenrolled"
+          }
+        ],
+        "protocol": "lamp.worker/2",
+        "request_id": "req_124e3289e4caacf531bae1de0b7bd04d",
+        "version": "0.1.1"
+      },
+      "openapi": {
+        "title": "Lamp API",
+        "version": "0.1.1",
+        "x-api-version": "1.0.0",
+        "x-release-version": "0.1.1"
+      }
+    },
+    {
+      "step": "uninstall",
+      "output": "{\"at\":\"2026-11-13T03:04:22Z\",\"data\":\"deleted\",\"event\":\"uninstalled\",\"name\":\"default\",\"owner_data\":\"delete\"}"
+    },
+    {
+      "step": "prefix removed",
+      "removed": true
+    }
+  ]
+}
