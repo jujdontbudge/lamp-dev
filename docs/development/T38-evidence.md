@@ -109,7 +109,7 @@ seed digests; a dedicated supervisor built template tp_a6a355c1659a92200433d2edb
 Neither shared templates nor other tickets' services were modified. The release
 guide now explains immutable template compatibility and short supervisor paths.
 
-With zero existing VMs and 14,619 MiB available at the create guard, the Mac CLI
+With zero existing VMs and 14,861 MiB available at the create guard, the Mac CLI
 created sb_afd37d66f84cdb7fbc24b723c457a7f2_h_hs_two, observed `host_id: hs_two`,
 `boundary: vm` and `state: ready`, then started Python inside it. The exec exited
 0; `exec watch` through the Mac returned `t38-second-host-ok Linux x86_64`.
