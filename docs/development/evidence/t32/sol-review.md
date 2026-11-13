@@ -14,3 +14,13 @@ The reviewer's two focused regressions are retained in
 `internal/control/t32_review_test.go`. They were each reproduced failing, then
 passed together after the six-line product fix. Targeted Go vet and `make build`
 passed. No findings were declined. Round 2 pending.
+
+Before round 2, requested platform demonstrations exposed two additional
+implementation bugs: failed Mac setup left accounts/files behind, and SSH
+started VZ outside the console login context required for saved-state keys.
+Cleanup was fixed and demonstrated with a disposable group collision; VZ
+engine processes now adopt the login context using `launchctl asuser`, with
+no system launch item bootstrap. The owner also requested a default that fits
+the 8 GB Air with everyday apps open: the installer now selects its memory
+from the engine's observed host memory while retaining the existing physical
+reserve and admission checks. These behavior changes are included in round 2.

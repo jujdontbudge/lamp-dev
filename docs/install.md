@@ -49,6 +49,11 @@ is not available in this installer.
 
 macOS requires Apple Silicon, macOS 26+, APFS clone support, and noninteractive
 administrator access for isolated worker accounts and root-owned engine files.
+Log into macOS before installation. The installer runs its engine commands
+in that login session so Virtualization.framework can seal saved state,
+including when installation is initiated over SSH. This does not install a
+system launch item. A locked session can cold-boot Linux templates; memory
+fork and resume still require the session to be unlocked.
 It uses the release's signed/notarized engine without building from source or
 accessing the Keychain. The 8 GB Air uses a smaller default when its everyday
 apps leave less memory available, and no RAM-backed capture disk. The reserve

@@ -24,7 +24,8 @@ from the public URL. See [installation](docs/install.md) for prerequisites,
 PATH, persistent sandboxes, locations and a second install. Linux needs KVM;
 Apple Silicon needs macOS 26+ and administrator access. No password prompts
 are opened. Signed local candidates have demonstrated this path on Ubuntu
-amd64, the M5 and Linux arm64. Mac default memory adapts to available host
+amd64, the M5, the 8 GB M2 Air with everyday apps open, and Linux arm64.
+Mac default memory adapts to available host
 memory; `lamp template list` shows the selected resources. Mac networking
 requires separate validation. See the [implementation evidence](docs/development/evidence/t32/README.md)
 for observed results and limits.
