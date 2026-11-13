@@ -1,0 +1,62 @@
+{
+  "source_head": "ae6eb5d6c19ffa4b0e0151474cc98a2b2ac66d56",
+  "host": "ubuntu-server",
+  "engine": "firecracker",
+  "template_id": "tp_42736e322660f095381c2397a6",
+  "fixture": "public Ubuntu 26.04 seed; no owner project; 1 CPU/1024 MiB forces cold boot",
+  "steps": [
+    {
+      "command": "lamp sandbox create --template-id tp_42736e322660f095381c2397a6 --idempotency-key t41-real-readiness-t41-vm-8369d894 --resources {\"vcpus\": 1, \"memory_mib\": 1024, \"disk_gib\": 20, \"pids_max\": 4096} --wait-ms 0 --json",
+      "exit": 0,
+      "stdout": "{\"operation_id\":\"op_4308a8f64fb21b6d908673b9cdb89d74\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_0574d6b70006aeccd7b9d43a34d0c50d\"}],\"request_id\":\"req_e93c4b87694176892bca048de1f52852\",\"replayed\":false,\"operation\":{\"id\":\"op_4308a8f64fb21b6d908673b9cdb89d74\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":1,\"created_at\":\"2026-11-13T02:39:05.496944972Z\",\"updated_at\":\"2026-11-13T02:39:05.496944972Z\",\"state\":\"accepted\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"sandbox_create\",\"request_hash\":\"ec4fe9ba441523e9bfbcaec6e87242bf725d2dab6b5a40dd78b16dbdb117afc1\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_0574d6b70006aeccd7b9d43a34d0c50d\"}],\"accepted_at\":\"2026-11-13T02:39:05.496944972Z\",\"cleanup_state\":\"not_needed\",\"durability\":\"volatile\"}}\n\n",
+      "stderr": ""
+    },
+    {
+      "command": "lamp sandbox wait sb_0574d6b70006aeccd7b9d43a34d0c50d --state ready --timeout 60s",
+      "exit": 0,
+      "stdout": "{\n  \"data\": {\n    \"boundary\": \"vm\",\n    \"capture_trust\": \"clean\",\n    \"created_at\": \"2026-11-13T02:39:05.489197599Z\",\n    \"custody_host_ids\": [\n      \"ubuntu-server\"\n    ],\n    \"durability\": \"volatile\",\n    \"effective_policy_revision\": 1,\n    \"fleet_id\": \"fl_local\",\n    \"generation\": 1,\n    \"host_id\": \"hs_local\",\n    \"id\": \"sb_0574d6b70006aeccd7b9d43a34d0c50d\",\n    \"kind\": \"sandbox\",\n    \"labels\": {},\n    \"owner_id\": \"pr_t41_vm_demo\",\n    \"readiness\": {\n      \"checks\": [\n        {\n          \"name\": \"template\",\n          \"state\": \"passed\"\n        },\n        {\n          \"name\": \"engine\",\n          \"state\": \"passed\"\n        },\n        {\n          \"name\": \"identity\",\n          \"state\": \"passed\"\n        },\n        {\n          \"name\": \"network\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"settings\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"kits\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"auth\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"connections\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"command\",\n          \"state\": \"passed\"\n        },\n        {\n          \"name\": \"agent\",\n          \"state\": \"skipped\"\n        }\n      ],\n      \"command_started_at\": \"2026-11-13T02:39:11.958951054Z\"\n    },\n    \"resources\": {\n      \"disk_gib\": 20,\n      \"memory_mib\": 1024,\n      \"pids_max\": 4096,\n      \"vcpus\": 1\n    },\n    \"revision\": 3,\n    \"state\": \"ready\",\n    \"task_id\": \"tk_2f46431dbe5ec3ccbf849184382fa3d8\",\n    \"template_id\": \"tp_42736e322660f095381c2397a6\",\n    \"updated_at\": \"2026-11-13T02:39:11.958951054Z\",\n    \"visibility\": \"private\"\n  },\n  \"request_id\": \"req_09e4e7c3854ba28f7e73da9146e79811\"\n}\n",
+      "stderr": "Waiting: preparing\nWaiting: ready\n"
+    },
+    {
+      "command": "lamp exec create --sandbox-id sb_0574d6b70006aeccd7b9d43a34d0c50d --argv [\"sh\", \"-c\", \"echo T41-immediate-exec-after-readiness-wait; uname -s; cat /etc/os-release\"] --wait-ms 60000 --json",
+      "exit": 0,
+      "stdout": "{\"operation_id\":\"op_ab7bb01fd0e25348371592663bb1b464\",\"resource_ids\":[{\"kind\":\"exec\",\"id\":\"ex_90b4d1950c17bef6d8c81b1bf7246f62\"}],\"request_id\":\"req_b72b7f2972b2b447889e597e9545a33b\",\"replayed\":false,\"operation\":{\"id\":\"op_ab7bb01fd0e25348371592663bb1b464\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":3,\"created_at\":\"2026-11-13T02:39:12.180799591Z\",\"updated_at\":\"2026-11-13T02:39:12.185110153Z\",\"state\":\"succeeded\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"exec_create\",\"request_hash\":\"d0897824a67e2e49739120664136c2e81baa5646daa5139b02c3accb8c2f23bd\",\"resource_ids\":[{\"kind\":\"exec\",\"id\":\"ex_90b4d1950c17bef6d8c81b1bf7246f62\"}],\"phase\":\"command\",\"accepted_at\":\"2026-11-13T02:39:12.180799591Z\",\"completed_at\":\"2026-11-13T02:39:12.185110153Z\",\"outcome\":{\"result\":{\"exec_id\":\"ex_90b4d1950c17bef6d8c81b1bf7246f62\"}},\"cleanup_state\":\"not_needed\",\"durability\":\"volatile\"},\"result\":{\"exec_id\":\"ex_90b4d1950c17bef6d8c81b1bf7246f62\"}}\n\n",
+      "stderr": ""
+    },
+    {
+      "command": "lamp exec get ex_90b4d1950c17bef6d8c81b1bf7246f62 --json",
+      "exit": 0,
+      "stdout": "{\"data\":{\"id\":\"ex_90b4d1950c17bef6d8c81b1bf7246f62\",\"kind\":\"exec\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":2,\"created_at\":\"2026-11-13T02:39:12.180702434Z\",\"updated_at\":\"2026-11-13T02:39:12.185110153Z\",\"state\":\"running\",\"labels\":{},\"visibility\":\"private\",\"sandbox_id\":\"sb_0574d6b70006aeccd7b9d43a34d0c50d\",\"argv\":[\"sh\",\"-c\",\"echo T41-immediate-exec-after-readiness-wait; uname -s; cat /etc/os-release\"],\"started_at\":\"2026-11-13T02:39:12.185110153Z\"},\"request_id\":\"req_5aa05a2160e5d82f396cfc9e7f91fe7a\"}\n\n",
+      "stderr": ""
+    },
+    {
+      "command": "lamp exec get ex_90b4d1950c17bef6d8c81b1bf7246f62 --json",
+      "exit": 0,
+      "stdout": "{\"data\":{\"id\":\"ex_90b4d1950c17bef6d8c81b1bf7246f62\",\"kind\":\"exec\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":3,\"created_at\":\"2026-11-13T02:39:12.180702434Z\",\"updated_at\":\"2026-11-13T02:39:12.206729068Z\",\"state\":\"exited\",\"labels\":{},\"visibility\":\"private\",\"sandbox_id\":\"sb_0574d6b70006aeccd7b9d43a34d0c50d\",\"argv\":[\"sh\",\"-c\",\"echo T41-immediate-exec-after-readiness-wait; uname -s; cat /etc/os-release\"],\"started_at\":\"2026-11-13T02:39:12.182064822Z\",\"exit_code\":0,\"signal\":0},\"request_id\":\"req_00f0aa9ac4b14b5777c7ef8a1b575f09\"}\n\n",
+      "stderr": ""
+    },
+    {
+      "command": "lamp exec watch ex_90b4d1950c17bef6d8c81b1bf7246f62 --json",
+      "exit": 0,
+      "stdout": "{\"items\":[{\"stream_id\":\"ex_90b4d1950c17bef6d8c81b1bf7246f62.stdout\",\"sequence\":0,\"channel\":\"stdout\",\"data_base64\":\"VDQxLWltbWVkaWF0ZS1leGVjLWFmdGVyLXJlYWRpbmVzcy13YWl0CkxpbnV4ClBSRVRUWV9OQU1FPSJVYnVudHUgMjYuMDQuMSBMVFMiCk5BTUU9IlVidW50dSIKVkVSU0lPTl9JRD0iMjYuMDQiClZFUlNJT049IjI2LjA0LjEgTFRTIChSZXNvbHV0ZSBSYWNjb29uKSIKVkVSU0lPTl9DT0RFTkFNRT1yZXNvbHV0ZQpJRD11YnVudHUKSURfTElLRT1kZWJpYW4KSE9NRV9VUkw9Imh0dHBzOi8vd3d3LnVidW50dS5jb20vIgpTVVBQT1JUX1VSTD0iaHR0cHM6Ly9oZWxwLnVidW50dS5jb20vIgpCVUdfUkVQT1JUX1VSTD0iaHR0cHM6Ly9idWdzLmxhdW5jaHBhZC5uZXQvdWJ1bnR1LyIKUFJJVkFDWV9QT0xJQ1lfVVJMPSJodHRwczovL3d3dy51YnVudHUuY29tL2xlZ2FsL3Rlcm1zLWFuZC1wb2xpY2llcy9wcml2YWN5LXBvbGljeSIKVUJVTlRVX0NPREVOQU1FPXJlc29sdXRlCkxPR089dWJ1bnR1LWxvZ28K\",\"byte_offset\":\"0\",\"location_epoch\":1}],\"request_id\":\"req_d739371ffd501b4297923ccaf5236e9d\"}\n\n",
+      "stderr": ""
+    },
+    {
+      "command": "lamp sandbox delete sb_0574d6b70006aeccd7b9d43a34d0c50d --wait-ms 60000 --json",
+      "exit": 0,
+      "stdout": "{\"operation_id\":\"op_223c369a6fdd2bbc52393f6259495199\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_0574d6b70006aeccd7b9d43a34d0c50d\"}],\"request_id\":\"req_c617b47dccef303089773d10bf8da9e0\",\"replayed\":false,\"operation\":{\"id\":\"op_223c369a6fdd2bbc52393f6259495199\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":3,\"created_at\":\"2026-11-13T02:39:12.344420669Z\",\"updated_at\":\"2026-11-13T02:39:12.385291496Z\",\"state\":\"succeeded\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"sandbox_delete\",\"request_hash\":\"df8cf859d568a95d70a18f7431ae5f4831cce5c42dac8767aed0b849b07c81b2\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_0574d6b70006aeccd7b9d43a34d0c50d\"}],\"phase\":\"cleanup\",\"accepted_at\":\"2026-11-13T02:39:12.344420669Z\",\"completed_at\":\"2026-11-13T02:39:12.385291496Z\",\"outcome\":{\"result\":{}},\"cleanup_state\":\"complete\",\"durability\":\"volatile\"},\"result\":{}}\n\n",
+      "stderr": ""
+    }
+  ],
+  "admission": {
+    "live_firecracker": 0,
+    "available_mib": 19115
+  },
+  "sandbox_id": "sb_0574d6b70006aeccd7b9d43a34d0c50d",
+  "guest_stdout": "T41-immediate-exec-after-readiness-wait\nLinux\nPRETTY_NAME=\"Ubuntu 26.04.1 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"26.04\"\nVERSION=\"26.04.1 LTS (Resolute Raccoon)\"\nVERSION_CODENAME=resolute\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=resolute\nLOGO=ubuntu-logo\n",
+  "firecracker_after_delete": 0,
+  "collector_note": "The demo wrapper erroneously filtered Frame.stream rather than the public Frame.channel field, then failed its output assertion. Raw exec get and watch responses already recorded exited/exit_code=0 and stdout. Decoded from those recorded frames afterward; no product change or additional VM run.",
+  "wrapper_exit": 1,
+  "demonstrated": "create accepted; wait preparing -> ready exit 0; immediate exec exit 0; output captured; delete cleanup complete",
+  "supervisor_cleanup": "Owned supervisor stopped, its private tmpfs unmounted and disposable store removed."
+}

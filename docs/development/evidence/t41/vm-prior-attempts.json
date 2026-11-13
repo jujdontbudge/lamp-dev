@@ -1,0 +1,117 @@
+[
+  {
+    "source_head": "ae6eb5d6c19ffa4b0e0151474cc98a2b2ac66d56",
+    "host": "ubuntu-server",
+    "engine": "firecracker",
+    "template_id": "tp_0d07bacfa64be676336ee78c28",
+    "fixture": "public Ubuntu 26.04 seed; no owner project",
+    "steps": [
+      {
+        "command": "lamp sandbox create --template-id tp_0d07bacfa64be676336ee78c28 --idempotency-key t41-real-readiness-t41-vm-9b1a05fd --wait-ms 0 --json",
+        "exit": 0,
+        "stdout": "{\"operation_id\":\"op_be96089f83398094699cea543983a882\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_465dafe680a46471f9d6accf8c5d60e4\"}],\"request_id\":\"req_68c56d333ecf059de47d401120a93e8d\",\"replayed\":false,\"operation\":{\"id\":\"op_be96089f83398094699cea543983a882\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":1,\"created_at\":\"2026-11-13T02:32:52.278757488Z\",\"updated_at\":\"2026-11-13T02:32:52.278757488Z\",\"state\":\"accepted\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"sandbox_create\",\"request_hash\":\"39c4bc936d7dac97012a545a3205affc273be13f23e1e16a6daeb7a5631b6bcf\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_465dafe680a46471f9d6accf8c5d60e4\"}],\"accepted_at\":\"2026-11-13T02:32:52.278757488Z\",\"cleanup_state\":\"not_needed\",\"durability\":\"volatile\"}}\n\n",
+        "stderr": ""
+      },
+      {
+        "command": "lamp sandbox wait sb_465dafe680a46471f9d6accf8c5d60e4 --state ready --timeout 60s",
+        "exit": 1,
+        "stdout": "",
+        "stderr": "Waiting: preparing\nWaiting: failed\nlamp: sandbox is failed; inspect lamp sandbox get for readiness details: {\"checks\":[{\"error\":{\"code\":\"HOST_UNAVAILABLE\",\"message\":\"identity barrier: guest channel handshake: Resource temporarily unavailable (os error 11)\",\"operation_id\":\"op_be96089f83398094699cea543983a882\",\"retryable\":true},\"name\":\"template\",\"state\":\"failed\"},{\"name\":\"engine\",\"state\":\"pending\"},{\"name\":\"identity\",\"state\":\"pending\"},{\"name\":\"network\",\"state\":\"skipped\"},{\"name\":\"settings\",\"state\":\"skipped\"},{\"name\":\"kits\",\"state\":\"skipped\"},{\"name\":\"auth\",\"state\":\"skipped\"},{\"name\":\"connections\",\"state\":\"skipped\"},{\"name\":\"command\",\"state\":\"pending\"},{\"name\":\"agent\",\"state\":\"skipped\"}]}\n"
+      },
+      {
+        "command": "lamp sandbox delete sb_465dafe680a46471f9d6accf8c5d60e4 --wait-ms 60000 --json",
+        "exit": 0,
+        "stdout": "{\"operation_id\":\"op_b30b261ddd324a45c9ec7bd0af50adaa\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_465dafe680a46471f9d6accf8c5d60e4\"}],\"request_id\":\"req_d4eb062f2bcf092ca9fbad8ae39c552d\",\"replayed\":false,\"operation\":{\"id\":\"op_b30b261ddd324a45c9ec7bd0af50adaa\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":3,\"created_at\":\"2026-11-13T02:33:12.324357685Z\",\"updated_at\":\"2026-11-13T02:33:12.329243369Z\",\"state\":\"succeeded\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"sandbox_delete\",\"request_hash\":\"eeb162521f7947832eb6c16bc3e11c30e19725744858ed81f1415fa8fe519373\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_465dafe680a46471f9d6accf8c5d60e4\"}],\"phase\":\"cleanup\",\"accepted_at\":\"2026-11-13T02:33:12.324357685Z\",\"completed_at\":\"2026-11-13T02:33:12.329243369Z\",\"outcome\":{\"result\":{}},\"cleanup_state\":\"complete\",\"durability\":\"volatile\"},\"result\":{}}\n\n",
+        "stderr": ""
+      }
+    ],
+    "admission": {
+      "live_firecracker": 0,
+      "available_mib": 14677
+    },
+    "sandbox_id": "sb_465dafe680a46471f9d6accf8c5d60e4",
+    "firecracker_after_delete": 0,
+    "result": "failed: guest identity handshake"
+  },
+  {
+    "source_head": "ae6eb5d6c19ffa4b0e0151474cc98a2b2ac66d56",
+    "host": "ubuntu-server",
+    "engine": "firecracker",
+    "template_id": "tp_42736e322660f095381c2397a6",
+    "fixture": "public Ubuntu 26.04 seed; no owner project; 1 CPU/1024 MiB forces cold boot",
+    "steps": [
+      {
+        "command": "lamp sandbox create --template-id tp_42736e322660f095381c2397a6 --idempotency-key t41-real-readiness-t41-vm-e2d23484 --resources {\"vcpus\": 1, \"memory_mib\": 1024, \"disk_gib\": 20, \"pids_max\": 4096} --wait-ms 0 --json",
+        "exit": 0,
+        "stdout": "{\"operation_id\":\"op_377ab4aababa4adf93119545c0d12081\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_bd3b8621edd2ae430f4c56d5f3b58185\"}],\"request_id\":\"req_75e5a33cbd4ccbbafc9e356971887c55\",\"replayed\":false,\"operation\":{\"id\":\"op_377ab4aababa4adf93119545c0d12081\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":1,\"created_at\":\"2026-11-13T02:35:07.971357694Z\",\"updated_at\":\"2026-11-13T02:35:07.971357694Z\",\"state\":\"accepted\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"sandbox_create\",\"request_hash\":\"b92a865c19b20a9e7411510fa0065f091215a799ed4a6964753420ce90b8cfdd\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_bd3b8621edd2ae430f4c56d5f3b58185\"}],\"accepted_at\":\"2026-11-13T02:35:07.971357694Z\",\"cleanup_state\":\"not_needed\",\"durability\":\"volatile\"}}\n\n",
+        "stderr": ""
+      },
+      {
+        "command": "lamp sandbox wait sb_bd3b8621edd2ae430f4c56d5f3b58185 --state ready --timeout 60s",
+        "exit": 0,
+        "stdout": "{\n  \"data\": {\n    \"boundary\": \"vm\",\n    \"capture_trust\": \"clean\",\n    \"created_at\": \"2026-11-13T02:35:07.949772952Z\",\n    \"custody_host_ids\": [\n      \"ubuntu-server\"\n    ],\n    \"durability\": \"volatile\",\n    \"effective_policy_revision\": 1,\n    \"fleet_id\": \"fl_local\",\n    \"generation\": 1,\n    \"host_id\": \"hs_local\",\n    \"id\": \"sb_bd3b8621edd2ae430f4c56d5f3b58185\",\n    \"kind\": \"sandbox\",\n    \"labels\": {},\n    \"owner_id\": \"pr_t41_vm_demo\",\n    \"readiness\": {\n      \"checks\": [\n        {\n          \"name\": \"template\",\n          \"state\": \"passed\"\n        },\n        {\n          \"name\": \"engine\",\n          \"state\": \"passed\"\n        },\n        {\n          \"name\": \"identity\",\n          \"state\": \"passed\"\n        },\n        {\n          \"name\": \"network\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"settings\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"kits\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"auth\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"connections\",\n          \"state\": \"skipped\"\n        },\n        {\n          \"name\": \"command\",\n          \"state\": \"passed\"\n        },\n        {\n          \"name\": \"agent\",\n          \"state\": \"skipped\"\n        }\n      ],\n      \"command_started_at\": \"2026-11-13T02:35:08.484319359Z\"\n    },\n    \"resources\": {\n      \"disk_gib\": 20,\n      \"memory_mib\": 1024,\n      \"pids_max\": 4096,\n      \"vcpus\": 1\n    },\n    \"revision\": 3,\n    \"state\": \"ready\",\n    \"task_id\": \"tk_49b4220bd0d3e21349d11eefee4ff3eb\",\n    \"template_id\": \"tp_42736e322660f095381c2397a6\",\n    \"updated_at\": \"2026-11-13T02:35:08.484319359Z\",\n    \"visibility\": \"private\"\n  },\n  \"request_id\": \"req_99af07fd3d022c93067d93b20cc874ff\"\n}\n",
+        "stderr": "Waiting: preparing\nWaiting: ready\n"
+      },
+      {
+        "command": "lamp exec create --sandbox-id sb_bd3b8621edd2ae430f4c56d5f3b58185 --argv [\"sh\", \"-c\", \"printf 'T41 immediate exec after readiness wait\\\\n'; uname -s; . /etc/os-release; printf '%s\\\\n' \\\"$PRETTY_NAME\\\"\"] --wait-ms 60000 --json",
+        "exit": 0,
+        "stdout": "{\"operation_id\":\"op_f4f503f605ef8eda515c76a788385d8c\",\"resource_ids\":[{\"kind\":\"exec\",\"id\":\"ex_a4a657652e8c22852481f3373b3ae5ac\"}],\"request_id\":\"req_2e15ced7c2a61e0ef15ac9219b9d08a7\",\"replayed\":false,\"operation\":{\"id\":\"op_f4f503f605ef8eda515c76a788385d8c\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":3,\"created_at\":\"2026-11-13T02:35:08.667006115Z\",\"updated_at\":\"2026-11-13T02:35:08.676285844Z\",\"state\":\"succeeded\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"exec_create\",\"request_hash\":\"ac99d2c562ecf2e5d4333870d2328cb0385e3e0947474fed2f9ab186781b9207\",\"resource_ids\":[{\"kind\":\"exec\",\"id\":\"ex_a4a657652e8c22852481f3373b3ae5ac\"}],\"phase\":\"command\",\"accepted_at\":\"2026-11-13T02:35:08.667006115Z\",\"completed_at\":\"2026-11-13T02:35:08.676285844Z\",\"outcome\":{\"result\":{\"exec_id\":\"ex_a4a657652e8c22852481f3373b3ae5ac\"}},\"cleanup_state\":\"not_needed\",\"durability\":\"volatile\"},\"result\":{\"exec_id\":\"ex_a4a657652e8c22852481f3373b3ae5ac\"}}\n\n",
+        "stderr": ""
+      },
+      {
+        "command": "lamp exec watch ex_a4a657652e8c22852481f3373b3ae5ac --json",
+        "exit": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":\"ex_a4a657652e8c22852481f3373b3ae5ac:0\",\"request_id\":\"req_aab8aafedd9e26b397ddab96c4c2fbc6\"}\n\n",
+        "stderr": ""
+      },
+      {
+        "command": "lamp sandbox delete sb_bd3b8621edd2ae430f4c56d5f3b58185 --wait-ms 60000 --json",
+        "exit": 0,
+        "stdout": "{\"operation_id\":\"op_2f3dda5165eff3bbc40d694b3e826278\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_bd3b8621edd2ae430f4c56d5f3b58185\"}],\"request_id\":\"req_88d20ea1326c6c933c2acd3d1cf7a07e\",\"replayed\":false,\"operation\":{\"id\":\"op_2f3dda5165eff3bbc40d694b3e826278\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":3,\"created_at\":\"2026-11-13T02:35:08.727911214Z\",\"updated_at\":\"2026-11-13T02:35:08.880484817Z\",\"state\":\"succeeded\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"sandbox_delete\",\"request_hash\":\"3dd8ba8e10cba611eb3264fcd75a546338254900c2fb44c71ba12f897141ba76\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_bd3b8621edd2ae430f4c56d5f3b58185\"}],\"phase\":\"cleanup\",\"accepted_at\":\"2026-11-13T02:35:08.727911214Z\",\"completed_at\":\"2026-11-13T02:35:08.880484817Z\",\"outcome\":{\"result\":{}},\"cleanup_state\":\"complete\",\"durability\":\"volatile\"},\"result\":{}}\n\n",
+        "stderr": ""
+      }
+    ],
+    "admission": {
+      "live_firecracker": 0,
+      "available_mib": 18873
+    },
+    "sandbox_id": "sb_bd3b8621edd2ae430f4c56d5f3b58185",
+    "guest_stdout": "",
+    "result": "incomplete demonstration: readiness and immediate exec admission succeeded; output collected before process completion",
+    "firecracker_after_delete": 0
+  },
+  {
+    "source_head": "ae6eb5d6c19ffa4b0e0151474cc98a2b2ac66d56",
+    "host": "ubuntu-server",
+    "engine": "firecracker",
+    "template_id": "tp_0d07bacfa64be676336ee78c28",
+    "fixture": "public Ubuntu 26.04 seed; no owner project; 1 CPU/1024 MiB forces cold boot",
+    "steps": [
+      {
+        "command": "lamp sandbox create --template-id tp_0d07bacfa64be676336ee78c28 --idempotency-key t41-real-readiness-t41-vm-fa192ad2 --resources {\"vcpus\": 1, \"memory_mib\": 1024, \"disk_gib\": 20, \"pids_max\": 4096} --wait-ms 0 --json",
+        "exit": 0,
+        "stdout": "{\"operation_id\":\"op_83a7aa2cbbee734c6182bfa7bee27a54\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_4c5aaa431b725153f5c822e210683d7c\"}],\"request_id\":\"req_d08254ed6179990bcb347bbccb7dd3cf\",\"replayed\":false,\"operation\":{\"id\":\"op_83a7aa2cbbee734c6182bfa7bee27a54\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":1,\"created_at\":\"2026-11-13T02:36:38.319028801Z\",\"updated_at\":\"2026-11-13T02:36:38.319028801Z\",\"state\":\"accepted\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"sandbox_create\",\"request_hash\":\"3b2c5bd663dfd8e7ad37c2d5b94248bb83498027febc33511a0d4c1c5e027b61\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_4c5aaa431b725153f5c822e210683d7c\"}],\"accepted_at\":\"2026-11-13T02:36:38.319028801Z\",\"cleanup_state\":\"not_needed\",\"durability\":\"volatile\"}}\n\n",
+        "stderr": ""
+      },
+      {
+        "command": "lamp sandbox wait sb_4c5aaa431b725153f5c822e210683d7c --state ready --timeout 60s",
+        "exit": 6,
+        "stdout": "",
+        "stderr": "Waiting: preparing\nlamp: wait timed out; inspect the resource or increase --timeout\n"
+      },
+      {
+        "command": "lamp sandbox delete sb_4c5aaa431b725153f5c822e210683d7c --wait-ms 60000 --json",
+        "exit": 0,
+        "stdout": "{\"operation_id\":\"op_00d6b4a34984cc60e888a1183d1d87c7\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_4c5aaa431b725153f5c822e210683d7c\"}],\"request_id\":\"req_323b46b72f36e80b39b2f17d0e1aaa67\",\"replayed\":false,\"operation\":{\"id\":\"op_00d6b4a34984cc60e888a1183d1d87c7\",\"kind\":\"operation\",\"fleet_id\":\"fl_local\",\"owner_id\":\"pr_t41_vm_demo\",\"revision\":3,\"created_at\":\"2026-11-13T02:37:38.37789338Z\",\"updated_at\":\"2026-11-13T02:37:42.196798989Z\",\"state\":\"succeeded\",\"labels\":{},\"visibility\":\"private\",\"operation_name\":\"sandbox_delete\",\"request_hash\":\"05436d623d1e8adfaa8369379c5af39399cda0b5656ec463e7a6efa623df8d0f\",\"resource_ids\":[{\"kind\":\"sandbox\",\"id\":\"sb_4c5aaa431b725153f5c822e210683d7c\"}],\"phase\":\"cleanup\",\"accepted_at\":\"2026-11-13T02:37:38.37789338Z\",\"completed_at\":\"2026-11-13T02:37:42.196798989Z\",\"outcome\":{\"result\":{}},\"cleanup_state\":\"complete\",\"durability\":\"volatile\"},\"result\":{}}\n\n",
+        "stderr": ""
+      }
+    ],
+    "admission": {
+      "live_firecracker": 0,
+      "available_mib": 14451
+    },
+    "sandbox_id": "sb_4c5aaa431b725153f5c822e210683d7c",
+    "firecracker_after_delete": 0,
+    "result": "failed: readiness timeout"
+  }
+]

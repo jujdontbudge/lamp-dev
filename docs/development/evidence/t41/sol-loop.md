@@ -42,3 +42,8 @@ T38 stranded-sandbox fleet checks; both generated-file checks. The recorded
 192-operation demonstration is historical, before the expanded main inventory.
 The full post-rebase `CARGO_BUILD_JOBS=2 make build` passed (Go workspace,
 SDK generation check and locked Rust workspace build). `git diff --check` passed.
+
+Coordinator follow-up: F101 now has a real Ubuntu Firecracker create → readiness
+wait → immediate successful exec demonstration, and F97 has fresh command/flag
+suggestion transcripts. See T41-interfaces.md and the supplemental JSON evidence.
+Only documentation and evidence changed; Sol was not rerun, as requested.
