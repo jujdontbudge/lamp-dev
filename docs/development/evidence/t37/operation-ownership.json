@@ -1,7 +1,7 @@
 {
-  "schema_operations": 332,
-  "installed_operations": 244,
-  "remaining_operations": 88,
+  "schema_operations": 336,
+  "installed_operations": 255,
+  "remaining_operations": 81,
   "newly_installed_t37": [
     "approval_delete",
     "artifact_update",
@@ -25,14 +25,7 @@
       "snapshot_list"
     ],
     "T36 \u2014 exec, files and terminal": [
-      "exec_delete",
-      "exec_input",
-      "exec_interrupt",
-      "exec_resize",
-      "sandbox_file_delete",
-      "sandbox_file_list",
-      "sandbox_file_read",
-      "sandbox_file_write"
+      "exec_delete"
     ],
     "T38 \u2014 hosts, fleets and admission": [
       "fleet_recover",

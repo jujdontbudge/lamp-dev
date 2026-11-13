@@ -206,3 +206,22 @@ ran. After waiting for an accepting socket, the actual daemon demonstration
 passed all eleven operations again, both configuration inventories, and
 244-name interface parity. The previous approved product changes were retained;
 no additional review round was run for this clean rebase.
+
+### T36 integration and final ownership refresh
+
+Rebased onto `0b6c257` after Sol approval. The single dispatch conflict was
+resolved by preserving T36's dedicated file-read route before lifecycle routing
+and retaining T37's shared configuration/grant dispatch. No other product
+changes were made. Rebuilt CLI, HTTP and MCP demonstrated **255 identical
+installed names** against the **336-operation schema**. T36's four new schema
+operations are installed; seven previously missing exec/file operations are
+also installed. Only `exec_delete` remains in T36's row. T39's 17 network
+operations and five connection operations remain accounted for as installed.
+All **81** remaining names belong to other tickets; the complete list is in
+the updated ownership audit and MR description.
+
+`make build`, the disposable completion demonstration (including both network
+and CI configurations), and the three focused T37/T39 regressions passed
+(1.528s). Sol's latest approval remains the completion round-2 verdict before
+the subsequent T32/T36 integrations; no further review round was run for the
+route-preserving rebase.

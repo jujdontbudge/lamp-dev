@@ -2,12 +2,13 @@
 
 ## Remaining operation ownership audit
 
-The current schema contains **332** operations (the historical 330 plus
-`relay_get` and `relay_list` merged by T38). Before this audit, the rebuilt
+The current schema contains **336** operations: the historical 330, T38's
+`relay_get` and `relay_list`, and T36's `sandbox_file_stat`,
+`sandbox_file_search`, `sandbox_file_watch` and `sandbox_file_rename`. Before this audit, the rebuilt
 shipped daemon installed 210; the difference was 122. T37 installed the
 12 otherwise unowned operations listed below, bringing CLI, HTTP and MCP to
-222 before T39 merged. With T39 included, the rebuilt interfaces expose
-**244**, with **88** still uninstalled. Every one of those 88 is assigned
+222 before T39 merged. With T39, T32 and T36 included, the rebuilt interfaces
+expose **255**, with **81** still uninstalled. Every one of those 81 is assigned
 below; **none remains unassigned to another ticket**. Counts describe handlers,
 not a claim that every subsystem is enrolled or every schema field supported.
 
@@ -16,7 +17,7 @@ Newly installed by T37: `approval_delete`, `artifact_update`, `configuration_cre
 | Owning ticket | Missing count | Every operation still not installed |
 | --- | ---: | --- |
 | T34 — snapshots and lifecycle | 5 | `backup_export`, `sandbox_prepare_fork`, `sandbox_restore`, `snapshot_delete`, `snapshot_list` |
-| T36 — exec, files and terminal | 8 | `exec_delete`, `exec_input`, `exec_interrupt`, `exec_resize`, `sandbox_file_delete`, `sandbox_file_list`, `sandbox_file_read`, `sandbox_file_write` |
+| T36 — exec, files and terminal | 1 | `exec_delete` |
 | T38 — hosts, fleets and admission | 13 | `fleet_recover`, `fleet_transfer_owner`, `host_bench`, `host_create`, `host_delete`, `host_drain`, `host_enroll`, `host_update`, `invitation_accept`, `invitation_create`, `invitation_delete`, `invitation_get`, `invitation_list` |
 | T39 — ports and network | 13 | `access_route_create`, `access_route_delete`, `access_route_get`, `access_route_list`, `access_route_update`, `exposure_activate`, `exposure_create`, `exposure_delete`, `exposure_get`, `exposure_list`, `exposure_revoke`, `network_attachment_test`, `network_attachment_update` |
 | T40 — templates and storage | 9 | `attachment_update`, `cache_update`, `template_build`, `template_create`, `template_update`, `template_validate`, `volume_recover`, `volume_snapshot`, `volume_update` |
