@@ -49,3 +49,14 @@ reviewed, not rerun. No files changed or credentials accessed. Usage not exposed
 Follow-up diff: 16 files, 504 insertions, 39 deletions before this ledger update.
 Stopped after one follow-up round because there were no findings or behavior
 changes. Total MR review: two original rounds plus one follow-up round.
+
+
+## Integration after T44/T45 merge
+
+Rebased onto `9acf5908bdd33e7904eb503735a009f7343706c1`. Conflicts were
+limited to appended public contract definitions; both sets were preserved and
+public interfaces regenerated. A semantic comparison confirms that T43 and
+current-main additions remain present. Approved T43 feature code is identical
+to the pre-rebase version; no additional reviewer was needed.
+The post-rebase `make build` passed, including the 347-operation generator check
+and the locked Rust workspace build. `git diff --check` passed.
