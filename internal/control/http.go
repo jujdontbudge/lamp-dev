@@ -220,7 +220,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		input = in
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		_, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms")
+		fields, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms")
 		in.IdempotencyKey = key
 		if err != nil {
 			writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
@@ -231,6 +231,12 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if in.Resources != nil && in.Resources.PidsMax == 0 {
+			var limits map[string]json.RawMessage
+			json.Unmarshal(fields["resources"], &limits)
+			if _, supplied := limits["pids_max"]; supplied {
+				writeError(w, requestID, "INVALID_ARGUMENT", "resources.pids_max must be positive", nil)
+				return
+			}
 			in.Resources.PidsMax = 4096
 		}
 		if in.Resources == nil {
