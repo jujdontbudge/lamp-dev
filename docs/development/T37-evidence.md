@@ -111,3 +111,19 @@ exact private endpoint (`10.237.37.1:37437`) were then enrolled for Forgejo,
 with the public-copy workflow and its digest updated to that local endpoint.
 The failed jobs and their incomplete native-log artifacts remain in the JSON
 record; no failure was relabeled as success.
+
+## Integration with T33 and T38
+
+Rebased onto `03944fb` after both tickets merged (`8150e50` is also an
+ancestor). Conflict resolution retains relay enrollment together with approval
+actions, metrics discovery together with plugin/grant discovery, both release
+guides, and T33's fork accounting together with T37's revocation checks.
+
+`make build`, targeted Go vet and `TestT37ScopedKeyMCPDiscovery` passed after
+the rebase. A new disposable daemon demonstration with the rebuilt binaries
+found 210 identical operation names across CLI, HTTP and MCP; session-scoped
+discovery, documentation scope denial, and persisted grant revocation also
+passed. See [rebase-discovery-demo.json](evidence/t37/rebase-discovery-demo.json).
+The earlier 203-operation observations and native CI run remain historical
+evidence. Sol's two-round approval covers the T37 behavior before this rebase;
+no additional review round was run for the integration.
