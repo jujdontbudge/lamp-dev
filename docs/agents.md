@@ -1,5 +1,8 @@
 # Release agents
 
+For child agents, change sets, side chats, teleport and bridges, see
+[Agent workflow](agent-workflow.md).
+
 The release daemon enrolls OpenCode automatically. On first use in a Linux
 sandbox it installs the pinned official `opencode-ai@1.19.5` npm package.
 Python 3, Node and npm come from the installed Linux guest. The same path runs

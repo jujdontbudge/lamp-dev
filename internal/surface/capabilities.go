@@ -37,7 +37,7 @@ func init() {
 		"harness_get", "harness_list", "engine_get", "engine_list",
 		"session_create", "session_get", "session_list", "session_update", "session_delete",
 		"session_watch", "session_attach", "session_input", "session_resize", "session_end",
-		"session_spawn", "session_teleport", "session_checkpoint",
+		"session_spawn", "session_teleport", "session_checkpoint", "session_message", "session_cancel", "session_teleport_check",
 		"change_set_create", "change_set_get", "change_set_list", "change_set_apply", "change_set_reject", "change_set_delete",
 		"lease_create", "lease_get", "lease_list", "lease_renew", "lease_release", "lease_delete",
 		"share_list", "share_revoke", "share_delete",

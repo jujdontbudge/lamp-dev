@@ -172,6 +172,13 @@ def serve(directory, endpoint, request):
                                 data = json.dumps({"input_id": input_id, "text": data.decode("utf-8")}).encode() + b"\n"
                             save(state_path, state)
                             pending_write = (key, sequence, memoryview(data))
+                    elif action == "cancel":
+                        if not native or terminal < 0:
+                            raise ValueError("RESOURCE_IN_USE")
+                        if state.get("last_cancel") != operation.get("id"):
+                            os.kill(pid, signal.SIGUSR1)
+                            state["last_cancel"] = operation.get("id")
+                            save(state_path, state)
                     elif action == "resize":
                         if terminal < 0:
                             raise ValueError("RESOURCE_IN_USE")
@@ -304,10 +311,17 @@ def main(request):
                         bundle = directory / "initial.bundle"
                         bundle.write_bytes(base64.b64decode(repository[7:], validate=True))
                         source = str(bundle)
-                    subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "clone", "--quiet", "--", source, str(cwd)], check=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "clone", "--quiet", *([] if repository.startswith("bundle:") else ["--depth", "1"]), "--", source, str(cwd)], check=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if shared := request.get("shared_session_id"):
+                if not shared or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-." for c in shared):
+                    raise ValueError("invalid shared session")
+                launch = json.loads((Path(request["root"]) / (shared + ".e" + str(request["shared_epoch"])) / "launch.json").read_text())
+                request["cwd"] = launch["cwd"]
             cwd = Path(request["cwd"])
             if (cwd / ".git").is_dir() and not (cwd / ".git/lamp-base").exists():
                 (cwd / ".git/lamp-base").write_bytes(session_git(cwd, "rev-parse", "HEAD"))
+            if (cwd / ".git").is_dir() and not request.get("shared_session_id"):
+                session_git(cwd, "checkout", "-B", "lamp/" + request["id"])
             if native_config := request.get("native"):
                 native_config = {key: value.replace("{session_dir}", str(directory)) if isinstance(value, str) else value for key, value in native_config.items()}
                 (directory / "native.py").write_text(request["native_source"])

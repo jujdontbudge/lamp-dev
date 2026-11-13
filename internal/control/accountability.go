@@ -737,6 +737,16 @@ func (s *Service) accountabilityBridge(w http.ResponseWriter, r *http.Request) {
 	}
 	sb, ok := s.journal.Sandboxes[in.Sandbox]
 	if !ok {
+		// Managed model grants may follow a real session between host and VM.
+		// Project that session onto the existing task ledger; never create a
+		// sandbox record or grant unbudgeted host model access.
+		if work := s.journal.Control.Sessions[in.Sandbox]; work != nil {
+			state := textField(work.Resource, "state")
+			sb = api.Sandbox{Id: in.Sandbox, OwnerId: textField(work.Resource, "owner_id"), State: "ready", TaskId: pointer(textField(work.Resource, "task_id"))}
+			ok = state == "active" || state == "starting" || state == "moving"
+		}
+	}
+	if !ok {
 		http.Error(w, "sandbox unavailable", 403)
 		return
 	}

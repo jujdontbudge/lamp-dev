@@ -579,7 +579,9 @@
               "sandbox.browser",
               "sandbox.desktop",
               "sandbox.metrics",
-              "sandbox.logs"
+              "sandbox.logs",
+              "session.message",
+              "session.cancel"
             ]
           }
         },
@@ -4943,6 +4945,50 @@
         "continuation_ref": {
           "type": "string",
           "readOnly": true
+        },
+        "repository": {
+          "type": "string"
+        },
+        "shared_session_id": {
+          "type": "string"
+        },
+        "shared_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_turn": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed",
+            "interrupted"
+          ]
+        },
+        "transfer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "phase": {
+              "type": "string"
+            },
+            "bytes_transferred": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "artifact_bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "safe_to_close_source": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "phase",
+            "bytes_transferred",
+            "artifact_bytes",
+            "safe_to_close_source"
+          ]
         }
       },
       "required": [
@@ -14990,6 +15036,10 @@
         "prompt": {
           "type": "string",
           "maxLength": 32768
+        },
+        "repository": {
+          "type": "string",
+          "description": "Public HTTPS git repository cloned into this session workspace."
         }
       },
       "required": [
@@ -27278,6 +27328,16 @@
           "maximum": 18446744073709551615,
           "format": "uint64",
           "readOnly": true
+        },
+        "harness_id": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "side": {
+          "type": "boolean",
+          "description": "Fresh conversation sharing the parent workspace and branch."
         }
       },
       "required": [
@@ -34288,6 +34348,184 @@
         "items",
         "request_id"
       ]
+    },
+    "SessionMessageInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32768
+        }
+      },
+      "required": [
+        "session_id",
+        "idempotency_key",
+        "expected_revision",
+        "text"
+      ]
+    },
+    "SessionMessageResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SessionEndCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SessionMessageCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SessionCancelInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "session_id",
+        "idempotency_key",
+        "expected_revision"
+      ]
+    },
+    "SessionCancelResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SessionEndCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SessionCancelCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SessionTeleportCheckInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Location"
+        }
+      },
+      "required": [
+        "session_id",
+        "location"
+      ]
+    },
+    "SessionTeleportCheckResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/Session"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "request_id"
+      ]
     }
   },
   "x-lamp-resources": {
@@ -39784,6 +40022,47 @@
       "scope": "sandbox.logs",
       "cli": "lamp sandbox logs",
       "mcp": "sandbox_logs",
+      "authorization": "authenticated_scope"
+    },
+    "session_message": {
+      "kind": "session",
+      "action": "end",
+      "method": "post",
+      "path": "/v1/sessions/{session_id}:message",
+      "mutation": true,
+      "input_schema": "SessionMessageInput",
+      "result_schema": "SessionMessageResult",
+      "scope": "session.message",
+      "cli": "lamp session message",
+      "mcp": "session_message",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SessionMessageCompletion"
+    },
+    "session_cancel": {
+      "kind": "session",
+      "action": "end",
+      "method": "post",
+      "path": "/v1/sessions/{session_id}:cancel",
+      "mutation": true,
+      "input_schema": "SessionCancelInput",
+      "result_schema": "SessionCancelResult",
+      "scope": "session.cancel",
+      "cli": "lamp session cancel",
+      "mcp": "session_cancel",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SessionCancelCompletion"
+    },
+    "session_teleport_check": {
+      "kind": "session",
+      "action": "teleport_check",
+      "method": "get",
+      "path": "/v1/sessions/{session_id}/teleport-check",
+      "mutation": false,
+      "input_schema": "SessionTeleportCheckInput",
+      "result_schema": "SessionTeleportCheckResult",
+      "scope": "session.teleport",
+      "cli": "lamp session teleport-check",
+      "mcp": "session_teleport_check",
       "authorization": "authenticated_scope"
     }
   },

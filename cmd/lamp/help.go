@@ -80,8 +80,11 @@ func help(out io.Writer, words []string, asJSON bool, globals []string) int {
 		for _, op := range selected {
 			fmt.Fprintf(out, "  %-24s %s\n", strings.TrimPrefix(op.CLI, "lamp "+words[0]+" "), describe(op))
 		}
+		if words[0] == "session" {
+			fmt.Fprintln(out, "  side                     Fresh conversation sharing the main session's files and branch (spawn --side=true)\n  teleport --check         Read-only target and session checks; accepts --location JSON")
+		}
 		if words[0] == "sandbox" {
-			fmt.Fprintln(out, "  run                      Create a default VM, run COMMAND, then delete it\n  exec                     Run COMMAND in an existing sandbox\n  wait                     Wait for a sandbox state (default ready)\n  cp                       Copy a local file to/from sandbox_id:/path\n  shell                    Open or reconnect to a guest PTY")
+			fmt.Fprintln(out, "  run                      Create a default VM, run COMMAND, then delete it\n  exec                     Run COMMAND in an existing sandbox\n  wait                     Wait for a sandbox state (default ready)\n  cp                       Copy a local file to/from sandbox_id:/path\n  diff                     Show a session diff against its base\n  pull-changes             Fetch session commits into --checkout as a branch\n  shell                    Open or reconnect to a guest PTY")
 		}
 		fmt.Fprintf(out, "Example: lamp %s list --json\n", words[0])
 	} else if prefix == "sandbox_cp" {

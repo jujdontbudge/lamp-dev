@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import zipfile
@@ -72,9 +73,12 @@ def artifact_snapshot(directory, request, native):
             session_git(cwd, "commit", "-q", "-m", "Preserve session work")
     head = session_git(cwd, "rev-parse", "HEAD").decode().strip()
     bundle = directory / ("bundle-" + request["transfer_id"])
-    session_git(cwd, "bundle", "create", str(bundle), "--all", "HEAD")
+    session_git(cwd, "bundle", "create", str(bundle), "HEAD")
     patch = session_git(cwd, "diff", "--binary", base, head, "--", *paths)
     metadata = {"cwd": str(cwd), "base": base, "base_tree": session_git(cwd, "rev-parse", base + "^{tree}").decode().strip(), "head": head, "commits": session_git(cwd, "rev-list", "--reverse", base + ".." + head).decode().splitlines(), "selected_paths": paths}
+    shallow = cwd / ".git/shallow"
+    if shallow.exists():
+        metadata["shallow"] = shallow.read_text().splitlines()
     temporary = path.with_suffix(".next")
     if request.get("include_native"):
         metadata["native_kind"] = (launch.get("native") or {}).get("kind", "")
@@ -166,7 +170,12 @@ def artifact_restore(directory, request):
         if not (cwd / ".git").exists():
             cwd.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
             session_git(directory, "clone", "--quiet", str(bundle), str(cwd))
-            session_git(cwd, "checkout", "--quiet", "--detach", metadata["head"])
+            boundaries = metadata.get("shallow", [])
+            if not isinstance(boundaries,list) or any(not isinstance(oid,str) or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}",oid) for oid in boundaries):
+                raise ValueError("invalid shallow repository boundary")
+            if boundaries:
+                (cwd / ".git/shallow").write_text("\n".join(boundaries) + "\n")
+            session_git(cwd, "checkout", "--quiet", "-B", "lamp/" + request["id"], metadata["head"])
         elif session_git(cwd, "rev-parse", "HEAD").decode().strip() != metadata["head"]:
             raise ValueError("continuation target already contains different work")
         (cwd / ".git/lamp-base").write_text(metadata["base"] if request.get("include_native") else metadata["head"])

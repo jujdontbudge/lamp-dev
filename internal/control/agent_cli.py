@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Guest CLI/MCP for a session's endpoint-scoped Lamp capability."""
 import json
+import base64
 import os
 from pathlib import Path
 import sys
@@ -30,6 +31,45 @@ def invoke(connection, operation, arguments):
     return call('POST', '/v1/invoke', dict(connection_id=connection, operation=operation, arguments=arguments))
 
 
+def mutate(identity, action, body=None):
+    current = call('GET', '/v1/sessions/' + identity)
+    if 'error' in current: return current
+    return call('POST', '/v1/sessions/' + identity + ':' + action, body or {}, current['data']['revision'])
+
+
+def workflow(action, args):
+    own = os.environ['LAMP_SESSION_ID']
+    if action == 'spawn':
+        args = dict(args)
+        child = None
+        if args.get('sandbox_mode') == 'new':
+            created = call('POST', '/v1/sandboxes', {'wait_ms': 60000})
+            if 'error' in created: return created
+            child = next((ref['id'] for ref in created.get('resource_ids', []) if ref['kind'] == 'sandbox'), None)
+            if not child: return created
+            args['sandbox_mode'] = 'sandbox:' + child
+        result = mutate(own, 'spawn', dict(args, wait_ms=60000))
+        if 'error' in result and child:
+            state = call('GET', '/v1/sandboxes/' + child)
+            if 'data' in state: call('DELETE', '/v1/sandboxes/' + child, {'wait_ms': 60000}, state['data']['revision'])
+        return result
+    if action in ('message', 'cancel'):
+        args = dict(args)
+        identity = args.pop('session_id')
+        return mutate(identity, action, args)
+    if action == 'wait':
+        identity = args['session_id']
+        state = call('GET', '/v1/sessions/' + identity)
+        if 'error' in state: return state
+        output = call('GET', '/v1/sessions/' + identity + '/output?wait_ms=1000')
+        return dict(session=state['data'], output=output)
+    if action == 'git_return':
+        parent = call('GET', '/v1/sessions/' + own)['data'].get('parent_session_id')
+        if not parent: raise ValueError('session has no parent')
+        return call('POST', '/v1/change-sets', dict(source_session_id=own, target_session_id=parent, wait_ms=60000))
+    raise ValueError('unknown workflow action')
+
+
 def mcp():
     tools = json.loads(os.environ.get('LAMP_MCP_TOOLS', '[]'))
     for line in sys.stdin:
@@ -44,7 +84,7 @@ def mcp():
         elif method == 'tools/call':
             params = request['params']; args = params.get('arguments', {})
             tool = next(t for t in tools if t['name'] == params['name'])
-            value = invoke(tool['_meta']['lamp.connection_id'], tool['_meta']['lamp.operation'], args)
+            value = workflow(tool['_meta']['lamp.workflow'], args) if 'lamp.workflow' in tool['_meta'] else invoke(tool['_meta']['lamp.connection_id'], tool['_meta']['lamp.operation'], args)
             result = {'content': [{'type': 'text', 'text': json.dumps(value)}], 'isError': 'error' in value}
         else:
             print(json.dumps({'jsonrpc': '2.0', 'id': request['id'], 'error': {'code': -32601, 'message': 'Unknown method'}}), flush=True)
@@ -59,7 +99,27 @@ def main():
     if len(args) < 2:
         raise ValueError('usage: lamp sandbox create|get|exec|delete; lamp connection invoke; lamp settings-source copy|propose')
     kind, action, *args = args
-    if kind == 'sandbox':
+    if kind == 'session':
+        if action in ('spawn', 'side'):
+            import argparse
+            parser = argparse.ArgumentParser(description='Children copy files; side chats share files and branch, with a fresh conversation.')
+            parser.add_argument('--prompt', required=True)
+            parser.add_argument('--sandbox-mode', default='same')
+            parsed = parser.parse_args(args)
+            value = workflow('spawn', dict(prompt=parsed.prompt, sandbox_mode=parsed.sandbox_mode, side=action == 'side'))
+        elif action == 'message':
+            value = workflow('message', dict(session_id=args[0], text=' '.join(args[1:])))
+        elif action in ('wait', 'cancel'):
+            value = workflow(action, dict(session_id=args[0]))
+        else: raise ValueError('unsupported session action')
+    elif kind == 'change-set':
+        if action == 'return':
+            value = workflow('git_return', {})
+        elif action == 'apply':
+            current = call('GET', '/v1/change-sets/' + args[0])
+            value = current if 'error' in current else call('POST', '/v1/change-sets/' + args[0] + ':apply', {'wait_ms':60000}, current['data']['revision'])
+        else: raise ValueError('unsupported change-set action')
+    elif kind == 'sandbox':
         if action == 'create':
             body = {'wait_ms': 60000}
             if args:

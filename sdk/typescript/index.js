@@ -2741,6 +2741,16 @@ export const OPERATIONS = {
   "resultSchema": "SessionAttachResult",
   "scope": "session.attach"
  },
+ "session_cancel": {
+  "cli": "lamp session cancel",
+  "inputSchema": "SessionCancelInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "session_cancel",
+  "path": "/v1/sessions/{session_id}:cancel",
+  "resultSchema": "SessionCancelResult",
+  "scope": "session.cancel"
+ },
  "session_checkpoint": {
   "cli": "lamp session checkpoint",
   "inputSchema": "SessionCheckpointInput",
@@ -2821,6 +2831,16 @@ export const OPERATIONS = {
   "resultSchema": "SessionListResult",
   "scope": "session.list"
  },
+ "session_message": {
+  "cli": "lamp session message",
+  "inputSchema": "SessionMessageInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "session_message",
+  "path": "/v1/sessions/{session_id}:message",
+  "resultSchema": "SessionMessageResult",
+  "scope": "session.message"
+ },
  "session_resize": {
   "cli": "lamp session resize",
   "inputSchema": "SessionResizeInput",
@@ -2849,6 +2869,16 @@ export const OPERATIONS = {
   "name": "session_teleport",
   "path": "/v1/sessions/{session_id}:teleport",
   "resultSchema": "SessionTeleportResult",
+  "scope": "session.teleport"
+ },
+ "session_teleport_check": {
+  "cli": "lamp session teleport-check",
+  "inputSchema": "SessionTeleportCheckInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "session_teleport_check",
+  "path": "/v1/sessions/{session_id}/teleport-check",
+  "resultSchema": "SessionTeleportCheckResult",
   "scope": "session.teleport"
  },
  "session_update": {

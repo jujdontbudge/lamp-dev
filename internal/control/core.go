@@ -363,6 +363,11 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		writeError(w, id, "DATA_UNAVAILABLE", "cannot commit management operation", pointer(operationID))
 		return
 	}
+	if op.Name == "change_set_reject" || op.Name == "change_set_delete" {
+		if previous := old.ChangeSets[ref.Id]; previous != nil && previous.ArchiveFile != "" && filepath.Base(previous.ArchiveFile) == previous.ArchiveFile {
+			_ = os.Remove(filepath.Join(s.dir, "transfer-artifacts", previous.ArchiveFile))
+		}
+	}
 	exportCommitted = true
 	if op.Name == "telemetry_purge" || op.Name == "telemetry_update" && !value(s.telemetry(a).Enabled) {
 		if err := s.compact(); err != nil {
@@ -395,6 +400,24 @@ func (s *Service) sendCoreMutation(w http.ResponseWriter, id string, rec *record
 	prepareJSON(w, status, api.MutationEnvelope{OperationId: op.Id, Operation: &op, ResourceIds: []api.ResourceRef{rec.Resource}, RequestId: id, Replayed: replay, Result: result})()
 }
 func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.OperationDescriptor, in map[string]any) {
+	if op.Name == "session_teleport_check" {
+		work := s.journal.Control.Sessions[textField(in, "session_id")]
+		if work == nil || !s.sessionAllowed(a, work.Resource, "session.teleport") {
+			writeError(w, id, "NOT_FOUND", "session not found", nil)
+			return
+		}
+		if err := s.checkSessionTeleport(a, work, object(in["location"])); err != nil {
+			code := "INVALID_ARGUMENT"
+			var failure *coreError
+			if errors.As(err, &failure) {
+				code = failure.code
+			}
+			writeError(w, id, code, err.Error(), nil)
+			return
+		}
+		prepareJSON(w, 200, map[string]any{"data": work.Resource, "request_id": id})()
+		return
+	}
 	if op.Name == "metric_list" {
 		s.capacityMetrics(w, id, a)
 		return
@@ -1017,6 +1040,14 @@ func (s *Service) cancelOperation(a caller, in map[string]any) (api.ResourceRef,
 	}
 	if terminal(rec.Operation.State) {
 		return ref, map[string]any{}, nil, nil, nil
+	}
+	if transfer := s.journal.Control.SessionTransfers[rec.Resource.Id]; transfer != nil && transfer.OperationID == id && transfer.Kind == "teleport" && transfer.Phase == "snapshot" && !transfer.InFlight {
+		source := s.journal.Control.Sessions[transfer.SourceID]
+		source.Resource["state"], source.Resource["location_epoch"] = "active", transfer.SourceEpoch
+		source.Resource["transfer"] = map[string]any{"phase": "canceled", "bytes_transferred": uint64(0), "artifact_bytes": uint64(0), "safe_to_close_source": false}
+		editResource(source.Resource)
+		transfer.Phase = "done"
+		rec.Operation.State = "accepted"
 	}
 	if rec.Operation.State != "accepted" {
 		return ref, nil, nil, nil, reject("OUTCOME_UNKNOWN", "work already dispatched; inspect the original operation and cleanup")

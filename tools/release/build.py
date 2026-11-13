@@ -115,10 +115,12 @@ def mac_notarize(binaries, apple, scratch):
 def common_files():
     return [('LICENSE', ROOT / 'LICENSE'), ('THIRD_PARTY.md', ROOT / 'THIRD_PARTY.md'),
             ('licenses/relay-AGPL-3.0.txt', ROOT / 'internal/relay/LICENSE'),
+            ('docs/agent-workflow.md', ROOT / 'docs/agent-workflow.md'),
+            ('docs/agents.md', ROOT / 'docs/agents.md'),
             ('docs/release/fleets-and-access.md', ROOT / 'docs/release/fleets-and-access.md'),
             ('docs/development/access.md', ROOT / 'docs/development/access.md'),
             ('docs/development/hosted.md', ROOT / 'docs/development/hosted.md'),
-            ('tools/plugin-launcher.c', ROOT / 'tools/plugin-launcher.c')]
+            ('tools/plugin-launcher.c', ROOT / 'tools/plugin-launcher.c')] + [(f'tools/{name}.py', ROOT / f'tools/{name}.py') for name in ['session_acp', 'session_herdr', 'session_public', 'session_ssh', 'session_mcp']]
 
 
 def installer_release(inst, version, goos, goarch, key, out, files, snapshot_format=None):

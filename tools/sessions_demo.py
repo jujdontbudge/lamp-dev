@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shlex
 import socket
 import subprocess
 import sys
@@ -27,6 +28,7 @@ def main():
     parser = argparse.ArgumentParser(description="Disposable live local sessions and stock SSH demonstration; no VM or model-provider claims.")
     parser.add_argument("--root", required=True)
     parser.add_argument("--bin-dir", required=True)
+    parser.add_argument("--repository", default="https://github.com/octocat/Hello-World.git")
     args = parser.parse_args()
     os.umask(0o077)
     root = Path(args.root).resolve()
@@ -101,7 +103,9 @@ def main():
         for name in ["internal/control/sessions.go", "internal/control/session_runner.py", "internal/control/authority.go", "internal/control/core.go", "internal/control/store.go", "internal/access/console.go", "tools/sessions_demo.py"]:
             fingerprint.update(name.encode() + b"\0" + (source / name).read_bytes())
         record("scope", observed_at=datetime.now(timezone.utc).isoformat(), source_sha256=fingerprint.hexdigest(), description="Live native PTY sessions through the public Lamp API and stock SSH; partial T21, not a complete ticket demonstration")
-        subprocess.run(["git", "clone", "--quiet", "--depth", "1", "https://github.com/octocat/Hello-World.git", str(root / "work")], check=True, stdin=subprocess.DEVNULL)
+        subprocess.run(["git", "clone", "--quiet", "--depth", "1", args.repository, str(root / "work")], check=True, stdin=subprocess.DEVNULL)
+        readme = next(path for path in (root / "work").iterdir() if path.is_file() and path.name.lower().startswith("readme"))
+        readme_marker = next(line for line in readme.read_text().splitlines() if line.strip())
         (root / "home").mkdir(mode=0o700)
         write("identity.json", {"owner_id": "pr_alice", "bootstrap_sha256": hashlib.sha256(owner_token.encode()).hexdigest(), "subjects": [{"issuer": "sessions-demo", "subject": "bea", "sha256": hashlib.sha256(bea_token.encode()).hexdigest()}]})
         write("sessions.json", {"harnesses": {"hr_shell": {"owner_id": "pr_alice", "argv": ["/bin/sh", "-i"], "cwd": str(root / "work"), "env": {"HOME": str(root / "home"), "PATH": os.defpath}, "auth_modes": ["none"]}}, "hosts": {"hs_local": {"owner_id": "pr_alice", "command": [sys.executable], "root": str(root / "r")}}})
@@ -117,7 +121,7 @@ def main():
         child = call("POST", "/v1/sessions", {"sandbox_id": "", "harness_id": "hr_shell", "parent_session_id": identity, "location": {"kind": "host", "host_id": "hs_local"}})["result"]["session_id"]
         session_ids.append(child)
         wait_for(lambda: resource(child)["state"] == "active")
-        record("separate-live-sessions", sessions=session_ids, parent=resource(child)["parent_session_id"], project="octocat/Hello-World", location="native M5 PTYs, not sandboxes")
+        record("separate-live-sessions", sessions=session_ids, parent=resource(child)["parent_session_id"], project=args.repository, location="native M5 PTYs, not sandboxes")
         hidden = call("GET", "/v1/sessions", token=bea_token)["items"]
         if hidden:
             raise RuntimeError("unshared sessions visible")
@@ -155,7 +159,7 @@ def main():
         lease = call("POST", "/v1/leases", {"type": "input", "resource_id": identity, "expires_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + 240))})["result"]["lease_id"]
         mutation(identity, ":attach", {"lease_id": lease})
         marker = "live-session-" + secrets.token_hex(8)
-        command = "stty -echo; printf '%s\\n' '" + marker + "'; cat README\n"
+        command = "stty -echo; printf '%s\\n' '" + marker + "'; cat " + shlex.quote(readme.name) + "\n"
         revision = resource(identity)["revision"]
         key = secrets.token_hex(16)
         request = {"lease_id": lease, "location_epoch": resource(identity)["location_epoch"], "sequence": 0, "data_base64": base64.b64encode(command.encode()).decode()}
@@ -163,7 +167,7 @@ def main():
         replay = call("POST", "/v1/sessions/" + identity + ":input", request, revision=revision, key=key)
         if not replay["replayed"] or replay["operation_id"] != original["operation_id"]:
             raise RuntimeError("input retry did not return its original durable receipt")
-        wait_for(lambda: marker in text(identity, bea_token) and "Hello World!" in text(identity, bea_token))
+        wait_for(lambda: marker in text(identity, bea_token) and readme_marker in text(identity, bea_token))
         wait_for(lambda: marker in (root / "ssh-watch.txt").read_text(errors="replace"))
         record("live-input-and-watch", project_readme=True, ssh_watch_received_input_result=True, identical_input_retry_replayed=True)
         current = call("GET", "/v1/shares/" + share)["data"]
