@@ -50,3 +50,11 @@ the fix the disposable signed install and all five requested runtime checks
 passed. `make build` and installer Go vet passed; no new tests were added.
 A new scoped Sol round reviews only this follow-up delta, as requested by the
 coordinator. The original two-round exec/PTY approval is unchanged.
+
+Scoped follow-up round: APPROVE at 8978f75, Codex gpt-6.1-sol on medium.
+No findings, no extra tests or edits. Reviewer verified component installation,
+digest/update handling, T39's sibling lookup and the signed release payload.
+The follow-up diff was 16 files, 320 insertions/1 deletion including evidence;
+behavior change remained one line. Usage counts were not exposed. This is one
+additional review of new behavior explicitly requested by the coordinator,
+not a rerun of the original two-round exec review.
