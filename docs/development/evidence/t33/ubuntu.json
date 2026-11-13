@@ -1,0 +1,203 @@
+[
+  {
+    "step": "host_before",
+    "live_firecracker": 1,
+    "available_mib": 14573
+  },
+  {
+    "step": "baseline",
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "synchronous_refusals",
+    "codes": [
+      "NOT_FOUND",
+      "DEVICE_UNAVAILABLE",
+      "INVALID_ARGUMENT",
+      "CONTROL_QUOTA_EXCEEDED"
+    ],
+    "records_added": 0
+  },
+  {
+    "step": "cycles",
+    "completed": 10,
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "cycles",
+    "completed": 20,
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "cycles",
+    "completed": 30,
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "cycles",
+    "completed": 40,
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "host_before",
+    "live_firecracker": 0,
+    "available_mib": 14625
+  },
+  {
+    "step": "baseline",
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "host_before",
+    "live_firecracker": 0,
+    "available_mib": 15200
+  },
+  {
+    "step": "baseline",
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "outage_recovery",
+    "recovered_records": [
+      {
+        "id": "sb_d5eb11ed3bd26b798d9db78875b668bc",
+        "state": "failed"
+      }
+    ],
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "synchronous_refusals",
+    "codes": [
+      "NOT_FOUND",
+      "DEVICE_UNAVAILABLE",
+      "INVALID_ARGUMENT",
+      "NO_CAPACITY"
+    ],
+    "records_added": 0
+  },
+  {
+    "step": "host_before",
+    "live_firecracker": 1,
+    "available_mib": 15523
+  },
+  {
+    "step": "baseline",
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "unknown_request_channel",
+    "result": [
+      {
+        "protocol": "lamp.worker/2",
+        "step": "hello"
+      },
+      {
+        "code": "INVALID_ARGUMENT",
+        "step": "inspect",
+        "unknown_field": true
+      },
+      {
+        "state": "serving",
+        "step": "inspect",
+        "unknown_field": false
+      }
+    ]
+  },
+  {
+    "step": "outage_recovery",
+    "recovered_records": [
+      {
+        "id": "sb_46224c4b19218af442acb083f9632e67",
+        "state": "failed"
+      }
+    ],
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "synchronous_refusals",
+    "codes": [
+      "NOT_FOUND",
+      "DEVICE_UNAVAILABLE",
+      "INVALID_ARGUMENT",
+      "NO_CAPACITY"
+    ],
+    "records_added": 0
+  },
+  {
+    "step": "cycles",
+    "completed": 50,
+    "usage": {
+      "audit_bytes": 0,
+      "disk_gib": 0,
+      "memory_mib": 0,
+      "sandboxes": 0,
+      "vcpus": 0
+    }
+  },
+  {
+    "step": "empty_environment",
+    "stdout": "[]\nLinux\n",
+    "state": "ready"
+  }
+]

@@ -485,9 +485,6 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 	sb.OwnerId = a.Principal
 	if name == "sandbox_create" || name == "sandbox_fork" {
 		s.bindDefaultTask(a, &sb)
-		if name == "sandbox_fork" {
-			s.chargeFork(sb)
-		}
 	}
 	visibility := "control"
 	if name == "exec_create" {

@@ -292,3 +292,14 @@ See [T3-evidence.md](T3-evidence.md) for captured results. The real T2 worker,
 signed-grant issuance, guest marker, engine/guard attachment and the <500 ms
 create / <1000 ms fork claims remain T6 integration/gate evidence. The host
 fixture is explicitly not a substitute for those tests.
+
+T33 also removes permanent retained-capture charges for temporary sandbox forks.
+The live child keeps its ordinary resource reservation; explicit snapshots and
+shares keep their retained-capture charges. On startup, old fork charges are
+subtracted once from the corresponding budget using the retained fork records.
+`lamp quota` includes retained capture bytes, command slots and operation records
+as well as live resources. Retained operation records still count toward the
+configured control-record quota.
+
+Real T33 results and remaining platform limits are recorded in
+[evidence/t33/README.md](evidence/t33/README.md).

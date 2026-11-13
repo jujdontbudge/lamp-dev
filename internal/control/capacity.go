@@ -163,8 +163,24 @@ func guardReleaseError(command, sandbox, action string, err error) error {
 // Metrics expose the effective local control quota and charged resources for the
 // authenticated principal. Host admission remains authoritative in the engine.
 func (s *Service) capacityMetrics(w http.ResponseWriter, id string, a caller) {
-	used := map[string]uint64{"sandboxes": 0, "vcpus": 0, "memory_mib": 0, "disk_gib": 0, "audit_bytes": 0}
+	used := map[string]uint64{"sandboxes": 0, "vcpus": 0, "memory_mib": 0, "disk_gib": 0, "audit_bytes": 0, "retained_bytes": 0, "execs": 0, "records": 0}
 	pending := []string{}
+	for budget, bytes := range s.journal.Accountability.RetainedBytes {
+		if s.journal.Accountability.Budgets[budget].OwnerId == a.Principal {
+			used["retained_bytes"] += bytes
+			used["disk_gib"] += (bytes + (1 << 30) - 1) >> 30
+		}
+	}
+	for _, ex := range s.journal.Execs {
+		if ex.OwnerId == a.Principal && s.execCharged(ex) {
+			used["execs"]++
+		}
+	}
+	for _, rec := range s.journal.Operations {
+		if rec.Operation.OwnerId == a.Principal {
+			used["records"]++
+		}
+	}
 	for sid, sb := range s.journal.Sandboxes {
 		if sb.OwnerId != a.Principal {
 			continue

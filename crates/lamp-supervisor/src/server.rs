@@ -193,7 +193,7 @@ impl Server {
                     && fds.is_empty() => {}
             _ => {
                 return Err(std::io::Error::other(
-                    "peer did not send a valid lamp.worker/1 Hello",
+                    "peer did not send a valid lamp.worker/2 Hello",
                 ));
             }
         }
