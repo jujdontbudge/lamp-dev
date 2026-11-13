@@ -29,7 +29,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 GO_BINS = ['lampd', 'lamp', 'lamp-installer', 'lamp-access', 'lamp-mcp', 'lamp-broker',
-           'lamp-network', 'lamp-access-cloudflare', 'lamp-fleet', 'lamp-relay-client', 'lamp-gitlab-executor', 'lamp-fleeting']
+           'lamp-network', 'lamp-access-cloudflare', 'lamp-fleet', 'lamp-relay-client',
+           'lamp-ingress', 'lamp-account', 'lamp-issuer', 'lamp-dns-cloudflare',
+           'lamp-gitlab-executor', 'lamp-fleeting']
 SITE = 'https://lamp.eilmer.si'  # a Cloudflare Worker in front of the public project (tools/release/worker.js)
 RCODESIGN = os.environ.get('RCODESIGN', str(Path.home() / '.local/rcodesign/bin/rcodesign'))
 
