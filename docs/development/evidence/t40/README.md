@@ -231,3 +231,13 @@ A/B write visibility, persistence after producer deletion, and remount/data
 availability after daemon restart. M5 ST01 cached-wheel reuse and requested
 resource shapes also passed. These are the earlier recorded runtime runs;
 this documentation update does not claim a new demonstration after T44/T45.
+
+## Final coordinator merge-slot rebase
+
+Rebased onto `2028391`, including T43 `e8a3abb`, T34 `2a72523` and the
+T35 follow-up. Conflict resolution retains snapshot capture restore sources,
+skipping selected-template archive replay when creating from a snapshot.
+Warm-pool admission requires matching resources and no explicit task or budget.
+Other T40 behavior patches are unchanged. `make build`, scoped Go vet and the
+existing T34/T40 reviewer checks pass; no tests added. Mac approval and the
+recorded M5 volume pass remain unchanged; no new runtime demonstration claimed.
