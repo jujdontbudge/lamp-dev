@@ -329,7 +329,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 				if !exists {
 					return usage("--expected-revision is required for this command")
 				}
-				raw, status, err := client.Call(ctx, get, map[string]any{kind + "_id": in[kind+"_id"]})
+				readInput := map[string]any{}
+				readProps, _ := surface.Definition(get.InputSchema)["properties"].(map[string]any)
+				for field := range readProps {
+					if value, exists := in[field]; exists {
+						readInput[field] = value
+					}
+				}
+				raw, status, err := client.Call(ctx, get, readInput)
 				if err != nil {
 					cliError(stderr, "DATA_UNAVAILABLE", err.Error(), asJSON)
 					return 6

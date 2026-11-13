@@ -201,6 +201,10 @@ func humanResult(out io.Writer, raw []byte) {
 			r := ref.(map[string]any)
 			fmt.Fprintf(out, "%v %v\n", r["kind"], r["id"])
 		}
+		if result, ok := m["result"]; ok && result != nil {
+			formatted, _ := json.MarshalIndent(result, "", "  ")
+			fmt.Fprintln(out, string(formatted))
+		}
 		return
 	}
 	var pretty map[string]any
