@@ -166,3 +166,15 @@ served OpenAPI filtering. Its shared discovery request now uses the narrow
 Removed T37's duplicate discovery helpers. Rebuilt all three binaries and
 repeated the disposable completion demonstration: all eleven operations passed
 and CLI/HTTP/MCP still exposed 222 identical names. `make build` passed.
+
+### Completion Sol review ledger
+
+Completion round 1 (GPT-6.1 Sol, medium effort, priority) found S2, should:
+clean-handoff recipient reads ignored an expiry accepted by `share_update`.
+The reviewer's focused HTTP reproducer failed locally with HTTP 200 after
+expiry. Recipient authorization now checks that expiry. The same reproducer
+and the existing scoped MCP discovery regression passed together (1.687s),
+and `make build` passed. One 46-line reviewer regression was retained; no
+other expansion tests were added. Prior S1 remains resolved, and no findings
+were declined. Token usage was not returned. Before the completion review,
+the expansion diff was 18 files, 814 additions and 77 deletions.
