@@ -1,0 +1,440 @@
++ go build -o /tmp/t47-release/assets/.work/host/ ./cmd/lamp-installer
++ go build -trimpath -ldflags=-s -w -X lamp.eilmer.si/internal/buildversion.Version=0.1.2 -o /tmp/t47-release/assets/.work/linux-amd64/ ./cmd/lampd ./cmd/lamp ./cmd/lamp-installer ./cmd/lamp-access ./cmd/lamp-mcp ./cmd/lamp-broker ./cmd/lamp-network ./cmd/lamp-access-cloudflare ./cmd/lamp-fleet ./cmd/lamp-relay-client ./cmd/lamp-ingress ./cmd/lamp-account ./cmd/lamp-issuer ./cmd/lamp-dns-cloudflare ./cmd/lamp-gitlab-executor ./cmd/lamp-fleeting
++ scp ubuntu-server:lamp-t47/target/release/lamp-supervisor /tmp/t47-release/assets/.work/linux-amd64/lamp-supervisor
++ scp ubuntu-server:lamp-t47/target/release/lamp-guard /tmp/t47-release/assets/.work/linux-amd64/lamp-guard
++ scp ubuntu-server:lamp-t47/target/release/lamp-plugin-launcher /tmp/t47-release/assets/.work/linux-amd64/lamp-plugin-launcher
++ /tmp/t47-release/assets/.work/host/lamp-installer build --version 0.1.2 --os linux --arch amd64 --key /Users/johansardar/.config/lamp/release/release.key --out /tmp/t47-release/assets/.work/releases-linux-amd64 --file bin/lampd=/tmp/t47-release/assets/.work/linux-amd64/lampd --file bin/lamp=/tmp/t47-release/assets/.work/linux-amd64/lamp --file bin/lamp-installer=/tmp/t47-release/assets/.work/linux-amd64/lamp-installer --file bin/lamp-access=/tmp/t47-release/assets/.work/linux-amd64/lamp-access --file bin/lamp-mcp=/tmp/t47-release/assets/.work/linux-amd64/lamp-mcp --file bin/lamp-broker=/tmp/t47-release/assets/.work/linux-amd64/lamp-broker --file bin/lamp-network=/tmp/t47-release/assets/.work/linux-amd64/lamp-network --file bin/lamp-access-cloudflare=/tmp/t47-release/assets/.work/linux-amd64/lamp-access-cloudflare --file bin/lamp-fleet=/tmp/t47-release/assets/.work/linux-amd64/lamp-fleet --file bin/lamp-relay-client=/tmp/t47-release/assets/.work/linux-amd64/lamp-relay-client --file bin/lamp-ingress=/tmp/t47-release/assets/.work/linux-amd64/lamp-ingress --file bin/lamp-account=/tmp/t47-release/assets/.work/linux-amd64/lamp-account --file bin/lamp-issuer=/tmp/t47-release/assets/.work/linux-amd64/lamp-issuer --file bin/lamp-dns-cloudflare=/tmp/t47-release/assets/.work/linux-amd64/lamp-dns-cloudflare --file bin/lamp-gitlab-executor=/tmp/t47-release/assets/.work/linux-amd64/lamp-gitlab-executor --file bin/lamp-fleeting=/tmp/t47-release/assets/.work/linux-amd64/lamp-fleeting --file LICENSE=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/LICENSE --file THIRD_PARTY.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/THIRD_PARTY.md --file licenses/relay-AGPL-3.0.txt=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/internal/relay/LICENSE --file assets/icon.svg=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/assets/icon.svg --file contracts/public/schema.json=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/contracts/public/schema.json --file GLOSSARY.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/GLOSSARY.md --file docs/agent-workflow.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/agent-workflow.md --file docs/agents.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/agents.md --file docs/access.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/access.md --file docs/hosted.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/hosted.md --file tools/plugin-launcher.c=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/plugin-launcher.c --file README.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/README.md --file docs/install.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/install.md --file docs/guest-linux.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/guest-linux.md --file docs/lifecycle-and-recovery.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/lifecycle-and-recovery.md --file docs/networking.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/networking.md --file docs/templates-and-storage.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/templates-and-storage.md --file docs/guides/kits.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/guides/kits.md --file docs/dashboard.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/dashboard.md --file docs/control-operations.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/control-operations.md --file docs/ci.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/ci.md --file docs/release/0.1.1.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/0.1.1.md --file docs/release/0.1.2.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/0.1.2.md --file docs/release/fleets-and-access.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/fleets-and-access.md --file docs/release/measurements.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/measurements.md --file docs/release/publishing.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/publishing.md --file tools/session_acp.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_acp.py --file tools/session_herdr.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_herdr.py --file tools/session_public.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_public.py --file tools/session_ssh.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_ssh.py --file tools/session_mcp.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_mcp.py --file tools/guard-audit-release.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/guard-audit-release.py --file infra/linux/install-engine.sh=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/infra/linux/install-engine.sh --file infra/linux/lamp-supervisor.service=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/infra/linux/lamp-supervisor.service --file infra/linux/var-lib-lamp.mount=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/infra/linux/var-lib-lamp.mount --file bin/lamp-supervisor=/tmp/t47-release/assets/.work/linux-amd64/lamp-supervisor --file bin/lamp-guard=/tmp/t47-release/assets/.work/linux-amd64/lamp-guard --file bin/lamp-plugin-launcher=/tmp/t47-release/assets/.work/linux-amd64/lamp-plugin-launcher --file bin/firecracker=/tmp/t47-release/fc-amd64/firecracker --file bin/jailer=/tmp/t47-release/fc-amd64/jailer --file seed/seed.json=/tmp/t47-release/seed-linux-amd64/seed.json --file seed/vmlinux=/tmp/t47-release/seed-linux-amd64/vmlinux --file seed/packages.txt=/tmp/t47-release/seed-linux-amd64/packages.txt --file seed/rootfs.ext4.gz=/tmp/t47-release/seed-linux-amd64/rootfs.ext4.gz --snapshot-format 1
+built 0.1.2 linux/amd64 with 60 files
++ /tmp/t47-release/assets/.work/host/lamp-installer index --release /tmp/t47-release/assets/.work/releases-linux-amd64 --key /Users/johansardar/.config/lamp/release/release.key --metadata-version 1
+indexed 0.1.2 (1 platforms) release_digest sha256:d838e1b343896fc4bed0a07d461e961568718f1d8a840960e437885f8443d175
++ go build -trimpath -ldflags=-s -w -X lamp.eilmer.si/internal/buildversion.Version=0.1.2 -o /tmp/t47-release/assets/.work/linux-arm64/ ./cmd/lampd ./cmd/lamp ./cmd/lamp-installer ./cmd/lamp-access ./cmd/lamp-mcp ./cmd/lamp-broker ./cmd/lamp-network ./cmd/lamp-access-cloudflare ./cmd/lamp-fleet ./cmd/lamp-relay-client ./cmd/lamp-ingress ./cmd/lamp-account ./cmd/lamp-issuer ./cmd/lamp-dns-cloudflare ./cmd/lamp-gitlab-executor ./cmd/lamp-fleeting
++ scp -F /Users/johansardar/.lima/lamp-la/ssh.config lima-lamp-la:lamp-t47/target/release/lamp-supervisor /tmp/t47-release/assets/.work/linux-arm64/lamp-supervisor
++ scp -F /Users/johansardar/.lima/lamp-la/ssh.config lima-lamp-la:lamp-t47/target/release/lamp-guard /tmp/t47-release/assets/.work/linux-arm64/lamp-guard
++ scp -F /Users/johansardar/.lima/lamp-la/ssh.config lima-lamp-la:lamp-t47/target/release/lamp-plugin-launcher /tmp/t47-release/assets/.work/linux-arm64/lamp-plugin-launcher
++ /tmp/t47-release/assets/.work/host/lamp-installer build --version 0.1.2 --os linux --arch arm64 --key /Users/johansardar/.config/lamp/release/release.key --out /tmp/t47-release/assets/.work/releases-linux-arm64 --file bin/lampd=/tmp/t47-release/assets/.work/linux-arm64/lampd --file bin/lamp=/tmp/t47-release/assets/.work/linux-arm64/lamp --file bin/lamp-installer=/tmp/t47-release/assets/.work/linux-arm64/lamp-installer --file bin/lamp-access=/tmp/t47-release/assets/.work/linux-arm64/lamp-access --file bin/lamp-mcp=/tmp/t47-release/assets/.work/linux-arm64/lamp-mcp --file bin/lamp-broker=/tmp/t47-release/assets/.work/linux-arm64/lamp-broker --file bin/lamp-network=/tmp/t47-release/assets/.work/linux-arm64/lamp-network --file bin/lamp-access-cloudflare=/tmp/t47-release/assets/.work/linux-arm64/lamp-access-cloudflare --file bin/lamp-fleet=/tmp/t47-release/assets/.work/linux-arm64/lamp-fleet --file bin/lamp-relay-client=/tmp/t47-release/assets/.work/linux-arm64/lamp-relay-client --file bin/lamp-ingress=/tmp/t47-release/assets/.work/linux-arm64/lamp-ingress --file bin/lamp-account=/tmp/t47-release/assets/.work/linux-arm64/lamp-account --file bin/lamp-issuer=/tmp/t47-release/assets/.work/linux-arm64/lamp-issuer --file bin/lamp-dns-cloudflare=/tmp/t47-release/assets/.work/linux-arm64/lamp-dns-cloudflare --file bin/lamp-gitlab-executor=/tmp/t47-release/assets/.work/linux-arm64/lamp-gitlab-executor --file bin/lamp-fleeting=/tmp/t47-release/assets/.work/linux-arm64/lamp-fleeting --file LICENSE=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/LICENSE --file THIRD_PARTY.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/THIRD_PARTY.md --file licenses/relay-AGPL-3.0.txt=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/internal/relay/LICENSE --file assets/icon.svg=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/assets/icon.svg --file contracts/public/schema.json=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/contracts/public/schema.json --file GLOSSARY.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/GLOSSARY.md --file docs/agent-workflow.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/agent-workflow.md --file docs/agents.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/agents.md --file docs/access.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/access.md --file docs/hosted.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/hosted.md --file tools/plugin-launcher.c=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/plugin-launcher.c --file README.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/README.md --file docs/install.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/install.md --file docs/guest-linux.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/guest-linux.md --file docs/lifecycle-and-recovery.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/lifecycle-and-recovery.md --file docs/networking.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/networking.md --file docs/templates-and-storage.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/templates-and-storage.md --file docs/guides/kits.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/guides/kits.md --file docs/dashboard.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/dashboard.md --file docs/control-operations.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/control-operations.md --file docs/ci.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/ci.md --file docs/release/0.1.1.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/0.1.1.md --file docs/release/0.1.2.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/0.1.2.md --file docs/release/fleets-and-access.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/fleets-and-access.md --file docs/release/measurements.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/measurements.md --file docs/release/publishing.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/publishing.md --file tools/session_acp.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_acp.py --file tools/session_herdr.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_herdr.py --file tools/session_public.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_public.py --file tools/session_ssh.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_ssh.py --file tools/session_mcp.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_mcp.py --file tools/guard-audit-release.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/guard-audit-release.py --file infra/linux/install-engine.sh=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/infra/linux/install-engine.sh --file infra/linux/lamp-supervisor.service=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/infra/linux/lamp-supervisor.service --file infra/linux/var-lib-lamp.mount=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/infra/linux/var-lib-lamp.mount --file bin/lamp-supervisor=/tmp/t47-release/assets/.work/linux-arm64/lamp-supervisor --file bin/lamp-guard=/tmp/t47-release/assets/.work/linux-arm64/lamp-guard --file bin/lamp-plugin-launcher=/tmp/t47-release/assets/.work/linux-arm64/lamp-plugin-launcher --file bin/firecracker=/tmp/t47-release/fc-arm64/firecracker --file bin/jailer=/tmp/t47-release/fc-arm64/jailer --file seed/seed.json=/tmp/t47-release/seed-linux-arm64/seed.json --file seed/vmlinux=/tmp/t47-release/seed-linux-arm64/vmlinux --file seed/packages.txt=/tmp/t47-release/seed-linux-arm64/packages.txt --file seed/rootfs.ext4.gz=/tmp/t47-release/seed-linux-arm64/rootfs.ext4.gz --snapshot-format 1
+built 0.1.2 linux/arm64 with 60 files
++ /tmp/t47-release/assets/.work/host/lamp-installer index --release /tmp/t47-release/assets/.work/releases-linux-arm64 --key /Users/johansardar/.config/lamp/release/release.key --metadata-version 1
+indexed 0.1.2 (1 platforms) release_digest sha256:270b7f6f32b6451ec51293d21e134888c8c8a8b4aefd157c6e23f4991d4b1adc
++ go build -trimpath -ldflags=-s -w -X lamp.eilmer.si/internal/buildversion.Version=0.1.2 -o /tmp/t47-release/assets/.work/darwin-arm64/ ./cmd/lampd ./cmd/lamp ./cmd/lamp-installer ./cmd/lamp-access ./cmd/lamp-mcp ./cmd/lamp-broker ./cmd/lamp-network ./cmd/lamp-access-cloudflare ./cmd/lamp-fleet ./cmd/lamp-relay-client ./cmd/lamp-ingress ./cmd/lamp-account ./cmd/lamp-issuer ./cmd/lamp-dns-cloudflare ./cmd/lamp-gitlab-executor ./cmd/lamp-fleeting
++ cargo build --release --locked -p lamp-vz -p lamp-supervisor
+    Finished `release` profile [optimized] target(s) in 0.13s
++ cc -O2 -Wall -Wextra -Werror -o /tmp/t47-release/assets/.work/darwin-arm64/lamp-plugin-launcher /Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/plugin-launcher.c
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lampd
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lampd in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lampd as a Mach-O binary
+setting binary identifier to lampd
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lampd
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp as a Mach-O binary
+setting binary identifier to lamp
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-installer
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-installer in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-installer as a Mach-O binary
+setting binary identifier to lamp-installer
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-installer
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-access
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-access in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-access as a Mach-O binary
+setting binary identifier to lamp-access
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-access
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-mcp
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-mcp in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-mcp as a Mach-O binary
+setting binary identifier to lamp-mcp
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-mcp
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-broker
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-broker in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-broker as a Mach-O binary
+setting binary identifier to lamp-broker
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-broker
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-network
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-network in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-network as a Mach-O binary
+setting binary identifier to lamp-network
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-network
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-access-cloudflare
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-access-cloudflare in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-access-cloudflare as a Mach-O binary
+setting binary identifier to lamp-access-cloudflare
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-access-cloudflare
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-fleet
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-fleet in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-fleet as a Mach-O binary
+setting binary identifier to lamp-fleet
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-fleet
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-relay-client
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-relay-client in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-relay-client as a Mach-O binary
+setting binary identifier to lamp-relay-client
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-relay-client
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-ingress
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-ingress in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-ingress as a Mach-O binary
+setting binary identifier to lamp-ingress
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-ingress
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-account
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-account in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-account as a Mach-O binary
+setting binary identifier to lamp-account
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-account
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-issuer
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-issuer in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-issuer as a Mach-O binary
+setting binary identifier to lamp-issuer
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-issuer
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-dns-cloudflare
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-dns-cloudflare in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-dns-cloudflare as a Mach-O binary
+setting binary identifier to lamp-dns-cloudflare
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-dns-cloudflare
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-gitlab-executor
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-gitlab-executor in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-gitlab-executor as a Mach-O binary
+setting binary identifier to lamp-gitlab-executor
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-gitlab-executor
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-fleeting
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-fleeting in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-fleeting as a Mach-O binary
+setting binary identifier to lamp-fleeting
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-fleeting
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization --entitlements-xml-file /Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/crates/lamp-vz/lamp-vz.entitlements /tmp/t47-release/assets/.work/darwin-arm64/lamp-vz
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+setting entitlements XML for main signing target from path /Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/crates/lamp-vz/lamp-vz.entitlements
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-vz in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-vz as a Mach-O binary
+setting binary identifier to lamp-vz
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-vz
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-supervisor
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-supervisor in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-supervisor as a Mach-O binary
+setting binary identifier to lamp-supervisor
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-supervisor
++ /Users/johansardar/.local/rcodesign/bin/rcodesign sign --certificate-der-file /Users/johansardar/.config/lamp/apple/devid-application.cer --pem-file /Users/johansardar/.config/lamp/apple/devid-application.key --code-signature-flags runtime --for-notarization /tmp/t47-release/assets/.work/darwin-arm64/lamp-plugin-launcher
+reading PEM data from /Users/johansardar/.config/lamp/apple/devid-application.key
+reading DER file /Users/johansardar/.config/lamp/apple/devid-application.cer
+registering signing key
+automatically registered Apple CA certificate: Developer ID Certification Authority
+automatically registered Apple CA certificate: Apple Root CA
+using time-stamp protocol server http://timestamp.apple.com/ts01
+automatically setting team ID from signing certificate: AX3C2B78YD
+removing code signature flags CodeSignatureFlags(RUNTIME) from main signing target
+adding code signature flag CodeSignatureFlags(RUNTIME) to main signing target
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-plugin-launcher in place
+signing /tmp/t47-release/assets/.work/darwin-arm64/lamp-plugin-launcher as a Mach-O binary
+setting binary identifier to lamp-plugin-launcher
+parsing Mach-O
+creating cryptographic signature with certificate Developer ID Application: JOHAN AMIT SARDAR (AX3C2B78YD)
+writing Mach-O to /tmp/t47-release/assets/.work/darwin-arm64/lamp-plugin-launcher
++ ditto -c -k --keepParent /tmp/t47-release/assets/.work/notarize /tmp/t47-release/assets/.work/notarize.zip
+
+notary log>       "path": "notarize.zip/notarize/lamp"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "5d288e1c7ad7e30a401d7e0e65154487ce1da940",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-gitlab-executor"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "fda5df9189001124f9c4402b82a23ce8474ddea1",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-access"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "cfa4d1c8a4310909ea201ecf56d3669f220021dd",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-mcp"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "e12af33891d94e07d26bc1a1e4a52f94770265b7",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-vz"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "fb36e80f1f00c381a97c6a25d062eac92a640933",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-installer"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "cc2b700f64f77e2a016ed48517ef7bdb8ec120c7",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-fleeting"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "0f68e0f2149e38a0d8de44a6bda22e0ac0f8609b",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-fleet"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "d4f4545fe7fcb3e7210e6d9a62109e09eaeaf7b0",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-supervisor"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "1a452d3fbc3b5fffc4817e73219ad5c03438c708",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-access-cloudflare"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "adcf418e257cf652e7387045f4facf3b4ad26af4",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-network"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "20cbdc36096a592448b5da3d48f832991a8f28ef",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-issuer"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "9bc47e319a0afb209eb19af536168b4bd9427144",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-dns-cloudflare"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "d4870e7fa7905ab30a02995a64d7fd8c75307414",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-relay-client"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "3aa28a66f88761327d5edc7f37ab3496b371f18d",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lamp-ingress"
+notary log>     },
+notary log>     {
+notary log>       "arch": "arm64",
+notary log>       "cdhash": "f4155dce3e59df064cf9b3920b00414c788ad9f3",
+notary log>       "digestAlgorithm": "SHA-256",
+notary log>       "path": "notarize.zip/notarize/lampd"
+notary log>     }
+notary log>   ],
+notary log>   "uploadDate": "2026-11-13T16:01:28.860Z"
+notary log> }
+
++ /tmp/t47-release/assets/.work/host/lamp-installer build --version 0.1.2 --os darwin --arch arm64 --key /Users/johansardar/.config/lamp/release/release.key --out /tmp/t47-release/assets/.work/releases-darwin-arm64 --file bin/lampd=/tmp/t47-release/assets/.work/darwin-arm64/lampd --file bin/lamp=/tmp/t47-release/assets/.work/darwin-arm64/lamp --file bin/lamp-installer=/tmp/t47-release/assets/.work/darwin-arm64/lamp-installer --file bin/lamp-access=/tmp/t47-release/assets/.work/darwin-arm64/lamp-access --file bin/lamp-mcp=/tmp/t47-release/assets/.work/darwin-arm64/lamp-mcp --file bin/lamp-broker=/tmp/t47-release/assets/.work/darwin-arm64/lamp-broker --file bin/lamp-network=/tmp/t47-release/assets/.work/darwin-arm64/lamp-network --file bin/lamp-access-cloudflare=/tmp/t47-release/assets/.work/darwin-arm64/lamp-access-cloudflare --file bin/lamp-fleet=/tmp/t47-release/assets/.work/darwin-arm64/lamp-fleet --file bin/lamp-relay-client=/tmp/t47-release/assets/.work/darwin-arm64/lamp-relay-client --file bin/lamp-ingress=/tmp/t47-release/assets/.work/darwin-arm64/lamp-ingress --file bin/lamp-account=/tmp/t47-release/assets/.work/darwin-arm64/lamp-account --file bin/lamp-issuer=/tmp/t47-release/assets/.work/darwin-arm64/lamp-issuer --file bin/lamp-dns-cloudflare=/tmp/t47-release/assets/.work/darwin-arm64/lamp-dns-cloudflare --file bin/lamp-gitlab-executor=/tmp/t47-release/assets/.work/darwin-arm64/lamp-gitlab-executor --file bin/lamp-fleeting=/tmp/t47-release/assets/.work/darwin-arm64/lamp-fleeting --file bin/lamp-vz=/tmp/t47-release/assets/.work/darwin-arm64/lamp-vz --file bin/lamp-supervisor=/tmp/t47-release/assets/.work/darwin-arm64/lamp-supervisor --file bin/lamp-plugin-launcher=/tmp/t47-release/assets/.work/darwin-arm64/lamp-plugin-launcher --file LICENSE=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/LICENSE --file THIRD_PARTY.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/THIRD_PARTY.md --file licenses/relay-AGPL-3.0.txt=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/internal/relay/LICENSE --file assets/icon.svg=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/assets/icon.svg --file contracts/public/schema.json=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/contracts/public/schema.json --file GLOSSARY.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/GLOSSARY.md --file docs/agent-workflow.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/agent-workflow.md --file docs/agents.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/agents.md --file docs/access.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/access.md --file docs/hosted.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/hosted.md --file tools/plugin-launcher.c=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/plugin-launcher.c --file README.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/README.md --file docs/install.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/install.md --file docs/guest-linux.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/guest-linux.md --file docs/lifecycle-and-recovery.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/lifecycle-and-recovery.md --file docs/networking.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/networking.md --file docs/templates-and-storage.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/templates-and-storage.md --file docs/guides/kits.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/guides/kits.md --file docs/dashboard.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/dashboard.md --file docs/control-operations.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/control-operations.md --file docs/ci.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/ci.md --file docs/release/0.1.1.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/0.1.1.md --file docs/release/0.1.2.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/0.1.2.md --file docs/release/fleets-and-access.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/fleets-and-access.md --file docs/release/measurements.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/measurements.md --file docs/release/publishing.md=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/docs/release/publishing.md --file tools/session_acp.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_acp.py --file tools/session_herdr.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_herdr.py --file tools/session_public.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_public.py --file tools/session_ssh.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_ssh.py --file tools/session_mcp.py=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/tools/session_mcp.py --file infra/mac/install-engine.sh=/Users/johansardar/.t3/worktrees/lamp/t3-2bc25ef6-6f1aef1e0085b2cc/infra/mac/install-engine.sh --file seed/seed.json=/tmp/t47-release/seed-darwin-arm64/seed.json --file seed/Image=/tmp/t47-release/seed-darwin-arm64/Image --file seed/packages.txt=/tmp/t47-release/seed-darwin-arm64/packages.txt --file seed/rootfs.ext4.gz=/tmp/t47-release/seed-darwin-arm64/rootfs.ext4.gz --snapshot-format 1
+built 0.1.2 darwin/arm64 with 55 files
++ /tmp/t47-release/assets/.work/host/lamp-installer index --release /tmp/t47-release/assets/.work/releases-darwin-arm64 --key /Users/johansardar/.config/lamp/release/release.key --metadata-version 1
+indexed 0.1.2 (1 platforms) release_digest sha256:31171782f1993af50be30776fc190be26dbd72b29426916fc7018ca731623406
++ go build -trimpath -ldflags=-s -w -X lamp.eilmer.si/internal/buildversion.Version=0.1.2 -o /tmp/t47-release/assets/.work/relay-linux-amd64/ ./cmd/lamp-relay
++ go build -trimpath -ldflags=-s -w -X lamp.eilmer.si/internal/buildversion.Version=0.1.2 -o /tmp/t47-release/assets/.work/relay-linux-arm64/ ./cmd/lamp-relay
++ go build -trimpath -ldflags=-s -w -X lamp.eilmer.si/internal/buildversion.Version=0.1.2 -o /tmp/t47-release/assets/.work/relay-darwin-arm64/ ./cmd/lamp-relay
+ec3be04b55c77028ac329420ecee4d4a6857b7de1470ad1c8c5e4616f36d9b72  install.sh
+53cbf630c9cf2ee34311a5cfd6e45b408d02fcdd5d5196e3f7b351b83e3115c6  lamp-0.1.2-darwin-arm64.tar.gz
+fbfa6dff458e80be478f1647139121c630f726cfb8d2ae591b532ded2dc67ef9  lamp-0.1.2-linux-amd64.tar.gz
+fc4a6ad00f60c185ef5c8fbbc87233155febd32ab8996120713dc06714f944d5  lamp-0.1.2-linux-arm64.tar.gz
+bead37423c651a7f39b41c27619b5ff3e9e5130d44a7d3f12ec57f0b9f0d7ee9  lamp-relay-0.1.2-darwin-arm64.tar.gz
+888a36a1c6e1a5569f1fc0ce90845560cf3ab458f5f97ede19cde33aa76496cb  lamp-relay-0.1.2-linux-amd64.tar.gz
+28ac7a61a3d9fc34ec14f8e7c9e3094c47677572e112bc83c5c3eeb773fbf2df  lamp-relay-0.1.2-linux-arm64.tar.gz
+99e1dfb5481ada5b48fbb4ac3158daf5a87c967e07704d9445f428174bee6b85  release-trust.pub
+d969247c33ae98090e55697a37524c4c8a596dc38ad254dc5fb713e9c9d8bd7a  release.json
