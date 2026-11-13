@@ -1,0 +1,8 @@
+{"at": "2026-11-13T02:15:26Z", "step": "before sandbox create", "value": {"available_mib": 14688, "firecracker": 1}}
+{"at": "2026-11-13T02:15:26Z", "step": "owner service access", "value": {"access": "off", "read": "blocked URLError <urlopen error [Errno 111] Connection refused>", "service_methods": [], "write": "blocked URLError <urlopen error [Errno 111] Connection refused>"}}
+{"at": "2026-11-13T02:15:27Z", "step": "owner service access", "value": {"access": "ask_first", "read": "blocked URLError <urlopen error [Errno 111] Connection refused>", "service_methods": [], "write": "blocked URLError <urlopen error [Errno 111] Connection refused>"}}
+{"at": "2026-11-13T02:15:27Z", "step": "owner service access", "value": {"access": "read_only", "read": "200\nowner-dummy", "service_methods": ["GET"], "write": "blocked HTTPError HTTP Error 403: Forbidden"}}
+{"at": "2026-11-13T02:15:27Z", "step": "owner service access", "value": {"access": "full", "read": "200\nowner-dummy", "service_methods": ["GET", "POST"], "write": "201\nowner-write"}}
+{"at": "2026-11-13T02:15:27Z", "step": "before sandbox create", "value": {"available_mib": 14492, "firecracker": 2}}
+{"at": "2026-11-13T02:15:28Z", "step": "worker stopped", "value": {"pid": 1197231}}
+{"at": "2026-11-13T02:15:28Z", "step": "final budget", "value": {"available_mib": 14581, "firecracker": 1}}

@@ -129,6 +129,7 @@ fn command_name(command: &request::Command) -> &'static str {
         request::Command::Cancel(_) => "cancel",
         request::Command::Rebuild(_) => "rebuild",
         request::Command::SessionCall(_) => "session_call",
+        request::Command::NetworkCall(_) => "network_call",
     }
 }
 
@@ -506,6 +507,15 @@ impl Server {
             request::Command::Inspect(i) => self
                 .engine
                 .inspect(&ctx.sandbox_id, &i.command_operation_id),
+            #[cfg(target_os = "linux")]
+            request::Command::NetworkCall(call) => {
+                self.engine.network_call(auth, call.request_json)
+            }
+            #[cfg(target_os = "macos")]
+            request::Command::NetworkCall(_) => Err(EngineError::new(
+                "ENGINE_UNQUALIFIED",
+                "this engine has no managed data NIC",
+            )),
             #[cfg(target_os = "linux")]
             request::Command::SessionCall(call) => {
                 self.engine

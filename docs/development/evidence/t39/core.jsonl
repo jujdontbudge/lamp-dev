@@ -1,0 +1,24 @@
+{"at": "2026-11-13T02:14:21Z", "step": "lampd started", "value": {"lampd_sha256": "ee03e9481656bec5a20ca8744be862e38701723d32a03a264316a38efd91122d", "pid": 1189504}}
+{"at": "2026-11-13T02:14:21Z", "step": "before sandbox create", "value": {"available_mib": 14918, "firecracker": 0}}
+{"at": "2026-11-13T02:14:22Z", "step": "sandbox ready", "value": {"sandbox_id": "sb_e54cd0b937816c9a7345a59c80f918ca", "state": "ready"}}
+{"at": "2026-11-13T02:14:23Z", "step": "preview", "value": {"body": "hi-from-sandbox", "url": "http://p-820efc64f5bb68fa5cf1e5af1b62fc24.localhost:43717", "with_auth": 200, "without_auth": 403}}
+{"at": "2026-11-13T02:14:23Z", "step": "share revoked", "value": {"status": 403}}
+{"at": "2026-11-13T02:14:26Z", "step": "share expired", "value": {"status": 403}}
+{"at": "2026-11-13T02:14:26Z", "step": "public preview", "value": {"status": 200}}
+{"at": "2026-11-13T02:14:26Z", "step": "SSE preview", "value": {"events": ["first", "second"]}}
+{"at": "2026-11-13T02:14:26Z", "step": "WebSocket preview", "value": {"echo": "echo", "upgrade": 101}}
+{"at": "2026-11-13T02:14:27Z", "step": "allow list", "value": {"effective_policy_revision": 2, "output": "200\n\nblocked URLError <urlopen error Lamp DNS refused>\n"}}
+{"at": "2026-11-13T02:14:27Z", "step": "live policy edited", "value": {"effective_policy_revision": 3, "output": "200\n\n"}}
+{"at": "2026-11-13T02:14:27Z", "step": "before sandbox create", "value": {"available_mib": 14744, "firecracker": 1}}
+{"at": "2026-11-13T02:14:28Z", "step": "sandbox ready", "value": {"sandbox_id": "sb_a31949983689a8eff01634af517bde40", "state": "ready"}}
+{"at": "2026-11-13T02:14:28Z", "step": "directional private grant", "value": {"endpoint": "198.18.1.9:8080", "output": "200\nfrom-b\n\nport22-blocked URLError <urlopen error [Errno 111] Connection refused>\n"}}
+{"at": "2026-11-13T02:14:28Z", "step": "private grant revoked", "value": {"output": "revoked URLError <urlopen error [Errno 111] Connection refused>\n"}}
+{"at": "2026-11-13T02:14:28Z", "step": "lampd stopped", "value": {"pid": 1189504}}
+{"at": "2026-11-13T02:14:29Z", "step": "lampd started", "value": {"lampd_sha256": "ee03e9481656bec5a20ca8744be862e38701723d32a03a264316a38efd91122d", "pid": 1191997}}
+{"at": "2026-11-13T02:14:29Z", "step": "daemon restart", "value": {"bearer_persisted": false, "preview_status": 200}}
+{"at": "2026-11-13T02:14:29Z", "step": "preview closed", "value": {"listener_closed": true}}
+{"at": "2026-11-13T02:14:29Z", "step": "result", "value": {"status": "passed"}}
+{"at": "2026-11-13T02:14:29Z", "step": "lampd stopped", "value": {"pid": 1191997}}
+{"at": "2026-11-13T02:14:29Z", "step": "captures left after lampd stopped", "value": []}
+{"at": "2026-11-13T02:14:29Z", "step": "worker stopped", "value": {"pid": 1189030}}
+{"at": "2026-11-13T02:14:29Z", "step": "final budget", "value": {"available_mib": 14871, "firecracker": 0}}

@@ -131,6 +131,7 @@ type Service struct {
 	exportsDir            string
 	readers               map[uint32]string
 	lock                  *os.File
+	previewSecrets        map[string]string
 	worker                workerClient
 	rootContext           context.Context
 	done                  map[string]chan struct{}

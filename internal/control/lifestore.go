@@ -30,6 +30,7 @@ const lifeStateFile = "lifecycle.json"
 // objects (map form) so reads return exactly what was committed; private
 // fields sit beside them and are never serialized to callers.
 type lifeState struct {
+	Networks  map[string]*lifeNetwork  `json:"networks,omitempty"`
 	Jobs      map[string]*ciJob        `json:"jobs,omitempty"`
 	AuthFlows map[string]*ciAuthFlow   `json:"auth_flows,omitempty"`
 	Triggers  map[string]*lifeTrigger  `json:"triggers,omitempty"`

@@ -41,6 +41,7 @@ type Rule struct {
 	Protocol    string   `json:"protocol"`
 	Ports       []uint16 `json:"ports"`
 	prefix      netip.Prefix
+	addresses   map[netip.Addr]bool
 }
 type Layer struct {
 	FilterMode    string `json:"filter_mode"`
@@ -100,11 +101,17 @@ func compileLayers(in []Layer) ([]Layer, error) {
 			result := make([]Rule, len(rs))
 			for j, r := range rs {
 				p, err := netip.ParsePrefix(r.CIDR)
-				if err != nil || p.Addr().Is4In6() || p.Addr().Zone() != "" || r.HostPattern != nil || (r.Protocol != "tcp" && r.Protocol != "udp") || len(r.Ports) == 0 || len(r.Ports) > 64 || slices.Contains(r.Ports, uint16(0)) {
+				if (r.HostPattern == nil && (err != nil || p.Addr().Is4In6() || p.Addr().Zone() != "")) || (r.HostPattern != nil && (r.CIDR != "" || !hostSelector(*r.HostPattern))) || (r.Protocol != "tcp" && r.Protocol != "udp") || len(r.Ports) == 0 || len(r.Ports) > 64 || slices.Contains(r.Ports, uint16(0)) {
 					return nil, ErrDenied
 				}
-				r.prefix = p.Masked()
-				r.CIDR = r.prefix.String()
+				r.addresses = nil
+				if r.HostPattern != nil {
+					name := *r.HostPattern
+					r.HostPattern = &name
+				} else {
+					r.prefix = p.Masked()
+					r.CIDR = r.prefix.String()
+				}
 				r.Ports = slices.Clone(r.Ports)
 				result[j] = r
 			}
@@ -173,7 +180,7 @@ func (p Policy) compile() (Policy, error) {
 	return p, nil
 }
 func (r Rule) matches(d Destination) bool {
-	return r.prefix.Contains(d.Address) && r.Protocol == d.Protocol && slices.Contains(r.Ports, d.Port)
+	return (r.prefix.Contains(d.Address) || r.addresses[d.Address]) && r.Protocol == d.Protocol && slices.Contains(r.Ports, d.Port)
 }
 func (p Policy) digest() string {
 	// Only compiled concrete numeric selectors are present; no provider keys or

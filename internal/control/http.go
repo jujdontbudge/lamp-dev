@@ -19,6 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"lamp.eilmer.si/internal/network"
 	"lamp.eilmer.si/internal/surface"
 	"lamp.eilmer.si/pkg/api"
 	pb "lamp.eilmer.si/pkg/workerpb"
@@ -229,7 +230,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		input = in
 	case path == "/v1/sandboxes":
 		var in api.SandboxCreateInput
-		fields, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms")
+		fields, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms network_policy_id")
 		in.IdempotencyKey = key
 		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
 			message := "template_id: required; choose a template with lamp template list"
@@ -299,6 +300,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		sb.TemplateId = in.TemplateId
+		sb.NetworkPolicyId = in.NetworkPolicyId
 		sb.EngineId = in.EngineId
 		sb.Resources = in.Resources
 		sb.Devices = in.Devices
@@ -468,10 +470,18 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			sb.TaskId = parent.TaskId
 			sb.TemplateId = parent.TemplateId
 			sb.EngineId = parent.EngineId
+			sb.NetworkPolicyId = parent.NetworkPolicyId
 			sb.Resources = parent.Resources
 			parent.Revision++
 			parent.UpdatedAt = timestamp()
 			updatedParent = &parent
+		}
+	}
+	if (name == "sandbox_create" || name == "sandbox_fork") && sb.NetworkPolicyId != nil {
+		if _, err := s.networkResource(a, "network_policy", *sb.NetworkPolicyId); err != nil {
+			s.mu.Unlock()
+			writeError(w, requestID, "NOT_FOUND", "network policy not found or updating", nil)
+			return
 		}
 	}
 	if err := s.accountAdmission(a, name, sb); err != nil {
@@ -717,6 +727,28 @@ func (s *Service) execute(id, source string) {
 		return s.worker.perform(ctx, r, "allocated")
 	}
 	restore := func(capture string) error {
+		if sb.NetworkPolicyId != nil {
+			s.readLock()
+			n := s.life.Networks[*sb.NetworkPolicyId]
+			var layer network.Layer
+			var policyErr error
+			if n == nil {
+				policyErr = errors.New("network policy unavailable")
+			} else {
+				layer, policyErr = policyLayer(n.R)
+			}
+			s.mu.Unlock()
+			if policyErr != nil {
+				return policyErr
+			}
+			if _, e := s.networkCall(ctx, sb.Id, generation, map[string]any{"operation": "policy_update", "expected_revision": 1, "revision": 2, "policy_layers": []network.Layer{layer}}); e != nil {
+				return e
+			}
+			sb.EffectivePolicyRevision = pointer(uint64(2))
+		} else {
+			sb.EffectivePolicyRevision = pointer(uint64(1))
+		}
+
 		r := request("restore", sb.Id, generation)
 		r.Command = &pb.Request_Restore{Restore: &pb.Restore{CaptureId: capture}}
 		receipt, err := s.worker.call(ctx, r)

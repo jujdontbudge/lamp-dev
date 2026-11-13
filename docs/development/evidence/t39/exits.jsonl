@@ -1,0 +1,15 @@
+{"at": "2026-11-13T02:17:03Z", "step": "lampd started", "value": {"lampd_sha256": "d28d287f9bec68138a9f5e5db1c763e05b06c743b85b69c7f35ac3e26d764fa5", "pid": 1207264}}
+{"at": "2026-11-13T02:17:03Z", "step": "before sandbox create", "value": {"available_mib": 13921, "firecracker": 0}}
+{"at": "2026-11-13T02:17:03Z", "step": "sandbox ready", "value": {"sandbox_id": "sb_d0032c35a4e31102fe6edc5b17f62c85", "state": "ready"}}
+{"at": "2026-11-13T02:17:04Z", "step": "selected exit", "value": {"provider": "owner Mac CONNECT over authenticated SSH reverse tunnel", "result": "200", "sandbox_id": "sb_d0032c35a4e31102fe6edc5b17f62c85"}}
+{"at": "2026-11-13T02:17:04Z", "step": "before sandbox create", "value": {"available_mib": 13986, "firecracker": 0}}
+{"at": "2026-11-13T02:17:05Z", "step": "sandbox ready", "value": {"sandbox_id": "sb_2204c0a2ddd4dab7821d36d6479cf68c", "state": "ready"}}
+{"at": "2026-11-13T02:17:05Z", "step": "independent exit", "value": {"provider": "Ubuntu direct", "result": "200", "sandbox_id": "sb_2204c0a2ddd4dab7821d36d6479cf68c"}}
+{"at": "2026-11-13T02:17:05Z", "step": "before sandbox create", "value": {"available_mib": 14070, "firecracker": 0}}
+{"at": "2026-11-13T02:17:06Z", "step": "sandbox ready", "value": {"sandbox_id": "sb_7acb84369e8d5179c13f915bf21fcd23", "state": "ready"}}
+{"at": "2026-11-13T02:17:06Z", "step": "exit failure has no fallback", "value": {"result": "blocked URLError <urlopen error Lamp DNS refused>", "sandbox_id": "sb_7acb84369e8d5179c13f915bf21fcd23"}}
+{"at": "2026-11-13T02:17:06Z", "step": "result", "value": {"status": "passed"}}
+{"at": "2026-11-13T02:17:06Z", "step": "lampd stopped", "value": {"pid": 1207264}}
+{"at": "2026-11-13T02:17:06Z", "step": "captures left after lampd stopped", "value": []}
+{"at": "2026-11-13T02:17:06Z", "step": "worker stopped", "value": {"pid": 1206273}}
+{"at": "2026-11-13T02:17:06Z", "step": "final budget", "value": {"available_mib": 13922, "firecracker": 0}}

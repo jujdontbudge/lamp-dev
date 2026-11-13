@@ -43,6 +43,9 @@ type portEntry struct {
 	cancel      context.CancelFunc
 	certificate *tls.Certificate
 	active      bool
+	loopback    bool
+	public      bool
+	listener    net.Listener
 	connections map[*portConn]struct{}
 }
 type shareEntry struct {
@@ -305,6 +308,9 @@ func (m *PortManager) Unpublish(id string) error {
 		return ErrDenied
 	}
 	p.active = false
+	if p.listener != nil {
+		_ = p.listener.Close()
+	}
 	p.cancel()
 	for c := range p.connections {
 		_ = c.Conn.Close()
@@ -317,6 +323,9 @@ func (m *PortManager) Close() error {
 	defer m.mu.Unlock()
 	for _, p := range m.ids {
 		p.active = false
+		if p.listener != nil {
+			_ = p.listener.Close()
+		}
 		p.cancel()
 		for c := range p.connections {
 			_ = c.Conn.Close()
@@ -333,7 +342,7 @@ func (m *PortManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	valid := p != nil && p.active && p.endpoint.Subject() == p.Subject
 	if valid {
 		u, _ := url.Parse(p.Origin)
-		valid = r.TLS != nil && r.TLS.ServerName == u.Hostname()
+		valid = p.loopback || (r.TLS != nil && r.TLS.ServerName == u.Hostname())
 	}
 	m.mu.Unlock()
 	if !valid {
@@ -363,9 +372,15 @@ func (m *PortManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	grant := ""
 	requestCtx := p.ctx
 	m.mu.Lock()
-	allowed := authErr == nil && m.viewers[peer.NodeID]
+	allowed := p.public || (authErr == nil && m.viewers[peer.NodeID])
+	if !allowed && strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+		g := m.tokens[sha256.Sum256([]byte(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")))]
+		if g != nil && g.port == p.ID && !g.revoked && g.ctx.Err() == nil && g.recipient == "" {
+			allowed, grant, requestCtx = true, g.id, g.ctx
+		}
+	}
 	if !allowed {
-		if cookie, err := r.Cookie("__Host-lamp"); err == nil {
+		if cookie, err := r.Cookie(portCookie(p)); err == nil {
 			if session, ok := m.sessions[sha256.Sum256([]byte(cookie.Value))]; ok && session.port == p.ID && time.Now().Before(session.expires) {
 				g := m.grants[session.grant]
 				if g != nil && !g.revoked && g.ctx.Err() == nil && (g.recipient == "" || (authErr == nil && g.recipient == peer.NodeID)) {
@@ -379,7 +394,7 @@ func (m *PortManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	allowed = allowed && p.active
 	m.mu.Unlock()
 	if !allowed {
-		http.Error(w, "sign-in or a current share is required", http.StatusForbidden)
+		http.Error(w, "Authenticate with Authorization: Bearer <share token>, or open a current share link", http.StatusForbidden)
 		return
 	}
 	reason := "signed_in"
@@ -492,7 +507,7 @@ func (m *PortManager) exchange(w http.ResponseWriter, r *http.Request, p *portEn
 	g.used = true
 	delete(m.tokens, g.hash)
 	m.sessions[sha256.Sum256([]byte(session))] = portSession{p.ID, g.id, g.expires}
-	http.SetCookie(w, &http.Cookie{Name: "__Host-lamp", Value: session, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, Expires: g.expires})
+	http.SetCookie(w, &http.Cookie{Name: portCookie(p), Value: session, Path: "/", Secure: !p.loopback, HttpOnly: true, SameSite: http.SameSiteStrictMode, Expires: g.expires})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -513,4 +528,54 @@ func (c *portConn) Close() error {
 		c.manager.mu.Unlock()
 	})
 	return c.err
+}
+
+func portCookie(p *portEntry) string {
+	if p.loopback {
+		return "lamp_" + p.ID
+	}
+	return "__Host-lamp"
+}
+
+// PublishLoopback gives each app its own browser origin. Only the loopback
+// listener accepts HTTP; remote owner access must tunnel this exact listener.
+func (m *PortManager) PublishLoopback(endpoint GuestEndpoint, port uint16, public bool) (PublishedPort, error) {
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return PublishedPort{}, err
+	}
+	p, err := m.Publish(endpoint, port)
+	if err != nil {
+		listener.Close()
+		return p, err
+	}
+	m.mu.Lock()
+	entry := m.ids[p.ID]
+	u, _ := url.Parse(entry.Origin)
+	delete(m.ports, u.Host)
+	entry.Origin = "http://" + net.JoinHostPort(u.Hostname(), fmt.Sprint(listener.Addr().(*net.TCPAddr).Port))
+	entry.loopback, entry.public, entry.listener = true, public, listener
+	m.ports[strings.TrimPrefix(entry.Origin, "http://")] = entry
+	p = entry.PublishedPort
+	m.mu.Unlock()
+	server := &http.Server{Handler: m, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 << 10}
+	go func() { _ = server.Serve(listener) }()
+	return p, nil
+}
+
+func (m *PortManager) SetPublic(id string, public bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p := m.ids[id]
+	if p == nil || !p.active {
+		return ErrDenied
+	}
+	p.public = public
+	if !public {
+		for c := range p.connections {
+			_ = c.Conn.Close()
+			delete(p.connections, c)
+		}
+	}
+	return nil
 }

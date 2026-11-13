@@ -64,6 +64,9 @@ func run() error {
 	if len(os.Args) != 3 {
 		return fmt.Errorf("usage: lamp-network serve|serve-exit|verify-exit|probe|probe-session|member|bridge CONFIG")
 	}
+	if os.Args[1] == "managed" {
+		return managed(os.Args[2])
+	}
 	if os.Args[1] == "serve" {
 		return runService(os.Args[2])
 	}
