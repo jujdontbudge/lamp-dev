@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -229,7 +230,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 			s.mu.Unlock()
 			return fail("NOT_FOUND", "operation not found")
 		}
-		if s.journal.Operations[id].Hash != hash {
+		if rec := s.journal.Operations[id]; rec.Hash != hash && (rec.RetryHashV1 == "" || rec.RetryHashV1 != s.retryHash(plan.Name, input)) {
 			s.mu.Unlock()
 			return fail("IDEMPOTENCY_CONFLICT", "idempotency key was already used")
 		}
@@ -248,7 +249,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 	}
 	if (suspend || resume) && sb.Revision != revision {
 		s.mu.Unlock()
-		return fail("REVISION_CONFLICT", "sandbox revision changed")
+		return fail("REVISION_CONFLICT", "sandbox revision is "+strconv.FormatUint(sb.Revision, 10))
 	}
 	expected := api.SandboxState("ready")
 	if resume {
@@ -297,7 +298,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 	}
 	id := newID("op")
 	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: sb.OwnerId, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: &plan.Name, ResourceIds: &[]api.ResourceRef{ref}, RequestHash: &hash, AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
-	s.journal.Operations[id] = &record{Caller: a, Operation: op, Hash: hash, Key: journalKey, Resource: ref, Custody: &plan}
+	s.journal.Operations[id] = &record{Caller: a, Operation: op, Hash: hash, RetryHashV1: s.retryHash(plan.Name, input), Key: journalKey, Resource: ref, Custody: &plan}
 	s.keys[journalKey], s.done[id], s.busy[plan.Source] = id, make(chan struct{}), true
 	if err := s.save(id, ref.Id, plan.SnapshotID, "$accountability"); err != nil {
 		s.broken = true

@@ -4,22 +4,45 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"lamp.eilmer.si/internal/surface"
 )
 
 func main() {
-	home, _ := os.UserHomeDir()
-	socket := os.Getenv("LAMP_SOCKET")
-	if socket == "" {
-		socket = filepath.Join(home, ".local", "state", "lamp-demo", "api.sock")
+	flags := flag.NewFlagSet("lamp-mcp", flag.ContinueOnError)
+	flags.SetOutput(os.Stdout)
+	socket := flags.String("socket", surface.DefaultSocket(), "lampd Unix socket (LAMP_SOCKET)")
+	url := flags.String("api-url", os.Getenv("LAMP_API_URL"), "API origin (LAMP_API_URL)")
+	tokenFile := flags.String("token-file", "", "private bearer file (LAMP_TOKEN_FILE; otherwise LAMP_TOKEN)")
+	flags.Usage = func() {
+		fmt.Fprintln(os.Stdout, `Usage: lamp-mcp [--socket PATH] [--token-file PATH]
+Serve Lamp tools over newline-delimited JSON-RPC on stdin/stdout.
+Environment: LAMP_SOCKET, LAMP_API_URL, LAMP_TOKEN_FILE, LAMP_TOKEN.
+MCP client config example:
+{"mcpServers":{"lamp":{"command":"lamp-mcp","env":{"LAMP_TOKEN_FILE":"/path/to/config/owner.token"}}}}`)
+		flags.PrintDefaults()
 	}
-	client := &surface.Client{Socket: socket, URL: os.Getenv("LAMP_API_URL"), Token: os.Getenv("LAMP_TOKEN")}
+	if err := flags.Parse(os.Args[1:]); err != nil {
+		if err == flag.ErrHelp {
+			return
+		}
+		os.Exit(2)
+	}
+	if flags.NArg() != 0 {
+		flags.Usage()
+		os.Exit(2)
+	}
+	token, err := surface.Credential(*tokenFile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "lamp-mcp: cannot read credential file:", err)
+		os.Exit(2)
+	}
+	client := &surface.Client{Socket: *socket, URL: *url, Token: token}
 	defer client.Close()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

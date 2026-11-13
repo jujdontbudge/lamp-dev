@@ -7663,6 +7663,17 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "last_run_at": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true,
+          "description": "UTC occurrence time of the latest started run."
+        },
+        "last_run_status": {
+          "type": "string",
+          "readOnly": true,
+          "description": "Latest run: running, success, failure or cancelled."
         }
       },
       "required": [
@@ -9047,7 +9058,8 @@
         "QUORUM_REQUIRED",
         "IDEMPOTENCY_HOME_UNAVAILABLE",
         "TOKEN_HOME_UNAVAILABLE",
-        "AUDIT_UNAVAILABLE"
+        "AUDIT_UNAVAILABLE",
+        "FAILED_PRECONDITION"
       ]
     },
     "ErrorDetail": {
@@ -11108,7 +11120,8 @@
         }
       },
       "required": [
-        "idempotency_key"
+        "idempotency_key",
+        "expires_at"
       ]
     },
     "KeyCreateResult": {
@@ -14479,6 +14492,10 @@
           "maximum": 25000,
           "format": "uint64",
           "readOnly": true
+        },
+        "sandbox_id": {
+          "type": "string",
+          "description": "Only execs belonging to this sandbox."
         }
       }
     },
@@ -38314,7 +38331,8 @@
     "QUORUM_REQUIRED": 503,
     "IDEMPOTENCY_HOME_UNAVAILABLE": 503,
     "TOKEN_HOME_UNAVAILABLE": 503,
-    "AUDIT_UNAVAILABLE": 503
+    "AUDIT_UNAVAILABLE": 503,
+    "FAILED_PRECONDITION": 409
   },
   "x-lamp-spec-sha256": "69475703f0dc0b1cd1c8395519e8fef79874a710e6c78352687d64fd45970a2a",
   "x-lamp-limits": {

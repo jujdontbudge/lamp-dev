@@ -11,6 +11,24 @@
 #[cfg(target_os = "macos")]
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
+    if args
+        .iter()
+        .take_while(|arg| arg.as_str() != "--")
+        .any(|arg| arg == "--help" || arg == "-h")
+        || args.first().is_some_and(|arg| arg == "help")
+    {
+        for line in include_str!("lamp-vz.rs")
+            .lines()
+            .take_while(|line| line.starts_with("//!"))
+        {
+            let text = line.trim_start_matches("//!").trim_start();
+            if !text.starts_with("```") {
+                println!("{text}");
+            }
+        }
+        return;
+    }
+
     if args.is_empty() {
         die(
             "usage: lamp-vz worker|native-task|restore-image|load-image|install|new-ids|profile|validate",

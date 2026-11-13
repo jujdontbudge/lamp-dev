@@ -14,10 +14,10 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"lamp.eilmer.si/internal/surface"
 	"lamp.eilmer.si/pkg/api"
@@ -27,14 +27,61 @@ func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 func run(args []string, stdout, stderr io.Writer) int {
 	asJSON := false
 	for _, s := range args {
+		if s == "--" {
+			break
+		}
 		if s == "--json" {
 			asJSON = true
 		}
 	}
 	usage := func(message string) int { cliError(stderr, "INVALID_ARGUMENT", message, asJSON); return 2 }
-	if len(args) > 0 && (args[0] == "--help" || args[0] == "help") {
-		json.NewEncoder(stdout).Encode(map[string]any{"commands": api.Operations, "usage": "lamp <resource> <action> [id] [--input file.json] [flags] [--json]", "authentication": "LAMP_TOKEN or --token-file; LAMP_SOCKET or LAMP_API_URL", "errors": "JSON errors on stderr; exit 0 success, 1 API failure, 2 usage, 3 unauthenticated, 4 scope denied, 5 conflict, 6 transport"})
-		return 0
+	// Pull connection flags out before resolving resource and action.
+	globals := []string{}
+	local := []string{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			local = append(local, args[i:]...)
+			break
+		}
+		key := strings.SplitN(arg, "=", 2)[0]
+		if key == "--json" || key == "--socket" || key == "--api-url" || key == "--token-file" {
+			globals = append(globals, arg)
+			if key != "--json" && !strings.Contains(arg, "=") {
+				i++
+				if i >= len(args) {
+					return usage(key + " requires a value")
+				}
+				globals = append(globals, args[i])
+			}
+		} else {
+			local = append(local, arg)
+		}
+	}
+	args = local
+	if len(args) == 0 {
+		return help(stdout, nil, asJSON, globals)
+	}
+	helpWords := []string{}
+	wantsHelp := args[0] == "help"
+	for _, arg := range args {
+		if arg == "--" {
+			break
+		}
+		if arg == "--help" || arg == "-h" {
+			wantsHelp = true
+		} else if arg != "help" {
+			helpWords = append(helpWords, arg)
+		}
+	}
+	if wantsHelp {
+		return help(stdout, helpWords, asJSON, globals)
+	}
+	if args[0] == "--version" {
+		args[0] = "version"
+	}
+	if strings.HasPrefix(args[0], "-") {
+		return usage("unknown flag " + strconv.Quote(args[0]) + suggestion(args[0], []string{"--version", "--help", "--socket", "--token-file", "--api-url", "--json"}))
 	}
 	if len(args) > 0 && args[0] == "version" {
 		if len(args) > 2 || len(args) == 2 && args[1] != "--json" {
@@ -50,27 +97,30 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return usage("usage: lamp <resource> <action> [flags]")
 	}
 	name := strings.ReplaceAll(args[0], "-", "_") + "_" + strings.ReplaceAll(args[1], "-", "_")
-	op, ok := surface.ByName[name]
+	waitingSandbox := name == "sandbox_wait"
+	lookup := name
+	if waitingSandbox {
+		lookup = "sandbox_get"
+	}
+	op, ok := surface.ByName[lookup]
 	if !ok {
-		return usage("unknown operation")
+		choices := []string{}
+		for _, candidate := range surface.InstalledOperations(false) {
+			choices = append(choices, strings.TrimPrefix(candidate.CLI, "lamp "))
+		}
+		return usage("unknown command " + strconv.Quote(strings.Join(args[:2], " ")) + suggestion(strings.Join(args[:2], " "), choices))
 	}
 	for _, arg := range args[2:] {
 		if name == "browser_action" && strings.SplitN(strings.TrimLeft(arg, "-"), "=", 2)[0] == "arguments-json" {
 			return usage("browser arguments require --input file or private --input -; not argv")
 		}
-		if arg == "--help" {
-			json.NewEncoder(stdout).Encode(map[string]any{"command": op.CLI, "input_schema": surface.InputSchema(op.InputSchema), "scope": op.Scope})
-			return 0
-		}
+
 	}
 	flags := flag.NewFlagSet(op.CLI, flag.ContinueOnError)
 	var parseLog bytes.Buffer
 	flags.SetOutput(&parseLog)
-	home, _ := os.UserHomeDir()
-	socket := os.Getenv("LAMP_SOCKET")
-	if socket == "" {
-		socket = filepath.Join(home, ".local", "state", "lamp-demo", "api.sock")
-	}
+	flags.Usage = func() {}
+	socket := surface.DefaultSocket()
 	flags.StringVar(&socket, "socket", socket, "lampd Unix socket")
 	apiURL := flags.String("api-url", os.Getenv("LAMP_API_URL"), "HTTP API origin or lamp+fleet:///absolute/discovery.json")
 	tokenFile := flags.String("token-file", "", "private bearer file (or LAMP_TOKEN)")
@@ -78,6 +128,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	inputFile := flags.String("input", "", "canonical JSON input file; - reads private stdin")
 	privatePNG := flags.String("private-png", "", "new private screenshot file; image data is never printed")
 	follow := flags.Bool("follow", false, "NDJSON events until interrupted")
+	desiredState := "ready"
+	timeout := 60 * time.Second
+	if waitingSandbox {
+		flags.StringVar(&desiredState, "state", desiredState, "sandbox wait target state")
+	}
+	if waitingSandbox || name == "operation_wait" {
+		flags.DurationVar(&timeout, "timeout", timeout, "wait timeout (e.g. 60s)")
+	}
 	in := map[string]any{}
 	props := surface.Definition(op.InputSchema)["properties"].(map[string]any)
 	for field, p := range props {
@@ -90,7 +148,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if typ == "object" || typ == "array" {
 			flagName += "-json"
 		}
-		flags.Func(flagName, "canonical "+field, func(raw string) error {
+		setter := func(raw string) error {
 			if name == "browser_action" && field == "arguments" {
 				return fmt.Errorf("browser arguments require --input file or private --input -; not argv")
 			}
@@ -122,9 +180,18 @@ func run(args []string, stdout, stderr io.Writer) int {
 					return fmt.Errorf("expected one JSON value")
 				}
 			}
+			if field == "scope" {
+				if err := scopeShorthand(v); err != nil {
+					return err
+				}
+			}
 			in[field] = v
 			return nil
-		})
+		}
+		flags.Func(flagName, "canonical "+field, setter)
+		if typ == "object" || typ == "array" {
+			flags.Func(strings.TrimSuffix(flagName, "-json"), "canonical "+field+" (JSON)", setter)
+		}
 	}
 	// Resource shorthand remains compatible with the engine benchmark caller.
 	dimensions := map[string]*uint64{}
@@ -142,8 +209,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 		positional = remaining[0]
 		remaining = remaining[1:]
 	}
+	remaining = append(append([]string{}, globals...), remaining...)
 	if err := flags.Parse(remaining); err != nil {
-		return usage(strings.TrimSpace(parseLog.String()))
+		message := strings.TrimSpace(parseLog.String())
+		if strings.Contains(message, "flag provided but not defined:") {
+			bad := strings.TrimSpace(strings.TrimPrefix(message, "flag provided but not defined:"))
+			choices := []string{}
+			flags.VisitAll(func(f *flag.Flag) { choices = append(choices, "-"+f.Name) })
+			message += suggestion(bad, choices)
+		}
+		return usage(message)
 	}
 	asJSON = *jsonFlag
 	if *inputFile != "" {
@@ -168,6 +243,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 			if _, ok := in[k]; ok {
 				return usage("duplicate input field: " + k)
 			}
+			if k == "scope" {
+				if err := scopeShorthand(v); err != nil {
+					return usage(err.Error())
+				}
+			}
 			in[k] = v
 		}
 	}
@@ -176,8 +256,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if _, exists := props[field]; !exists {
 			return usage("unexpected resource ID")
 		}
-		if _, exists := in[field]; exists {
-			return usage("duplicate resource ID")
+		if existing, exists := in[field]; exists && existing != positional {
+			return usage("positional ID conflicts with " + field + " in --input or flags")
 		}
 		in[field] = positional
 	}
@@ -191,7 +271,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 		in["argv"] = flags.Args()
 	}
 	if name == "sandbox_create" {
-		if _, ok := in["resources"]; !ok {
+		shorthand := false
+		flags.Visit(func(f *flag.Flag) {
+			if _, ok := dimensions[f.Name]; ok {
+				shorthand = true
+			}
+		})
+		if _, supplied := in["resources"]; supplied && shorthand {
+			return usage("--resources cannot be combined with --vcpus, --memory-mib, --disk-gib or --pids-max")
+		}
+		if _, ok := in["resources"]; !ok && (shorthand || in["recipe_id"] == nil) {
 			r := map[string]any{}
 			for k, v := range dimensions {
 				r[strings.ReplaceAll(k, "-", "_")] = *v
@@ -210,18 +299,58 @@ func run(args []string, stdout, stderr io.Writer) int {
 			in["idempotency_key"] = "cli-" + hex.EncodeToString(b)
 		}
 	}
-	token := os.Getenv("LAMP_TOKEN")
-	if *tokenFile != "" {
-		data, e := os.ReadFile(*tokenFile)
-		if e != nil {
-			return usage(e.Error())
-		}
-		token = strings.TrimSpace(string(data))
+	token, credentialErr := surface.Credential(*tokenFile)
+	if credentialErr != nil {
+		return usage(credentialErr.Error())
 	}
 	client := &surface.Client{Socket: socket, URL: *apiURL, Token: token}
 	defer client.Close()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if waitingSandbox || name == "operation_wait" {
+		if _, _, _, err := surface.Request(op, in); err != nil {
+			return usage(err.Error())
+		}
+		return waitFor(ctx, client, op, in, desiredState, timeout, stdout, stderr, asJSON)
+	}
+	// Explicit revisions are preserved. Omitted revisions use a current read,
+	// with no automatic retry on conflict (so concurrent edits remain visible).
+	if op.Mutation {
+		if _, needed := props["expected_revision"]; needed {
+			if _, given := in["expected_revision"]; !given {
+				in["expected_revision"] = json.Number("0")
+				_, _, _, err := surface.Request(op, in)
+				delete(in, "expected_revision")
+				if err != nil {
+					return usage(err.Error())
+				}
+				kind, _, _ := strings.Cut(op.Scope, ".")
+				get, exists := surface.ByName[kind+"_get"]
+				if !exists {
+					return usage("--expected-revision is required for this command")
+				}
+				raw, status, err := client.Call(ctx, get, map[string]any{kind + "_id": in[kind+"_id"]})
+				if err != nil {
+					cliError(stderr, "DATA_UNAVAILABLE", err.Error(), asJSON)
+					return 6
+				}
+				if status >= 400 {
+					emit(stdout, stderr, raw, status, asJSON)
+					return statusExitCode(status)
+				}
+				reply, err := surface.Decode(raw)
+				if err != nil {
+					return usage("cannot read current revision")
+				}
+				resource, _ := reply["data"].(map[string]any)
+				revision, exists := resource["revision"]
+				if !exists {
+					return usage("current resource has no revision; specify --expected-revision")
+				}
+				in["expected_revision"] = revision
+			}
+		}
+	}
 	// Validate before transport so malformed local requests always exit 2.
 	if _, _, _, err := surface.Request(op, in); err != nil {
 		return usage(err.Error())
@@ -235,7 +364,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		return followEvents(ctx, client, op, in, stdout, stderr, asJSON)
 	}
-	data, status, err := client.Call(ctx, op, in)
+	data, status, err := callProgress(ctx, client, op, in, stderr, asJSON)
 	if err != nil {
 		message := err.Error()
 		if op.Mutation {
@@ -248,7 +377,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		cliError(stderr, "DATA_UNAVAILABLE", "invalid API JSON", asJSON)
 		return 6
 	}
-	if name == "browser_action" && fmt.Sprint(in["action"]) == "screenshot" && status < 400 {
+	if name == "browser_action" && fmt.Sprint(in["action"]) == "screenshot" && status < 400 && !operationFailed(data) {
 		var reply struct {
 			Result struct {
 				Observations struct {
@@ -274,19 +403,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		data = []byte("{\"private_png_saved\":true}\n")
 	}
-	target := stdout
-	if status >= 400 {
-		target = stderr
-	}
-	if asJSON {
-		target.Write(data)
-		if len(data) == 0 || data[len(data)-1] != '\n' {
-			fmt.Fprintln(target)
-		}
-	} else {
-		var pretty bytes.Buffer
-		json.Indent(&pretty, data, "", "  ")
-		fmt.Fprintln(target, pretty.String())
+	emit(stdout, stderr, data, status, asJSON)
+	if status < 400 && operationFailed(data) {
+		return 1
 	}
 	if status >= 400 {
 		return statusExitCode(status)
@@ -316,38 +435,60 @@ func cliError(w io.Writer, code, message string, asJSON bool) {
 	}
 }
 func followEvents(ctx context.Context, c *surface.Client, op api.OperationDescriptor, in map[string]any, out, errs io.Writer, asJSON bool) int {
-	r, e := c.Open(ctx, op, in, true)
-	if e != nil {
-		cliError(errs, "DATA_UNAVAILABLE", e.Error(), asJSON)
-		return 6
+	if _, ok := in["wait_ms"]; !ok {
+		in["wait_ms"] = uint64(25000)
 	}
-	defer r.Body.Close()
-	if r.StatusCode != 200 {
-		data, _ := io.ReadAll(io.LimitReader(r.Body, 4<<20))
-		errs.Write(data)
-		return statusExitCode(r.StatusCode)
-	}
-	scanner := bufio.NewScanner(r.Body)
-	scanner.Buffer(make([]byte, 4096), 96<<10)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "data: ") {
-			data := strings.TrimPrefix(line, "data: ")
-			if !json.Valid([]byte(data)) {
-				cliError(errs, "DATA_UNAVAILABLE", "invalid event", asJSON)
-				return 6
+	for {
+		r, e := c.Open(ctx, op, in, true)
+		if e != nil {
+			if ctx.Err() != nil {
+				return 0
 			}
-			if _, e := fmt.Fprintln(out, data); e != nil {
-				return 6
+			cliError(errs, "DATA_UNAVAILABLE", e.Error(), asJSON)
+			return 6
+		}
+		if r.StatusCode != 200 {
+			data, _ := io.ReadAll(io.LimitReader(r.Body, 4<<20))
+			r.Body.Close()
+			emit(out, errs, data, r.StatusCode, asJSON)
+			return statusExitCode(r.StatusCode)
+		}
+		scanner := bufio.NewScanner(r.Body)
+		scanner.Buffer(make([]byte, 4096), 96<<10)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, ": cursor ") {
+				in["cursor"] = strings.TrimPrefix(line, ": cursor ")
+			}
+			if strings.HasPrefix(line, "data: ") {
+				data := strings.TrimPrefix(line, "data: ")
+				event, err := surface.Decode([]byte(data))
+				if err != nil {
+					r.Body.Close()
+					cliError(errs, "DATA_UNAVAILABLE", "invalid event", asJSON)
+					return 6
+				}
+				if cursor, ok := event["cursor"].(string); ok {
+					in["cursor"] = cursor
+				}
+				if _, e := fmt.Fprintln(out, data); e != nil {
+					r.Body.Close()
+					return 6
+				}
 			}
 		}
+		r.Body.Close()
+		if ctx.Err() != nil {
+			return 0
+		}
+		if e := scanner.Err(); e != nil {
+			cliError(errs, "DATA_UNAVAILABLE", e.Error(), asJSON)
+			return 6
+		}
+		select {
+		case <-ctx.Done():
+			return 0
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
-	if ctx.Err() != nil {
-		return 0
-	}
-	if e := scanner.Err(); e != nil {
-		cliError(errs, "DATA_UNAVAILABLE", e.Error(), asJSON)
-		return 6
-	}
-	return 0
 }

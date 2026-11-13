@@ -1,0 +1,210 @@
+[
+  {
+    "step": "human help",
+    "command": "--help",
+    "bytes": 1113
+  },
+  {
+    "step": "human help",
+    "command": "sandbox --help",
+    "bytes": 1065
+  },
+  {
+    "step": "human help",
+    "command": "sandbox create --help",
+    "bytes": 1494
+  },
+  {
+    "step": "suggestion",
+    "message": "lamp: unknown command \"sandbx list\"; did you mean \"sandbox list\"?"
+  },
+  {
+    "step": "suggestion",
+    "message": "lamp: unknown command \"sandbox crreate\"; did you mean \"sandbox create\"?"
+  },
+  {
+    "step": "suggestion",
+    "message": "lamp: unknown flag \"--versoin\"; did you mean \"--version\"?"
+  },
+  {
+    "step": "suggestion",
+    "message": "lamp: flag provided but not defined: -templat-id; did you mean \"-template-id\"?"
+  },
+  {
+    "step": "binary help",
+    "binary": "lampd",
+    "exit": 0
+  },
+  {
+    "step": "binary help",
+    "binary": "lamp-installer",
+    "exit": 0
+  },
+  {
+    "step": "binary help",
+    "binary": "lamp-mcp",
+    "exit": 0
+  },
+  {
+    "step": "matching inventories",
+    "cli": 192,
+    "http": 192,
+    "mcp": 192,
+    "installed": 192
+  },
+  {
+    "step": "successful replay",
+    "front": "http",
+    "replayed": true
+  },
+  {
+    "step": "successful replay",
+    "front": "cli",
+    "replayed": true
+  },
+  {
+    "step": "successful replay",
+    "front": "mcp",
+    "replayed": true
+  },
+  {
+    "step": "real engine refusal",
+    "state": "failed",
+    "error": "HOST_UNAVAILABLE"
+  },
+  {
+    "step": "failed replay",
+    "front": "http",
+    "replayed": true,
+    "state": "failed"
+  },
+  {
+    "step": "failed replay",
+    "front": "cli",
+    "replayed": true,
+    "state": "failed"
+  },
+  {
+    "step": "failed replay",
+    "front": "mcp",
+    "replayed": true,
+    "state": "failed"
+  },
+  {
+    "step": "readiness wait",
+    "state": "failed"
+  },
+  {
+    "step": "operation wait",
+    "exit": 1,
+    "error": "HOST_UNAVAILABLE"
+  },
+  {
+    "step": "schema filter",
+    "items": 0
+  },
+  {
+    "step": "multi-action bound scope",
+    "get_allowed": true,
+    "exec_authorized_but_sandbox_failed": true,
+    "other_sandbox_hidden": true
+  },
+  {
+    "step": "unsupported field",
+    "field": "kit_ids",
+    "message": "kit_ids: not available on this host; omit this field or enroll a host that supports it"
+  },
+  {
+    "step": "unsupported field",
+    "field": "network_policy_id",
+    "message": "network_policy_id: not available on this host; omit this field or enroll a host that supports it"
+  },
+  {
+    "step": "unsupported field",
+    "field": "settings_source_ids",
+    "message": "settings_source_ids: not available on this host; omit this field or enroll a host that supports it"
+  },
+  {
+    "step": "invalid input",
+    "path": "/v1/principals",
+    "code": "INVALID_ARGUMENT",
+    "message": "PrincipalCreateInput.subject: must not contain NUL"
+  },
+  {
+    "step": "invalid input",
+    "path": "/v1/sandboxes",
+    "code": "INVALID_ARGUMENT",
+    "message": "SandboxCreateInput.labels.x: must not contain NUL"
+  },
+  {
+    "step": "invalid input",
+    "path": "/v1/sandboxes",
+    "code": "INVALID_ARGUMENT",
+    "message": "EOF"
+  },
+  {
+    "step": "error stream",
+    "kind": "usage",
+    "exit": 2,
+    "stream": "stderr",
+    "code": "INVALID_ARGUMENT"
+  },
+  {
+    "step": "error stream",
+    "kind": "not found",
+    "exit": 1,
+    "stream": "stderr",
+    "code": "NOT_FOUND"
+  },
+  {
+    "step": "error stream",
+    "kind": "conflict",
+    "exit": 5,
+    "stream": "stderr",
+    "code": "REVISION_CONFLICT"
+  },
+  {
+    "step": "error stream",
+    "kind": "scope denial",
+    "exit": 4,
+    "stream": "stderr",
+    "code": "SCOPE_DENIED"
+  },
+  {
+    "step": "automatic revision and global flags",
+    "state": "succeeded"
+  },
+  {
+    "step": "positional plus input",
+    "merged": true
+  },
+  {
+    "step": "bounded SSE and resume",
+    "events": 2,
+    "resumed_after": 2
+  },
+  {
+    "step": "SSE idle deadline",
+    "events": 0,
+    "elapsed_seconds": 0.252
+  },
+  {
+    "step": "schedule started",
+    "last_run_status": "running",
+    "last_run_at": "2026-11-13T00:54:36Z"
+  },
+  {
+    "step": "schedule result persisted after shutdown",
+    "last_run_status": "failure"
+  },
+  {
+    "step": "durable failed replay after daemon restart",
+    "replayed": true
+  },
+  {
+    "step": "limitations",
+    "vm_execution": false,
+    "schedule_job_completion": "failure during daemon shutdown; successful VM job not run",
+    "reason": "Disposable daemon has no enrolled supervisor; engine refusal is real and no owner sandbox was used."
+  }
+]

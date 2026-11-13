@@ -2072,7 +2072,7 @@ export interface EngineListResult {
   "next_cursor"?: string;
   "request_id": string;
 }
-export type ErrorCode = "INVALID_ARGUMENT" | "UNAUTHENTICATED" | "NOT_FOUND" | "SCOPE_DENIED" | "REVISION_CONFLICT" | "RESULT_EXPIRED" | "ENGINE_UNQUALIFIED" | "NO_CAPACITY" | "HOST_UNAVAILABLE" | "VM_REQUIRED" | "HOST_NOT_TRUSTED" | "APPROVAL_REQUIRED" | "IDEMPOTENCY_CONFLICT" | "RESOURCE_IN_USE" | "OUTCOME_UNKNOWN" | "TASK_AUTHORITY_EXPIRED" | "KEY_EPOCH_EXPIRED" | "CURSOR_EXPIRED" | "DEVICE_UNAVAILABLE" | "DEVICE_NOT_FORKABLE" | "AUTH_TRANSPORT_UNSUPPORTED" | "CONTINUATION_UNSUPPORTED" | "CLEAN_REBUILD_REQUIRED" | "TOKEN_CAP_UNENFORCEABLE" | "CONTROL_QUOTA_EXCEEDED" | "RATE_LIMITED" | "DATA_UNAVAILABLE" | "QUORUM_REQUIRED" | "IDEMPOTENCY_HOME_UNAVAILABLE" | "TOKEN_HOME_UNAVAILABLE" | "AUDIT_UNAVAILABLE";
+export type ErrorCode = "INVALID_ARGUMENT" | "UNAUTHENTICATED" | "NOT_FOUND" | "SCOPE_DENIED" | "REVISION_CONFLICT" | "RESULT_EXPIRED" | "ENGINE_UNQUALIFIED" | "NO_CAPACITY" | "HOST_UNAVAILABLE" | "VM_REQUIRED" | "HOST_NOT_TRUSTED" | "APPROVAL_REQUIRED" | "IDEMPOTENCY_CONFLICT" | "RESOURCE_IN_USE" | "OUTCOME_UNKNOWN" | "TASK_AUTHORITY_EXPIRED" | "KEY_EPOCH_EXPIRED" | "CURSOR_EXPIRED" | "DEVICE_UNAVAILABLE" | "DEVICE_NOT_FORKABLE" | "AUTH_TRANSPORT_UNSUPPORTED" | "CONTINUATION_UNSUPPORTED" | "CLEAN_REBUILD_REQUIRED" | "TOKEN_CAP_UNENFORCEABLE" | "CONTROL_QUOTA_EXCEEDED" | "RATE_LIMITED" | "DATA_UNAVAILABLE" | "QUORUM_REQUIRED" | "IDEMPOTENCY_HOME_UNAVAILABLE" | "TOKEN_HOME_UNAVAILABLE" | "AUDIT_UNAVAILABLE" | "FAILED_PRECONDITION";
 export interface ErrorDetail {
   "code": ErrorCode;
   "message": string;
@@ -2226,6 +2226,7 @@ export interface ExecListInput {
   "cursor"?: string;
   readonly "limit"?: number;
   readonly "wait_ms"?: number;
+  "sandbox_id"?: string;
 }
 export interface ExecListResult {
   "items": Array<Exec>;
@@ -3161,7 +3162,7 @@ export interface KeyCreateInput {
   "principal_id"?: string;
   "parent_key_id"?: string;
   "scope"?: Scope;
-  "expires_at"?: string;
+  "expires_at": string;
   "labels"?: StringMap;
   "visibility"?: "private" | "shared";
   "idempotency_key": string;
@@ -5334,6 +5335,8 @@ export interface Schedule {
   "overlap_policy"?: string;
   "next_run_at"?: string;
   "enabled"?: boolean;
+  readonly "last_run_at"?: string;
+  readonly "last_run_status"?: string;
 }
 export interface ScheduleCreateCompletion {
   "schedule_id": string;

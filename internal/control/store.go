@@ -28,12 +28,13 @@ const maxOperations = 1_000_000
 const compactEvery = 16384
 
 type record struct {
-	Caller    caller          `json:"caller,omitempty"`
-	Operation api.Operation   `json:"operation"`
-	Hash      string          `json:"hash"`
-	Key       string          `json:"key"`
-	Resource  api.ResourceRef `json:"resource"`
-	Custody   *custodyPlan    `json:"custody,omitempty"`
+	Caller      caller          `json:"caller,omitempty"`
+	Operation   api.Operation   `json:"operation"`
+	Hash        string          `json:"hash"`
+	RetryHashV1 string          `json:"retry_hash_v1,omitempty"`
+	Key         string          `json:"key"`
+	Resource    api.ResourceRef `json:"resource"`
+	Custody     *custodyPlan    `json:"custody,omitempty"`
 }
 type journal struct {
 	PurgedSandboxes []string        `json:"purged_sandboxes,omitempty"`

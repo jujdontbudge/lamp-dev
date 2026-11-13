@@ -19,6 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"lamp.eilmer.si/internal/surface"
 	"lamp.eilmer.si/pkg/api"
 	pb "lamp.eilmer.si/pkg/workerpb"
 )
@@ -30,7 +31,7 @@ var errorStatuses = map[string]int{
 	"INVALID_ARGUMENT": 400, "UNAUTHENTICATED": 401, "NOT_FOUND": 404, "SCOPE_DENIED": 403,
 	"REVISION_CONFLICT": 409, "RESULT_EXPIRED": 410, "ENGINE_UNQUALIFIED": 422,
 	"NO_CAPACITY": 429, "HOST_UNAVAILABLE": 503, "VM_REQUIRED": 403, "HOST_NOT_TRUSTED": 403,
-	"APPROVAL_REQUIRED": 403, "IDEMPOTENCY_CONFLICT": 409, "RESOURCE_IN_USE": 409,
+	"APPROVAL_REQUIRED": 403, "IDEMPOTENCY_CONFLICT": 409, "RESOURCE_IN_USE": 409, "FAILED_PRECONDITION": 409,
 	"OUTCOME_UNKNOWN": 409, "TASK_AUTHORITY_EXPIRED": 409, "KEY_EPOCH_EXPIRED": 410,
 	"CURSOR_EXPIRED": 410, "DEVICE_UNAVAILABLE": 422, "DEVICE_NOT_FORKABLE": 422,
 	"AUTH_TRANSPORT_UNSUPPORTED": 422, "CONTINUATION_UNSUPPORTED": 422,
@@ -128,9 +129,17 @@ func decodeInput(w http.ResponseWriter, r *http.Request, out any, allowed string
 	if err := json.Unmarshal(data, &fields); err != nil || fields == nil {
 		return nil, errors.New("expected a JSON object")
 	}
+	decoded, err := surface.Decode(data)
+	if err != nil {
+		return nil, err
+	}
+	// NUL is invalid even for fields whose handler applies its own schema.
+	if err := rejectNUL(decoded, "input"); err != nil {
+		return nil, err
+	}
 	for key := range fields {
 		if !strings.Contains(" "+allowed+" ", " "+key+" ") {
-			return nil, fmt.Errorf("%s is not supported by the engine demo", key)
+			return nil, fmt.Errorf("%s: not available on this host; omit this field or enroll a host that supports it", key)
 		}
 	}
 	d = json.NewDecoder(bytes.NewReader(data))
@@ -222,12 +231,12 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		var in api.SandboxCreateInput
 		fields, err := decodeInput(w, r, &in, "template_id host_id engine_id resources devices durability task_id labels wait_ms")
 		in.IdempotencyKey = key
-		if err != nil {
-			writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
-			return
-		}
-		if in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
-			writeError(w, requestID, "INVALID_ARGUMENT", "create requires template_id and Idempotency-Key; only demo body fields are admitted", nil)
+		if err != nil || in.TemplateId == nil || *in.TemplateId == "" || in.IdempotencyKey == "" {
+			message := "template_id: required; choose a template with lamp template list"
+			if err != nil {
+				message = err.Error()
+			}
+			writeError(w, requestID, "INVALID_ARGUMENT", message, nil)
 			return
 		}
 		if in.Resources != nil && in.Resources.PidsMax == 0 {
@@ -242,11 +251,19 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		if in.Resources == nil {
 			in.Resources = &api.Resources{Vcpus: 2, MemoryMib: 4096, DiskGib: 20, PidsMax: 4096}
 		}
+
 		res := in.Resources
-		if res.Vcpus == 0 || res.Vcpus > math.MaxUint32 || res.MemoryMib == 0 || res.DiskGib == 0 || res.PidsMax == 0 {
-			writeError(w, requestID, "INVALID_ARGUMENT", "all resource limits must be positive; vcpus must fit uint32", nil)
+		for field, value := range map[string]uint64{"vcpus": res.Vcpus, "memory_mib": res.MemoryMib, "disk_gib": res.DiskGib, "pids_max": res.PidsMax} {
+			if value == 0 {
+				writeError(w, requestID, "INVALID_ARGUMENT", "resources."+field+": must be positive", nil)
+				return
+			}
+		}
+		if res.Vcpus > math.MaxUint32 {
+			writeError(w, requestID, "INVALID_ARGUMENT", "resources.vcpus: exceeds 4294967295; reduce the CPU request", nil)
 			return
 		}
+
 		if in.EngineId != nil && *in.EngineId == "" {
 			writeError(w, requestID, "INVALID_ARGUMENT", "engine_id cannot be empty", nil)
 			return
@@ -386,7 +403,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, requestID, "NOT_FOUND", "operation not found", nil)
 			return
 		}
-		if rec.Hash != hash {
+		if rec.Hash != hash && (rec.RetryHashV1 == "" || rec.RetryHashV1 != s.retryHash(name, input)) {
 			s.mu.Unlock()
 			writeError(w, requestID, "IDEMPOTENCY_CONFLICT", "key was already used with different inputs", pointer(id))
 			return
@@ -411,17 +428,23 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if name == "sandbox_fork" && parent.Revision != input.(api.SandboxForkInput).ExpectedRevision {
 			s.mu.Unlock()
-			writeError(w, requestID, "REVISION_CONFLICT", "sandbox revision changed", nil)
+			prepareError(w, requestID, api.ErrorDetail{Code: "REVISION_CONFLICT", Message: "sandbox revision changed; fetch the current resource and retry", Details: revisionDetails(parent.Revision)})()
 			return
 		}
 		if name == "sandbox_delete" && parent.Revision != input.(api.SandboxDeleteInput).ExpectedRevision {
 			s.mu.Unlock()
-			writeError(w, requestID, "REVISION_CONFLICT", "sandbox revision changed", nil)
+			prepareError(w, requestID, api.ErrorDetail{Code: "REVISION_CONFLICT", Message: "sandbox revision changed; fetch the current resource and retry", Details: revisionDetails(parent.Revision)})()
 			return
 		}
-		if name != "sandbox_delete" && (parent.State != "ready" || s.busy[source] || (name != "exec_create" && s.starting[source] > 0)) {
+		if parent.State != "ready" && name != "sandbox_delete" {
+			state := parent.State
 			s.mu.Unlock()
-			writeError(w, requestID, "RESOURCE_IN_USE", "sandbox is not ready or has an in-flight operation", nil)
+			writeError(w, requestID, "FAILED_PRECONDITION", "sandbox is "+string(state)+"; inspect lamp sandbox get for readiness details before retrying", nil)
+			return
+		}
+		if name != "sandbox_delete" && (s.busy[source] || (name != "exec_create" && s.starting[source] > 0)) {
+			s.mu.Unlock()
+			writeError(w, requestID, "RESOURCE_IN_USE", "sandbox has an in-flight operation; wait for it to complete before trying again", nil)
 			return
 		}
 		if name == "sandbox_delete" {
@@ -507,7 +530,7 @@ func (s *Service) engineHTTP(w http.ResponseWriter, r *http.Request) {
 	id := s.resourceID("op")
 	refs := []api.ResourceRef{ref}
 	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
-	s.journal.Operations[id] = &record{Operation: op, Hash: hash, Key: journalKey, Resource: ref, Caller: a}
+	s.journal.Operations[id] = &record{Operation: op, Hash: hash, RetryHashV1: s.retryHash(name, input), Key: journalKey, Resource: ref, Caller: a}
 	s.keys[journalKey] = id
 	s.done[id] = make(chan struct{})
 	if name == "sandbox_create" || name == "sandbox_fork" {
@@ -576,8 +599,10 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, requestID, id 
 	op := rec.Operation
 	result := api.MutationEnvelope{OperationId: id, ResourceIds: []api.ResourceRef{rec.Resource}, RequestId: requestID, Replayed: replayed, Operation: &op}
 	status := 202
-	if op.State == "succeeded" {
+	if terminal(op.State) {
 		status = 200
+	}
+	if op.State == "succeeded" && op.Outcome != nil {
 		result.Result = op.Outcome.Result
 	}
 	send = prepareJSON(w, status, result)
@@ -1147,4 +1172,35 @@ func workerDevices(in *[]api.Device) ([]*pb.DeviceRequest, error) {
 		out = append(out, &pb.DeviceRequest{Id: d.Id, Type: string(d.Type), SizeMib: opts.SizeMiB})
 	}
 	return out, nil
+}
+
+func rejectNUL(v any, path string) error {
+	switch x := v.(type) {
+	case string:
+		if strings.ContainsRune(x, 0) {
+			return fmt.Errorf("%s: must not contain NUL", path)
+		}
+	case map[string]any:
+		for k, item := range x {
+			if strings.ContainsRune(k, 0) {
+				return fmt.Errorf("%s: field name contains NUL", path)
+			}
+			if err := rejectNUL(item, path+"."+k); err != nil {
+				return err
+			}
+		}
+	case []any:
+		for i, item := range x {
+			if err := rejectNUL(item, fmt.Sprintf("%s[%d]", path, i)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func revisionDetails(revision uint64) *api.AdapterDocument {
+	raw, _ := json.Marshal(map[string]uint64{"current_revision": revision})
+	detail := api.AdapterDocument(raw)
+	return &detail
 }

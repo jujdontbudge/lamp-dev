@@ -28,13 +28,17 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(); err != nil && !errors.Is(err, flag.ErrHelp) {
 		fmt.Fprintln(os.Stderr, "lampd:", err)
 		os.Exit(1)
 	}
 }
 func run() error {
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
+	flags.Usage = func() {
+		fmt.Fprintln(flags.Output(), "Usage: lampd [flags]\nServe the credentialed Lamp HTTP API on a private Unix socket.\nEnroll a supervisor for VM execution; native sessions require --sessions-config.\nExample: lampd --socket /tmp/lamp/api.sock --state-dir /tmp/lamp/control\nUse lamp --help to create and manage workspaces.\nOptions:")
+		flags.PrintDefaults()
+	}
 	auditReservation := flags.Uint64("audit-reservation-bytes", 24<<20, "trusted per-sandbox retained audit reservation, matching the supervisor policy")
 	ciFile := flags.String("ci-config", "", "private host-enrolled GitHub CI policy JSON")
 	auditReader := flags.String("audit-reader", "", "trusted absolute executable reading guard audit for sandbox ID and generation")

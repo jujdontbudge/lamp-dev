@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"lamp.eilmer.si/internal/surface"
 	"lamp.eilmer.si/pkg/api"
 	pb "lamp.eilmer.si/pkg/workerpb"
 )
@@ -431,9 +432,27 @@ func (s *Service) lifeCreate(w http.ResponseWriter, r *http.Request, requestID s
 		return true
 	}
 	r.Body = io.NopCloser(bytes.NewReader(data))
-	var body map[string]any
-	if json.Unmarshal(data, &body) != nil {
-		return false
+	body, err := surface.Decode(data)
+	if err != nil {
+		writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
+		return true
+	}
+	if _, exists := body["idempotency_key"]; exists {
+		writeError(w, requestID, "INVALID_ARGUMENT", "idempotency_key: use the Idempotency-Key header", nil)
+		return true
+	}
+	validation := map[string]any{}
+	for k, v := range body {
+		validation[k] = v
+	}
+	validation["idempotency_key"] = r.Header.Get("Idempotency-Key")
+	if textField(body, "template_id") != "" && textField(body, "recipe_id") != "" {
+		writeError(w, requestID, "INVALID_ARGUMENT", "give template_id or recipe_id, not both", nil)
+		return true
+	}
+	if err := surface.Validate("SandboxCreateInput", validation); err != nil {
+		writeError(w, requestID, "INVALID_ARGUMENT", err.Error(), nil)
+		return true
 	}
 	recipeID, template := textField(body, "recipe_id"), textField(body, "template_id")
 	lifecycle, hasLifecycle := body["lifecycle"]

@@ -2,6 +2,7 @@ package control
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -208,7 +209,7 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			writeError(w, id, "NOT_FOUND", "operation not found", nil)
 			return
 		}
-		if rec.Hash != hash {
+		if rec.Hash != hash && (rec.RetryHashV1 == "" || rec.RetryHashV1 != s.retryHash(op.Name, in)) {
 			writeError(w, id, "IDEMPOTENCY_CONFLICT", "key already used with different inputs", pointer(old))
 			return
 		}
@@ -300,7 +301,7 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	resultRaw, _ := json.Marshal(result)
 	adapter := api.AdapterDocument(resultRaw)
 	operation := api.Operation{Id: operationID, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "succeeded", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(op.Name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CompletedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Outcome: &api.Outcome{Result: &adapter}}
-	rec := &record{Operation: operation, Hash: hash, Key: key, Resource: ref}
+	rec := &record{Operation: operation, Hash: hash, RetryHashV1: s.retryHash(op.Name, in), Key: key, Resource: ref}
 	async := s.armSessionTransfer(ref.Id, operationID)
 	if async {
 		rec.Operation.State, rec.Operation.CompletedAt = "running", nil
@@ -345,7 +346,10 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 }
 func (s *Service) sendCoreMutation(w http.ResponseWriter, id string, rec *record, replay bool, secret *string) {
 	op := s.revocationOperation(rec.Operation)
-	result := op.Outcome.Result
+	var result *api.AdapterDocument
+	if op.Outcome != nil {
+		result = op.Outcome.Result
+	}
 	if secret != nil {
 		m := object(*result)
 		m["secret"] = *secret
@@ -358,10 +362,6 @@ func (s *Service) sendCoreMutation(w http.ResponseWriter, id string, rec *record
 	if !terminal(op.State) {
 		status = 202
 		result = nil
-	}
-	if op.Error != nil {
-		prepareError(w, id, *op.Error)()
-		return
 	}
 	prepareJSON(w, status, api.MutationEnvelope{OperationId: op.Id, Operation: &op, ResourceIds: []api.ResourceRef{rec.Resource}, RequestId: id, Replayed: replay, Result: result})()
 }
@@ -377,7 +377,27 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 	if op.Name == "api_describe" {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
-		w.Write(public.OpenAPI)
+		// Publish the operations this daemon actually installs; schemas remain
+		// complete so references and clients keep a single canonical definition.
+		var doc map[string]any
+		json.Unmarshal(public.OpenAPI, &doc)
+		installed := s.installedOperations()
+		paths := doc["paths"].(map[string]any)
+		for path, value := range paths {
+			methods := value.(map[string]any)
+			for method, entry := range methods {
+				if operation, ok := entry.(map[string]any); ok {
+					name, _ := operation["operationId"].(string)
+					if name != "" && !installed[name] {
+						delete(methods, method)
+					}
+				}
+			}
+			if len(methods) == 0 {
+				delete(paths, path)
+			}
+		}
+		json.NewEncoder(w).Encode(doc)
 		return
 	}
 	if op.Name == "docs_read" {
@@ -433,6 +453,15 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 		writeError(w, id, "NOT_FOUND", "operation not installed", nil)
 		return
 	}
+	if filter := textField(in, "sandbox_id"); filter != "" {
+		filtered := []map[string]any{}
+		for _, item := range items {
+			if textField(item, "sandbox_id") == filter {
+				filtered = append(filtered, item)
+			}
+		}
+		items = filtered
+	}
 	sort.Slice(items, func(i, j int) bool { return textField(items[i], "id") < textField(items[j], "id") })
 	limit := uint64(100)
 	if _, ok := in["limit"]; ok {
@@ -445,7 +474,7 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 	cursor := textField(in, "cursor")
 	start := 0
 	if cursor != "" {
-		last, err := s.readCursor(a, "list:"+kind, cursor)
+		last, err := s.readCursor(a, "list:"+kind+":"+textField(in, "sandbox_id"), cursor)
 		if err != nil {
 			writeError(w, id, "CURSOR_EXPIRED", "invalid cursor; list again without cursor", nil)
 			return
@@ -460,7 +489,7 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 	}
 	var next *string
 	if end < len(items) && end > start {
-		next = pointer(s.cursor(a, "list:"+kind, textField(items[end-1], "id")))
+		next = pointer(s.cursor(a, "list:"+kind+":"+textField(in, "sandbox_id"), textField(items[end-1], "id")))
 	}
 	prepareJSON(w, 200, map[string]any{"items": items[start:end], "next_cursor": next, "request_id": id})()
 }
@@ -966,4 +995,18 @@ func (s *Service) installedOperations() map[string]bool {
 		installed["host_list"] = true
 	}
 	return installed
+}
+
+// retryHash is versioned optional journal metadata. It preserves legacy hashes
+// while allowing CLI retries to refresh revision preconditions. HMAC keeps
+// private browser arguments from becoming a plaintext fingerprint oracle.
+func (s *Service) retryHash(name string, input any) string {
+	in := object(input)
+	delete(in, "expected_revision")
+	delete(in, "wait_ms")
+	raw, _ := json.Marshal(in)
+	mac := hmac.New(sha256.New, []byte(s.journal.Control.CursorSecret))
+	mac.Write([]byte(name + "\n"))
+	mac.Write(raw)
+	return hex.EncodeToString(mac.Sum(nil))
 }

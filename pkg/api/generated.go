@@ -3056,6 +3056,7 @@ const (
 	ErrorCodeIDEMPOTENCYHOMEUNAVAILABLE ErrorCode = "IDEMPOTENCY_HOME_UNAVAILABLE"
 	ErrorCodeTOKENHOMEUNAVAILABLE       ErrorCode = "TOKEN_HOME_UNAVAILABLE"
 	ErrorCodeAUDITUNAVAILABLE           ErrorCode = "AUDIT_UNAVAILABLE"
+	ErrorCodeFAILEDPRECONDITION         ErrorCode = "FAILED_PRECONDITION"
 )
 
 type ErrorDetail struct {
@@ -3431,9 +3432,10 @@ const (
 )
 
 type ExecListInput struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *uint64 `json:"limit,omitempty"`
-	WaitMs *uint64 `json:"wait_ms,omitempty"`
+	Cursor    *string `json:"cursor,omitempty"`
+	Limit     *uint64 `json:"limit,omitempty"`
+	WaitMs    *uint64 `json:"wait_ms,omitempty"`
+	SandboxId *string `json:"sandbox_id,omitempty"`
 }
 type ExecListResult struct {
 	Items      []Exec  `json:"items"`
@@ -4768,7 +4770,7 @@ type KeyCreateInput struct {
 	PrincipalId    *string                   `json:"principal_id,omitempty"`
 	ParentKeyId    *string                   `json:"parent_key_id,omitempty"`
 	Scope          *Scope                    `json:"scope,omitempty"`
-	ExpiresAt      *string                   `json:"expires_at,omitempty"`
+	ExpiresAt      string                    `json:"expires_at"`
 	Labels         *StringMap                `json:"labels,omitempty"`
 	Visibility     *KeyCreateInputVisibility `json:"visibility,omitempty"`
 	IdempotencyKey string                    `json:"idempotency_key"`
@@ -8085,6 +8087,8 @@ type Schedule struct {
 	OverlapPolicy *string            `json:"overlap_policy,omitempty"`
 	NextRunAt     *string            `json:"next_run_at,omitempty"`
 	Enabled       *bool              `json:"enabled,omitempty"`
+	LastRunAt     *string            `json:"last_run_at,omitempty"`
+	LastRunStatus *string            `json:"last_run_status,omitempty"`
 }
 type ScheduleCreateCompletion struct {
 	ScheduleId string `json:"schedule_id"`
