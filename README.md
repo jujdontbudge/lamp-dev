@@ -23,8 +23,11 @@ publish a release containing the new installer before these two lines work
 from the public URL. See [installation](docs/install.md) for prerequisites,
 PATH, persistent sandboxes, locations and a second install. Linux needs KVM;
 Apple Silicon needs macOS 26+ and administrator access. No password prompts
-are opened. Mac restore/networking and Linux arm64 still require release
-validation; the implementation evidence currently covers Ubuntu amd64.
+are opened. Signed local candidates have demonstrated this path on Ubuntu
+amd64, the M5 and Linux arm64. Mac default memory adapts to available host
+memory; `lamp template list` shows the selected resources. Mac networking
+requires separate validation. See the [implementation evidence](docs/development/evidence/t32/README.md)
+for observed results and limits.
 
 The default install enrolls the local sandbox engine and control API. Sessions,
 model custody, fleets, CI adapters and relay require their own enrollment; the

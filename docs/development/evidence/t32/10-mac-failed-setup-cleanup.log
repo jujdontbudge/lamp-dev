@@ -1,0 +1,4 @@
+Host memory: physical=24576 MiB, available=4057 MiB, physical reserve=2048 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+lamp-installer: worker account /Groups/_lampvm80035 exists; refusing to share its identity
+
+failed setup removed its own account/group and engine paths; preserved the preexisting disposable collision group

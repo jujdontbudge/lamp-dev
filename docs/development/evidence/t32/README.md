@@ -66,17 +66,64 @@ Python compilation, shell syntax checks, helper `--help`, rejection of an
 unknown helper option, and `git diff --check` passed. No tests were added by
 the implementation agent.
 
+## Additional platform demonstrations
+
+The coordinator requested the same signed install-to-code path on the M5,
+the 8 GB M2 Air and Linux arm64. The owner authorized only noninteractive
+`sudo -n` for disposable Mac installations and cleanup, including removing
+their isolated worker accounts. No system launch items were bootstrapped,
+no Keychain writes or visible app actions occurred, and existing Lamp
+installations were left alone. Both Mac installations used process services.
+
+`06-m5-signed-install.log` and `07-arm64-signed-install.log` record initial
+signed candidates from `30d6893`: fresh prefixes `/tmp/l32m5` and `/tmp/l32la`,
+ready default templates, real Linux `aarch64` execution and Python `42`,
+then sandbox deletion and removal of their disposable engine installations.
+Linux arm64 used the already-provisioned `lamp-la` Lima VM on the M5 with
+nested KVM, matching the earlier tester's execution location. It had zero
+Firecracker processes and 6675 MiB available before the install. Its sole
+guest used 2048 MiB and was released; the final Firecracker count was zero.
+These are fresh installation prefixes, not newly provisioned operating systems.
+
+The Air's first attempt is preserved in `08-air-capacity-failure.log`.
+It refused a 2048 MiB guest plus 256 MiB VMM allowance with only 1183 MiB
+available. The engine's 2048 MiB physical reserve caps total VM allocations;
+it is not an additional charge against available pages. No sandbox was
+accepted. That attempt exposed failed-setup cleanup leaving disposable
+worker accounts and engine files; those leftovers were explicitly removed.
+
+The revised installer uses the engine's own memory observation to select a
+2048, 1024, 512 or 256 MiB Mac default, accounting for the VMM allowance and
+leaving one quarter of currently available pages for host activity. The
+engine's admission checks and physical reserve are unchanged. The selected
+resources are recorded in the installed template and used by CLI/MCP/HTTP.
+`09-m5-adaptive-signed-install.log` shows this revised candidate, built from
+`857b2e0`, selecting 2048 MiB and completing the full M5 flow again.
+
+`10-mac-failed-setup-cleanup.log` demonstrates cleanup against a deliberately
+created disposable group collision: setup creates its first account, refuses
+the second account's preexisting group, then removes only its own account,
+group and engine paths. The collision group remains until the demonstration
+removes it. No owner account was involved.
+
+The candidate archives include compressed seeds, not tester-side kernel
+builds. The Mac prepared seed is Ubuntu arm64; the Linux arm64 seed uses the
+earlier prepared Firecracker kernel/rootfs in its own signed seed format.
+The Mac VZ worker is ad-hoc signed with its Virtualization entitlement for
+these local candidates; this does not establish production notarization.
+An Air transfer optimization reassembled the same signed payload locally.
+AppleDouble sidecars introduced by that temporary overlay tar were correctly
+refused as unsigned files (`11-air-sidecar-refusal.log`); the corrected archive
+omits them. This was a candidate assembly error, not a signature bypass.
+
 ## Limits
 
-Mac and Linux arm64 setup is implemented and packaged but not demonstrated
-here. No privileged command was run on a Mac. This evidence does not establish
-that the M2 Air restore failure is fixed, or that Mac DNS/HTTPS works. The Mac
-setup avoids the old global RAM directory and fixed 4 GiB RAM disk, uses a
-2 GiB template and allocates separate worker accounts. Those changes still
-need actual release observations on both Macs. Automatic gVisor enrollment
-on hosts without KVM remains unavailable; the installer explicitly refuses
-those hosts. Fresh-host apt dependency installation was not exercised because
-the Ubuntu host already had the dependencies.
+This evidence does not establish Mac DNS/HTTPS behavior or automatic gVisor
+enrollment on hosts without KVM; that enrollment remains unavailable and the
+installer explicitly refuses those hosts. Fresh-host apt dependency
+installation was not exercised because the Ubuntu hosts had dependencies.
+The Ubuntu two-minute target remains missed as originally observed.
 
-The coordinator must build and publish complete platform archives with their
-prepared seeds before the public README's two commands can use this path.
+The public URL still needs complete platform archive publication. The
+coordinator explicitly accepted branch-built signed candidates for T32's
+installation demonstrations; publication is not required for this ticket.

@@ -1,0 +1,32 @@
+host Darwin arm64
++ bash -o pipefail -c curl -fsSL http://127.0.0.1:18433/install.sh | LAMP_PREFIX=/tmp/l32m5 LAMP_SERVICE=process sh
+127.0.0.1 - - [12/Nov/2026 20:13:51] "GET /install.sh HTTP/1.1" 200 -
+Downloading Lamp 0.1.2 and its default Linux seed…
+127.0.0.1 - - [12/Nov/2026 20:13:51] "GET /lamp-0.1.2-darwin-arm64.tar.gz HTTP/1.1" 200 -
+Host memory: physical=24576 MiB, available=4294 MiB, physical reserve=2048 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+Importing the signed default Linux seed and preparing its template…
+Host memory: physical=24576 MiB, available=5222 MiB, physical reserve=2048 MiB; default guest=2048 MiB plus 256 MiB VMM allowance
+lamp-supervisor: store open, 0 verified template(s) in 32 ms
+booted in 511 ms: {"audit": "none", "barrier_us": "1052", "confined": "true", "devices": "{\"display\":null,\"keyboard\":false,\"mouse\":false,\"gpu\":false,\"audio_input\":false,\"audio_output\":false,\"guest_transport\":null,\"extra_disks\":[]}", "helper_ready_us": "346329", "machine_id": "81c7cdbc594cc2320b3d7d127f98a182", "rng_sample": "7ab991f74ed2e487768615af5a6996b8", "spawn_us": "164097", "vz_start_us": "124663", "worker_identity": "_lampvm26898", "worker_pid": "30155"}
+$ sh -c uname -m && python3 --version && cc --version | head -1 && getconf PAGESIZE
+aarch64
+Python 3.14.4
+cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+4096
+{"at":"2026-11-13T02:14:39Z","automatic_updates":false,"event":"installed","prefix":"/tmp/l32m5","service":"process","version":"0.1.2"}
+Lamp 0.1.2 ready. Binaries: /tmp/l32m5/current/bin
+Owner credential (private; clients load it automatically): /tmp/l32m5/config/owner.token
+For this shell and your shell profile: export PATH="/tmp/l32m5/current/bin:$PATH"
+Run code: /tmp/l32m5/current/bin/lamp sandbox run -- uname -a
++ /tmp/l32m5/current/bin/lamp sandbox run -- sh -c echo hello from the signed T32 platform candidate; uname -sm; python3 -c "print(6*7)"
+hello from the signed T32 platform candidate
+Linux aarch64
+42
+install to code and cleanup seconds 49.316
++ /tmp/l32m5/current/bin/lamp template list --json
+{"items":[{"arch":"arm64","created_at":"2026-11-13T02:14:38.581793Z","default_resources":{"disk_gib":20,"memory_mib":2048,"pids_max":4096,"vcpus":2},"fleet_id":"fl_local","guest_os":"linux","id":"tp_6c81e9e3ce29a258db1562a01f","kind":"template","labels":{"lamp.default":"true"},"name":"default","owner_id":"pr_owner","revision":1,"state":"ready","updated_at":"2026-11-13T02:14:38.581793Z","visibility":"private"}],"next_cursor":null,"request_id":"req_906312b83eab4ab205d05087c8ea72f3"}
++ /tmp/l32m5/current/bin/lamp sandbox list --json
+{"items":[{"boundary":"vm","created_at":"2026-11-13T02:14:40.179219Z","custody_host_ids":["hs_local"],"durability":"volatile","effective_policy_revision":1,"fleet_id":"fl_local","generation":1,"host_id":"hs_local","id":"sb_ba0cf0dccdc44d5d0768c58706355f7c","idle_countdown":{"action":"suspend","grace_seconds":300},"kind":"sandbox","labels":{},"owner_id":"pr_owner","resources":{"disk_gib":20,"memory_mib":2048,"pids_max":4096,"vcpus":2},"revision":6,"state":"deleted","task_id":"tk_73dd503a84d2554ea771facfdd1c877a","template_id":"tp_6c81e9e3ce29a258db1562a01f","updated_at":"2026-11-13T02:14:40.818192Z","visibility":"private"}],"next_cursor":null,"request_id":"req_9f58e666ea7e9996e59967a582dc0e66"}
++ /tmp/l32m5/current/bin/lamp-installer uninstall --prefix /tmp/l32m5 --data delete --confirm-delete local-141ecf06b61e
+{"at":"2026-11-13T02:14:44Z","data":"deleted","event":"uninstalled","name":"local-141ecf06b61e","owner_data":"delete"}
+disposable engine and installation removed

@@ -287,6 +287,9 @@ func startSupervisor(p string, st *installState, ver string) error {
 	}
 	defer logf.Close()
 	argv := []string{"-n", "sh", "-c", `echo "$$" > "$1"; shift; exec "$@"`, "sh", supPidFile(p), paths["lamp-supervisor"], "serve"}
+	if runtime.GOOS == "darwin" {
+		argv = append([]string{"-n", "/bin/launchctl", "asuser", strconv.Itoa(os.Getuid())}, argv[1:]...)
+	}
 	for _, f := range engineFiles() {
 		argv = append(argv, f.flag, paths[f.name])
 	}

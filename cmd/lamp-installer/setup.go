@@ -33,6 +33,16 @@ func rootOutput(name string, args ...string) ([]byte, error) {
 }
 func rootRun(name string, args ...string) error { _, err := rootOutput(name, args...); return err }
 
+// VZ saved state uses the console login session's Secure Enclave keys. SSH's
+// bootstrap context cannot save it, even after changing the worker UID.
+// asuser adopts that context without installing or starting any launch item.
+func engineOutput(name string, args ...string) ([]byte, error) {
+	if runtime.GOOS == "darwin" {
+		return rootOutput("/bin/launchctl", append([]string{"asuser", strconv.Itoa(os.Getuid()), name}, args...)...)
+	}
+	return rootOutput(name, args...)
+}
+
 func engineLocation(p string) (string, string, uint32) {
 	sum := sha256.Sum256([]byte(p))
 	id := hex.EncodeToString(sum[:4])
@@ -284,7 +294,7 @@ func setupEngine(p string, st *installState, gib uint64) (setupErr error) {
 		if err != nil {
 			return err
 		}
-		built, err = rootOutput(paths["lamp-supervisor"], append([]string{"template-prepare", rootSeed, "default", "--memory-mib", strconv.FormatUint(memoryMiB, 10), "--vcpus", "2", "--disk-gib", "20"}, args...)...)
+		built, err = engineOutput(paths["lamp-supervisor"], append([]string{"template-prepare", rootSeed, "default", "--memory-mib", strconv.FormatUint(memoryMiB, 10), "--vcpus", "2", "--disk-gib", "20"}, args...)...)
 	}
 	if err != nil {
 		return fmt.Errorf("default template preparation failed: %w", err)
