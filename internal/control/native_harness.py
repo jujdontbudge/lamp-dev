@@ -162,7 +162,7 @@ class Codex:
             raise ValueError("Codex subscription credentials must remain in the enrolled native custody home")
 
     def argv(self, c, state, prompt):
-        argv = [c["binary"]] + ([] if c.get("native_subagents") else ["--disable", "multi_agent"]) + ["-c", 'approval_policy="never"', "-c", 'web_search="disabled"', "-c", 'sandbox_mode="workspace-write"']
+        argv = [c["binary"]] + ([] if c.get("native_subagents") else ["--disable", "multi_agent"]) + ["-c", 'approval_policy="never"', "-c", 'web_search="disabled"', "-c", 'sandbox_mode="workspace-write"', "-c", "sandbox_workspace_write.network_access=true"]
         if c.get("location_kind") == "sandbox":
             # The VM is the isolation boundary. Permit the agent's own scoped
             # Lamp gateway, package installs and ordinary development traffic.

@@ -81,7 +81,8 @@ configuration (substitute the actual principal and binary):
 The host enrollment authorizes command execution in that private session
 workspace; no host runner is enabled by default. Do not point its root or
 harness cwd at an existing working checkout. Managed Codex uses workspace-write
-on the host and the VM boundary inside the sandbox. Model credentials remain
+with network access on the explicitly enrolled host, and the VM boundary
+inside the sandbox. Model credentials remain
 in host custody at both locations; each location epoch gets a new scoped
 transport capability. Host model calls retain the session's task budget.
 
