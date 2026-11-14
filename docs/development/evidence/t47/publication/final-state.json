@@ -1,0 +1,14 @@
+{
+  "public_tag_commit": "d83031de3780dae053a0fdfac900cf8d11a8cde0",
+  "public_documentation_commit": "5762173d41014f3408f2b2d124444907b4288b3b",
+  "release_url": "https://gitlab.com/johansardar/lamp/-/releases/v0.1.2",
+  "public_measurements_exact_match": true,
+  "release_description_contains_all_observations": true,
+  "asset_links_unchanged": 10,
+  "ci_disabled": true,
+  "shared_runners_disabled": true,
+  "attached_runners": 0,
+  "branch_protection_restored": "* no push/no merge",
+  "M5_final_free_GiB": 48,
+  "remote_disposable_observer_directories_removed": true
+}

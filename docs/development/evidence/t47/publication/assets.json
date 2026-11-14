@@ -1,0 +1,116 @@
+{
+  "private_commit": "e7babe9d658ff21f033e5ae23431f041fb7b086d",
+  "public_export_commit": "d83031de3780dae053a0fdfac900cf8d11a8cde0",
+  "files": [
+    {
+      "file": "install.sh",
+      "sha256": "36f84f0ea36c27ff586dcb5ac6d4a27940da65a702c54120e8dadf3b5333aa2f",
+      "bytes": 2510
+    },
+    {
+      "file": "lamp-0.1.2-darwin-arm64.tar.gz",
+      "sha256": "9be0f8fef57fd9452702856da52573aa80df37d65758f49efaffe08995a8baf6",
+      "bytes": 386787338
+    },
+    {
+      "file": "lamp-0.1.2-linux-amd64.tar.gz",
+      "sha256": "ba5d1d995176776634c9263281cab1a4bdbcaf7b4d3a862d01a97383bd270a79",
+      "bytes": 410914046
+    },
+    {
+      "file": "lamp-0.1.2-linux-arm64.tar.gz",
+      "sha256": "98deeb8ac37af6cde8d0abb5fd94e0ad1c1e7f67c4e4b1109eb1693d0654533c",
+      "bytes": 386735712
+    },
+    {
+      "file": "lamp-relay-0.1.2-darwin-arm64.tar.gz",
+      "sha256": "b5b4bd1a13f97671d8dbd0a7ba4561ed53fd92fd02e1a38b274c5acfda5fbb0a",
+      "bytes": 3529230
+    },
+    {
+      "file": "lamp-relay-0.1.2-linux-amd64.tar.gz",
+      "sha256": "6e2488622fe3d3d20f46f17f2886ee4a60eae61290ff4b1f4ca3a50f4f337073",
+      "bytes": 3760692
+    },
+    {
+      "file": "lamp-relay-0.1.2-linux-arm64.tar.gz",
+      "sha256": "ec46e045f43fe2e769952bce0396714b9588933f90f619d5ce7ba90d29247d58",
+      "bytes": 3391495
+    },
+    {
+      "file": "release-trust.pub",
+      "sha256": "99e1dfb5481ada5b48fbb4ac3158daf5a87c967e07704d9445f428174bee6b85",
+      "bytes": 66
+    },
+    {
+      "file": "release.json",
+      "sha256": "4d3fec7caa8d0c219bf7f564a320e79a851309bdd4fa4d1ec05ea27d4527bc18",
+      "bytes": 1368
+    },
+    {
+      "file": "SHA256SUMS",
+      "sha256": "0106f267b68a61c696b9acc3d6e1792ae1402479b0d51a261e4d1ed5a8bdb07e",
+      "bytes": 836
+    }
+  ],
+  "provenance": {
+    "version": "0.1.2",
+    "commit": "e7babe9d658ff21f033e5ae23431f041fb7b086d",
+    "platforms": {
+      "linux-amd64": {
+        "engine": true,
+        "commit": "e7babe9d658ff21f033e5ae23431f041fb7b086d"
+      },
+      "linux-arm64": {
+        "engine": true,
+        "commit": "e7babe9d658ff21f033e5ae23431f041fb7b086d"
+      },
+      "darwin-arm64": {
+        "notarization": [
+          "notary log>       \"arch\": \"arm64\",",
+          "notary log>       \"cdhash\": \"d4870e7fa7905ab30a02995a64d7fd8c75307414\",",
+          "notary log>       \"digestAlgorithm\": \"SHA-256\",",
+          "notary log>       \"path\": \"notarize.zip/notarize/lamp-relay-client\"",
+          "notary log>     },",
+          "notary log>     {",
+          "notary log>       \"arch\": \"arm64\",",
+          "notary log>       \"cdhash\": \"3aa28a66f88761327d5edc7f37ab3496b371f18d\",",
+          "notary log>       \"digestAlgorithm\": \"SHA-256\",",
+          "notary log>       \"path\": \"notarize.zip/notarize/lamp-ingress\"",
+          "notary log>     },",
+          "notary log>     {",
+          "notary log>       \"arch\": \"arm64\",",
+          "notary log>       \"cdhash\": \"f4155dce3e59df064cf9b3920b00414c788ad9f3\",",
+          "notary log>       \"digestAlgorithm\": \"SHA-256\",",
+          "notary log>       \"path\": \"notarize.zip/notarize/lampd\"",
+          "notary log>     }",
+          "notary log>   ],",
+          "notary log>   \"uploadDate\": \"2026-11-13T20:35:16.742Z\"",
+          "notary log> }"
+        ]
+      }
+    }
+  },
+  "apple_notary_acceptance": "8a98c2e9-0f57-4e48-ada4-a1d64ff22c9b 2026-11-13T20:35:11.204Z notarize.zip submissions accepted",
+  "linux-amd64": "Ed25519 index/manifest signatures, index manifest digest and all 60 payload hashes verified",
+  "linux-arm64": "Ed25519 index/manifest signatures, index manifest digest and all 60 payload hashes verified",
+  "darwin-arm64": "Ed25519 index/manifest signatures, index manifest digest and all 55 payload hashes verified",
+  "relay-linux-amd64": [
+    "lamp-relay-0.1.2",
+    "lamp-relay-0.1.2/LICENSE",
+    "lamp-relay-0.1.2/SOURCE",
+    "lamp-relay-0.1.2/lamp-relay"
+  ],
+  "relay-linux-arm64": [
+    "lamp-relay-0.1.2",
+    "lamp-relay-0.1.2/LICENSE",
+    "lamp-relay-0.1.2/SOURCE",
+    "lamp-relay-0.1.2/lamp-relay"
+  ],
+  "relay-darwin-arm64": [
+    "lamp-relay-0.1.2",
+    "lamp-relay-0.1.2/LICENSE",
+    "lamp-relay-0.1.2/SOURCE",
+    "lamp-relay-0.1.2/lamp-relay"
+  ]
+}

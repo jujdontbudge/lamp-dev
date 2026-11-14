@@ -1,0 +1,5 @@
+2026-11-13 release publication host checks
+M5: started with 47 GiB free after owner's cleanup; 39 GiB minimum observed during final assembly; 45 GiB after deleting completed build inputs.
+Ubuntu: free -m reported 31,140 MiB total, 3,622 MiB available; pgrep -c firecracker = 0. Latest owner instruction requires >=12 GiB even for install/version. Skipped install and sandbox execution. Chrome untouched.
+Air: 27 GiB disk free before public install; 8 GiB host RAM, everyday services left running.
+lamp-la: 7,399 MiB available, zero Firecracker processes before public install; existing nested KVM VM on M5. The Ubuntu 12 GiB rule applies to Ubuntu, not this existing 8 GiB VM.

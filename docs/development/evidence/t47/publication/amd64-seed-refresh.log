@@ -1,0 +1,20 @@
+debugfs 1.47.2 (1-Jan-2025)
+debugfs: rm /usr/sbin/lamp-init
+
+debugfs: write /home/johan/lamp-t47/target/x86_64-unknown-linux-musl/release/lamp-init /usr/sbin/lamp-init
+Allocated inode: 10183
+debugfs: set_inode_field /usr/sbin/lamp-init mode 0100755
+debugfs: rm /usr/sbin/lamp-guest-helper
+
+debugfs: write /home/johan/lamp-t47/target/x86_64-unknown-linux-musl/release/lamp-guest-helper /usr/sbin/lamp-guest-helper
+Allocated inode: 10182
+debugfs: set_inode_field /usr/sbin/lamp-guest-helper mode 0100755
+debugfs: rm /usr/sbin/lamp-guard
+
+debugfs: write /home/johan/lamp-t47/target/x86_64-unknown-linux-musl/release/lamp-guard /usr/sbin/lamp-guard
+Allocated inode: 10181
+debugfs: set_inode_field /usr/sbin/lamp-guard mode 0100755
+debugfs 1.47.2 (1-Jan-2025)
+debugfs 1.47.2 (1-Jan-2025)
+debugfs 1.47.2 (1-Jan-2025)
+Merged guest init/helper/guard readbacks verified. Compressed rootfs SHA256: 01d254a8bc03c314471cc2aea2a77cb761dc78c73ea70ed54c290fa8b7674b9b

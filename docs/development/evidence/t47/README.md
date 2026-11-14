@@ -1,5 +1,8 @@
 # T47 release preparation — 2026-11-13
 
+This is the historical preparation record. Final publication and live-install
+observations are recorded in [publication/](publication/README.md).
+
 **Not published.** The coordinator explicitly requires review and merge before
 publication. This MR prepares 0.1.2; it does not claim the ticket's public-release,
 DNS or final fresh-install evidence is complete. Public 0.1.1 remains live.

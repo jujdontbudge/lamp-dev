@@ -1,0 +1,48 @@
+{
+  "public_project": 88830487,
+  "visibility": "public",
+  "default_branch": "t3/t47-honest-release",
+  "builds_access_level": "disabled",
+  "shared_runners_enabled": false,
+  "attached_runners": [],
+  "protected_branches": [
+    {
+      "id": 350442568,
+      "name": "*",
+      "push_access_levels": [
+        {
+          "id": 410934741,
+          "access_level": 0,
+          "access_level_description": "No one",
+          "deploy_key_id": null,
+          "user_id": null,
+          "group_id": null
+        }
+      ],
+      "merge_access_levels": [
+        {
+          "id": 381969749,
+          "access_level": 0,
+          "access_level_description": "No one",
+          "user_id": null,
+          "group_id": null
+        }
+      ],
+      "allow_force_push": false,
+      "unprotect_access_levels": [
+        {
+          "id": 274756675,
+          "access_level": 40,
+          "access_level_description": "Maintainers",
+          "user_id": null,
+          "group_id": null
+        }
+      ],
+      "code_owner_approval_required": false,
+      "inherited": false
+    }
+  ],
+  "private_build_commit": "e7babe9d658ff21f033e5ae23431f041fb7b086d",
+  "public_export_commit": "d83031de3780dae053a0fdfac900cf8d11a8cde0",
+  "redaction": "47 files redacted; zero remaining private-detail hits; credential-shape/fixture scan passed before push"
+}

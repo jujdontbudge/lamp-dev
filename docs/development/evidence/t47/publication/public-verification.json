@@ -1,0 +1,64 @@
+{
+  "latest": {
+    "version": "0.1.2"
+  },
+  "assets": [
+    {
+      "name": "install.sh",
+      "sha256": "36f84f0ea36c27ff586dcb5ac6d4a27940da65a702c54120e8dadf3b5333aa2f",
+      "bytes": 2510
+    },
+    {
+      "name": "lamp-0.1.2-darwin-arm64.tar.gz",
+      "sha256": "9be0f8fef57fd9452702856da52573aa80df37d65758f49efaffe08995a8baf6",
+      "bytes": 386787338
+    },
+    {
+      "name": "lamp-0.1.2-linux-amd64.tar.gz",
+      "sha256": "ba5d1d995176776634c9263281cab1a4bdbcaf7b4d3a862d01a97383bd270a79",
+      "bytes": 410914046
+    },
+    {
+      "name": "lamp-0.1.2-linux-arm64.tar.gz",
+      "sha256": "98deeb8ac37af6cde8d0abb5fd94e0ad1c1e7f67c4e4b1109eb1693d0654533c",
+      "bytes": 386735712
+    },
+    {
+      "name": "lamp-relay-0.1.2-darwin-arm64.tar.gz",
+      "sha256": "b5b4bd1a13f97671d8dbd0a7ba4561ed53fd92fd02e1a38b274c5acfda5fbb0a",
+      "bytes": 3529230
+    },
+    {
+      "name": "lamp-relay-0.1.2-linux-amd64.tar.gz",
+      "sha256": "6e2488622fe3d3d20f46f17f2886ee4a60eae61290ff4b1f4ca3a50f4f337073",
+      "bytes": 3760692
+    },
+    {
+      "name": "lamp-relay-0.1.2-linux-arm64.tar.gz",
+      "sha256": "ec46e045f43fe2e769952bce0396714b9588933f90f619d5ce7ba90d29247d58",
+      "bytes": 3391495
+    },
+    {
+      "name": "release-trust.pub",
+      "sha256": "99e1dfb5481ada5b48fbb4ac3158daf5a87c967e07704d9445f428174bee6b85",
+      "bytes": 66
+    },
+    {
+      "name": "release.json",
+      "sha256": "4d3fec7caa8d0c219bf7f564a320e79a851309bdd4fa4d1ec05ea27d4527bc18",
+      "bytes": 1368
+    }
+  ],
+  "account_page": "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Lamp accounts</title><h1>Lamp accounts</h1><p>Hosted sign-ups are unavailable. Accounts are invite-only.</p><p><a href=\"https://lamp.eilmer.si\">Install Lamp on your own machines</a>.</p></html>",
+  "account_headers": "HTTP/2 200 \ndate: Fri, 13 Nov 2026 21:06:02 GMT\ncontent-type: text/html; charset=utf-8\nreport-to: {\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=goM21TYXi1MGJidkgDcwgVD19%2FkRFW0RBvhxAKvCRPrOZykAgjD5%2BXHLnCK%2Fk9WDW%2FDBzqoLFCcrUvT0JGQd9d2Y%2FNKzhN3bimy%2FHgWHZxRMDJgFuRoPgrfG1czPy6eBss6Juw%3D%3D\"}]}\nnel: {\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}\nserver: cloudflare\ncf-ray: a5a0bcee9d1b1d8b-BOS\nalt-svc: h3=\":443\"; ma=86400\n\n",
+  "dns": {
+    "1.1.1.1": {
+      "A": "104.21.63.67\n172.67.143.241\n",
+      "AAAA": "2606:4700:3036::6815:3f43\n2606:4700:3031::ac43:8ff1\n"
+    },
+    "8.8.8.8": {
+      "A": "104.21.63.67\n172.67.143.241\n",
+      "AAAA": "2606:4700:3036::6815:3f43\n2606:4700:3031::ac43:8ff1\n"
+    }
+  }
+}

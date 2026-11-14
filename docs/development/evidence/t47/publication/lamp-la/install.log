@@ -1,0 +1,23 @@
+Downloading Lamp 0.1.2 and its default Linux seed…
+Preparing a 80 GiB sparse XFS engine store at /var/lib/lamp-i/23e3c33d/store (no existing engine is changed)
+Importing the signed default Linux seed and preparing its template…
+{"at":"2026-11-13T21:10:21Z","automatic_updates":false,"dashboard_sign_in":"file:///tmp/l47l/run/dashboard.html","dashboard_url":"http://127.0.0.1:35741/dashboard","event":"installed","prefix":"/tmp/l47l","service":"process","version":"0.1.2"}
+Lamp 0.1.2 ready. Binaries: /tmp/l47l/current/bin
+Owner credential (private; clients load it automatically): /tmp/l47l/config/owner.token
+For this shell and your shell profile: export PATH="/tmp/l47l/current/bin:$PATH"
+Run code: /tmp/l47l/current/bin/lamp sandbox run -- uname -a
+Installation and engine setup: https://gitlab.com/johansardar/lamp/-/blob/v0.1.2/docs/install.md#engine-setup
+Update, rollback and uninstall: https://gitlab.com/johansardar/lamp/-/blob/v0.1.2/docs/install.md#update-rollback-and-remove-an-install
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 33 ms
+lamp-supervisor: store open (reflink disks, 0 durable capture(s)), 0 verified template(s) in 711 ms
+lamproot: recovering journal
+lamproot: 53602/1310720 files (0.1% non-contiguous), 337865/5242880 blocks
+resize2fs 1.47.2 (1-Jan-2025)
+The filesystem is already 5242880 (4k) blocks long.  Nothing to do!
+
+definition: default (0 steps), seed lamp-seed/lamp-0.1.2-ubuntu-arm64@sha256:ea88b4e354dbd98f67df8f7605b4d39217ab095bbec140450705deef03d1b4cd
+build sandbox booted in 2475 ms
+template VM booted in 3266 ms
+full capture written in 4658 ms
+memory image: 1965 MiB of zero pages left as holes
+published tp_b8570c49ea928fc6748b56a38b as default in 16111 ms
