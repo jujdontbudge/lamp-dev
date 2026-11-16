@@ -1,7 +1,7 @@
 # Agent workflow
 
 [Agent enrollment and credential custody](agents.md) describes starting an
-OpenCode or Codex session. Add `--repository https://gitlab.com/group/public.git`
+OpenCode or Codex session. Add `--repository https://github.com/owner/public.git`
 to session creation to clone a public repository into private session storage.
 Repository URLs cannot contain credentials, queries or fragments. Each normal
 session checks out `lamp/<session-id>`; ordinary children get copied files and

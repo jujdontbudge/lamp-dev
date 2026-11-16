@@ -1,5 +1,14 @@
 # Publishing 0.1.2
 
+> **Moved to GitHub (2026-11-16).** Development happens in
+> https://github.com/jujdontbudge/lamp-dev and the public project is
+> https://github.com/jujdontbudge/lamp, with its releases, tags and files.
+> Use `gh` for source pushes, pull requests and releases (`gh release create`,
+> `gh release upload`). The steps below record how 0.1.2 was published on
+> GitLab and are kept as history; where they say GitLab, MR or `glab`, or that
+> GitHub must not be accessed, read GitHub, PR and `gh` for any new work. The
+> GitLab projects stay as read-only backups: don't push or upload to them.
+
 This is the maintainer procedure for the existing public GitLab project
 `johansardar/lamp` (project 88830487) and the `lamp-site` Cloudflare Worker.
 The development MR is reviewed and merged by the coordinator **before** any

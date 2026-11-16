@@ -79,7 +79,7 @@ native compile failure. No complete zero-leak measurement is claimed.
 ## Build from source
 
 ```sh
-git clone https://gitlab.com/johansardar/lamp.git && cd lamp
+git clone https://github.com/jujdontbudge/lamp.git && cd lamp
 make build
 ```
 
